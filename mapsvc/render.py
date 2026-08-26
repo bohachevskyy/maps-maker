@@ -254,7 +254,8 @@ def _footer(manifest, projection_name, scheme, result) -> str:
     else:
         method = f"{manifest.method}, k={scheme.k}"
         if scheme.k != manifest.k:
-            method += f" (requested {manifest.k}; only {scheme.k} distinct values)"
+            plural = "" if scheme.k == 1 else "s"
+            method += f" (requested {manifest.k}; only {scheme.k} distinct value{plural})"
 
     variable = p.get("variable", manifest.variable_id)
     if p.get("unit"):

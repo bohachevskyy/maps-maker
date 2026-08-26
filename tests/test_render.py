@@ -124,3 +124,43 @@ def test_empty_region_is_an_error():
     with pytest.raises(RenderError) as excinfo:
         render(build_manifest(), HarvestResult(rows=[], provenance={}, dropped=[]))
     assert excinfo.value.field == "region"
+
+
+def test_a_region_with_one_feature_still_renders():
+    """region can be a single ADM0_A3 code, which leaves one distinct value.
+
+    ColorBrewer ramps start at three classes; k clamps below that.
+    """
+    from mapsvc.models import HarvestResult
+    box = {"type": "Polygon", "coordinates": [[[0, 40], [8, 40], [8, 48], [0, 48], [0, 40]]]}
+    result = HarvestResult(rows=[{"id": "FRA", "geometry": box, "value": 2716000.0}],
+                           provenance={"variable": "GDP_MD", "unit": "million USD"},
+                           dropped=[])
+    text = render(build_manifest(region="FRA", k=5, ramp="Blues"), result)
+    paths = ET.fromstring(text).findall(f".//{SVG}path")
+    assert len(paths) == 1
+    assert paths[0].get("fill").startswith("#")
+
+
+def test_two_distinct_values_render_as_two_bins():
+    from mapsvc.models import HarvestResult
+    box = {"type": "Polygon", "coordinates": [[[0, 40], [8, 40], [8, 48], [0, 48], [0, 40]]]}
+    rows = [{"id": "AAA", "geometry": box, "value": 1.0},
+            {"id": "BBB", "geometry": box, "value": 2.0}]
+    text = render(build_manifest(k=5, ramp="Blues"),
+                  HarvestResult(rows=rows, provenance={}, dropped=[]))
+    fills = {p.get("fill") for p in ET.fromstring(text).findall(f".//{SVG}path")}
+    assert len(fills) == 2
+
+
+def test_footnote_reports_a_collapsed_k_in_readable_english():
+    from mapsvc.models import HarvestResult
+    box = {"type": "Polygon", "coordinates": [[[0, 40], [8, 40], [8, 48], [0, 48], [0, 40]]]}
+    one = render(build_manifest(k=5, ramp="Blues"),
+                 HarvestResult(rows=[{"id": "FRA", "geometry": box, "value": 1.0}],
+                               provenance={}, dropped=[]))
+    assert "only 1 distinct value)" in one
+    two = render(build_manifest(k=5, ramp="Blues"), HarvestResult(
+        rows=[{"id": "A", "geometry": box, "value": 1.0},
+              {"id": "B", "geometry": box, "value": 2.0}], provenance={}, dropped=[]))
+    assert "only 2 distinct values)" in two

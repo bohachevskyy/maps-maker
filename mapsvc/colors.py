@@ -121,6 +121,15 @@ def colors(name: str, k: int) -> list[str]:
             )
         return list(palette[:k])
     table = _GRADED[name][1]
+    smallest = min(table)
+    if k < smallest:
+        # ColorBrewer starts at three classes, but a region can legitimately
+        # hold fewer distinct values -- a single-country map has exactly one.
+        # Sample the ends of the smallest ramp so the order still reads.
+        base = table[smallest]
+        if k <= 1:
+            return [base[-1]]
+        return [base[round(i * (len(base) - 1) / (k - 1))] for i in range(k)]
     if k not in table:
-        raise RampError(f"ramp '{name}' supports {min(table)}-{max(table)} classes, got {k}")
+        raise RampError(f"ramp '{name}' supports up to {max(table)} classes, got {k}")
     return list(table[k])
