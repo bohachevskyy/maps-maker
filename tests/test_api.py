@@ -156,3 +156,95 @@ def test_describe_rejects_malformed_bodies(described):
 def test_describe_has_no_get(described):
     client = described(lambda p: None)
     assert client.get("/describe").status_code == 405
+
+
+# --- POST /export ---------------------------------------------------------
+
+@pytest.fixture
+def exporter(monkeypatch, tmp_path):
+    monkeypatch.setenv("MAPSVC_CACHE", str(tmp_path / "cache"))
+    monkeypatch.setenv("MAPSVC_OUTPUT", str(tmp_path / "maps"))
+    monkeypatch.setattr(H, "load_source", lambda: {"features": _features()})
+    return TestClient(app), tmp_path / "maps"
+
+
+def test_export_accepts_a_bare_manifest_and_writes_a_file(exporter):
+    import pathlib
+    client, outdir = exporter
+    response = client.post("/export", json=copy.deepcopy(RAW))
+    assert response.status_code == 200
+    body = response.json()
+    assert set(body) == {"path", "manifest", "bytes", "overwrote", "reasoning"}
+
+    path = pathlib.Path(body["path"])
+    assert path.is_absolute()
+    assert path.parent == outdir
+    assert path.exists()
+    assert path.read_text().startswith('<?xml version="1.0" encoding="UTF-8"?>')
+    assert len(path.read_bytes()) == body["bytes"]
+    assert body["reasoning"] is None, "no agent involved, so nothing to explain"
+    assert body["overwrote"] is False
+
+
+def test_export_accepts_a_wrapped_manifest(exporter):
+    client, _ = exporter
+    response = client.post("/export", json={"manifest": copy.deepcopy(RAW)})
+    assert response.status_code == 200
+    assert response.json()["manifest"] == RAW
+
+
+def test_export_accepts_a_prompt_and_reports_the_reasoning(exporter):
+    import pathlib
+    client, outdir = exporter
+    raw = copy.deepcopy(RAW)
+    client.app  # keep ref
+    from mapsvc.manifest import validate as _validate
+    import mapsvc.api as api_module
+    original = api_module.describe
+    api_module.describe = lambda p: (_validate(raw), raw, "inferred per capita")
+    try:
+        response = client.post("/export", json={"prompt": "GDP per capita in Europe"})
+    finally:
+        api_module.describe = original
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["reasoning"] == "inferred per capita"
+    assert pathlib.Path(body["path"]).exists()
+
+
+def test_export_is_idempotent(exporter):
+    client, outdir = exporter
+    first = client.post("/export", json=copy.deepcopy(RAW)).json()
+    second = client.post("/export", json=copy.deepcopy(RAW)).json()
+    assert first["path"] == second["path"]
+    assert second["overwrote"] is True
+    assert len(list(outdir.iterdir())) == 1
+
+
+def test_export_file_matches_what_map_returns(exporter):
+    import pathlib
+    client, _ = exporter
+    exported = client.post("/export", json=copy.deepcopy(RAW)).json()
+    rendered = client.post("/map", json=copy.deepcopy(RAW))
+    assert pathlib.Path(exported["path"]).read_text() == rendered.text
+
+
+def test_export_validation_errors_match_map(exporter):
+    client, outdir = exporter
+    response = client.post("/export", json={**copy.deepcopy(RAW), "level": "admin_1"})
+    assert response.status_code == 422
+    assert response.json()["field"] == "level"
+    assert not outdir.exists() or not list(outdir.iterdir()), "no file on failure"
+
+
+def test_export_rejects_malformed_bodies(exporter):
+    client, _ = exporter
+    assert client.post("/export", content=b"{oops",
+                       headers={"content-type": "application/json"}).status_code == 422
+    assert client.post("/export", json=[1, 2]).status_code == 422
+
+
+def test_export_has_no_get(exporter):
+    client, _ = exporter
+    assert client.get("/export").status_code == 405

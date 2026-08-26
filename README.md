@@ -1,8 +1,9 @@
 # mapsvc
 
 A small HTTP service that takes a JSON manifest and returns an SVG choropleth
-map. One dataset, one map type. Two endpoints: `POST /map` renders a manifest,
-`POST /describe` assembles one from a sentence.
+map. One dataset, one map type. Three endpoints: `POST /map` renders a manifest,
+`POST /describe` assembles one from a sentence, and `POST /export` does either
+and writes the result to a file.
 
 Geometry, projection and SVG generation are hand-written standard library —
 no GeoPandas, GDAL, matplotlib or shapely.
@@ -97,6 +98,47 @@ There is deliberately no GET route, no listing endpoint and no schema route.
 To turn the FastAPI docs back on, pass `docs_url="/docs"` and
 `openapi_url="/openapi.json"` in `mapsvc/api.py`.
 
+## Export to a file
+
+`POST /export` accepts whatever `/map` or `/describe` accepts — a bare manifest,
+a manifest wrapped in `{"manifest": ...}`, or `{"prompt": "..."}` — renders it,
+writes the SVG to disk and returns the path.
+
+```bash
+curl -X POST localhost:8000/export -H 'content-type: application/json' \
+  -d '{"prompt": "which countries in Africa have the biggest economies?"}'
+```
+
+```json
+{
+  "path": "/srv/mapsvc/out/maps/Africa-GDP_MD-5c89d056a0.svg",
+  "manifest": {"region": "Africa", "variable": {"id": "GDP_MD"}, "normalize": null, ...},
+  "bytes": 37892,
+  "overwrote": false,
+  "reasoning": "\u201cBiggest economies\u201d is interpreted as total GDP, filtered to Africa."
+}
+```
+
+`reasoning` is `null` when you supplied the manifest yourself — there was no
+agent, so there is nothing to explain.
+
+**The filename is derived from the manifest**, so the same request always lands
+at the same path and calling twice leaves one file rather than two. The hash
+covers the *whole* manifest, not the data-relevant subset the harvest cache keys
+on: `ramp` and `classify` do not invalidate a fetch, but they do change the
+file, so they must change its name. Content is rewritten on every call rather
+than skipped when the path exists, so a file cannot go stale after a change to
+the renderer.
+
+`MAPSVC_OUTPUT` sets the directory; it defaults to `./out/maps`. Region names
+are slugged down to `[A-Za-z0-9_]`, so a manifest asking for
+`"region": "../../etc/passwd"` writes `etc-passwd-...svg` inside the output
+directory and cannot escape it.
+
+**This returns a path on the server's filesystem**, which is only useful to a
+caller that shares it — same host, same container, a mounted volume. Callers
+over a network want `/map` or `/describe`, which return the SVG itself.
+
 ## Environment
 
 | variable | needed by | default |
@@ -104,6 +146,7 @@ To turn the FastAPI docs back on, pass `docs_url="/docs"` and
 | `OPENAI_API_KEY` | `/describe` only | none — endpoint returns 503 |
 | `OPENAI_MODEL` | `/describe` only | `gpt-5.6-terra` |
 | `MAPSVC_CACHE` | optional | `./cache` |
+| `MAPSVC_OUTPUT` | `/export` only | `./out/maps` |
 
 `POST /map` needs no environment at all; it has been verified serving under
 `env -i`.
@@ -167,7 +210,9 @@ no join, so nothing else is required.
 ## Design notes
 
 **Four seams.** `describe → validate → harvest → render`, of which the first is
-optional and the other three are the original service. `render.py` imports nothing that
+optional and the other three are the original service. `/export` adds a write
+after the last one; every endpoint is a different entry point into the same
+chain, not a parallel implementation. `render.py` imports nothing that
 performs I/O, and `tests/test_no_io.py` enforces that by walking the import
 graph rather than trusting convention.
 
@@ -237,7 +282,7 @@ identical to GDP per capita either way.
 uv run pytest
 ```
 
-108 tests, no network and no API key: the harvester's fetch and the OpenAI
+125 tests, no network and no API key: the harvester's fetch and the OpenAI
 client are both stubbed, and the renderer runs against a hand-written 5-feature
 fixture in `tests/fixtures/`, which carries a polygon with a hole, a
 MultiPolygon, and both sentinel values. Running the suite costs nothing.
