@@ -23,6 +23,7 @@ MAP_MARGIN = 18
 COORD_DP = 2
 
 SWATCH_W, SWATCH_H, SWATCH_GAP = 20, 13, 4
+LEGEND_W, LEGEND_INSET = 212, 20
 FONT = "-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif"
 
 
@@ -50,9 +51,8 @@ def render(manifest: Manifest, result: HarvestResult) -> str:
     if name == "auto":
         name = project.choose(extent)
     projector = project.make(name, extent)
-    transform = project.fit(
-        _projected_bounds(extent, projector), CANVAS_W, MAP_H, MAP_MARGIN
-    )
+    bounds = project.viewport_bounds(extent_geoms, projector)
+    transform = project.fit(bounds, CANVAS_W, MAP_H, MAP_MARGIN)
     lon0 = (extent[0] + extent[2]) / 2.0
 
     scheme, swatches = _scheme(manifest, rows)
@@ -68,18 +68,20 @@ def render(manifest: Manifest, result: HarvestResult) -> str:
         f'<rect width="{CANVAS_W}" height="{CANVAS_H}" fill="{colors.OCEAN}"/>'
     )
 
+    drawn: list[tuple[float, float]] = []
     parts.append('<g clip-path="url(#map-clip)">')
     for row in rows:
         fill = swatches[scheme.bin_of(row["value"])]
-        parts.append(_path(row, fill, projector, transform, lon0))
+        parts.append(_path(row, fill, projector, transform, lon0, drawn))
     if show_missing:
         fill = f"url(#{colors.HATCH_ID})" if manifest.missing == "hatch" else colors.MISSING_GREY
         for item in dropped:
             if item.get("geometry"):
-                parts.append(_path(item, fill, projector, transform, lon0))
+                parts.append(_path(item, fill, projector, transform, lon0, drawn))
     parts.append("</g>")
 
-    parts.append(_legend(manifest, scheme, swatches, dropped, show_missing))
+    parts.append(_legend(manifest, scheme, swatches, dropped, show_missing,
+                         result.provenance, drawn))
     parts.append(_footer(manifest, name, scheme, result))
     parts.append("</svg>")
     return "\n".join(parts) + "\n"
@@ -99,26 +101,6 @@ def _scheme(manifest: Manifest, rows: list) -> tuple[classify.Classification, li
         raise RenderError(str(exc), "ramp") from exc
 
 
-def _projected_bounds(extent, projector):
-    """Bounds of the projected extent, sampled along its edges.
-
-    Projecting only the four corners understates a curved projection -- under a
-    conic the top edge bows well above its corners.
-    """
-    min_lon, min_lat, max_lon, max_lat = extent
-    steps = 60
-    xs: list[float] = []
-    ys: list[float] = []
-    for i in range(steps + 1):
-        fx = min_lon + (max_lon - min_lon) * i / steps
-        fy = min_lat + (max_lat - min_lat) * i / steps
-        for lon, lat in ((fx, min_lat), (fx, max_lat), (min_lon, fy), (max_lon, fy)):
-            x, y = projector(lon, lat)
-            xs.append(x)
-            ys.append(y)
-    return (min(xs), min(ys), max(xs), max(ys))
-
-
 def _num(v: float) -> str:
     s = f"{v:.{COORD_DP}f}".rstrip("0").rstrip(".")
     return "0" if s in ("", "-0", "-") else s
@@ -131,7 +113,8 @@ def _rings(geometry) -> list:
     return [ring for part in geometry["coordinates"] for ring in part]
 
 
-def _path(item: dict, fill: str, projector, transform, lon0: float) -> str:
+def _path(item: dict, fill: str, projector, transform, lon0: float,
+          drawn: list | None = None) -> str:
     subpaths: list[str] = []
     for ring in _rings(item["geometry"]):
         points: list[str] = []
@@ -142,6 +125,8 @@ def _path(item: dict, fill: str, projector, transform, lon0: float) -> str:
             if point != previous:
                 points.append(f"{point[0]},{point[1]}")
                 previous = point
+                if drawn is not None:
+                    drawn.append((x, y))
         if len(points) < 3:
             continue  # collapsed to a sliver at this scale
         subpaths.append("M" + "L".join(points) + "Z")
@@ -167,7 +152,7 @@ def _defs() -> str:
     )
 
 
-def _legend(manifest, scheme, swatches, dropped, show_missing) -> str:
+def _legend(manifest, scheme, swatches, dropped, show_missing, provenance, drawn) -> str:
     labels = scheme.labels()
     entries = list(zip(swatches, labels))
     if show_missing and dropped:
@@ -177,18 +162,27 @@ def _legend(manifest, scheme, swatches, dropped, show_missing) -> str:
     heading = manifest.variable_id
     if manifest.normalize:
         heading += f" / {manifest.normalize}"
+    # Without the unit, "0.003465" is unreadable: dividing million USD by people
+    # gives million USD per person, not dollars.
+    subheading = _unit_label(manifest, provenance)
 
-    box_h = 26 + len(entries) * (SWATCH_H + SWATCH_GAP)
-    x, y = 20, MAP_H - box_h - 20
+    box_h = 26 + (13 if subheading else 0) + len(entries) * (SWATCH_H + SWATCH_GAP)
+    x, y = _legend_origin(drawn, LEGEND_W, box_h)
     out = [
         f'<g font-family="{FONT}">',
-        f'<rect x="{x}" y="{y}" width="212" height="{box_h}" fill="#ffffff" '
+        f'<rect x="{x}" y="{y}" width="{LEGEND_W}" height="{box_h}" fill="#ffffff" '
         'fill-opacity="0.94" stroke="#bfbfbf" stroke-width="0.7" rx="3"/>',
         f'<text x="{x + 10}" y="{y + 17}" font-size="11.5" font-weight="600" '
         f'fill="#1a1a1a">{escape(heading)}</text>',
     ]
+    if subheading:
+        out.append(
+            f'<text x="{x + 10}" y="{y + 29}" font-size="10" '
+            f'fill="#737373">{escape(subheading)}</text>'
+        )
+    top = y + 25 + (13 if subheading else 0)
     for i, (fill, label) in enumerate(entries):
-        sy = y + 25 + i * (SWATCH_H + SWATCH_GAP)
+        sy = top + i * (SWATCH_H + SWATCH_GAP)
         out.append(
             f'<rect x="{x + 10}" y="{sy}" width="{SWATCH_W}" height="{SWATCH_H}" '
             f'fill="{fill}" stroke="{colors.BORDER}" stroke-width="0.4"/>'
@@ -199,6 +193,42 @@ def _legend(manifest, scheme, swatches, dropped, show_missing) -> str:
         )
     out.append("</g>")
     return "".join(out)
+
+
+def _legend_origin(drawn, box_w: float, box_h: float) -> tuple[float, float]:
+    """Put the legend in whichever corner covers the least geometry.
+
+    A fixed corner buries Portugal on a map of Europe. Corners are tried in a
+    fixed order so ties resolve the same way every time and output stays
+    byte-identical between runs.
+    """
+    inset = LEGEND_INSET
+    corners = [
+        (inset, MAP_H - box_h - inset),                  # bottom left
+        (CANVAS_W - box_w - inset, MAP_H - box_h - inset),
+        (inset, inset),                                  # top left
+        (CANVAS_W - box_w - inset, inset),
+    ]
+    best, fewest = corners[0], None
+    for x, y in corners:
+        covered = sum(1 for px, py in drawn
+                      if x <= px <= x + box_w and y <= py <= y + box_h)
+        if fewest is None or covered < fewest:
+            best, fewest = (x, y), covered
+        if fewest == 0:
+            break
+    return best
+
+
+def _unit_label(manifest: Manifest, provenance: dict) -> str:
+    """Units of the classified value, after any normalisation."""
+    unit = provenance.get("unit")
+    if not manifest.normalize:
+        return unit or ""
+    divisor = provenance.get("normalize_unit") or manifest.normalize
+    # "people" reads better singular in a per-unit phrase.
+    divisor = {"people": "person"}.get(divisor, divisor)
+    return f"{unit} per {divisor}" if unit else f"per {divisor}"
 
 
 def _title(provenance: dict) -> str:

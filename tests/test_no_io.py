@@ -97,3 +97,9 @@ def test_the_check_would_catch_a_violation():
     assert _imports(tree) & FORBIDDEN_MODULES, (
         "harvest.py performs no recognised I/O, so this test proves nothing"
     )
+
+
+def test_package_init_stays_import_free():
+    """A package-level import would sneak I/O into render behind the AST check."""
+    tree = ast.parse((PACKAGE / "__init__.py").read_text())
+    assert not _imports(tree), "mapsvc/__init__.py must not import anything"

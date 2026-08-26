@@ -155,6 +155,47 @@ def outer_rings(geometry) -> list:
     return [part[0] for part in geometry["coordinates"]]
 
 
+def extent_rings(geometries) -> list:
+    """The one ring per feature that is allowed to define the viewport.
+
+    Applies both filters described in `extent_of`: largest ring only, and
+    nothing that was clipped at the antimeridian.
+    """
+    kept = []
+    for geometry in geometries:
+        rings = outer_rings(geometry)
+        if not rings:
+            continue
+        ring = max(rings, key=_ring_area)
+        lons = [lon for lon, _ in unwrap_ring(ring, 0.0)]
+        if any(abs(lon) >= ANTIMERIDIAN_EPS for lon in lons):
+            continue
+        if max(lons) - min(lons) > 180.0:
+            continue
+        kept.append(ring)
+    return kept
+
+
+def viewport_bounds(geometries, projector) -> tuple[float, float, float, float]:
+    """Projected bounds of the extent-defining rings.
+
+    Fitting the lon/lat extent *rectangle* instead would waste a lot of canvas:
+    under a conic the rectangle's southern corners bow far west of any land, so
+    a map of Europe ends up with a third of its width empty. Fitting the rings
+    themselves tracks the shape the projection actually produces.
+    """
+    xs: list[float] = []
+    ys: list[float] = []
+    for ring in extent_rings(geometries):
+        for lon, lat in ring:
+            x, y = projector(lon, lat)
+            xs.append(x)
+            ys.append(y)
+    if not xs:
+        return (0.0, 0.0, 1.0, 1.0)
+    return (min(xs), min(ys), max(xs), max(ys))
+
+
 def extent_of(geometries) -> Extent:
     """Map viewport for a set of features.
 
