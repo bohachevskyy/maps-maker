@@ -163,3 +163,19 @@ def test_rows_and_dropped_come_back_in_a_stable_order(offline):
     result = H.harvest(build_manifest(region="europe"))
     assert [r["id"] for r in result.rows] == ["AAA", "BBB", "DDD"]
     assert [d["id"] for d in result.dropped] == ["CCC"]
+
+
+def test_an_unusable_divisor_blames_normalize_not_the_variable(offline):
+    """GDP_MD is fine here; SUBREGION is what cannot be divided by."""
+    offline([feature("AAA", GDP_MD=100), feature("BBB", GDP_MD=200)])
+    with pytest.raises(H.HarvestError) as excinfo:
+        H.harvest(build_manifest(region="europe", normalize="SUBREGION"))
+    assert excinfo.value.field == "normalize"
+    assert "SUBREGION" in str(excinfo.value)
+
+
+def test_a_genuinely_empty_variable_still_blames_the_variable(offline):
+    offline([feature("AAA", GDP_MD=-99), feature("BBB", GDP_MD=-99)])
+    with pytest.raises(H.HarvestError) as excinfo:
+        H.harvest(build_manifest(region="europe"))
+    assert excinfo.value.field == "variable.id"

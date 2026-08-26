@@ -134,10 +134,7 @@ def _build(manifest: Manifest) -> HarvestResult:
             years.add(props[meta["year_col"]])
 
     if not rows:
-        raise HarvestError(
-            f"every feature in region {manifest.region!r} lacks a usable "
-            f"{manifest.variable_id} value", "variable.id"
-        )
+        raise HarvestError(*_nothing_usable(manifest, dropped))
 
     rows.sort(key=lambda r: r["id"])
     dropped.sort(key=lambda r: (r["id"], r["reason"]))
@@ -154,6 +151,27 @@ def _build(manifest: Manifest) -> HarvestResult:
         "normalize_unit": normalize_meta["unit"] if normalize_meta else None,
     }
     return HarvestResult(rows=rows, provenance=provenance, dropped=dropped)
+
+
+# Drop reasons that point at the divisor rather than the variable itself.
+_NORMALIZE_REASONS = {"no_data_normalize", "not_numeric", "divide_by_zero"}
+
+
+def _nothing_usable(manifest: Manifest, dropped: list) -> tuple[str, str]:
+    """Explain an empty result by blaming the column actually at fault."""
+    reasons = {item["reason"] for item in dropped}
+    if reasons and reasons <= _NORMALIZE_REASONS:
+        return (
+            f"every feature in region {manifest.region!r} was dropped dividing "
+            f"{manifest.variable_id} by {manifest.normalize!r}; "
+            f"{manifest.normalize} is not usable as a divisor here",
+            "normalize",
+        )
+    return (
+        f"every feature in region {manifest.region!r} lacks a usable "
+        f"{manifest.variable_id} value",
+        "variable.id",
+    )
 
 
 def _select_region(features: list, region: str) -> list:
