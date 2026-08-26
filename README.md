@@ -1,7 +1,8 @@
 # mapsvc
 
 A small HTTP service that takes a JSON manifest and returns an SVG choropleth
-map. One dataset, one map type, one endpoint.
+map. One dataset, one map type. Two endpoints: `POST /map` renders a manifest,
+`POST /describe` assembles one from a sentence.
 
 Geometry, projection and SVG generation are hand-written standard library —
 no GeoPandas, GDAL, matplotlib or shapely.
@@ -37,16 +38,68 @@ curl -X POST localhost:8000/map -H 'content-type: application/json' \
   -d @examples/europe_gdp.json -o europe.svg && open europe.svg
 ```
 
-`POST /map` is the only endpoint. It returns `200 image/svg+xml`, or `422` with
-the offending field named:
+`POST /map` returns `200 image/svg+xml`, or `422` with the offending field
+named:
 
 ```json
 {"error": "SUBREGION is nominal, so a sequential ramp like 'YlGnBu' would imply an ordering between categories; use a qualitative ramp (Dark2, Paired, Set2, Set3)", "field": "ramp"}
 ```
 
+## Describe a map in words
+
+```bash
+export OPENAI_API_KEY=sk-...
+curl -X POST localhost:8000/describe \
+  -H 'content-type: application/json' \
+  -d '{"prompt": "how rich is each country in Europe?"}'
+```
+
+```json
+{
+  "manifest": {"region": "europe", "variable": {"id": "GDP_MD", ...}, "normalize": "POP_EST", ...},
+  "svg": "<?xml version=\"1.0\"...",
+  "reasoning": "\"how rich\" implies a rate, so GDP_MD is normalised by POP_EST."
+}
+```
+
+The manifest comes back alongside the map so you can see what the agent chose,
+disagree with it, edit it, and POST it straight to `/map`.
+
+`OPENAI_MODEL` selects the model; it defaults to `gpt-5.6-terra`. Without
+`OPENAI_API_KEY`, `/describe` returns `503` and `/map` is unaffected.
+
+**The agent is not trusted.** Its output goes through the same `validate()` as a
+hand-written manifest. The response schema is generated from `registry.py`, so
+Structured Outputs makes an unknown variable, ramp, method, projection or `k`
+structurally impossible to emit — add a variable to the registry and the agent
+can use it with no prompt edits. What a JSON schema cannot express is the
+cross-field rule that a nominal variable rejects a sequential ramp; when the
+validator catches that, the rejection is handed back to the model for one repair
+attempt.
+
+**It refuses rather than substitutes.** The registry has six variables and
+customers will ask for a seventh. "Rainfall in Europe" returns `422` naming what
+does exist, instead of a GDP map with a caveat nobody reads. Likewise there are
+no sub-continental regions: "Scandinavia" is not a `CONTINENT` or an `ADM0_A3`
+code.
+
+Unlike `/map`, `/describe` is **not deterministic** — the same prompt may yield a
+different manifest.
+
 There is deliberately no GET route, no listing endpoint and no schema route.
 To turn the FastAPI docs back on, pass `docs_url="/docs"` and
 `openapi_url="/openapi.json"` in `mapsvc/api.py`.
+
+## Environment
+
+| variable | needed by | default |
+|---|---|---|
+| `OPENAI_API_KEY` | `/describe` only | none — endpoint returns 503 |
+| `OPENAI_MODEL` | `/describe` only | `gpt-5.6-terra` |
+| `MAPSVC_CACHE` | optional | `./cache` |
+
+`POST /map` needs no environment at all; it has been verified serving under
+`env -i`.
 
 ## Manifest
 
@@ -106,7 +159,8 @@ no join, so nothing else is required.
 
 ## Design notes
 
-**Three seams.** `validate → harvest → render`. `render.py` imports nothing that
+**Four seams.** `describe → validate → harvest → render`, of which the first is
+optional and the other three are the original service. `render.py` imports nothing that
 performs I/O, and `tests/test_no_io.py` enforces that by walking the import
 graph rather than trusting convention.
 
@@ -176,6 +230,7 @@ identical to GDP per capita either way.
 uv run pytest
 ```
 
-80 tests, no network: the harvester's fetch is stubbed and the renderer runs
-against a hand-written 5-feature fixture in `tests/fixtures/`, which carries a
-polygon with a hole, a MultiPolygon, and both sentinel values.
+108 tests, no network and no API key: the harvester's fetch and the OpenAI
+client are both stubbed, and the renderer runs against a hand-written 5-feature
+fixture in `tests/fixtures/`, which carries a polygon with a hole, a
+MultiPolygon, and both sentinel values. Running the suite costs nothing.
