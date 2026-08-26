@@ -47,8 +47,15 @@ named:
 
 ## Describe a map in words
 
+Put the key in `.env` (gitignored) and source it before starting the server:
+
 ```bash
-export OPENAI_API_KEY=sk-...
+echo 'OPENAI_API_KEY=sk-...' > .env
+set -a; source .env; set +a
+uv run uvicorn mapsvc.api:app
+```
+
+```bash
 curl -X POST localhost:8000/describe \
   -H 'content-type: application/json' \
   -d '{"prompt": "how rich is each country in Europe?"}'
