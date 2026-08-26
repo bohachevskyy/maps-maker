@@ -64,3 +64,19 @@ def test_mollweide_maps_the_two_edges_of_the_world_to_opposite_sides():
     east, _ = projector(180, 0)
     west, _ = projector(-180, 0)
     assert east > 0 > west
+
+
+def test_a_near_global_extent_snaps_to_the_whole_globe():
+    """Otherwise a world map takes its southern limit from Tierra del Fuego and
+    clips Antarctica, which the antimeridian filter had set aside."""
+    west = {"type": "Polygon",
+            "coordinates": [[[-176, -54], [-170, -54], [-170, -40], [-176, -40], [-176, -54]]]}
+    east = {"type": "Polygon",
+            "coordinates": [[[170, 20], [179, 20], [179, 40], [170, 40], [170, 20]]]}
+    assert project.extent_of([west, east]) == (-180.0, -90.0, 180.0, 90.0)
+
+
+def test_a_regional_extent_is_not_snapped():
+    europe = {"type": "Polygon",
+              "coordinates": [[[-24, 36], [40, 36], [40, 71], [-24, 71], [-24, 36]]]}
+    assert project.extent_of([europe]) == (-24, 36, 40, 71)

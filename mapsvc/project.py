@@ -176,7 +176,7 @@ def extent_rings(geometries) -> list:
     return kept
 
 
-def viewport_bounds(geometries, projector) -> tuple[float, float, float, float]:
+def viewport_bounds(geometries, projector, extent: Extent) -> tuple[float, float, float, float]:
     """Projected bounds of the extent-defining rings.
 
     Fitting the lon/lat extent *rectangle* instead would waste a lot of canvas:
@@ -184,9 +184,15 @@ def viewport_bounds(geometries, projector) -> tuple[float, float, float, float]:
     a map of Europe ends up with a third of its width empty. Fitting the rings
     themselves tracks the shape the projection actually produces.
     """
+    rings = extent_rings(geometries)
+    if extent == (-180.0, -90.0, 180.0, 90.0):
+        # Whole globe: fit the projection's own outline, not the land, so the
+        # oceans and the clipped-out features keep their place.
+        rings = [[(lon, lat) for lat in range(-90, 91, 5)] for lon in (-180, 0, 180)]
+        rings += [[(lon, lat) for lon in range(-180, 181, 5)] for lat in (-90, 0, 90)]
     xs: list[float] = []
     ys: list[float] = []
-    for ring in extent_rings(geometries):
+    for ring in rings:
         for lon, lat in ring:
             x, y = projector(lon, lat)
             xs.append(x)
@@ -238,6 +244,13 @@ def extent_of(geometries) -> Extent:
         min_lat = min(b[1] for b in fallback)
         max_lon = max(b[2] for b in fallback)
         max_lat = max(b[3] for b in fallback)
+
+    # If what survived the filters already wraps most of the way round, the
+    # request was for the whole globe. Snapping to it restores the features the
+    # antimeridian filter set aside -- otherwise a world map clips Antarctica to
+    # a sliver, having taken its southern limit from Tierra del Fuego.
+    if max_lon - min_lon > 300.0:
+        return (-180.0, -90.0, 180.0, 90.0)
 
     # A zero-width or zero-height extent (single point feature) would divide by
     # nothing downstream; give it a degree of breathing room.

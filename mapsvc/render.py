@@ -51,13 +51,15 @@ def render(manifest: Manifest, result: HarvestResult) -> str:
     if name == "auto":
         name = project.choose(extent)
     projector = project.make(name, extent)
-    bounds = project.viewport_bounds(extent_geoms, projector)
+    bounds = project.viewport_bounds(extent_geoms, projector, extent)
     transform = project.fit(bounds, CANVAS_W, MAP_H, MAP_MARGIN)
     lon0 = (extent[0] + extent[2]) / 2.0
 
     scheme, swatches = _scheme(manifest, rows)
 
-    parts: list[str] = []
+    # Declared explicitly so a saved .svg is self-describing about its encoding
+    # (the footnote carries en dashes and a division sign).
+    parts: list[str] = ['<?xml version="1.0" encoding="UTF-8"?>']
     parts.append(
         f'<svg xmlns="http://www.w3.org/2000/svg" width="{CANVAS_W}" '
         f'height="{CANVAS_H}" viewBox="0 0 {CANVAS_W} {CANVAS_H}" '
