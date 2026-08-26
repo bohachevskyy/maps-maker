@@ -1,0 +1,16 @@
+{
+  "region": "testland",
+  "level": "admin_0",
+  "variable": {
+    "source": "natural_earth",
+    "id": "GDP_MD"
+  },
+  "normalize": null,
+  "classify": {
+    "method": "quantile",
+    "k": 3
+  },
+  "ramp": "YlGnBu",
+  "projection": "auto",
+  "missing": "hatch"
+}

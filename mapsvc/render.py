@@ -1,0 +1,276 @@
+"""SVG generation.
+
+This module must not import anything that performs I/O -- no network, no
+filesystem, no cache. It takes a validated manifest and an already-harvested
+result and returns a string. `tests/test_no_io.py` enforces that by inspection.
+
+Output is deterministic: rows are drawn in sorted id order, coordinates are
+formatted to a fixed precision, and nothing carries a timestamp. The same
+manifest twice must produce byte-identical bytes.
+"""
+
+from xml.sax.saxutils import escape, quoteattr
+
+from mapsvc import classify, colors, project, registry
+from mapsvc.manifest import Manifest
+from mapsvc.models import HarvestResult
+
+CANVAS_W = 960
+MAP_H = 620
+FOOTER_H = 116
+CANVAS_H = MAP_H + FOOTER_H
+MAP_MARGIN = 18
+COORD_DP = 2
+
+SWATCH_W, SWATCH_H, SWATCH_GAP = 20, 13, 4
+FONT = "-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif"
+
+
+class RenderError(ValueError):
+    """Raised when the manifest cannot be honoured for this data."""
+
+    def __init__(self, message: str, field: str):
+        super().__init__(message)
+        self.field = field
+
+
+def render(manifest: Manifest, result: HarvestResult) -> str:
+    rows = sorted(result.rows, key=lambda r: r["id"])
+    dropped = sorted(result.dropped, key=lambda r: r["id"])
+    show_missing = manifest.missing != "exclude"
+
+    extent_geoms = [r["geometry"] for r in rows]
+    if show_missing:
+        extent_geoms += [d["geometry"] for d in dropped if d.get("geometry")]
+    if not extent_geoms:
+        raise RenderError("no features to draw for this region", "region")
+
+    extent = project.extent_of(extent_geoms)
+    name = manifest.projection
+    if name == "auto":
+        name = project.choose(extent)
+    projector = project.make(name, extent)
+    transform = project.fit(
+        _projected_bounds(extent, projector), CANVAS_W, MAP_H, MAP_MARGIN
+    )
+    lon0 = (extent[0] + extent[2]) / 2.0
+
+    scheme, swatches = _scheme(manifest, rows)
+
+    parts: list[str] = []
+    parts.append(
+        f'<svg xmlns="http://www.w3.org/2000/svg" width="{CANVAS_W}" '
+        f'height="{CANVAS_H}" viewBox="0 0 {CANVAS_W} {CANVAS_H}" '
+        f'role="img" aria-label={quoteattr(_title(result.provenance))}>'
+    )
+    parts.append(_defs())
+    parts.append(
+        f'<rect width="{CANVAS_W}" height="{CANVAS_H}" fill="{colors.OCEAN}"/>'
+    )
+
+    parts.append('<g clip-path="url(#map-clip)">')
+    for row in rows:
+        fill = swatches[scheme.bin_of(row["value"])]
+        parts.append(_path(row, fill, projector, transform, lon0))
+    if show_missing:
+        fill = f"url(#{colors.HATCH_ID})" if manifest.missing == "hatch" else colors.MISSING_GREY
+        for item in dropped:
+            if item.get("geometry"):
+                parts.append(_path(item, fill, projector, transform, lon0))
+    parts.append("</g>")
+
+    parts.append(_legend(manifest, scheme, swatches, dropped, show_missing))
+    parts.append(_footer(manifest, name, scheme, result))
+    parts.append("</svg>")
+    return "\n".join(parts) + "\n"
+
+
+def _scheme(manifest: Manifest, rows: list) -> tuple[classify.Classification, list[str]]:
+    """Classification plus one colour per bin."""
+    if not rows:
+        raise RenderError("every feature was dropped; nothing to classify", "variable")
+    # Dividing by another column yields a continuous ratio whatever the source
+    # variable's measurement level was.
+    level = "count" if manifest.normalize else registry.VARIABLES[manifest.variable_id]["level"]
+    scheme = classify.build([r["value"] for r in rows], level, manifest.method, manifest.k)
+    try:
+        return scheme, colors.colors(manifest.ramp, scheme.k)
+    except colors.RampError as exc:
+        raise RenderError(str(exc), "ramp") from exc
+
+
+def _projected_bounds(extent, projector):
+    """Bounds of the projected extent, sampled along its edges.
+
+    Projecting only the four corners understates a curved projection -- under a
+    conic the top edge bows well above its corners.
+    """
+    min_lon, min_lat, max_lon, max_lat = extent
+    steps = 60
+    xs: list[float] = []
+    ys: list[float] = []
+    for i in range(steps + 1):
+        fx = min_lon + (max_lon - min_lon) * i / steps
+        fy = min_lat + (max_lat - min_lat) * i / steps
+        for lon, lat in ((fx, min_lat), (fx, max_lat), (min_lon, fy), (max_lon, fy)):
+            x, y = projector(lon, lat)
+            xs.append(x)
+            ys.append(y)
+    return (min(xs), min(ys), max(xs), max(ys))
+
+
+def _num(v: float) -> str:
+    s = f"{v:.{COORD_DP}f}".rstrip("0").rstrip(".")
+    return "0" if s in ("", "-0", "-") else s
+
+
+def _rings(geometry) -> list:
+    """Every ring, exterior and interior, so holes survive."""
+    if geometry["type"] == "Polygon":
+        return list(geometry["coordinates"])
+    return [ring for part in geometry["coordinates"] for ring in part]
+
+
+def _path(item: dict, fill: str, projector, transform, lon0: float) -> str:
+    subpaths: list[str] = []
+    for ring in _rings(item["geometry"]):
+        points: list[str] = []
+        previous = None
+        for lon, lat in project.unwrap_ring(ring, lon0):
+            x, y = transform(*projector(lon, lat))
+            point = (_num(x), _num(y))
+            if point != previous:
+                points.append(f"{point[0]},{point[1]}")
+                previous = point
+        if len(points) < 3:
+            continue  # collapsed to a sliver at this scale
+        subpaths.append("M" + "L".join(points) + "Z")
+    if not subpaths:
+        return ""
+    return (
+        f'<path d="{"".join(subpaths)}" fill="{fill}" fill-rule="evenodd" '
+        f'stroke="{colors.BORDER}" stroke-width="0.4" '
+        f'data-id={quoteattr(item["id"])}/>'
+    )
+
+
+def _defs() -> str:
+    return (
+        "<defs>"
+        f'<pattern id="{colors.HATCH_ID}" width="6" height="6" '
+        'patternUnits="userSpaceOnUse" patternTransform="rotate(45)">'
+        f'<rect width="6" height="6" fill="{colors.HATCH_BG}"/>'
+        f'<line x1="0" y1="0" x2="0" y2="6" stroke="{colors.HATCH_STROKE}" stroke-width="2"/>'
+        "</pattern>"
+        f'<clipPath id="map-clip"><rect x="0" y="0" width="{CANVAS_W}" height="{MAP_H}"/></clipPath>'
+        "</defs>"
+    )
+
+
+def _legend(manifest, scheme, swatches, dropped, show_missing) -> str:
+    labels = scheme.labels()
+    entries = list(zip(swatches, labels))
+    if show_missing and dropped:
+        fill = f"url(#{colors.HATCH_ID})" if manifest.missing == "hatch" else colors.MISSING_GREY
+        entries.append((fill, "no data"))
+
+    heading = manifest.variable_id
+    if manifest.normalize:
+        heading += f" / {manifest.normalize}"
+
+    box_h = 26 + len(entries) * (SWATCH_H + SWATCH_GAP)
+    x, y = 20, MAP_H - box_h - 20
+    out = [
+        f'<g font-family="{FONT}">',
+        f'<rect x="{x}" y="{y}" width="212" height="{box_h}" fill="#ffffff" '
+        'fill-opacity="0.94" stroke="#bfbfbf" stroke-width="0.7" rx="3"/>',
+        f'<text x="{x + 10}" y="{y + 17}" font-size="11.5" font-weight="600" '
+        f'fill="#1a1a1a">{escape(heading)}</text>',
+    ]
+    for i, (fill, label) in enumerate(entries):
+        sy = y + 25 + i * (SWATCH_H + SWATCH_GAP)
+        out.append(
+            f'<rect x="{x + 10}" y="{sy}" width="{SWATCH_W}" height="{SWATCH_H}" '
+            f'fill="{fill}" stroke="{colors.BORDER}" stroke-width="0.4"/>'
+        )
+        out.append(
+            f'<text x="{x + 10 + SWATCH_W + 8}" y="{sy + SWATCH_H - 2.5}" '
+            f'font-size="11" fill="#333333">{escape(label)}</text>'
+        )
+    out.append("</g>")
+    return "".join(out)
+
+
+def _title(provenance: dict) -> str:
+    variable = provenance.get("variable", "value")
+    if provenance.get("normalize"):
+        variable += f" per {provenance['normalize']}"
+    return f"{provenance.get('region', 'map')} — {variable}"
+
+
+def _footer(manifest, projection_name, scheme, result) -> str:
+    """The mandatory footnote. Every rendered map states its own provenance."""
+    p = result.provenance
+    dropped = result.dropped
+
+    scale = p.get("scale", registry.SCALE)
+    vintage = p.get("vintage", registry.SOURCE_VINTAGE)
+    source = f"{p.get('source', registry.SOURCE_NAME)} {vintage}, 1:{scale}"
+
+    if scheme.kind == "categorical":
+        method = f"one class per category ({scheme.k} categories)"
+    else:
+        method = f"{manifest.method}, k={scheme.k}"
+        if scheme.k != manifest.k:
+            method += f" (requested {manifest.k}; only {scheme.k} distinct values)"
+
+    variable = p.get("variable", manifest.variable_id)
+    if p.get("unit"):
+        variable += f" ({p['unit']})"
+    if p.get("year"):
+        variable += f", {p['year']}"
+    if manifest.normalize:
+        normalize = manifest.normalize
+        if p.get("normalize_unit"):
+            normalize += f" ({p['normalize_unit']})"
+        variable += f" ÷ {normalize}"
+
+    if dropped:
+        reasons: dict[str, int] = {}
+        for item in dropped:
+            reasons[item.get("reason", "unknown")] = reasons.get(item.get("reason", "unknown"), 0) + 1
+        detail = ", ".join(f"{count} {reason}" for reason, count in sorted(reasons.items()))
+        shown = "shown as no data" if manifest.missing != "exclude" else "not drawn"
+        excluded = f"{len(dropped)} of {len(dropped) + len(result.rows)} features excluded ({detail}), {shown}"
+    else:
+        excluded = "0 features excluded"
+
+    lines = [
+        f"Source: {source}. Projection: {_projection_label(projection_name, manifest)}. "
+        f"Classification: {method}.",
+        f"Variable: {variable}.",
+        excluded + ".",
+    ]
+
+    out = [f'<g font-family="{FONT}">',
+           f'<line x1="20" y1="{MAP_H + 1}" x2="{CANVAS_W - 20}" y2="{MAP_H + 1}" '
+           'stroke="#d9d9d9" stroke-width="1"/>']
+    for i, line in enumerate(lines):
+        out.append(
+            f'<text x="20" y="{MAP_H + 26 + i * 17}" font-size="11.5" '
+            f'fill="#4d4d4d">{escape(line)}</text>'
+        )
+    out.append("</g>")
+    return "".join(out)
+
+
+_PROJECTION_LABELS = {
+    "albers": "Albers equal-area conic",
+    "mercator": "Mercator",
+    "mollweide": "Mollweide equal-area",
+}
+
+
+def _projection_label(name: str, manifest: Manifest) -> str:
+    label = _PROJECTION_LABELS.get(name, name)
+    return f"{label} (auto)" if manifest.projection == "auto" else label
