@@ -1,0 +1,10 @@
+{
+  "region": "europe",
+  "level": "admin_0",
+  "variable": {"source": "natural_earth", "id": "GDP_MD"},
+  "normalize": "POP_EST",
+  "classify": {"method": "quantile", "k": 5},
+  "ramp": "YlGnBu",
+  "projection": "auto",
+  "missing": "hatch"
+}
