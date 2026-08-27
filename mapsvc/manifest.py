@@ -93,17 +93,25 @@ def validate(raw: dict) -> Manifest:
             f"expected {', '.join(registry.SOURCES)}", "variable.source"
         )
     variable_id = variable["id"]
-    if variable_id not in registry.VARIABLES:
+    available = registry.variables_for(level)
+    if variable_id not in available:
+        belongs_to = registry.level_of(variable_id)
+        if belongs_to:
+            raise ManifestError(
+                f"{variable_id!r} is an {belongs_to} variable, but level is {level!r}; "
+                f"at {level} the choices are {', '.join(sorted(available))}",
+                "variable.id",
+            )
         raise ManifestError(
-            f"unknown variable {variable_id!r}; expected one of "
-            f"{', '.join(sorted(registry.VARIABLES))}", "variable.id"
+            f"unknown variable {variable_id!r}; at {level} expected one of "
+            f"{', '.join(sorted(available))}", "variable.id"
         )
 
     normalize = raw.get("normalize", OPTIONAL["normalize"])
-    if normalize is not None and normalize not in registry.VARIABLES:
+    if normalize is not None and normalize not in available:
         raise ManifestError(
-            f"unknown normalize column {normalize!r}; expected null or one of "
-            f"{', '.join(sorted(registry.VARIABLES))}", "normalize"
+            f"unknown normalize column {normalize!r}; at {level} expected null or one "
+            f"of {', '.join(sorted(available))}", "normalize"
         )
     # Deliberately no rule relating `normalize` to the variable's level. An
     # un-normalised choropleth of a count is misleading, but that is the
@@ -153,7 +161,7 @@ def validate(raw: dict) -> Manifest:
 
     # Correctness rule: shading unordered categories light-to-dark asserts an
     # ordering that does not exist -- that one subregion is "more" than another.
-    level_of_variable = registry.VARIABLES[variable_id]["level"]
+    level_of_variable = available[variable_id]["level"]
     if level_of_variable == "nominal" and colors.kind(ramp) != "qualitative":
         qualitative = sorted(n for n, kind in colors.RAMPS.items() if kind == "qualitative")
         raise ManifestError(

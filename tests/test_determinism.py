@@ -44,7 +44,7 @@ def _features():
 @pytest.fixture
 def offline(monkeypatch, tmp_path):
     monkeypatch.setenv("MAPSVC_CACHE", str(tmp_path))
-    monkeypatch.setattr(H, "load_source", lambda: {"features": _features()})
+    monkeypatch.setattr(H, "load_source", lambda level="admin_0": {"features": _features()})
     return tmp_path
 
 
@@ -59,7 +59,7 @@ def test_a_cached_harvest_renders_the_same_bytes_as_a_fresh_one(offline, monkeyp
     fresh = build_map(copy.deepcopy(RAW))
     assert list((offline / "harvest").glob("*.json")), "expected a cache entry"
 
-    def explode():
+    def explode(level="admin_0"):
         raise AssertionError("should have been served from cache")
     monkeypatch.setattr(H, "load_source", explode)
 

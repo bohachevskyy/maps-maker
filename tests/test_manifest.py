@@ -67,8 +67,35 @@ def test_accepts_nominal_variable_with_a_qualitative_ramp():
                              ramp="Set2")).ramp == "Set2"
 
 
-def test_rejects_admin_1():
-    assert rejects(manifest(level="admin_1")).field == "level"
+def test_rejects_an_unknown_level():
+    assert rejects(manifest(level="admin_2")).field == "level"
+
+
+def test_admin_1_is_valid_with_an_admin_1_variable():
+    m = validate(manifest(level="admin_1", region="UKR", normalize=None,
+                          variable={"source": "natural_earth", "id": "type"},
+                          ramp="Set2"))
+    assert (m.level, m.variable_id) == ("admin_1", "type")
+
+
+def test_a_variable_from_the_wrong_level_is_rejected():
+    """GDP_MD exists, but not on sub-national units."""
+    error = rejects(manifest(level="admin_1", normalize=None,
+                             variable={"source": "natural_earth", "id": "GDP_MD"}))
+    assert error.field == "variable.id"
+    assert "admin_0 variable" in str(error)
+
+    error = rejects(manifest(level="admin_0", normalize=None,
+                             variable={"source": "natural_earth", "id": "type"},
+                             ramp="Set2"))
+    assert error.field == "variable.id"
+    assert "admin_1 variable" in str(error)
+
+
+def test_the_nominal_rule_applies_at_admin_1_too():
+    assert rejects(manifest(level="admin_1", region="UKR", normalize=None,
+                            variable={"source": "natural_earth", "id": "type"},
+                            ramp="YlGnBu")).field == "ramp"
 
 
 def test_rejects_a_second_source_until_one_exists():

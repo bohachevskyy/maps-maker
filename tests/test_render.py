@@ -60,7 +60,7 @@ def test_footnote_states_everything_required(mini_geojson):
         e.text for e in ET.fromstring(text).findall(f".//{SVG}text") if e.text
     )
     assert "Natural Earth" in footnote                  # source
-    assert f"1:{registry.SCALE}" in footnote             # scale
+    assert f"1:{registry.scale_for('admin_0')}" in footnote   # scale
     assert "Albers equal-area conic" in footnote  # projection
     assert "quantile" in footnote and "k=3" in footnote  # method and k
     assert "2015" in footnote and "2019" in footnote     # variable vintage

@@ -1,22 +1,28 @@
-"""Static tables: what can be mapped, and where the geometry comes from."""
+"""Static tables: what can be mapped, at which level, and where it comes from."""
 
-# Swap to "50m" (3 MB) or "10m" (13 MB) when 110m is too coarse.
+# Geometry scale for country maps. Swap to "10m" for sharper coastlines.
 SCALE = "50m"
 
-DATA_URL = (
-    "https://raw.githubusercontent.com/nvkelso/natural-earth-vector/"
-    f"master/geojson/ne_{SCALE}_admin_0_countries.geojson"
-)
+# Sub-national units get their own scale, and it is not negotiable: the 50m
+# admin-1 file carries only 294 units across nine large countries (RUS, USA,
+# IND, IDN, CHN, BRA, CAN, AUS, ZAF). Ukraine's oblasts exist only at 10m.
+ADMIN1_SCALE = "10m"
+
+_BASE = ("https://raw.githubusercontent.com/nvkelso/natural-earth-vector/"
+         "master/geojson/ne_{scale}_{dataset}.geojson")
 
 SOURCE_NAME = "Natural Earth"
 SOURCE_VINTAGE = "v5.1.1"
 
-# The join key. Mostly ISO3, but carries custom codes for disputed and
-# non-sovereign entities -- do not treat the two as interchangeable.
-ID_PROPERTY = "ADM0_A3"
-CONTINENT_PROPERTY = "CONTINENT"
+LEVELS = ("admin_0", "admin_1")
+METHODS = ("quantile", "equal_interval", "jenks")
+PROJECTIONS = ("auto", "albers", "mercator", "mollweide")
+MISSING_MODES = ("hatch", "grey", "exclude")
+SOURCES = ("natural_earth",)
 
-# Of the 168 properties on each feature, these six are the mappable ones.
+K_MIN, K_MAX = 3, 9
+
+# Of the 168 properties on each country, these six are the mappable ones.
 VARIABLES = {
     "POP_EST":    {"level": "count",   "unit": "people",      "year_col": "POP_YEAR"},
     "GDP_MD":     {"level": "count",   "unit": "million USD", "year_col": "GDP_YEAR"},
@@ -26,10 +32,80 @@ VARIABLES = {
     "SUBREGION":  {"level": "nominal", "unit": None,          "year_col": None},
 }
 
-LEVELS = ("admin_0",)
-METHODS = ("quantile", "equal_interval", "jenks")
-PROJECTIONS = ("auto", "albers", "mercator", "mollweide")
-MISSING_MODES = ("hatch", "grey", "exclude")
-SOURCES = ("natural_earth",)
+# Admin-1 carries 121 properties per unit and not one of them is population,
+# GDP or income; `area_sqkm` is 0 for every unit on earth. What is left is
+# classification and cartographic prominence -- enough to draw the units and
+# distinguish their kind, and nothing that could be mistaken for a statistic.
+# Anything richer needs a second data source and a join on `iso_3166_2`.
+ADMIN1_VARIABLES = {
+    "type":      {"level": "nominal", "unit": None, "year_col": None},
+    "type_en":   {"level": "nominal", "unit": None, "year_col": None},
+    "region":    {"level": "nominal", "unit": None, "year_col": None},
+    "labelrank": {"level": "ordinal", "unit": None, "year_col": None},
+}
 
-K_MIN, K_MAX = 3, 9
+_LEVELS = {
+    "admin_0": {
+        "dataset": "admin_0_countries",
+        "variables": VARIABLES,
+        "id": "ADM0_A3",
+        "name": "NAME",
+        "country": "ADM0_A3",
+        "continent": "CONTINENT",
+    },
+    "admin_1": {
+        "dataset": "admin_1_states_provinces",
+        "variables": ADMIN1_VARIABLES,
+        "id": "adm1_code",
+        "name": "name",
+        "country": "adm0_a3",
+        # Admin-1 features carry no continent, so `region` there is "world" or
+        # a single country code.
+        "continent": None,
+    },
+}
+
+
+def scale_for(level: str) -> str:
+    return SCALE if level == "admin_0" else ADMIN1_SCALE
+
+
+def data_url(level: str) -> str:
+    return _BASE.format(scale=scale_for(level), dataset=_LEVELS[level]["dataset"])
+
+
+def dataset_for(level: str) -> str:
+    return _LEVELS[level]["dataset"]
+
+
+def variables_for(level: str) -> dict:
+    return _LEVELS[level]["variables"]
+
+
+def id_property(level: str) -> str:
+    return _LEVELS[level]["id"]
+
+
+def name_property(level: str) -> str:
+    return _LEVELS[level]["name"]
+
+
+def country_property(level: str) -> str:
+    return _LEVELS[level]["country"]
+
+
+def continent_property(level: str) -> str | None:
+    return _LEVELS[level]["continent"]
+
+
+def level_of(variable_id: str) -> str | None:
+    """Which admin level a variable belongs to, or None if it is not known."""
+    for level, config in _LEVELS.items():
+        if variable_id in config["variables"]:
+            return level
+    return None
+
+
+# Every variable across every level -- the agent needs one flat enum, and the
+# validator rejects a variable used at the wrong level.
+ALL_VARIABLES = {**VARIABLES, **ADMIN1_VARIABLES}

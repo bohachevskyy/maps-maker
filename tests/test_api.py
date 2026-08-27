@@ -12,7 +12,7 @@ from tests.test_determinism import RAW, _features
 @pytest.fixture
 def client(monkeypatch, tmp_path):
     monkeypatch.setenv("MAPSVC_CACHE", str(tmp_path))
-    monkeypatch.setattr(H, "load_source", lambda: {"features": _features()})
+    monkeypatch.setattr(H, "load_source", lambda level="admin_0": {"features": _features()})
     return TestClient(app)
 
 
@@ -36,7 +36,7 @@ def test_nominal_variable_with_a_sequential_ramp_is_422_naming_the_ramp(client):
 def test_validation_errors_name_their_field(client):
     cases = [
         ({"classify": {"method": "quantile", "k": 12}}, "classify.k"),
-        ({"level": "admin_1"}, "level"),
+        ({"level": "admin_2"}, "level"),
         ({"variable": {"source": "natural_earth", "id": "GDP_PPP"}}, "variable.id"),
         ({"ramp": "Viridis"}, "ramp"),
     ]
@@ -84,7 +84,7 @@ def described(monkeypatch, tmp_path):
     """A client whose agent is stubbed; no API key, no network."""
     from mapsvc import agent
     monkeypatch.setenv("MAPSVC_CACHE", str(tmp_path))
-    monkeypatch.setattr(H, "load_source", lambda: {"features": _features()})
+    monkeypatch.setattr(H, "load_source", lambda level="admin_0": {"features": _features()})
 
     def install(fn):
         monkeypatch.setattr("mapsvc.api.describe", fn)
@@ -164,7 +164,7 @@ def test_describe_has_no_get(described):
 def exporter(monkeypatch, tmp_path):
     monkeypatch.setenv("MAPSVC_CACHE", str(tmp_path / "cache"))
     monkeypatch.setenv("MAPSVC_OUTPUT", str(tmp_path / "maps"))
-    monkeypatch.setattr(H, "load_source", lambda: {"features": _features()})
+    monkeypatch.setattr(H, "load_source", lambda level="admin_0": {"features": _features()})
     return TestClient(app), tmp_path / "maps"
 
 
@@ -232,7 +232,7 @@ def test_export_file_matches_what_map_returns(exporter):
 
 def test_export_validation_errors_match_map(exporter):
     client, outdir = exporter
-    response = client.post("/export", json={**copy.deepcopy(RAW), "level": "admin_1"})
+    response = client.post("/export", json={**copy.deepcopy(RAW), "level": "admin_2"})
     assert response.status_code == 422
     assert response.json()["field"] == "level"
     assert not outdir.exists() or not list(outdir.iterdir()), "no file on failure"

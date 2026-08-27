@@ -1,0 +1,118 @@
+# Agent evaluation cases.
+#
+# Each case is a prompt plus the assertions that matter FOR THAT PROMPT. The
+# model is non-deterministic, so asserting every field would be flaky and would
+# mostly test the model's taste rather than its correctness. Assert what the
+# prompt actually determines; leave the rest free.
+#
+# Available assertions (all optional):
+#   level, region, variable, normalize, method, projection, missing, ramp
+#        exact value, or a list meaning "any of these". Strings compare
+#        case-insensitively. Use normalize = "__null__" to require no
+#        normalisation.
+#   k             exact integer, or a list of acceptable integers
+#   ramp_kind     "sequential" | "diverging" | "qualitative"
+#   refuse        true  -> the agent must decline
+#   mentions      list of substrings the refusal (or reasoning) must contain
+#
+# Add cases freely; `uv run python -m evals.run` picks them up.
+
+# ---------------------------------------------------------------- admin_0 ---
+
+[[case]]
+name = "gdp per capita europe"
+prompt = "GDP per capita in Europe"
+level = "admin_0"
+region = "europe"
+variable = "GDP_MD"
+normalize = "POP_EST"
+ramp_kind = "sequential"
+
+[[case]]
+name = "totals are not normalised"
+prompt = "total population by country worldwide"
+region = "world"
+variable = "POP_EST"
+normalize = "__null__"
+
+[[case]]
+name = "biggest economies means totals"
+prompt = "which countries in Africa have the biggest economies?"
+region = "africa"
+variable = "GDP_MD"
+normalize = "__null__"
+
+[[case]]
+name = "how rich implies per capita"
+prompt = "how rich are countries"
+variable = "GDP_MD"
+normalize = "POP_EST"
+
+[[case]]
+name = "nominal demands a qualitative ramp"
+prompt = "show me the subregions of Europe"
+variable = "SUBREGION"
+ramp_kind = "qualitative"
+
+# KNOWN FLAKY, ~70% pass on gpt-5.6-terra. The model sometimes refuses instead
+# of overriding the ramp. Measured across three phrasings ("using YlGnBu",
+# "shaded light to dark", and both together) the refusal rate was similar, so it
+# is model non-determinism on a borderline judgement, not a wording artifact --
+# refusing is arguably defensible when the user explicitly asked for the invalid
+# thing. Left in and left failing: an eval that hides a known weakness is worse
+# than one that reports it. Run with --repeat to see the rate.
+[[case]]
+name = "explicit bad ramp is overridden"
+prompt = "subregions of Europe shaded light to dark with the YlGnBu ramp"
+variable = "SUBREGION"
+ramp_kind = "qualitative"
+
+[[case]]
+name = "income groups are ordinal"
+prompt = "income groups across Africa"
+region = "africa"
+variable = "INCOME_GRP"
+
+# ---------------------------------------------------------------- admin_1 ---
+
+[[case]]
+name = "oblasts are admin_1"
+prompt = "Show me a map of ukrain with all the oblasts"
+level = "admin_1"
+region = "UKR"
+ramp_kind = "qualitative"
+
+[[case]]
+name = "us states are admin_1"
+prompt = "draw the states of the USA"
+level = "admin_1"
+region = "USA"
+
+[[case]]
+name = "population by oblast refuses on the variable, not the place"
+prompt = "population of each Ukrainian oblast"
+refuse = true
+mentions = ["oblast"]
+
+# --------------------------------------------------------------- refusals ---
+
+[[case]]
+name = "no rainfall anywhere"
+prompt = "rainfall in Europe"
+refuse = true
+mentions = ["rainfall"]
+
+[[case]]
+name = "no unemployment"
+prompt = "unemployment rate by country"
+refuse = true
+
+[[case]]
+name = "no sub-continental regions"
+prompt = "a map of Scandinavia"
+refuse = true
+
+[[case]]
+name = "too many categories for any qualitative ramp"
+prompt = "show me every subregion in the world coloured with Set3"
+refuse = true

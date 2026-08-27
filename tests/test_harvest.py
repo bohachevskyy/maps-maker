@@ -24,7 +24,7 @@ def offline(monkeypatch, tmp_path):
     monkeypatch.setenv("MAPSVC_CACHE", str(tmp_path))
 
     def install(features):
-        monkeypatch.setattr(H, "load_source", lambda: {"features": features})
+        monkeypatch.setattr(H, "load_source", lambda level="admin_0": {"features": features})
     return install
 
 
@@ -148,7 +148,7 @@ def test_second_harvest_reads_the_cache_and_matches(offline, monkeypatch):
     manifest = build_manifest(region="europe")
     first = H.harvest(manifest)
 
-    def explode():
+    def explode(level="admin_0"):
         raise AssertionError("second harvest must not re-read the source")
     monkeypatch.setattr(H, "load_source", explode)
 
@@ -193,3 +193,42 @@ def test_cache_key_includes_the_scale(monkeypatch):
     coarse = H.cache_key(manifest)
     monkeypatch.setattr(registry, "SCALE", "50m")
     assert H.cache_key(manifest) != coarse
+
+
+def test_admin_1_uses_its_own_scale_and_id(monkeypatch, tmp_path):
+    """50m admin-1 carries only 294 units across nine large countries and no
+    Ukrainian oblasts, so admin-1 is pinned to 10m regardless of SCALE."""
+    from mapsvc import registry
+    monkeypatch.setenv("MAPSVC_CACHE", str(tmp_path))
+    assert registry.scale_for("admin_1") == "10m"
+    assert registry.scale_for("admin_0") == registry.SCALE
+    assert "admin_1_states_provinces" in registry.data_url("admin_1")
+    assert H.source_path("admin_1").name.startswith("ne_10m_admin_1")
+
+
+def test_admin_1_filters_by_country_code(monkeypatch, tmp_path):
+    monkeypatch.setenv("MAPSVC_CACHE", str(tmp_path))
+    units = [
+        {"type": "Feature", "geometry": BOX,
+         "properties": {"adm1_code": f"UKR-{i}", "adm0_a3": "UKR", "name": f"Oblast {i}",
+                        "type": "Oblast'", "type_en": "Region", "region": None,
+                        "labelrank": 7}}
+        for i in range(3)
+    ] + [
+        {"type": "Feature", "geometry": BOX,
+         "properties": {"adm1_code": "POL-1", "adm0_a3": "POL", "name": "Mazovia",
+                        "type": "Voivodeship", "type_en": "Province", "region": None,
+                        "labelrank": 7}}
+    ]
+    monkeypatch.setattr(H, "load_source", lambda level="admin_0": {"features": units})
+
+    result = H.harvest(build_manifest(level="admin_1", region="UKR",
+                                      variable_id="type", ramp="Set2"))
+    assert [r["id"] for r in result.rows] == ["UKR-0", "UKR-1", "UKR-2"]
+    assert result.provenance["scale"] == "10m"
+
+    # `region` is null on every Ukrainian unit, so nothing is left to classify.
+    with pytest.raises(H.HarvestError) as excinfo:
+        H.harvest(build_manifest(level="admin_1", region="UKR",
+                                 variable_id="region", ramp="Set2"))
+    assert excinfo.value.field == "variable.id"

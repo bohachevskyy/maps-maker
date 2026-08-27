@@ -63,13 +63,15 @@ def schema() -> dict:
             "type": "object",
             "properties": {
                 "source": {"type": "string", "enum": list(registry.SOURCES)},
-                "id": {"type": "string", "enum": sorted(registry.VARIABLES)},
+                # One flat enum across both levels; the validator rejects a
+                # variable used at the wrong level and the repair loop fixes it.
+                "id": {"type": "string", "enum": sorted(registry.ALL_VARIABLES)},
             },
             "required": ["source", "id"],
             "additionalProperties": False,
         },
         "normalize": {"type": ["string", "null"],
-                      "enum": sorted(registry.VARIABLES) + [None]},
+                      "enum": sorted(registry.ALL_VARIABLES) + [None]},
         "classify": {
             "type": "object",
             "properties": {
@@ -123,10 +125,10 @@ def _region_vocabulary() -> str:
     ADM0_A3 is mostly ISO3 but carries custom codes for disputed and
     non-sovereign entities, so the real list beats the model's recollection.
     """
-    features = harvest.load_source()["features"]
-    continents = sorted({f["properties"][registry.CONTINENT_PROPERTY]
+    features = harvest.load_source("admin_0")["features"]
+    continents = sorted({f["properties"][registry.continent_property("admin_0")]
                          for f in features})
-    codes = sorted({(f["properties"][registry.ID_PROPERTY],
+    codes = sorted({(f["properties"][registry.id_property("admin_0")],
                      f["properties"].get("NAME", "")) for f in features})
     listed = ", ".join(f"{code} ({name})" for code, name in codes)
     return (
@@ -135,13 +137,18 @@ def _region_vocabulary() -> str:
     )
 
 
-def instructions() -> str:
-    variables = "\n".join(
+def _describe(variables: dict) -> str:
+    return "\n".join(
         f"  {name}: {meta['level']}"
         + (f", in {meta['unit']}" if meta["unit"] else "")
         + (f", vintage from {meta['year_col']}" if meta["year_col"] else "")
-        for name, meta in registry.VARIABLES.items()
+        for name, meta in variables.items()
     )
+
+
+def instructions() -> str:
+    variables = _describe(registry.VARIABLES)
+    admin1 = _describe(registry.ADMIN1_VARIABLES)
     by_kind: dict[str, list[str]] = {}
     for name, kind in sorted(colors.RAMPS.items()):
         by_kind.setdefault(kind, []).append(name)
@@ -150,10 +157,29 @@ def instructions() -> str:
     return f"""You assemble manifests for a choropleth map service. You choose what to map; \
 you never draw anything.
 
-The only data available is Natural Earth. There are \
-exactly six mappable variables:
+The only data available is Natural Earth. It has two levels, and `level` picks \
+between them.
+
+level "admin_0" -- countries. Six mappable variables:
 
 {variables}
+
+level "admin_1" -- sub-national units: oblasts, states, provinces, regions, \
+departments, prefectures. Choose this whenever the request is about units \
+*inside* a country. Four mappable variables:
+
+{admin1}
+
+Admin-1 carries no statistics at all: no population, no GDP, no income. Its 121 \
+properties are classification and cartographic metadata, and area_sqkm is zero \
+for every unit on earth. An admin-1 map can therefore show *where* the units are \
+and *what kind* they are, and nothing else. If someone asks for population or \
+economics by oblast or by state, do not refuse as though the places did not \
+exist -- the boundaries are there; it is the statistic that is missing. Say \
+exactly that.
+
+A variable belongs to exactly one level: GDP_MD at admin_1, or type at admin_0, \
+is rejected.
 
 Colour ramps:
 
@@ -161,12 +187,17 @@ Colour ramps:
 
 Rules you must follow:
 
-1. A nominal variable (SUBREGION) must use a qualitative ramp. Shading unordered \
-categories light-to-dark claims one is "more" than another. Ordinal and count \
-variables should normally use a sequential ramp.
+1. A nominal variable (SUBREGION, type, type_en, region) must use a qualitative \
+ramp. Shading unordered categories light-to-dark claims one is "more" than \
+another. Ordinal and count variables should normally use a sequential ramp.
+   If the user asks for a ramp that breaks this rule, do NOT refuse. Pick a \
+valid ramp, produce the map, and say in reasoning why you overrode them. A bad \
+ramp choice is correctable; refusing a request you can actually satisfy is not.
 2. Choose a qualitative ramp with at least as many colours as the variable has \
 categories in the requested region. SUBREGION has 22 categories worldwide but \
-only 4 in Europe; no qualitative ramp holds more than 12.
+only 4 in Europe; no qualitative ramp holds more than 12. Refuse only when no \
+available ramp is large enough -- that is a request you cannot satisfy, unlike \
+rule 1 where a valid alternative exists.
 3. Set normalize when the request implies a rate rather than a total: \
 "per capita", "per person", "how rich", "density". GDP_MD normalised by \
 POP_EST is GDP per capita. Leave it null for totals like "total population".
@@ -178,18 +209,29 @@ right-skewed. jenks finds natural groupings.
 7. missing "hatch" is the default; use "exclude" only if asked to omit \
 countries without data.
 
-Region is a filter, not geography. It is "world", one CONTINENT value, or one \
-ADM0_A3 code. There is no sub-continental grouping: "Scandinavia", "the Balkans" \
+Region is a filter, not geography. At admin_0 it is "world", one CONTINENT \
+value, or one ADM0_A3 code; at admin_1 it is "world" or one ADM0_A3 code, \
+because admin-1 features carry no continent. "world" at admin_1 means 4,596 \
+units and a very large file, so prefer a single country unless the whole planet \
+is genuinely wanted. There is no sub-continental grouping: "Scandinavia", "the Balkans" \
 and "the EU" are not regions. If asked for one, either refuse or pick a single \
 country code, and say which you did in reasoning.
 
 {_region_vocabulary()}
 
-If nothing in the six variables answers the request -- rainfall, unemployment, \
-life expectancy, elections -- set mappable to false and use refusal to say so \
-plainly, naming the variables that do exist. Do not substitute a loosely related \
-variable and hope the caller notices. Returning no map is better than returning \
-a map of the wrong thing."""
+Refusal is about *what is being mapped*, never about how it is drawn. Set \
+mappable to false only when no variable answers the request -- rainfall, \
+unemployment, life expectancy, elections -- or when no available ramp is large \
+enough for the categories. Say so plainly and name the variables that do exist. \
+Do not substitute a loosely related variable and hope the caller notices; \
+returning no map is better than returning a map of the wrong thing.
+
+Never refuse over a field you are free to set yourself. The ramp, the \
+projection, the classification method, k and the missing mode are all yours to \
+choose. If the user asks for one of them that you cannot honour, set a correct \
+value, return the map, and explain the substitution in reasoning. "You asked for \
+a sequential ramp on a nominal variable" is a sentence in reasoning, not a \
+refusal."""
 
 
 def describe(prompt: str) -> tuple[Manifest, dict, str]:

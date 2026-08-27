@@ -95,7 +95,8 @@ def _scheme(manifest: Manifest, rows: list) -> tuple[classify.Classification, li
         raise RenderError("every feature was dropped; nothing to classify", "variable")
     # Dividing by another column yields a continuous ratio whatever the source
     # variable's measurement level was.
-    level = "count" if manifest.normalize else registry.VARIABLES[manifest.variable_id]["level"]
+    level = ("count" if manifest.normalize
+             else registry.variables_for(manifest.level)[manifest.variable_id]["level"])
     scheme = classify.build([r["value"] for r in rows], level, manifest.method, manifest.k)
     try:
         return scheme, colors.colors(manifest.ramp, scheme.k)
@@ -245,7 +246,7 @@ def _footer(manifest, projection_name, scheme, result) -> str:
     p = result.provenance
     dropped = result.dropped
 
-    scale = p.get("scale", registry.SCALE)
+    scale = p.get("scale") or registry.scale_for(manifest.level)
     vintage = p.get("vintage", registry.SOURCE_VINTAGE)
     source = f"{p.get('source', registry.SOURCE_NAME)} {vintage}, 1:{scale}"
 

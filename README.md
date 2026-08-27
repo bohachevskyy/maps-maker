@@ -175,7 +175,7 @@ over a network want `/map` or `/describe`, which return the SVG itself.
 | field | values |
 |---|---|
 | `region` | `"world"`, a `CONTINENT` name (`europe`, `africa`, …), or an `ADM0_A3` code (`FRA`). A filter, not geography — it also derives the map extent. |
-| `level` | `"admin_0"` only. Other values are rejected. |
+| `level` | `"admin_0"` (countries) or `"admin_1"` (oblasts, states, provinces). Variables belong to exactly one level. |
 | `variable` | `{"source": "natural_earth", "id": "GDP_MD"}`. Only `natural_earth` is valid so far; the shape is fixed so stored manifests survive a second source. |
 | `normalize` | a column name to divide by, or `null`. Optional. |
 | `classify` | `{"method": "quantile" \| "equal_interval" \| "jenks", "k": 3–9}` |
@@ -188,6 +188,43 @@ over a network want `/map` or `/describe`, which return the SVG itself.
 
 `projection: "auto"` picks by latitude span: Mollweide above 90°, Albers for
 mid-latitude regions (centre at or beyond 25°), Mercator otherwise.
+
+## Admin-1: sub-national units
+
+`level: "admin_1"` maps the units inside a country — Ukraine's 25 oblasts, the
+50 US states, Brazil's 27.
+
+```bash
+curl -X POST localhost:8000/map -H 'content-type: application/json' \
+  -d '{"region":"UKR","level":"admin_1",
+       "variable":{"source":"natural_earth","id":"type"},
+       "classify":{"method":"quantile","k":3},"ramp":"Set2"}' -o ukraine.svg
+```
+
+**There are no statistics at this level.** Of the 121 properties on an admin-1
+unit, not one is population, GDP or income, and `area_sqkm` is `0` for every
+unit on earth. The four mappable variables are classification and cartographic
+prominence:
+
+| variable | level | notes |
+|---|---|---|
+| `type` | nominal | `Oblast'`, `Voivodeship`, `State`, `Rada`… — native term |
+| `type_en` | nominal | `Region`, `Municipality`, `Province` — English |
+| `region` | nominal | sub-national grouping; **null for 53% of units**, including all of Ukraine |
+| `labelrank` | ordinal | cartographic prominence |
+
+So an admin-1 map shows *where* the units are and *what kind* they are. Anything
+richer — population by oblast, GDP by state — needs a second data source joined
+on `iso_3166_2`, which this service does not do.
+
+Two constraints worth knowing:
+
+- **Admin-1 is pinned to 10m** regardless of `SCALE`. The 50m admin-1 file
+  carries only 294 units across nine large countries (RUS, USA, IND, IDN, CHN,
+  BRA, CAN, AUS, ZAF) and contains no Ukrainian oblasts at all. The 10m file is
+  a **39 MB** one-time download.
+- **`region` must be `"world"` or a country code** at admin-1 — these features
+  carry no `CONTINENT`. `"world"` means 4,596 units and a very large SVG.
 
 ## Adding a variable
 
@@ -316,7 +353,7 @@ identical to GDP per capita either way.
 uv run pytest
 ```
 
-125 tests, no network and no API key: the harvester's fetch and the OpenAI
+131 tests, no network and no API key: the harvester's fetch and the OpenAI
 client are both stubbed, and the renderer runs against a hand-written 5-feature
 fixture in `tests/fixtures/`, which carries a polygon with a hole, a
 MultiPolygon, and both sentinel values. Running the suite costs nothing.

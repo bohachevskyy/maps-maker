@@ -55,7 +55,10 @@ def reply(manifest=None, mappable=True, refusal=None, reasoning="because"):
 def test_schema_enums_come_from_the_registry():
     from mapsvc import colors, registry
     props = agent.schema()["properties"]["manifest"]["properties"]
-    assert props["variable"]["properties"]["id"]["enum"] == sorted(registry.VARIABLES)
+    # One flat enum across levels; the validator catches wrong-level use.
+    assert props["variable"]["properties"]["id"]["enum"] == sorted(registry.ALL_VARIABLES)
+    assert set(registry.VARIABLES) < set(registry.ALL_VARIABLES)
+    assert set(registry.ADMIN1_VARIABLES) < set(registry.ALL_VARIABLES)
     assert props["ramp"]["enum"] == sorted(colors.RAMPS)
     assert props["classify"]["properties"]["method"]["enum"] == list(registry.METHODS)
     assert props["projection"]["enum"] == list(registry.PROJECTIONS)

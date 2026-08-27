@@ -49,21 +49,24 @@ def cache_key(manifest: Manifest) -> str:
     so it has to be here: without it, switching to 50m silently reuses harvested
     110m geometry and the map does not change.
     """
-    keyed = {**manifest.data_key(), "scale": registry.SCALE}
+    keyed = {**manifest.data_key(), "scale": registry.scale_for(manifest.level)}
     canonical = json.dumps(keyed, sort_keys=True, separators=(",", ":"))
     return hashlib.sha256(canonical.encode()).hexdigest()[:16]
 
 
-def source_path() -> pathlib.Path:
-    return cache_dir() / f"ne_{registry.SCALE}_admin_0_countries.geojson"
+def source_path(level: str = "admin_0") -> pathlib.Path:
+    return cache_dir() / (
+        f"ne_{registry.scale_for(level)}_{registry.dataset_for(level)}.geojson"
+    )
 
 
-def load_source() -> dict:
-    """The raw GeoJSON, fetched once and reused thereafter."""
-    path = source_path()
+def load_source(level: str = "admin_0") -> dict:
+    """The raw GeoJSON for a level, fetched once and reused thereafter."""
+    path = source_path(level)
     if not path.exists():
         path.parent.mkdir(parents=True, exist_ok=True)
-        request = urllib.request.Request(registry.DATA_URL, headers={"User-Agent": USER_AGENT})
+        request = urllib.request.Request(registry.data_url(level),
+                                         headers={"User-Agent": USER_AGENT})
         with urllib.request.urlopen(request, timeout=FETCH_TIMEOUT) as response:
             payload = response.read()
         # Write via a temporary name so an interrupted fetch cannot leave a
@@ -91,15 +94,22 @@ def harvest(manifest: Manifest) -> HarvestResult:
 
 
 def _build(manifest: Manifest) -> HarvestResult:
-    features = _select_region(load_source()["features"], manifest.region)
+    level = manifest.level
+    features = _select_region(load_source(level)["features"], manifest.region, level)
     if not features:
+        expected = ("'world', a CONTINENT name, or an ADM0_A3 code"
+                    if registry.continent_property(level)
+                    else "'world' or an ADM0_A3 country code (admin-1 features "
+                         "carry no continent)")
         raise HarvestError(
-            f"no features matched region {manifest.region!r}; expected 'world', "
-            "a CONTINENT name, or an ADM0_A3 code", "region"
+            f"no features matched region {manifest.region!r}; expected {expected}",
+            "region",
         )
 
-    meta = registry.VARIABLES[manifest.variable_id]
-    normalize_meta = registry.VARIABLES[manifest.normalize] if manifest.normalize else None
+    variables = registry.variables_for(level)
+    meta = variables[manifest.variable_id]
+    normalize_meta = variables[manifest.normalize] if manifest.normalize else None
+    id_property = registry.id_property(level)
 
     rows: list[dict] = []
     dropped: list[dict] = []
@@ -107,7 +117,7 @@ def _build(manifest: Manifest) -> HarvestResult:
 
     for feature in features:
         props = feature["properties"]
-        gid = props.get(registry.ID_PROPERTY)
+        gid = props.get(id_property)
         entry = {"id": gid, "geometry": feature["geometry"]}
 
         value = props.get(manifest.variable_id)
@@ -147,7 +157,7 @@ def _build(manifest: Manifest) -> HarvestResult:
     provenance = {
         "source": registry.SOURCE_NAME,
         "vintage": registry.SOURCE_VINTAGE,
-        "scale": registry.SCALE,
+        "scale": registry.scale_for(level),
         "region": manifest.region,
         "variable": manifest.variable_id,
         "unit": meta["unit"],
@@ -179,23 +189,25 @@ def _nothing_usable(manifest: Manifest, dropped: list) -> tuple[str, str]:
     )
 
 
-def _select_region(features: list, region: str) -> list:
-    """`region` is a filter, not geography: 'world', a continent, or an ISO3-ish code."""
+def _select_region(features: list, region: str, level: str = "admin_0") -> list:
+    """`region` is a filter, not geography: 'world', a continent, or a country code."""
     wanted = region.strip().lower()
     if wanted == "world":
         return list(features)
-    by_continent = [
-        f for f in features
-        if str(f["properties"].get(registry.CONTINENT_PROPERTY, "")).lower() == wanted
-    ]
-    if by_continent:
-        return by_continent
+
+    continent = registry.continent_property(level)
+    if continent:
+        by_continent = [f for f in features
+                        if str(f["properties"].get(continent, "")).lower() == wanted]
+        if by_continent:
+            return by_continent
+
     # ADM0_A3 is mostly ISO3 but carries custom codes for disputed and
-    # non-sovereign entities, so this is a code match, not an ISO3 lookup.
-    return [
-        f for f in features
-        if str(f["properties"].get(registry.ID_PROPERTY, "")).lower() == wanted
-    ]
+    # non-sovereign entities, so this is a code match, not an ISO3 lookup. At
+    # admin-1 it is the only filter there is.
+    country = registry.country_property(level)
+    return [f for f in features
+            if str(f["properties"].get(country, "")).lower() == wanted]
 
 
 def _no_data_reason(value, level: str) -> str | None:

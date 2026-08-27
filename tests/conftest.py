@@ -35,11 +35,11 @@ def build_result(geojson, manifest) -> HarvestResult:
 
     Mirrors what harvest.py produces so the renderer can be tested in isolation.
     """
-    meta = registry.VARIABLES[manifest.variable_id]
+    meta = registry.variables_for(manifest.level)[manifest.variable_id]
     rows, dropped, years = [], [], set()
     for feature in geojson["features"]:
         props = feature["properties"]
-        gid = props[registry.ID_PROPERTY]
+        gid = props[registry.id_property(manifest.level)]
         value = props.get(manifest.variable_id)
         if value is None or value == -99 or (meta["level"] == "count" and value == 0):
             dropped.append({"id": gid, "reason": "no_data", "geometry": feature["geometry"]})
@@ -53,7 +53,8 @@ def build_result(geojson, manifest) -> HarvestResult:
     return HarvestResult(
         rows=rows,
         provenance={"source": registry.SOURCE_NAME, "vintage": registry.SOURCE_VINTAGE,
-                    "scale": registry.SCALE, "region": manifest.region,
+                    "scale": registry.scale_for(manifest.level),
+                    "region": manifest.region,
                     "variable": manifest.variable_id, "unit": meta["unit"],
                     "year": year, "normalize": manifest.normalize},
         dropped=dropped,
