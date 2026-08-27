@@ -41,6 +41,8 @@ def filename(manifest: Manifest) -> str:
     canonical = json.dumps(
         {
             "region": manifest.region, "level": manifest.level,
+            "basemap": {"source": manifest.basemap_source,
+                        "detail": manifest.basemap_detail},
             "variable": {"source": manifest.variable_source, "id": manifest.variable_id},
             "normalize": manifest.normalize, "method": manifest.method, "k": manifest.k,
             "ramp": manifest.ramp, "projection": manifest.projection,
@@ -50,9 +52,13 @@ def filename(manifest: Manifest) -> str:
     )
     digest = hashlib.sha256(canonical.encode()).hexdigest()[:10]
 
-    label = f"{_slug(manifest.region)}-{_slug(manifest.variable_id)}"
-    if manifest.normalize:
-        label += f"-per-{_slug(manifest.normalize)}"
+    if manifest.variable_id is None:
+        # A base map has no variable to name it after; say what it actually is.
+        label = f"{_slug(manifest.region)}-{_slug(manifest.level)}-boundaries"
+    else:
+        label = f"{_slug(manifest.region)}-{_slug(manifest.variable_id)}"
+        if manifest.normalize:
+            label += f"-per-{_slug(manifest.normalize)}"
     return f"{label}-{digest}.svg"
 
 

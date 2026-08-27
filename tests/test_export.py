@@ -74,3 +74,18 @@ def test_no_part_file_is_left_behind(monkeypatch, tmp_path):
     monkeypatch.setenv("MAPSVC_OUTPUT", str(tmp_path))
     export.write(build_manifest(), "<svg/>")
     assert not list(tmp_path.glob("*.part"))
+
+
+def test_a_base_map_is_named_for_what_it_is_not_for_a_missing_variable():
+    name = export.filename(build_manifest(region="UKR", level="admin_1",
+                                          variable_id=None, variable_source=None,
+                                          ramp=None))
+    assert name.startswith("UKR-admin_1-boundaries-")
+    assert "None" not in name
+
+
+def test_the_basemap_changes_the_filename():
+    """Different polygons, different file -- even with the same variable."""
+    ne = export.filename(build_manifest(basemap_source="natural_earth"))
+    ov = export.filename(build_manifest(basemap_source="overture"))
+    assert ne != ov
