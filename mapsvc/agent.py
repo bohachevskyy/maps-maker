@@ -59,6 +59,15 @@ def schema() -> dict:
         "region": {"type": "string",
                    "description": "'world', a CONTINENT name, or an ADM0_A3 code"},
         "level": {"type": "string", "enum": list(registry.LEVELS)},
+        "basemap": {
+            "type": "object",
+            "properties": {
+                "source": {"type": "string", "enum": list(registry.BASEMAPS)},
+                "detail": {"type": "string", "enum": list(registry.DETAILS)},
+            },
+            "required": ["source", "detail"],
+            "additionalProperties": False,
+        },
         "variable": {
             "type": "object",
             "properties": {
@@ -69,6 +78,11 @@ def schema() -> dict:
             },
             "required": ["source", "id"],
             "additionalProperties": False,
+        },
+        # null means a base map: boundaries with nothing painted on them.
+        "variable_is_null": {
+            "type": "boolean",
+            "description": "true for a base map -- draw the boundaries, shade nothing",
         },
         "normalize": {"type": ["string", "null"],
                       "enum": sorted(registry.ALL_VARIABLES) + [None]},
@@ -157,8 +171,9 @@ def instructions() -> str:
     return f"""You assemble manifests for a choropleth map service. You choose what to map; \
 you never draw anything.
 
-The only data available is Natural Earth. It has two levels, and `level` picks \
-between them.
+Boundaries and statistics come from separate places. `level` picks how fine the \
+units are, `basemap` picks who supplies their outlines, and `variable` picks \
+what -- if anything -- is painted on them.
 
 level "admin_0" -- countries. Six mappable variables:
 
@@ -169,6 +184,23 @@ departments, prefectures. Choose this whenever the request is about units \
 *inside* a country. Four mappable variables:
 
 {admin1}
+
+levels "admin_2" and "admin_3" -- finer still: raions, counties, districts, \
+localities. These exist only on the overture basemap and have no variables at \
+all, so they are always base maps.
+
+The basemap decides where the polygons come from, and it is separate from where \
+the numbers come from:
+
+  natural_earth -- admin_0 and admin_1 only. Fast, cached on disk. The default.
+  overture      -- admin_0 through admin_3, far more detail, queried live from \
+S3 and therefore slow (about 10 seconds). Choose it when the request asks for \
+detail, precision, high resolution, or for a level natural_earth cannot serve.
+
+Set variable_is_null to true for a base map: boundaries drawn with no shading. \
+That is the right answer whenever someone asks to *see* or *draw* units rather \
+than to compare a quantity across them, and it is the only possible answer at \
+admin_2 and admin_3.
 
 Admin-1 carries no statistics at all: no population, no GDP, no income. Its 121 \
 properties are classification and cartographic metadata, and area_sqkm is zero \
@@ -255,7 +287,14 @@ def describe(prompt: str) -> tuple[Manifest, dict, str]:
                 "available data", "prompt"
             )
 
-        raw = answer["manifest"]
+        raw = dict(answer["manifest"])
+        # Structured Outputs cannot make one field nullable-by-flag, so the
+        # model signals a base map with a boolean and we clear the object here.
+        if raw.pop("variable_is_null", False):
+            raw["variable"] = None
+            raw["normalize"] = None
+            raw.pop("classify", None)
+            raw.pop("ramp", None)
         try:
             return validate(raw), raw, answer.get("reasoning", "")
         except ManifestError as error:

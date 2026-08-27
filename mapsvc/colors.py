@@ -92,6 +92,9 @@ HATCH_ID = "nodata-hatch"
 HATCH_BG = "#f2f2f2"
 HATCH_STROKE = "#8c8c8c"
 BORDER = "#4d4d4d"
+# A base map has no variable to encode, so it gets one neutral fill rather than
+# a colour that might be read as meaning something.
+BASEMAP_FILL = "#e8eef2"
 OCEAN = "#ffffff"
 
 

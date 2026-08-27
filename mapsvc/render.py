@@ -9,6 +9,7 @@ formatted to a fixed precision, and nothing carries a timestamp. The same
 manifest twice must produce byte-identical bytes.
 """
 
+import textwrap
 from xml.sax.saxutils import escape, quoteattr
 
 from mapsvc import classify, colors, project, registry
@@ -21,6 +22,8 @@ FOOTER_H = 116
 CANVAS_H = MAP_H + FOOTER_H
 MAP_MARGIN = 18
 COORD_DP = 2
+# Characters that fit across the footer at 11.5px in the chosen font.
+FOOTER_CHARS = 148
 
 SWATCH_W, SWATCH_H, SWATCH_GAP = 20, 13, 4
 LEGEND_W, LEGEND_INSET = 212, 20
@@ -55,7 +58,7 @@ def render(manifest: Manifest, result: HarvestResult) -> str:
     transform = project.fit(bounds, CANVAS_W, MAP_H, MAP_MARGIN)
     lon0 = (extent[0] + extent[2]) / 2.0
 
-    scheme, swatches = _scheme(manifest, rows)
+    scheme, swatches = (None, None) if manifest.variable_id is None else _scheme(manifest, rows)
 
     # Declared explicitly so a saved .svg is self-describing about its encoding
     # (the footnote carries en dashes and a division sign).
@@ -73,7 +76,9 @@ def render(manifest: Manifest, result: HarvestResult) -> str:
     drawn: list[tuple[float, float]] = []
     parts.append('<g clip-path="url(#map-clip)">')
     for row in rows:
-        fill = swatches[scheme.bin_of(row["value"])]
+        # A base map paints one neutral fill: there is no variable to encode.
+        fill = (colors.BASEMAP_FILL if scheme is None
+                else swatches[scheme.bin_of(row["value"])])
         parts.append(_path(row, fill, projector, transform, lon0, drawn))
     if show_missing:
         fill = f"url(#{colors.HATCH_ID})" if manifest.missing == "hatch" else colors.MISSING_GREY
@@ -82,11 +87,20 @@ def render(manifest: Manifest, result: HarvestResult) -> str:
                 parts.append(_path(item, fill, projector, transform, lon0, drawn))
     parts.append("</g>")
 
-    parts.append(_legend(manifest, scheme, swatches, dropped, show_missing,
-                         result.provenance, drawn))
-    parts.append(_footer(manifest, name, scheme, result))
+    if scheme is not None:
+        parts.append(_legend(manifest, scheme, swatches, dropped, show_missing,
+                             result.provenance, drawn))
+    footer, footer_lines = _footer(manifest, name, scheme, result)
+    parts.append(footer)
     parts.append("</svg>")
-    return "\n".join(parts) + "\n"
+    svg = "\n".join(parts) + "\n"
+    # The canvas is declared before the footer is laid out, so if attribution
+    # pushed it past the reserved band, restate the height rather than clip it.
+    needed = MAP_H + 26 + footer_lines * 17 + 12
+    if needed > CANVAS_H:
+        svg = svg.replace(f'height="{CANVAS_H}" viewBox="0 0 {CANVAS_W} {CANVAS_H}"',
+                          f'height="{needed}" viewBox="0 0 {CANVAS_W} {needed}"', 1)
+    return svg
 
 
 def _scheme(manifest: Manifest, rows: list) -> tuple[classify.Classification, list[str]]:
@@ -247,10 +261,17 @@ def _footer(manifest, projection_name, scheme, result) -> str:
     dropped = result.dropped
 
     scale = p.get("scale") or registry.scale_for(manifest.level)
-    vintage = p.get("vintage", registry.SOURCE_VINTAGE)
-    source = f"{p.get('source', registry.SOURCE_NAME)} {vintage}, 1:{scale}"
+    vintage = p.get("vintage") or registry.SOURCE_VINTAGE
+    source = f"{p.get('source') or registry.SOURCE_NAME} {vintage}, {scale}"
+    # ODbL requires attribution wherever the data is shown; the footnote is the
+    # only place this map has to say it.
+    license_note = p.get("license")
+    if license_note and license_note != "public domain":
+        source += f". {p.get('attribution') or ''} ({license_note})".rstrip()
 
-    if scheme.kind == "categorical":
+    if scheme is None:
+        method = f"boundaries only, no variable ({len(result.rows)} units)"
+    elif scheme.kind == "categorical":
         method = f"one class per category ({scheme.k} categories)"
     else:
         method = f"{manifest.method}, k={scheme.k}"
@@ -258,11 +279,16 @@ def _footer(manifest, projection_name, scheme, result) -> str:
             plural = "" if scheme.k == 1 else "s"
             method += f" (requested {manifest.k}; only {scheme.k} distinct value{plural})"
 
-    variable = p.get("variable", manifest.variable_id)
-    if p.get("unit"):
+    variable = p.get("variable") or manifest.variable_id
+    if variable is None:
+        variable = f"none -- {manifest.level} boundaries"
+    elif p.get("unit"):
         variable += f" ({p['unit']})"
     if p.get("year"):
         variable += f", {p['year']}"
+    if p.get("statistics_source") and p.get("statistics_source") != p.get("source"):
+        # Boundaries and numbers came from different providers; say both.
+        variable += f" [{p['statistics_source']}]"
     if manifest.normalize:
         normalize = manifest.normalize
         if p.get("normalize_unit"):
@@ -286,16 +312,23 @@ def _footer(manifest, projection_name, scheme, result) -> str:
         excluded + ".",
     ]
 
+    # Attribution can make the first line longer than the canvas. There is no
+    # text measurement in a bare SVG, so wrap on a character budget tuned to the
+    # font size; overflowing silently off the right edge is worse than a guess.
+    wrapped: list[str] = []
+    for line in lines:
+        wrapped.extend(textwrap.wrap(line, width=FOOTER_CHARS) or [""])
+
     out = [f'<g font-family="{FONT}">',
            f'<line x1="20" y1="{MAP_H + 1}" x2="{CANVAS_W - 20}" y2="{MAP_H + 1}" '
            'stroke="#d9d9d9" stroke-width="1"/>']
-    for i, line in enumerate(lines):
+    for i, line in enumerate(wrapped):
         out.append(
             f'<text x="20" y="{MAP_H + 26 + i * 17}" font-size="11.5" '
             f'fill="#4d4d4d">{escape(line)}</text>'
         )
     out.append("</g>")
-    return "".join(out)
+    return "".join(out), len(wrapped)
 
 
 _PROJECTION_LABELS = {

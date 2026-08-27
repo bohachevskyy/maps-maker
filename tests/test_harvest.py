@@ -91,8 +91,10 @@ def test_region_matches_continent_then_country_code(offline):
 
 
 def test_unknown_region_names_the_region_field(offline):
+    """Raised by the cartography layer now -- the polygons are what is missing."""
+    from mapsvc.cartography import CartographyError
     offline([feature("FRA", "Europe")])
-    with pytest.raises(H.HarvestError) as excinfo:
+    with pytest.raises((H.HarvestError, CartographyError)) as excinfo:
         H.harvest(build_manifest(region="atlantis"))
     assert excinfo.value.field == "region"
 
@@ -211,12 +213,14 @@ def test_admin_1_filters_by_country_code(monkeypatch, tmp_path):
     units = [
         {"type": "Feature", "geometry": BOX,
          "properties": {"adm1_code": f"UKR-{i}", "adm0_a3": "UKR", "name": f"Oblast {i}",
+                        "iso_3166_2": f"UA-{i:02d}",
                         "type": "Oblast'", "type_en": "Region", "region": None,
                         "labelrank": 7}}
         for i in range(3)
     ] + [
         {"type": "Feature", "geometry": BOX,
          "properties": {"adm1_code": "POL-1", "adm0_a3": "POL", "name": "Mazovia",
+                        "iso_3166_2": "PL-14",
                         "type": "Voivodeship", "type_en": "Province", "region": None,
                         "labelrank": 7}}
     ]
@@ -225,7 +229,7 @@ def test_admin_1_filters_by_country_code(monkeypatch, tmp_path):
     result = H.harvest(build_manifest(level="admin_1", region="UKR",
                                       variable_id="type", ramp="Set2"))
     assert [r["id"] for r in result.rows] == ["UKR-0", "UKR-1", "UKR-2"]
-    assert result.provenance["scale"] == "10m"
+    assert result.provenance["scale"] == "1:10m"
 
     # `region` is null on every Ukrainian unit, so nothing is left to classify.
     with pytest.raises(H.HarvestError) as excinfo:

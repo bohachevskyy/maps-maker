@@ -122,10 +122,27 @@ def test_rejects_a_misspelled_field_rather_than_silently_defaulting():
 
 
 def test_rejects_missing_required_fields():
-    for field in ("region", "level", "variable", "classify", "ramp"):
+    for field in ("region", "level"):
         raw = manifest()
         del raw[field]
         assert rejects(raw).field == field
+
+
+def test_classify_and_ramp_are_required_only_alongside_a_variable():
+    for field in ("classify", "ramp"):
+        raw = manifest()
+        del raw[field]
+        assert rejects(raw).field == field
+
+    # With no variable there is nothing to classify or colour.
+    base = validate({"region": "europe", "level": "admin_0", "variable": None})
+    assert (base.variable_id, base.ramp) == (None, None)
+
+
+def test_a_base_map_rejects_normalize():
+    error = rejects({"region": "europe", "level": "admin_0", "variable": None,
+                     "normalize": "POP_EST"})
+    assert error.field == "normalize"
 
 
 def test_optional_fields_default():

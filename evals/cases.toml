@@ -116,3 +116,41 @@ refuse = true
 name = "too many categories for any qualitative ramp"
 prompt = "show me every subregion in the world coloured with Set3"
 refuse = true
+
+# --------------------------------------------------------- cartography ------
+
+[[case]]
+name = "raions are admin_2 on overture"
+prompt = "draw the raions of Ukraine"
+level = "admin_2"
+region = "UKR"
+basemap = "overture"
+variable = "__null__"
+
+[[case]]
+name = "asking to see units gives a base map"
+prompt = "show me the outlines of Poland's provinces"
+region = "POL"
+variable = "__null__"
+
+[[case]]
+name = "detail request picks overture"
+prompt = "a high resolution map of Ukraine's oblasts"
+region = "UKR"
+basemap = "overture"
+
+[[case]]
+name = "counties of the USA need overture"
+prompt = "map every county in the USA"
+level = "admin_2"
+region = "USA"
+basemap = "overture"
+variable = "__null__"
+
+[[case]]
+name = "a plain country choropleth still defaults to natural_earth"
+prompt = "GDP per capita across Africa"
+level = "admin_0"
+basemap = "natural_earth"
+variable = "GDP_MD"
+normalize = "POP_EST"

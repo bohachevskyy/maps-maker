@@ -53,7 +53,7 @@ def build_result(geojson, manifest) -> HarvestResult:
     return HarvestResult(
         rows=rows,
         provenance={"source": registry.SOURCE_NAME, "vintage": registry.SOURCE_VINTAGE,
-                    "scale": registry.scale_for(manifest.level),
+                    "scale": f"1:{registry.scale_for(manifest.level)}",
                     "region": manifest.region,
                     "variable": manifest.variable_id, "unit": meta["unit"],
                     "year": year, "normalize": manifest.normalize},

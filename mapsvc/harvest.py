@@ -1,6 +1,12 @@
-"""Fetching, filtering and cleaning the data. This is the module that does I/O.
+"""The join: polygons from cartography, values from statistics.
 
-Synchronous by design: one file, fetched once, cached to disk.
+This module owns the seam between the two. It does not know how boundaries are
+fetched or where numbers come from -- it asks each side for what it needs and
+matches them on a key. Adding a statistics source touches `statistics/` only;
+adding a boundary source touches `cartography/` only.
+
+Synchronous, and only lightly cached for now: the Natural Earth files are cached
+to disk, Overture is queried live on every request.
 """
 
 import hashlib
@@ -9,11 +15,11 @@ import os
 import pathlib
 import urllib.request
 
-from mapsvc import registry
+from mapsvc import cartography, registry, statistics
 from mapsvc.manifest import Manifest
 from mapsvc.models import HarvestResult
 
-__all__ = ["HarvestResult", "HarvestError", "harvest"]
+__all__ = ["HarvestResult", "HarvestError", "harvest", "load_source", "select_region"]
 
 FETCH_TIMEOUT = 60
 USER_AGENT = "mapsvc/0.1 (+https://github.com/nvkelso/natural-earth-vector)"
@@ -32,26 +38,13 @@ class HarvestError(ValueError):
         self.field = field
 
 
+# --------------------------------------------------------------- raw files ---
+
 def cache_dir() -> pathlib.Path:
     root = os.environ.get("MAPSVC_CACHE")
     if root:
         return pathlib.Path(root)
     return pathlib.Path(__file__).resolve().parent.parent / "cache"
-
-
-def cache_key(manifest: Manifest) -> str:
-    """Hash of the data-relevant manifest fields, plus the scale.
-
-    `ramp` and `classify` are render-time choices. Letting them into the key
-    would re-fetch a file that has not changed just because the colours did.
-
-    SCALE is not a manifest field but it decides which geometry the rows carry,
-    so it has to be here: without it, switching to 50m silently reuses harvested
-    110m geometry and the map does not change.
-    """
-    keyed = {**manifest.data_key(), "scale": registry.scale_for(manifest.level)}
-    canonical = json.dumps(keyed, sort_keys=True, separators=(",", ":"))
-    return hashlib.sha256(canonical.encode()).hexdigest()[:16]
 
 
 def source_path(level: str = "admin_0") -> pathlib.Path:
@@ -61,7 +54,7 @@ def source_path(level: str = "admin_0") -> pathlib.Path:
 
 
 def load_source(level: str = "admin_0") -> dict:
-    """The raw GeoJSON for a level, fetched once and reused thereafter."""
+    """The raw Natural Earth GeoJSON for a level, fetched once and reused."""
     path = source_path(level)
     if not path.exists():
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -77,7 +70,46 @@ def load_source(level: str = "admin_0") -> dict:
     return json.loads(path.read_text())
 
 
+def select_region(features: list, region: str, level: str = "admin_0") -> list:
+    """`region` is a filter, not geography: 'world', a continent, or a country code."""
+    wanted = region.strip().lower()
+    if wanted == "world":
+        return list(features)
+
+    continent = registry.continent_property(level)
+    if continent:
+        by_continent = [f for f in features
+                        if str(f["properties"].get(continent, "")).lower() == wanted]
+        if by_continent:
+            return by_continent
+
+    # ADM0_A3 is mostly ISO3 but carries custom codes for disputed and
+    # non-sovereign entities, so this is a code match, not an ISO3 lookup.
+    country = registry.country_property(level)
+    return [f for f in features
+            if str(f["properties"].get(country, "")).lower() == wanted]
+
+
+# ------------------------------------------------------------------- cache ---
+
+def cache_key(manifest: Manifest) -> str:
+    """Hash of the data-relevant manifest fields, plus the geometry scale.
+
+    `ramp` and `classify` are render-time choices; letting them into the key
+    would re-fetch a file that has not changed just because the colours did.
+    SCALE is not a manifest field but decides which geometry the rows carry, so
+    without it a change of scale would silently reuse the old polygons.
+    """
+    keyed = {**manifest.data_key(), "scale": registry.scale_for(manifest.level)}
+    canonical = json.dumps(keyed, sort_keys=True, separators=(",", ":"))
+    return hashlib.sha256(canonical.encode()).hexdigest()[:16]
+
+
 def harvest(manifest: Manifest) -> HarvestResult:
+    # Overture is queried live; caching its results is deliberately deferred.
+    if manifest.basemap_source != "natural_earth":
+        return _build(manifest)
+
     key = cache_key(manifest)
     cached = cache_dir() / "harvest" / f"{key}.json"
     if cached.exists():
@@ -86,85 +118,98 @@ def harvest(manifest: Manifest) -> HarvestResult:
 
     result = _build(manifest)
     cached.parent.mkdir(parents=True, exist_ok=True)
-    payload = {"rows": result.rows, "provenance": result.provenance, "dropped": result.dropped}
+    payload = {"rows": result.rows, "provenance": result.provenance,
+               "dropped": result.dropped}
     temporary = cached.with_suffix(".part")
     temporary.write_text(json.dumps(payload, sort_keys=True))
     temporary.replace(cached)
     return result
 
 
+# -------------------------------------------------------------------- join ---
+
 def _build(manifest: Manifest) -> HarvestResult:
-    level = manifest.level
-    features = _select_region(load_source(level)["features"], manifest.region, level)
-    if not features:
-        expected = ("'world', a CONTINENT name, or an ADM0_A3 code"
-                    if registry.continent_property(level)
-                    else "'world' or an ADM0_A3 country code (admin-1 features "
-                         "carry no continent)")
-        raise HarvestError(
-            f"no features matched region {manifest.region!r}; expected {expected}",
-            "region",
-        )
+    boundaries = cartography.load(manifest.basemap_source, manifest.level,
+                                  manifest.region, manifest.basemap_detail)
+    provenance = {
+        "region": manifest.region,
+        "level": manifest.level,
+        **{f"basemap_{k}": v for k, v in boundaries.provenance.items()},
+        "source": boundaries.provenance.get("source"),
+        "scale": boundaries.provenance.get("scale"),
+        "license": boundaries.provenance.get("license"),
+        "attribution": boundaries.provenance.get("attribution"),
+        "vintage": boundaries.provenance.get("release"),
+        "variable": None, "unit": None, "year": None,
+        "normalize": None, "normalize_unit": None,
+    }
 
-    variables = registry.variables_for(level)
-    meta = variables[manifest.variable_id]
-    normalize_meta = variables[manifest.normalize] if manifest.normalize else None
-    id_property = registry.id_property(level)
+    if manifest.variable_id is None:
+        # A base map: cartography with nothing painted on it.
+        rows = [{"id": u["id"], "geometry": u["geometry"], "value": None,
+                 "name": u.get("name")} for u in boundaries.units]
+        return HarvestResult(rows=rows, provenance=provenance, dropped=[])
 
+    values = statistics.load(manifest.variable_source, manifest.variable_id,
+                             manifest.level, manifest.region)
+    divisor = None
+    if manifest.normalize:
+        divisor = statistics.load(manifest.variable_source, manifest.normalize,
+                                  manifest.level, manifest.region)
+
+    provenance.update({
+        "variable": values.provenance.get("variable"),
+        "unit": values.provenance.get("unit"),
+        "year": values.provenance.get("year"),
+        "statistics_source": values.provenance.get("source"),
+        "normalize": manifest.normalize,
+        "normalize_unit": divisor.provenance.get("unit") if divisor else None,
+    })
+
+    value_level = values.provenance.get("level", "count")
     rows: list[dict] = []
     dropped: list[dict] = []
-    years: set = set()
 
-    for feature in features:
-        props = feature["properties"]
-        gid = props.get(id_property)
-        entry = {"id": gid, "geometry": feature["geometry"]}
+    for unit in boundaries.units:
+        entry = {"id": unit["id"], "geometry": unit["geometry"]}
+        key = str(unit.get("key")).upper() if unit.get("key") else None
 
-        value = props.get(manifest.variable_id)
-        reason = _no_data_reason(value, meta["level"])
+        if key is None or key not in values.values:
+            # The polygon exists but this source has no row for it. Common when
+            # boundaries and statistics come from different providers.
+            dropped.append({**entry, "reason": "no_join"})
+            continue
+
+        value = values.values[key]
+        reason = _no_data_reason(value, value_level)
         if reason:
             dropped.append({**entry, "reason": reason})
             continue
 
-        if manifest.normalize:
-            divisor = props.get(manifest.normalize)
-            reason = _no_data_reason(divisor, normalize_meta["level"])
+        if divisor:
+            other = divisor.values.get(key)
+            reason = _no_data_reason(other, divisor.provenance.get("level", "count"))
             if reason:
                 dropped.append({**entry, "reason": f"{reason}_normalize"})
                 continue
             try:
-                value = float(value) / float(divisor)
+                value = float(value) / float(other)
             except (TypeError, ValueError):
-                # e.g. normalising a nominal column, which has no numeric meaning.
                 dropped.append({**entry, "reason": "not_numeric"})
                 continue
             except ZeroDivisionError:
                 dropped.append({**entry, "reason": "divide_by_zero"})
                 continue
-        elif meta["level"] == "count" or isinstance(value, (int, float)):
+        elif value_level == "count" or isinstance(value, (int, float)):
             value = float(value)
 
         rows.append({**entry, "value": value})
-        if meta["year_col"] and isinstance(props.get(meta["year_col"]), int):
-            years.add(props[meta["year_col"]])
 
     if not rows:
         raise HarvestError(*_nothing_usable(manifest, dropped))
 
-    rows.sort(key=lambda r: r["id"])
-    dropped.sort(key=lambda r: (r["id"], r["reason"]))
-
-    provenance = {
-        "source": registry.SOURCE_NAME,
-        "vintage": registry.SOURCE_VINTAGE,
-        "scale": registry.scale_for(level),
-        "region": manifest.region,
-        "variable": manifest.variable_id,
-        "unit": meta["unit"],
-        "year": _year_label(years),
-        "normalize": manifest.normalize,
-        "normalize_unit": normalize_meta["unit"] if normalize_meta else None,
-    }
+    rows.sort(key=lambda r: str(r["id"]))
+    dropped.sort(key=lambda r: (str(r["id"]), r["reason"]))
     return HarvestResult(rows=rows, provenance=provenance, dropped=dropped)
 
 
@@ -175,6 +220,14 @@ _NORMALIZE_REASONS = {"no_data_normalize", "not_numeric", "divide_by_zero"}
 def _nothing_usable(manifest: Manifest, dropped: list) -> tuple[str, str]:
     """Explain an empty result by blaming the column actually at fault."""
     reasons = {item["reason"] for item in dropped}
+    if reasons == {"no_join"}:
+        return (
+            f"none of the {len(dropped)} {manifest.level} boundaries could be "
+            f"matched to a {manifest.variable_source} row for "
+            f"{manifest.variable_id}; the basemap and the statistics do not "
+            "share a join key at this level",
+            "variable.id",
+        )
     if reasons and reasons <= _NORMALIZE_REASONS:
         return (
             f"every feature in region {manifest.region!r} was dropped dividing "
@@ -189,27 +242,6 @@ def _nothing_usable(manifest: Manifest, dropped: list) -> tuple[str, str]:
     )
 
 
-def _select_region(features: list, region: str, level: str = "admin_0") -> list:
-    """`region` is a filter, not geography: 'world', a continent, or a country code."""
-    wanted = region.strip().lower()
-    if wanted == "world":
-        return list(features)
-
-    continent = registry.continent_property(level)
-    if continent:
-        by_continent = [f for f in features
-                        if str(f["properties"].get(continent, "")).lower() == wanted]
-        if by_continent:
-            return by_continent
-
-    # ADM0_A3 is mostly ISO3 but carries custom codes for disputed and
-    # non-sovereign entities, so this is a code match, not an ISO3 lookup. At
-    # admin-1 it is the only filter there is.
-    country = registry.country_property(level)
-    return [f for f in features
-            if str(f["properties"].get(country, "")).lower() == wanted]
-
-
 def _no_data_reason(value, level: str) -> str | None:
     if value in NO_DATA:
         return "no_data"
@@ -220,12 +252,3 @@ def _no_data_reason(value, level: str) -> str | None:
         # becomes a divide-by-zero when used as a `normalize` column.
         return "no_data"
     return None
-
-
-def _year_label(years: set) -> str | None:
-    """The vintage, stated automatically so the caller never has to remember to."""
-    if not years:
-        return None
-    if len(years) == 1:
-        return str(next(iter(years)))
-    return f"{min(years)}–{max(years)}"

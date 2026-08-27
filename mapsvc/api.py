@@ -22,13 +22,16 @@ from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse, Response
 
 from mapsvc.agent import AgentError, AgentUnavailable, describe
+from mapsvc.cartography import CartographyError
 from mapsvc.export import write
 from mapsvc.harvest import HarvestError
+from mapsvc.statistics import StatisticsError
 from mapsvc.manifest import Manifest, ManifestError, validate
 from mapsvc.pipeline import build_map, draw
 from mapsvc.render import RenderError
 
-FAILURES = (AgentError, ManifestError, HarvestError, RenderError)
+FAILURES = (AgentError, ManifestError, HarvestError, RenderError,
+            CartographyError, StatisticsError)
 
 # No docs, no schema route: the spec asks for one endpoint and nothing else.
 # Set docs_url="/docs", openapi_url="/openapi.json" to get them back.
@@ -45,7 +48,7 @@ async def make_map(request: Request) -> Response:
 
     try:
         svg = build_map(raw)
-    except (ManifestError, HarvestError, RenderError) as exc:
+    except FAILURES as exc:
         return _rejected(str(exc), exc.field)
 
     return Response(content=svg.encode("utf-8"), media_type="image/svg+xml")

@@ -24,7 +24,8 @@ CASES = pathlib.Path(__file__).parent / "cases.toml"
 DIRECT = {
     "level": "level", "region": "region", "variable": "variable_id",
     "normalize": "normalize", "method": "method", "projection": "projection",
-    "missing": "missing", "ramp": "ramp",
+    "missing": "missing", "ramp": "ramp", "basemap": "basemap_source",
+    "detail": "basemap_detail",
 }
 NULL = "__null__"
 RESERVED = {"name", "prompt", "refuse", "mentions", "ramp_kind", "k"} | set(DIRECT)
@@ -74,6 +75,8 @@ def check(case: dict, manifest, reasoning: str) -> None:
         raise Failure(f"k: expected {case['k']!r}, got {manifest.k!r}")
 
     if "ramp_kind" in case:
+        if manifest.ramp is None:
+            raise Failure("ramp_kind: expected a ramp, got a base map")
         actual = colors.kind(manifest.ramp)
         if actual != case["ramp_kind"]:
             raise Failure(
@@ -107,8 +110,8 @@ def run_once(case: dict) -> tuple[bool, str]:
         check(case, manifest, reasoning)
     except Failure as failure:
         return False, str(failure)
-    return True, (f"{manifest.level} {manifest.region} {manifest.variable_id} "
-                  f"ramp={manifest.ramp}")
+    return True, (f"{manifest.basemap_source}/{manifest.level} {manifest.region} "
+                  f"{manifest.variable_id or 'base map'} ramp={manifest.ramp}")
 
 
 def main() -> int:

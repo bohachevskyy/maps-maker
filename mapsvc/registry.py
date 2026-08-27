@@ -14,7 +14,11 @@ _BASE = ("https://raw.githubusercontent.com/nvkelso/natural-earth-vector/"
 SOURCE_NAME = "Natural Earth"
 SOURCE_VINTAGE = "v5.1.1"
 
-LEVELS = ("admin_0", "admin_1")
+# Canonical levels. Each cartography provider maps these onto its own
+# vocabulary; not every provider offers every level.
+LEVELS = ("admin_0", "admin_1", "admin_2", "admin_3")
+BASEMAPS = ("natural_earth", "overture")
+DETAILS = ("simplified", "full")
 METHODS = ("quantile", "equal_interval", "jenks")
 PROJECTIONS = ("auto", "albers", "mercator", "mollweide")
 MISSING_MODES = ("hatch", "grey", "exclude")

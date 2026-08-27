@@ -166,6 +166,7 @@ over a network want `/map` or `/describe`, which return the SVG itself.
 | `OPENAI_MODEL` | `/describe` only | `gpt-5.6-terra` |
 | `MAPSVC_CACHE` | optional | `./cache` |
 | `MAPSVC_OUTPUT` | `/export` only | `./out/maps` |
+| `OVERTURE_RELEASE` | overture basemap | `2026-08-19.0` |
 
 `POST /map` needs no environment at all; it has been verified serving under
 `env -i`.
@@ -175,8 +176,9 @@ over a network want `/map` or `/describe`, which return the SVG itself.
 | field | values |
 |---|---|
 | `region` | `"world"`, a `CONTINENT` name (`europe`, `africa`, …), or an `ADM0_A3` code (`FRA`). A filter, not geography — it also derives the map extent. |
-| `level` | `"admin_0"` (countries) or `"admin_1"` (oblasts, states, provinces). Variables belong to exactly one level. |
-| `variable` | `{"source": "natural_earth", "id": "GDP_MD"}`. Only `natural_earth` is valid so far; the shape is fixed so stored manifests survive a second source. |
+| `level` | `admin_0` … `admin_3`. What each basemap serves differs; variables belong to exactly one level. |
+| `basemap` | `{"source": "natural_earth" \| "overture", "detail": "simplified" \| "full"}`. Optional; defaults to Natural Earth. |
+| `variable` | `{"source": "natural_earth", "id": "GDP_MD"}`, or `null` for a base map. Only `natural_earth` is a valid source so far. |
 | `normalize` | a column name to divide by, or `null`. Optional. |
 | `classify` | `{"method": "quantile" \| "equal_interval" \| "jenks", "k": 3–9}` |
 | `ramp` | `YlGnBu`, `YlOrRd`, `Blues`, `Greens`, `PuBuGn` (sequential); `RdBu`, `BrBG` (diverging); `Set2`, `Set3`, `Dark2`, `Paired` (qualitative) |
@@ -188,6 +190,71 @@ over a network want `/map` or `/describe`, which return the SVG itself.
 
 `projection: "auto"` picks by latitude span: Mollweide above 90°, Albers for
 mid-latitude regions (centre at or beyond 25°), Mercator otherwise.
+
+## Cartography and statistics are separate
+
+Boundaries and numbers come from different places and are joined on an ISO code.
+
+```
+cartography/   polygons, keyed by ISO 3166-2 (or ISO3 at country level)
+  natural_earth.py   admin_0, admin_1
+  overture.py        admin_0 .. admin_3, queried live from S3 with DuckDB
+statistics/    values, keyed the same way
+  natural_earth.py   the six country attributes
+harvest.py     the join
+```
+
+Adding a data source touches one directory. `basemap` chooses the boundaries,
+`variable` chooses what is painted on them, and neither knows about the other.
+
+### Basemaps
+
+| source | levels | licence | speed |
+|---|---|---|---|
+| `natural_earth` (default) | admin_0, admin_1 | public domain | instant, cached on disk |
+| `overture` | admin_0 – admin_3 | **ODbL 1.0** | ~10 s per country, **no cache yet** |
+
+```bash
+curl -X POST localhost:8000/map -H 'content-type: application/json' \
+  -d '{"region":"UKR","level":"admin_2","variable":null,
+       "basemap":{"source":"overture"}}' -o raions.svg
+```
+
+Overture is queried straight off `s3://overturemaps-us-west-2` as Hive-partitioned
+GeoParquet — no bulk download, DuckDB reads only the row groups a query touches.
+Its data is **ODbL**, so the footnote carries the attribution automatically; that
+is a licence obligation, not decoration.
+
+**It is slow, and the numbers are worth knowing before you use it:**
+
+| request | time | SVG |
+|---|---|---|
+| Ukraine admin_1 (27 oblasts) | ~12 s | 3.2 MB |
+| Ukraine admin_2 (151 raions) | ~15 s | 7.2 MB |
+| Europe admin_0 (45 countries) | **~156 s** | 12.4 MB |
+
+Continent-scale Overture requests are not practical until the cache lands.
+Single countries are usable now.
+
+### Base maps
+
+`"variable": null` draws boundaries with no shading and no legend — the only
+honest option at admin_2 and admin_3, where no statistics exist. The footnote is
+still mandatory.
+
+### Joining across providers
+
+Overture polygons with Natural Earth statistics works, keyed on ISO3:
+
+```json
+{"region":"europe","level":"admin_0","basemap":{"source":"overture"},
+ "variable":{"source":"natural_earth","id":"GDP_MD"},"normalize":"POP_EST",
+ "classify":{"method":"quantile","k":5},"ramp":"YlGnBu"}
+```
+
+The footnote then credits both. Below country level the join key is ISO 3166-2;
+at admin_2 and below **no standard code exists**, so statistics cannot be joined
+there and the harvester will not pretend otherwise.
 
 ## Admin-1: sub-national units
 
@@ -280,7 +347,7 @@ re-harvests correctly. Deleting `cache/` is not required.
 
 ## Design notes
 
-**Four seams.** `describe → validate → harvest → render`, of which the first is
+**Five seams.** `describe → validate → (cartography + statistics) → render`, of which the first is
 optional and the other three are the original service. `/export` adds a write
 after the last one; every endpoint is a different entry point into the same
 chain, not a parallel implementation. `render.py` imports nothing that
@@ -353,7 +420,7 @@ identical to GDP per capita either way.
 uv run pytest
 ```
 
-131 tests, no network and no API key: the harvester's fetch and the OpenAI
+146 tests, no network and no API key: the harvester's fetch and the OpenAI
 client are both stubbed, and the renderer runs against a hand-written 5-feature
 fixture in `tests/fixtures/`, which carries a polygon with a hole, a
 MultiPolygon, and both sentinel values. Running the suite costs nothing.
