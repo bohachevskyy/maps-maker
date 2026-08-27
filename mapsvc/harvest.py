@@ -40,12 +40,17 @@ def cache_dir() -> pathlib.Path:
 
 
 def cache_key(manifest: Manifest) -> str:
-    """Hash of the data-relevant manifest fields only.
+    """Hash of the data-relevant manifest fields, plus the scale.
 
     `ramp` and `classify` are render-time choices. Letting them into the key
     would re-fetch a file that has not changed just because the colours did.
+
+    SCALE is not a manifest field but it decides which geometry the rows carry,
+    so it has to be here: without it, switching to 50m silently reuses harvested
+    110m geometry and the map does not change.
     """
-    canonical = json.dumps(manifest.data_key(), sort_keys=True, separators=(",", ":"))
+    keyed = {**manifest.data_key(), "scale": registry.SCALE}
+    canonical = json.dumps(keyed, sort_keys=True, separators=(",", ":"))
     return hashlib.sha256(canonical.encode()).hexdigest()[:16]
 
 

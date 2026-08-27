@@ -179,3 +179,17 @@ def test_a_genuinely_empty_variable_still_blames_the_variable(offline):
     with pytest.raises(H.HarvestError) as excinfo:
         H.harvest(build_manifest(region="europe"))
     assert excinfo.value.field == "variable.id"
+
+
+def test_cache_key_includes_the_scale(monkeypatch):
+    """SCALE decides which geometry the rows carry, so it must key the cache.
+
+    Without it, changing registry.SCALE silently reuses geometry harvested at
+    the old scale and the map does not change.
+    """
+    from mapsvc import registry
+    manifest = build_manifest()
+    monkeypatch.setattr(registry, "SCALE", "110m")
+    coarse = H.cache_key(manifest)
+    monkeypatch.setattr(registry, "SCALE", "50m")
+    assert H.cache_key(manifest) != coarse

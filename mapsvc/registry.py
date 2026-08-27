@@ -1,7 +1,7 @@
 """Static tables: what can be mapped, and where the geometry comes from."""
 
 # Swap to "50m" (3 MB) or "10m" (13 MB) when 110m is too coarse.
-SCALE = "110m"
+SCALE = "50m"
 
 DATA_URL = (
     "https://raw.githubusercontent.com/nvkelso/natural-earth-vector/"

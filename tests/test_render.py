@@ -2,7 +2,7 @@ import xml.etree.ElementTree as ET
 
 import pytest
 
-from mapsvc import colors
+from mapsvc import colors, registry
 from mapsvc.render import RenderError, render
 from tests.conftest import build_manifest, build_result
 
@@ -59,8 +59,8 @@ def test_footnote_states_everything_required(mini_geojson):
     footnote = " ".join(
         e.text for e in ET.fromstring(text).findall(f".//{SVG}text") if e.text
     )
-    assert "Natural Earth" in footnote          # source
-    assert "1:110m" in footnote                 # scale
+    assert "Natural Earth" in footnote                  # source
+    assert f"1:{registry.SCALE}" in footnote             # scale
     assert "Albers equal-area conic" in footnote  # projection
     assert "quantile" in footnote and "k=3" in footnote  # method and k
     assert "2015" in footnote and "2019" in footnote     # variable vintage

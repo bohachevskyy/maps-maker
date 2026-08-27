@@ -204,8 +204,23 @@ no join, so nothing else is required.
 
 ## Switching scale
 
-`SCALE` in `mapsvc/registry.py` is `"110m"` (838 KB, 177 features). Set it to
-`"50m"` or `"10m"` and delete `cache/` to re-fetch. The URL is derived from it.
+`SCALE` in `mapsvc/registry.py` selects the geometry. Nothing in the manifest
+controls border detail — this constant does.
+
+| scale | download | features | France | Norway | Europe SVG |
+|---|---|---|---|---|---|
+| `110m` | 819 KB | 177 | 74 pts | 88 pts | 34 KB |
+| `50m` (current) | 2.9 MB | 242 | 817 pts | 1,985 pts | 311 KB |
+| `10m` | 13 MB | 249 | 4,641 pts | 15,817 pts | ~2 MB |
+
+At `110m` a map of Europe is visibly faceted — Norway loses every fjord and
+twelve countries (Malta, Monaco, Andorra, Liechtenstein, San Marino, Vatican,
+Gibraltar, the Channel Islands, Faeroes, Isle of Man, Åland) are absent from the
+file entirely. `50m` is the useful default for regional maps; `10m` is worth it
+only when mapping one or two countries.
+
+The scale is part of the harvest cache key, so changing it re-fetches and
+re-harvests correctly. Deleting `cache/` is not required.
 
 ## Design notes
 
