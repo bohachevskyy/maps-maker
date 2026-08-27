@@ -12,7 +12,26 @@ no GeoPandas, GDAL, matplotlib or shapely.
 
 ```bash
 uv sync
-uv run uvicorn mapsvc.api:app
+./run.sh
+```
+
+`run.sh` sources `.env`, frees the port if something is already on it, and runs
+in the foreground so Ctrl-C stops it. **Restarting is just running it again** —
+it clears the old process first.
+
+```bash
+./run.sh              # foreground on :8000
+./run.sh 8080         # a different port
+./run.sh --reload     # restart automatically when the code changes
+```
+
+To stop one you started elsewhere: `pkill -f "uvicorn mapsvc.api:app"`.
+
+Without `run.sh`:
+
+```bash
+set -a; source .env; set +a
+uv run uvicorn mapsvc.api:app --port 8000
 ```
 
 ## Make a map

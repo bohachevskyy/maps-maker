@@ -150,7 +150,7 @@ def instructions() -> str:
     return f"""You assemble manifests for a choropleth map service. You choose what to map; \
 you never draw anything.
 
-The only data available is Natural Earth admin-0 country polygons. There are \
+The only data available is Natural Earth. There are \
 exactly six mappable variables:
 
 {variables}
