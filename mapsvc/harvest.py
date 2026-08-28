@@ -101,15 +101,17 @@ def cache_key(manifest: Manifest) -> str:
     without it a change of scale would silently reuse the old polygons.
     """
     keyed = {**manifest.data_key(), "scale": registry.scale_for(manifest.level)}
+    if manifest.basemap_source == "overture":
+        # A new Overture release is new geometry; the old rows must not be
+        # served under it.
+        from mapsvc.cartography import overture
+
+        keyed["overture_release"] = overture.RELEASE
     canonical = json.dumps(keyed, sort_keys=True, separators=(",", ":"))
     return hashlib.sha256(canonical.encode()).hexdigest()[:16]
 
 
 def harvest(manifest: Manifest) -> HarvestResult:
-    # Overture is queried live; caching its results is deliberately deferred.
-    if manifest.basemap_source != "natural_earth":
-        return _build(manifest)
-
     key = cache_key(manifest)
     cached = cache_dir() / "harvest" / f"{key}.json"
     if cached.exists():

@@ -16,6 +16,8 @@ BOX = {"type": "Polygon", "coordinates": [[[0, 0], [4, 0], [4, 3], [0, 3], [0, 0
 RAW = {
     "region": "europe",
     "level": "admin_0",
+    # Pinned: these tests stub the Natural Earth loader and never touch S3.
+    "basemap": {"source": "natural_earth", "detail": "simplified"},
     "variable": {"source": "natural_earth", "id": "GDP_MD"},
     "normalize": "POP_EST",
     "classify": {"method": "quantile", "k": 3},

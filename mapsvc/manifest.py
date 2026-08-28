@@ -22,7 +22,7 @@ class Manifest:
     ramp: str
     projection: str
     missing: str
-    basemap_source: str = "natural_earth"
+    basemap_source: str = "overture"
     basemap_detail: str = "simplified"
 
     def data_key(self) -> dict:
@@ -90,7 +90,7 @@ def validate(raw: dict) -> Manifest:
     if not isinstance(basemap, dict):
         raise ManifestError('basemap must be an object of the form '
                             '{"source": ..., "detail": ...}', "basemap")
-    basemap_source = basemap.get("source", "natural_earth")
+    basemap_source = basemap.get("source", registry.DEFAULT_BASEMAP)
     if basemap_source not in registry.BASEMAPS:
         raise ManifestError(
             f"unknown basemap source {basemap_source!r}; expected one of "

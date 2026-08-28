@@ -18,6 +18,9 @@ SOURCE_VINTAGE = "v5.1.1"
 # vocabulary; not every provider offers every level.
 LEVELS = ("admin_0", "admin_1", "admin_2", "admin_3")
 BASEMAPS = ("natural_earth", "overture")
+# Overture by default: far more detail, and the only source below admin_1. It
+# is queried live, so the harvest cache does the heavy lifting -- see harvest.py.
+DEFAULT_BASEMAP = "overture"
 DETAILS = ("simplified", "full")
 METHODS = ("quantile", "equal_interval", "jenks")
 PROJECTIONS = ("auto", "albers", "mercator", "mollweide")
@@ -67,6 +70,18 @@ _LEVELS = {
         # a single country code.
         "continent": None,
     },
+    # Natural Earth publishes nothing below admin_1. These entries exist so the
+    # level accessors answer for every canonical level; only a cartography
+    # provider that serves them (overture) can actually be asked for polygons,
+    # and no statistics source has variables here.
+    "admin_2": {
+        "dataset": None, "variables": {}, "id": "id", "name": "name",
+        "country": "country", "continent": None,
+    },
+    "admin_3": {
+        "dataset": None, "variables": {}, "id": "id", "name": "name",
+        "country": "country", "continent": None,
+    },
 }
 
 
@@ -78,7 +93,7 @@ def data_url(level: str) -> str:
     return _BASE.format(scale=scale_for(level), dataset=_LEVELS[level]["dataset"])
 
 
-def dataset_for(level: str) -> str:
+def dataset_for(level: str) -> str | None:
     return _LEVELS[level]["dataset"]
 
 

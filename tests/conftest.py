@@ -25,6 +25,9 @@ def build_manifest(**overrides) -> Manifest:
         region="testland", level="admin_0", variable_source="natural_earth",
         variable_id="GDP_MD", normalize=None, method="quantile", k=3,
         ramp="YlGnBu", projection="auto", missing="hatch",
+        # These tests stub Natural Earth's file loader, so they pin the basemap
+        # rather than inheriting the Overture default and reaching for S3.
+        basemap_source="natural_earth", basemap_detail="simplified",
     )
     base.update(overrides)
     return Manifest(**base)

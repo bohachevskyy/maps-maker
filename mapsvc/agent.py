@@ -192,10 +192,13 @@ all, so they are always base maps.
 The basemap decides where the polygons come from, and it is separate from where \
 the numbers come from:
 
-  natural_earth -- admin_0 and admin_1 only. Fast, cached on disk. The default.
-  overture      -- admin_0 through admin_3, far more detail, queried live from \
-S3 and therefore slow (about 10 seconds). Choose it when the request asks for \
-detail, precision, high resolution, or for a level natural_earth cannot serve.
+  overture      -- the default. admin_0 through admin_3, far the most detail. \
+Queried live from S3, so the first request for a given map takes about ten \
+seconds; afterwards it is cached.
+  natural_earth -- admin_0 and admin_1 only, much coarser, but instant and \
+already on disk. Choose it when the user asks for something fast, rough or \
+low-resolution, or for a whole continent or the world at once, where Overture \
+is slow enough to be a problem.
 
 Set variable_is_null to true for a base map: boundaries drawn with no shading. \
 That is the right answer whenever someone asks to *see* or *draw* units rather \

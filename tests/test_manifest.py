@@ -7,6 +7,8 @@ from mapsvc.manifest import ManifestError, validate
 BASE = {
     "region": "europe",
     "level": "admin_0",
+    # Pinned: these tests stub the Natural Earth loader and never touch S3.
+    "basemap": {"source": "natural_earth", "detail": "simplified"},
     "variable": {"source": "natural_earth", "id": "GDP_MD"},
     "normalize": "POP_EST",
     "classify": {"method": "quantile", "k": 5},
@@ -68,11 +70,23 @@ def test_accepts_nominal_variable_with_a_qualitative_ramp():
 
 
 def test_rejects_an_unknown_level():
-    assert rejects(manifest(level="admin_2")).field == "level"
+    assert rejects(manifest(level="admin_9")).field == "level"
+
+
+def test_the_default_basemap_is_overture():
+    m = validate({"region": "UKR", "level": "admin_2", "variable": None})
+    assert m.basemap_source == "overture"
+
+
+def test_natural_earth_must_be_asked_for_explicitly():
+    m = validate({"region": "europe", "level": "admin_0", "variable": None,
+                  "basemap": {"source": "natural_earth"}})
+    assert m.basemap_source == "natural_earth"
 
 
 def test_admin_1_is_valid_with_an_admin_1_variable():
     m = validate(manifest(level="admin_1", region="UKR", normalize=None,
+                          basemap={"source": "natural_earth"},
                           variable={"source": "natural_earth", "id": "type"},
                           ramp="Set2"))
     assert (m.level, m.variable_id) == ("admin_1", "type")
@@ -81,6 +95,7 @@ def test_admin_1_is_valid_with_an_admin_1_variable():
 def test_a_variable_from_the_wrong_level_is_rejected():
     """GDP_MD exists, but not on sub-national units."""
     error = rejects(manifest(level="admin_1", normalize=None,
+                             basemap={"source": "natural_earth"},
                              variable={"source": "natural_earth", "id": "GDP_MD"}))
     assert error.field == "variable.id"
     assert "admin_0 variable" in str(error)
@@ -94,6 +109,7 @@ def test_a_variable_from_the_wrong_level_is_rejected():
 
 def test_the_nominal_rule_applies_at_admin_1_too():
     assert rejects(manifest(level="admin_1", region="UKR", normalize=None,
+                            basemap={"source": "natural_earth"},
                             variable={"source": "natural_earth", "id": "type"},
                             ramp="YlGnBu")).field == "ramp"
 
@@ -135,7 +151,8 @@ def test_classify_and_ramp_are_required_only_alongside_a_variable():
         assert rejects(raw).field == field
 
     # With no variable there is nothing to classify or colour.
-    base = validate({"region": "europe", "level": "admin_0", "variable": None})
+    base = validate({"region": "europe", "level": "admin_0", "variable": None,
+                     "basemap": {"source": "natural_earth"}})
     assert (base.variable_id, base.ramp) == (None, None)
 
 
