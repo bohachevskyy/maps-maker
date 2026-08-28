@@ -25,7 +25,7 @@ DIRECT = {
     "level": "level", "region": "region", "variable": "variable_id",
     "normalize": "normalize", "method": "method", "projection": "projection",
     "missing": "missing", "ramp": "ramp", "basemap": "basemap_source",
-    "detail": "basemap_detail",
+    "detail": "basemap_detail", "source": "variable_source",
 }
 NULL = "__null__"
 RESERVED = {"name", "prompt", "refuse", "mentions", "ramp_kind", "k"} | set(DIRECT)

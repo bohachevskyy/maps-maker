@@ -137,18 +137,24 @@ def validate(raw: dict) -> Manifest:
         variable_source = variable["source"]
         variable_id = variable["id"]
 
-        available = registry.variables_for(level)
+        available = registry.variables_for(level, variable_source)
         if variable_id not in available:
+            elsewhere = registry.sources_for(variable_id)
+            if elsewhere and variable_source not in elsewhere:
+                raise ManifestError(
+                    f"{variable_id!r} comes from {' or '.join(elsewhere)}, not "
+                    f"{variable_source!r}", "variable.source",
+                )
             belongs_to = registry.level_of(variable_id)
             if belongs_to:
                 raise ManifestError(
                     f"{variable_id!r} is an {belongs_to} variable, but level is "
-                    f"{level!r}; at {level} the choices are "
-                    f"{', '.join(sorted(available)) or 'none'}", "variable.id",
+                    f"{level!r}; at {level} {variable_source} offers "
+                    f"{', '.join(sorted(available)) or 'nothing'}", "variable.id",
                 )
             raise ManifestError(
-                f"unknown variable {variable_id!r}; at {level} expected one of "
-                f"{', '.join(sorted(available)) or 'none'}", "variable.id"
+                f"unknown variable {variable_id!r}; at {level} {variable_source} "
+                f"offers {', '.join(sorted(available)) or 'nothing'}", "variable.id"
             )
 
         if normalize is not None and normalize not in available:

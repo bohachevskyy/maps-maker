@@ -29,6 +29,11 @@ USER_AGENT = "mapsvc/0.1 (+https://github.com/nvkelso/natural-earth-vector)"
 # rank or an index of 0 could be real.
 NO_DATA = {-99, "-99", "", None}
 
+# Bump when the shape of a cached HarvestResult changes -- new provenance keys,
+# a different join, altered drop reasons. Without it a code change silently
+# keeps serving rows written in the old format.
+CACHE_VERSION = 2
+
 
 class HarvestError(ValueError):
     """Data could not be assembled for this manifest."""
@@ -100,7 +105,8 @@ def cache_key(manifest: Manifest) -> str:
     SCALE is not a manifest field but decides which geometry the rows carry, so
     without it a change of scale would silently reuse the old polygons.
     """
-    keyed = {**manifest.data_key(), "scale": registry.scale_for(manifest.level)}
+    keyed = {**manifest.data_key(), "scale": registry.scale_for(manifest.level),
+             "cache_version": CACHE_VERSION}
     if manifest.basemap_source == "overture":
         # A new Overture release is new geometry; the old rows must not be
         # served under it.
@@ -164,6 +170,10 @@ def _build(manifest: Manifest) -> HarvestResult:
         "unit": values.provenance.get("unit"),
         "year": values.provenance.get("year"),
         "statistics_source": values.provenance.get("source"),
+        # Carried separately from the basemap's: boundaries and numbers can be
+        # licensed differently, and both have to be credited.
+        "statistics_license": values.provenance.get("license"),
+        "statistics_attribution": values.provenance.get("attribution"),
         "normalize": manifest.normalize,
         "normalize_unit": divisor.provenance.get("unit") if divisor else None,
     })

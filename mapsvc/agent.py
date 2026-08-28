@@ -160,9 +160,18 @@ def _describe(variables: dict) -> str:
     )
 
 
+def _describe_owid(variables: dict) -> str:
+    return "\n".join(
+        f"  {slug}: {meta['label']}"
+        + (f", in {meta['unit']}" if meta["unit"] else "")
+        for slug, meta in variables.items()
+    )
+
+
 def instructions() -> str:
     variables = _describe(registry.VARIABLES)
     admin1 = _describe(registry.ADMIN1_VARIABLES)
+    owid = _describe_owid(registry.OWID_VARIABLES)
     by_kind: dict[str, list[str]] = {}
     for name, kind in sorted(colors.RAMPS.items()):
         by_kind.setdefault(kind, []).append(name)
@@ -215,6 +224,27 @@ exactly that.
 
 A variable belongs to exactly one level: GDP_MD at admin_1, or type at admin_0, \
 is rejected.
+
+Statistics come from a source, named in variable.source, and each source \
+publishes a different set:
+
+source "natural_earth" -- the six country columns and four sub-national ones \
+listed above. Instant, already on disk. Good for population, GDP, income group, \
+economy and subregion.
+
+source "owid" -- Our World in Data, country level (admin_0) only. Reach for \
+this whenever the question is about human development, health, environment or \
+politics, which natural_earth cannot answer at all:
+
+{owid}
+
+Pick the source that actually publishes what was asked. "Life expectancy in \
+Africa" is owid/life-expectancy, not a natural_earth substitute. "Population by \
+country" is natural_earth/POP_EST. If the request needs a variable no source \
+lists, refuse as before.
+
+owid indicators are all country-level: an owid variable with level admin_1 or \
+below is invalid.
 
 Colour ramps:
 

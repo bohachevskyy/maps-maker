@@ -154,3 +154,42 @@ level = "admin_0"
 basemap = "natural_earth"
 variable = "GDP_MD"
 normalize = "POP_EST"
+
+# ------------------------------------------------- statistics sources -------
+
+[[case]]
+name = "life expectancy comes from owid"
+prompt = "life expectancy around the world"
+source = "owid"
+variable = "life-expectancy"
+level = "admin_0"
+
+[[case]]
+name = "co2 per capita comes from owid"
+prompt = "which countries emit the most CO2 per person?"
+source = "owid"
+variable = "co-emissions-per-capita"
+
+[[case]]
+name = "population still comes from natural earth"
+prompt = "total population by country"
+source = "natural_earth"
+variable = "POP_EST"
+
+[[case]]
+name = "human development is owid not a gdp substitute"
+prompt = "map the human development index"
+source = "owid"
+variable = "human-development-index"
+
+[[case]]
+name = "internet access is owid"
+prompt = "share of people online in Africa"
+source = "owid"
+region = "africa"
+variable = "share-of-individuals-using-the-internet"
+
+[[case]]
+name = "still refuses what no source publishes"
+prompt = "average rainfall by country"
+refuse = true

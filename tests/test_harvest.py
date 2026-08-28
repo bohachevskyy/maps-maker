@@ -236,3 +236,15 @@ def test_admin_1_filters_by_country_code(monkeypatch, tmp_path):
         H.harvest(build_manifest(level="admin_1", region="UKR",
                                  variable_id="region", ramp="Set2"))
     assert excinfo.value.field == "variable.id"
+
+
+def test_cache_key_includes_a_format_version():
+    """A change to the cached row shape must not be served from old entries."""
+    manifest = build_manifest()
+    before = H.cache_key(manifest)
+    original = H.CACHE_VERSION
+    try:
+        H.CACHE_VERSION = original + 1
+        assert H.cache_key(manifest) != before
+    finally:
+        H.CACHE_VERSION = original

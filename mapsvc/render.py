@@ -109,8 +109,8 @@ def _scheme(manifest: Manifest, rows: list) -> tuple[classify.Classification, li
         raise RenderError("every feature was dropped; nothing to classify", "variable")
     # Dividing by another column yields a continuous ratio whatever the source
     # variable's measurement level was.
-    level = ("count" if manifest.normalize
-             else registry.variables_for(manifest.level)[manifest.variable_id]["level"])
+    level = ("ratio" if manifest.normalize else registry.variables_for(
+        manifest.level, manifest.variable_source)[manifest.variable_id]["level"])
     scheme = classify.build([r["value"] for r in rows], level, manifest.method, manifest.k)
     try:
         return scheme, colors.colors(manifest.ramp, scheme.k)
@@ -287,8 +287,10 @@ def _footer(manifest, projection_name, scheme, result) -> str:
     if p.get("year"):
         variable += f", {p['year']}"
     if p.get("statistics_source") and p.get("statistics_source") != p.get("source"):
-        # Boundaries and numbers came from different providers; say both.
-        variable += f" [{p['statistics_source']}]"
+        # Boundaries and numbers came from different providers, possibly under
+        # different licences. Credit the data as well as the map.
+        credit = p.get("statistics_attribution") or p["statistics_source"]
+        variable += f" [{credit}]"
     if manifest.normalize:
         normalize = manifest.normalize
         if p.get("normalize_unit"):

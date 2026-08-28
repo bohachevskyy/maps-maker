@@ -24,9 +24,9 @@ class StatisticsError(ValueError):
 
 
 def provider(name: str):
-    from mapsvc.statistics import natural_earth
+    from mapsvc.statistics import natural_earth, owid
 
-    providers = {"natural_earth": natural_earth}
+    providers = {"natural_earth": natural_earth, "owid": owid}
     if name not in providers:
         raise StatisticsError(
             f"unknown variable source {name!r}; expected one of "

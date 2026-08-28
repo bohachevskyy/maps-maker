@@ -195,3 +195,29 @@ def test_data_key_excludes_render_time_fields():
     assert a.data_key() == b.data_key()
     c = validate(manifest(region="africa"))
     assert c.data_key() != a.data_key()
+
+
+def test_an_owid_variable_validates_at_country_level():
+    m = validate({"region": "world", "level": "admin_0",
+                  "variable": {"source": "owid", "id": "life-expectancy"},
+                  "classify": {"method": "quantile", "k": 6}, "ramp": "YlGnBu"})
+    assert (m.variable_source, m.variable_id) == ("owid", "life-expectancy")
+
+
+def test_a_variable_asked_of_the_wrong_source_names_the_source():
+    error = rejects(manifest(variable={"source": "natural_earth",
+                                       "id": "life-expectancy"}, normalize=None))
+    assert error.field == "variable.source"
+    assert "owid" in str(error)
+
+    error = rejects(manifest(variable={"source": "owid", "id": "GDP_MD"},
+                             normalize=None))
+    assert error.field == "variable.source"
+    assert "natural_earth" in str(error)
+
+
+def test_owid_is_rejected_below_country_level():
+    error = rejects(manifest(level="admin_1", region="UKR", normalize=None,
+                             basemap={"source": "natural_earth"},
+                             variable={"source": "owid", "id": "life-expectancy"}))
+    assert error.field == "variable.id"

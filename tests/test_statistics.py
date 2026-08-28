@@ -54,3 +54,75 @@ def test_an_unknown_source_names_the_variable_source_field():
     with pytest.raises(StatisticsError) as excinfo:
         statistics.load("world_bank", "GDP_MD", "admin_0", "world")
     assert excinfo.value.field == "variable.source"
+
+
+# --- Our World in Data ----------------------------------------------------
+
+CSV = """Entity,Code,Year,Life expectancy
+Afghanistan,AFG,2022,62.0
+Afghanistan,AFG,2023,62.9
+Japan,JPN,2023,84.7
+Africa,,2023,64.0
+World,OWID_WRL,2023,73.2
+Nowhere,NOW,2099,99.9
+Blank,BLK,2023,
+"""
+
+
+@pytest.fixture
+def owid_csv(monkeypatch, tmp_path):
+    from mapsvc.statistics import owid
+    monkeypatch.setenv("MAPSVC_CACHE", str(tmp_path))
+    monkeypatch.setattr(owid, "_fetch", lambda slug: CSV)
+    return owid
+
+
+def test_owid_takes_the_latest_observation_per_country(owid_csv):
+    values = owid_csv.load("life-expectancy", "admin_0", "world")
+    assert values.values["AFG"] == 62.9, "2023 must win over 2022"
+    assert values.values["JPN"] == 84.7
+
+
+def test_owid_skips_aggregates_that_are_not_countries(owid_csv):
+    values = owid_csv.load("life-expectancy", "admin_0", "world")
+    assert "OWID_WRL" not in values.values, "World is not a country"
+    assert set(values.values) == {"AFG", "JPN"}
+
+
+def test_owid_ignores_projections_beyond_the_current_year(owid_csv):
+    """population-density and median-age carry UN projections to 2100;
+    mapping a forecast as though it were an observation would be a lie."""
+    values = owid_csv.load("life-expectancy", "admin_0", "world")
+    assert "NOW" not in values.values
+
+
+def test_owid_skips_blank_cells(owid_csv):
+    assert "BLK" not in owid_csv.load("life-expectancy", "admin_0", "world").values
+
+
+def test_owid_keys_by_iso3_and_carries_its_licence(owid_csv):
+    values = owid_csv.load("life-expectancy", "admin_0", "world")
+    assert values.provenance["key"] == "ISO3"
+    assert values.provenance["license"] == "CC BY 4.0"
+    assert "Our World in Data" in values.provenance["attribution"]
+    assert values.provenance["year"] == "2023"
+
+
+def test_owid_is_country_level_only(owid_csv):
+    with pytest.raises(StatisticsError) as excinfo:
+        owid_csv.load("life-expectancy", "admin_1", "UKR")
+    assert excinfo.value.field == "level"
+
+
+def test_an_unknown_owid_slug_names_the_variable(owid_csv):
+    with pytest.raises(StatisticsError) as excinfo:
+        owid_csv.load("gross-national-happiness", "admin_0", "world")
+    assert excinfo.value.field == "variable.id"
+
+
+def test_a_ratio_is_not_subject_to_the_zero_sentinel():
+    """0% internet use is a real observation; 0 population is a placeholder."""
+    from mapsvc.harvest import _no_data_reason
+    assert _no_data_reason(0, "count") == "no_data"
+    assert _no_data_reason(0, "ratio") is None
+    assert _no_data_reason(-99, "ratio") == "no_data"

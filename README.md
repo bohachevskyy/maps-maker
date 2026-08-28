@@ -178,7 +178,7 @@ over a network want `/map` or `/describe`, which return the SVG itself.
 | `region` | `"world"`, a `CONTINENT` name (`europe`, `africa`, …), or an `ADM0_A3` code (`FRA`). A filter, not geography — it also derives the map extent. |
 | `level` | `admin_0` … `admin_3`. What each basemap serves differs; variables belong to exactly one level. |
 | `basemap` | `{"source": "natural_earth" \| "overture", "detail": "simplified" \| "full"}`. Optional; defaults to Natural Earth. |
-| `variable` | `{"source": "natural_earth", "id": "GDP_MD"}`, or `null` for a base map. Only `natural_earth` is a valid source so far. |
+| `variable` | `{"source": "natural_earth" \| "owid", "id": ...}`, or `null` for a base map. |
 | `normalize` | a column name to divide by, or `null`. Optional. |
 | `classify` | `{"method": "quantile" \| "equal_interval" \| "jenks", "k": 3–9}` |
 | `ramp` | `YlGnBu`, `YlOrRd`, `Blues`, `Greens`, `PuBuGn` (sequential); `RdBu`, `BrBG` (diverging); `Set2`, `Set3`, `Dark2`, `Paired` (qualitative) |
@@ -201,11 +201,53 @@ cartography/   polygons, keyed by ISO 3166-2 (or ISO3 at country level)
   overture.py        admin_0 .. admin_3, queried live from S3 with DuckDB
 statistics/    values, keyed the same way
   natural_earth.py   the six country attributes
+  owid.py            Our World in Data, 10 curated indicators
 harvest.py     the join
 ```
 
 Adding a data source touches one directory. `basemap` chooses the boundaries,
 `variable` chooses what is painted on them, and neither knows about the other.
+
+### Statistics sources
+
+| source | levels | licence | indicators |
+|---|---|---|---|
+| `natural_earth` | admin_0, admin_1 | public domain | 6 country columns, 4 sub-national |
+| `owid` | admin_0 only | **CC BY 4.0** | 10 curated Our World in Data charts |
+
+```bash
+curl -X POST localhost:8000/map -H 'content-type: application/json' \
+  -d '{"region":"world","level":"admin_0","basemap":{"source":"natural_earth"},
+       "variable":{"source":"owid","id":"life-expectancy"},
+       "classify":{"method":"quantile","k":6},"ramp":"YlGnBu"}' -o life.svg
+```
+
+Our World in Data is read through the Grapher CSV API
+(`ourworldindata.org/grapher/<slug>.csv`), which is keyed by ISO3 in a `Code`
+column — already the admin_0 join key, so no name matching is involved. Both
+licences reach the footnote: the basemap's and the statistics source's.
+
+**Adding an OWID indicator** — take the slug from its
+`ourworldindata.org/grapher/<slug>` URL, confirm the CSV's fourth column is the
+value you want, and add a row to `OWID_VARIABLES` in `registry.py`. The agent's
+JSON schema is generated from that dict, so it can use the new indicator
+immediately with no prompt edits.
+
+Three things the OWID API does that will bite you:
+
+- **`csvType=filtered` honours each chart's default country selection.** Asking
+  for `life-expectancy` that way returns five countries, not 236. The provider
+  fetches the full export instead.
+- **`time=latest` is ignored on the full export**, so the latest year per country
+  is chosen here rather than by the API.
+- **Several series carry projections.** `population-density` and `median-age` run
+  to 2100. Observations are capped at the current year so a forecast is never
+  mapped as though it were measured.
+
+A fourth: the CDN answers **403 without a User-Agent**.
+
+Countries a source has no row for are dropped with reason `no_join` and hatched
+— 17 of 242 for life expectancy, mostly small territories.
 
 ### Basemaps
 
@@ -420,7 +462,7 @@ identical to GDP per capita either way.
 uv run pytest
 ```
 
-146 tests, no network and no API key: the harvester's fetch and the OpenAI
+162 tests, no network and no API key: the harvester's fetch and the OpenAI
 client are both stubbed, and the renderer runs against a hand-written 5-feature
 fixture in `tests/fixtures/`, which carries a polygon with a hole, a
 MultiPolygon, and both sentinel values. Running the suite costs nothing.
