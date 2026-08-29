@@ -12,7 +12,7 @@ manifest twice must produce byte-identical bytes.
 import textwrap
 from xml.sax.saxutils import escape, quoteattr
 
-from mapsvc import classify, colors, project, registry
+from mapsvc import classify, colors, project, registry, statistics
 from mapsvc.manifest import Manifest
 from mapsvc.models import HarvestResult
 
@@ -109,7 +109,7 @@ def _scheme(manifest: Manifest, rows: list) -> tuple[classify.Classification, li
         raise RenderError("every feature was dropped; nothing to classify", "variable")
     # Dividing by another column yields a continuous ratio whatever the source
     # variable's measurement level was.
-    level = ("ratio" if manifest.normalize else registry.variables_for(
+    level = ("ratio" if manifest.normalize else statistics.variables_for(
         manifest.level, manifest.variable_source)[manifest.variable_id]["level"])
     scheme = classify.build([r["value"] for r in rows], level, manifest.method, manifest.k)
     try:

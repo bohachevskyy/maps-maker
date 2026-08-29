@@ -229,9 +229,35 @@ licences reach the footnote: the basemap's and the statistics source's.
 
 **Adding an OWID indicator** — take the slug from its
 `ourworldindata.org/grapher/<slug>` URL, confirm the CSV's fourth column is the
-value you want, and add a row to `OWID_VARIABLES` in `registry.py`. The agent's
-JSON schema is generated from that dict, so it can use the new indicator
-immediately with no prompt edits.
+value you want, and add a row to `INDICATORS` in `statistics/owid.py`.
+
+**Registering a whole new source** is two steps:
+
+1. Write `mapsvc/statistics/<name>.py` declaring four module-level names and one
+   function:
+
+   ```python
+   SOURCE      = "world_bank"
+   LICENSE     = "CC BY 4.0"
+   ATTRIBUTION = "World Bank (CC BY 4.0)"
+   VARIABLES   = {"admin_0": {"SP.DYN.LE00.IN": {
+                      "level": "ratio", "unit": "years", "year_col": None,
+                      "label": "life expectancy at birth"}}}
+
+   def load(variable_id, level, region) -> Values: ...
+   ```
+
+2. Add the module name to `_MODULES` in `statistics/__init__.py`.
+
+That is all. `sources()`, `variables_for()`, `sources_for()` and `level_of()`
+derive from the registered providers, so **nothing branches on a source name**,
+and the agent's JSON schema is generated from those lookups — the new source and
+its indicators become selectable with no prompt edit. `tests/test_statistics.py`
+registers a fake source and asserts exactly this.
+
+`load` returns values keyed by **ISO3** at admin_0 and **ISO 3166-2** at admin_1;
+the join is `harvest.py`'s job. The `level` field in a variable's metadata is
+load-bearing: `count` treats 0 as no-data, `ratio` does not.
 
 Three things the OWID API does that will bite you:
 

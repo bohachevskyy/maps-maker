@@ -16,7 +16,7 @@ import functools
 import json
 import os
 
-from mapsvc import colors, harvest, registry
+from mapsvc import colors, harvest, registry, statistics
 from mapsvc.manifest import Manifest, ManifestError, validate
 
 DEFAULT_MODEL = "gpt-5.6-terra"
@@ -71,10 +71,10 @@ def schema() -> dict:
         "variable": {
             "type": "object",
             "properties": {
-                "source": {"type": "string", "enum": list(registry.SOURCES)},
+                "source": {"type": "string", "enum": list(statistics.sources())},
                 # One flat enum across both levels; the validator rejects a
                 # variable used at the wrong level and the repair loop fixes it.
-                "id": {"type": "string", "enum": sorted(registry.ALL_VARIABLES)},
+                "id": {"type": "string", "enum": sorted(statistics.all_variables())},
             },
             "required": ["source", "id"],
             "additionalProperties": False,
@@ -85,7 +85,7 @@ def schema() -> dict:
             "description": "true for a base map -- draw the boundaries, shade nothing",
         },
         "normalize": {"type": ["string", "null"],
-                      "enum": sorted(registry.ALL_VARIABLES) + [None]},
+                      "enum": sorted(statistics.all_variables()) + [None]},
         "classify": {
             "type": "object",
             "properties": {
@@ -169,9 +169,9 @@ def _describe_owid(variables: dict) -> str:
 
 
 def instructions() -> str:
-    variables = _describe(registry.VARIABLES)
-    admin1 = _describe(registry.ADMIN1_VARIABLES)
-    owid = _describe_owid(registry.OWID_VARIABLES)
+    variables = _describe(statistics.variables_for("admin_0", "natural_earth"))
+    admin1 = _describe(statistics.variables_for("admin_1", "natural_earth"))
+    owid = _describe_owid(statistics.variables_for("admin_0", "owid"))
     by_kind: dict[str, list[str]] = {}
     for name, kind in sorted(colors.RAMPS.items()):
         by_kind.setdefault(kind, []).append(name)

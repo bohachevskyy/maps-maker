@@ -126,3 +126,73 @@ def test_a_ratio_is_not_subject_to_the_zero_sentinel():
     assert _no_data_reason(0, "count") == "no_data"
     assert _no_data_reason(0, "ratio") is None
     assert _no_data_reason(-99, "ratio") == "no_data"
+
+
+# --- registering a source -------------------------------------------------
+
+def _fake_module():
+    """A statistics source declared exactly as the docstring describes."""
+    import types
+    module = types.ModuleType("mapsvc.statistics.fake_bank")
+    module.SOURCE = "fake_bank"
+    module.LICENSE = "CC BY 4.0"
+    module.ATTRIBUTION = "Fake Bank (CC BY 4.0)"
+    module.VARIABLES = {"admin_0": {
+        "FB.LIT.RATE": {"level": "ratio", "unit": "% of adults", "year_col": None,
+                        "label": "adult literacy"},
+    }}
+    module.load = lambda variable_id, level, region: Values(
+        values={"UKR": 99.8}, provenance={"source": "Fake Bank", "level": "ratio",
+                                          "unit": "% of adults", "key": "ISO3"})
+    return module
+
+
+@pytest.fixture
+def with_fake_source(monkeypatch):
+    """Register a source the way a real one is registered, and nothing else."""
+    module = _fake_module()
+    real = statistics._providers()
+    monkeypatch.setattr(statistics, "_providers",
+                        lambda: {**real, "fake_bank": module})
+    for cached in (statistics.sources, statistics.all_variables):
+        cached.cache_clear()
+    yield module
+    for cached in (statistics.sources, statistics.all_variables):
+        cached.cache_clear()
+
+
+def test_registering_a_source_needs_no_change_anywhere_else(with_fake_source):
+    """Declaring SOURCE/LICENSE/ATTRIBUTION/VARIABLES and a load() is the whole
+    procedure -- nothing branches on the name."""
+    assert "fake_bank" in statistics.sources()
+    assert statistics.variables_for("admin_0", "fake_bank") == with_fake_source.VARIABLES["admin_0"]
+    assert statistics.variables_for("admin_1", "fake_bank") == {}
+    assert statistics.sources_for("FB.LIT.RATE") == ["fake_bank"]
+    assert statistics.level_of("FB.LIT.RATE") == "admin_0"
+    assert "FB.LIT.RATE" in statistics.all_variables()
+
+
+def test_a_new_source_reaches_the_validator_and_the_agent(with_fake_source):
+    from mapsvc import agent
+    from mapsvc.manifest import validate
+
+    m = validate({"region": "world", "level": "admin_0",
+                  "variable": {"source": "fake_bank", "id": "FB.LIT.RATE"},
+                  "classify": {"method": "quantile", "k": 5}, "ramp": "YlGnBu"})
+    assert m.variable_source == "fake_bank"
+
+    agent.schema.cache_clear()
+    props = agent.schema()["properties"]["manifest"]["properties"]
+    assert "fake_bank" in props["variable"]["properties"]["source"]["enum"]
+    assert "FB.LIT.RATE" in props["variable"]["properties"]["id"]["enum"]
+    agent.schema.cache_clear()
+
+
+def test_a_variable_from_a_different_source_is_still_caught(with_fake_source):
+    from mapsvc.manifest import ManifestError, validate
+    with pytest.raises(ManifestError) as excinfo:
+        validate({"region": "world", "level": "admin_0",
+                  "variable": {"source": "fake_bank", "id": "GDP_MD"},
+                  "classify": {"method": "quantile", "k": 5}, "ramp": "YlGnBu"})
+    assert excinfo.value.field == "variable.source"
+    assert "natural_earth" in str(excinfo.value)

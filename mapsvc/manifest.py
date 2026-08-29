@@ -6,7 +6,7 @@ the network or the cache.
 
 from dataclasses import dataclass
 
-from mapsvc import cartography, colors, registry
+from mapsvc import cartography, colors, registry, statistics
 
 
 @dataclass(frozen=True)
@@ -129,23 +129,23 @@ def validate(raw: dict) -> Manifest:
         for key in ("source", "id"):
             if key not in variable:
                 raise ManifestError(f"variable is missing {key!r}", f"variable.{key}")
-        if variable["source"] not in registry.SOURCES:
+        if variable["source"] not in statistics.sources():
             raise ManifestError(
                 f"unknown variable source {variable['source']!r}; "
-                f"expected {', '.join(registry.SOURCES)}", "variable.source"
+                f"expected {', '.join(statistics.sources())}", "variable.source"
             )
         variable_source = variable["source"]
         variable_id = variable["id"]
 
-        available = registry.variables_for(level, variable_source)
+        available = statistics.variables_for(level, variable_source)
         if variable_id not in available:
-            elsewhere = registry.sources_for(variable_id)
+            elsewhere = statistics.sources_for(variable_id)
             if elsewhere and variable_source not in elsewhere:
                 raise ManifestError(
                     f"{variable_id!r} comes from {' or '.join(elsewhere)}, not "
                     f"{variable_source!r}", "variable.source",
                 )
-            belongs_to = registry.level_of(variable_id)
+            belongs_to = statistics.level_of(variable_id)
             if belongs_to:
                 raise ManifestError(
                     f"{variable_id!r} is an {belongs_to} variable, but level is "

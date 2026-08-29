@@ -24,6 +24,7 @@ BASE = "https://ourworldindata.org/grapher/{slug}.csv"
 USER_AGENT = "mapsvc/0.1 (+https://ourworldindata.org)"
 FETCH_TIMEOUT = 90
 
+SOURCE = "owid"
 LICENSE = "CC BY 4.0"
 ATTRIBUTION = "Our World in Data"
 
@@ -32,8 +33,53 @@ ATTRIBUTION = "Our World in Data"
 VALUE_COLUMN = 3
 
 
+# Our World in Data, fetched through the Grapher CSV API. Country level only:
+# OWID publishes by ISO3 country, which is exactly the admin_0 join key.
+#
+# `level` is the measurement level, and "ratio" matters: unlike "count", a zero
+# is a real observation for a rate or an index, so the 0-as-no-data rule that
+# protects POP_EST and GDP_MD must not apply here.
+#
+# To add an indicator: find its slug in the ourworldindata.org/grapher/<slug>
+# URL, check the CSV's fourth column is the value you want, and add a row.
+INDICATORS = {
+    "life-expectancy": {
+        "level": "ratio", "unit": "years", "year_col": None,
+        "label": "life expectancy at birth"},
+    "gdp-per-capita-worldbank": {
+        "level": "ratio", "unit": "international $", "year_col": None,
+        "label": "GDP per capita"},
+    "co-emissions-per-capita": {
+        "level": "ratio", "unit": "tonnes CO2 per person", "year_col": None,
+        "label": "CO2 emissions per capita"},
+    "human-development-index": {
+        "level": "ratio", "unit": "index 0-1", "year_col": None,
+        "label": "Human Development Index"},
+    "population-density": {
+        "level": "ratio", "unit": "people per km2", "year_col": None,
+        "label": "population density"},
+    "child-mortality": {
+        "level": "ratio", "unit": "% of live births", "year_col": None,
+        "label": "under-five mortality"},
+    "share-of-population-in-extreme-poverty": {
+        "level": "ratio", "unit": "% of population", "year_col": None,
+        "label": "share in extreme poverty"},
+    "share-of-individuals-using-the-internet": {
+        "level": "ratio", "unit": "% of population", "year_col": None,
+        "label": "internet use"},
+    "median-age": {
+        "level": "ratio", "unit": "years", "year_col": None,
+        "label": "median age"},
+    "political-regime": {
+        "level": "ordinal", "unit": None, "year_col": None,
+        "label": "political regime (0 closed autocracy - 3 liberal democracy)"},
+}
+
+VARIABLES = {"admin_0": INDICATORS}
+
+
 def variables(level: str) -> dict:
-    return registry.variables_for(level, "owid")
+    return VARIABLES.get(level, {})
 
 
 def _cache_path(slug: str) -> pathlib.Path:
@@ -77,14 +123,14 @@ def _fetch(slug: str) -> str:
 def load(variable_id: str, level: str, region: str) -> Values:
     available = variables(level)
     if variable_id not in available:
-        if variable_id in registry.OWID_VARIABLES:
+        if variable_id in INDICATORS:
             raise StatisticsError(
                 f"Our World in Data publishes {variable_id!r} by country only, "
                 f"but level is {level!r}", "level"
             )
         raise StatisticsError(
             f"unknown Our World in Data indicator {variable_id!r}; the registry "
-            f"holds {', '.join(sorted(registry.OWID_VARIABLES))}", "variable.id"
+            f"holds {', '.join(sorted(INDICATORS))}", "variable.id"
         )
 
     meta = available[variable_id]

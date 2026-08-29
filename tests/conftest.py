@@ -3,7 +3,7 @@ import pathlib
 
 import pytest
 
-from mapsvc import registry
+from mapsvc import registry, statistics
 from mapsvc.manifest import Manifest
 from mapsvc.models import HarvestResult
 
@@ -38,7 +38,7 @@ def build_result(geojson, manifest) -> HarvestResult:
 
     Mirrors what harvest.py produces so the renderer can be tested in isolation.
     """
-    meta = registry.variables_for(manifest.level)[manifest.variable_id]
+    meta = statistics.variables_for(manifest.level, manifest.variable_source)[manifest.variable_id]
     rows, dropped, years = [], [], set()
     for feature in geojson["features"]:
         props = feature["properties"]
