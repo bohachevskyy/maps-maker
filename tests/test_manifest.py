@@ -204,20 +204,31 @@ def test_an_owid_variable_validates_at_country_level():
     assert (m.variable_source, m.variable_id) == ("owid", "life-expectancy")
 
 
-def test_a_variable_asked_of_the_wrong_source_names_the_source():
-    error = rejects(manifest(variable={"source": "natural_earth",
-                                       "id": "life-expectancy"}, normalize=None))
-    assert error.field == "variable.source"
-    assert "owid" in str(error)
+def test_a_fixed_variable_asked_of_the_wrong_source_names_the_source():
+    error = rejects(manifest(variable={"source": "natural_earth", "id": "POP_RANK"},
+                             level="admin_1", region="UKR", normalize=None,
+                             basemap={"source": "natural_earth"}))
+    assert error.field == "variable.id"
 
-    error = rejects(manifest(variable={"source": "owid", "id": "GDP_MD"},
+
+def test_a_searchable_source_accepts_an_id_the_validator_has_never_seen():
+    """No local catalogue to check against: the id came from a live search, and
+    only the source can say whether it exists."""
+    m = validate(manifest(variable={"source": "owid", "id": "some-new-chart-2026"},
+                          normalize=None))
+    assert m.variable_id == "some-new-chart-2026"
+
+
+def test_a_searchable_source_still_needs_a_non_empty_id():
+    error = rejects(manifest(variable={"source": "owid", "id": "  "},
                              normalize=None))
-    assert error.field == "variable.source"
-    assert "natural_earth" in str(error)
+    assert error.field == "variable.id"
 
 
 def test_owid_is_rejected_below_country_level():
+    """Declared in the source's capabilities, so it is caught before any I/O."""
     error = rejects(manifest(level="admin_1", region="UKR", normalize=None,
                              basemap={"source": "natural_earth"},
                              variable={"source": "owid", "id": "life-expectancy"}))
-    assert error.field == "variable.id"
+    assert error.field == "level"
+    assert "admin_0" in str(error)

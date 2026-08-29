@@ -44,12 +44,12 @@ def build_result(geojson, manifest) -> HarvestResult:
         props = feature["properties"]
         gid = props[registry.id_property(manifest.level)]
         value = props.get(manifest.variable_id)
-        if value is None or value == -99 or (meta["level"] == "count" and value == 0):
+        if value is None or value == -99 or (meta.level == "count" and value == 0):
             dropped.append({"id": gid, "reason": "no_data", "geometry": feature["geometry"]})
             continue
         rows.append({"id": gid, "geometry": feature["geometry"], "value": value})
-        if meta["year_col"]:
-            years.add(props[meta["year_col"]])
+        if meta.year_col:
+            years.add(props[meta.year_col])
     year = None
     if years:
         year = str(min(years)) if len(years) == 1 else f"{min(years)}–{max(years)}"
@@ -58,7 +58,7 @@ def build_result(geojson, manifest) -> HarvestResult:
         provenance={"source": registry.SOURCE_NAME, "vintage": registry.SOURCE_VINTAGE,
                     "scale": f"1:{registry.scale_for(manifest.level)}",
                     "region": manifest.region,
-                    "variable": manifest.variable_id, "unit": meta["unit"],
+                    "variable": manifest.variable_id, "unit": meta.unit,
                     "year": year, "normalize": manifest.normalize},
         dropped=dropped,
     )

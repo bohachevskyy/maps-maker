@@ -4,7 +4,8 @@ import pytest
 
 from mapsvc import harvest as H
 from mapsvc import statistics
-from mapsvc.statistics import StatisticsError, natural_earth
+from mapsvc.statistics import (Capabilities, StatisticsError, Variable,
+                               natural_earth)
 
 BOX = {"type": "Polygon", "coordinates": [[[0, 0], [1, 0], [1, 1], [0, 1], [0, 0]]]}
 
@@ -69,11 +70,26 @@ Blank,BLK,2023,
 """
 
 
+META = {"chart": {"title": "Life expectancy", "citation": "UN WPP (2024)"},
+        "columns": {"Period life expectancy at birth": {
+            "unit": "years", "titleShort": "Life expectancy",
+            "type": "Numeric", "timespan": "1543-2023"}}}
+
+
 @pytest.fixture
 def owid_csv(monkeypatch, tmp_path):
+    """Stub the HTTP transport, not the parsing -- the parsing is what is tested."""
+    import json as _json
     from mapsvc.statistics import owid
     monkeypatch.setenv("MAPSVC_CACHE", str(tmp_path))
-    monkeypatch.setattr(owid, "_fetch", lambda slug: CSV)
+
+    def fake_get(url, timeout=None):
+        if url.endswith(".metadata.json"):
+            return _json.dumps(META)
+        if url.endswith(".csv"):
+            return CSV
+        raise AssertionError(f"unexpected url {url}")
+    monkeypatch.setattr(owid, "_get", fake_get)
     return owid
 
 
@@ -114,10 +130,32 @@ def test_owid_is_country_level_only(owid_csv):
     assert excinfo.value.field == "level"
 
 
-def test_an_unknown_owid_slug_names_the_variable(owid_csv):
+def test_owid_metadata_replaces_the_deleted_catalogue(owid_csv):
+    """Unit and measurement level come from OWID, not from a dict here."""
+    v = owid_csv.describe("life-expectancy")
+    assert (v.unit, v.level, v.label) == ("years", "ratio", "Life expectancy")
+    assert v.citation == "UN WPP (2024)"
+
+
+def test_owid_numeric_is_a_ratio_never_a_count(owid_csv):
+    """A 0 in an OWID series is an observation, so the count sentinel must not fire."""
+    assert owid_csv.describe("life-expectancy").level == "ratio"
+
+
+def test_an_unknown_owid_slug_is_a_404_from_owid_not_a_local_lookup(monkeypatch, tmp_path):
+    """There is no catalogue to check against any more; OWID decides."""
+    import urllib.error
+    from mapsvc.statistics import owid
+    monkeypatch.setenv("MAPSVC_CACHE", str(tmp_path))
+
+    def not_found(request, timeout=None):
+        raise urllib.error.HTTPError(request.full_url, 404, "Not Found", {}, None)
+    monkeypatch.setattr(owid.urllib.request, "urlopen", not_found)
+
     with pytest.raises(StatisticsError) as excinfo:
-        owid_csv.load("gross-national-happiness", "admin_0", "world")
+        owid.load("gross-national-happiness", "admin_0", "world")
     assert excinfo.value.field == "variable.id"
+    assert "no chart" in str(excinfo.value)
 
 
 def test_a_ratio_is_not_subject_to_the_zero_sentinel():
@@ -135,11 +173,13 @@ def _fake_module():
     import types
     module = types.ModuleType("mapsvc.statistics.fake_bank")
     module.SOURCE = "fake_bank"
-    module.LICENSE = "CC BY 4.0"
-    module.ATTRIBUTION = "Fake Bank (CC BY 4.0)"
+    module.CAPABILITIES = Capabilities(
+        source="fake_bank", levels=("admin_0",), key="ISO3",
+        license="CC BY 4.0", attribution="Fake Bank (CC BY 4.0)",
+        searchable=False, description="a fixed test source")
     module.VARIABLES = {"admin_0": {
-        "FB.LIT.RATE": {"level": "ratio", "unit": "% of adults", "year_col": None,
-                        "label": "adult literacy"},
+        "FB.LIT.RATE": Variable(id="FB.LIT.RATE", label="adult literacy",
+                                unit="% of adults", level="ratio"),
     }}
     module.load = lambda variable_id, level, region: Values(
         values={"UKR": 99.8}, provenance={"source": "Fake Bank", "level": "ratio",
@@ -154,10 +194,10 @@ def with_fake_source(monkeypatch):
     real = statistics._providers()
     monkeypatch.setattr(statistics, "_providers",
                         lambda: {**real, "fake_bank": module})
-    for cached in (statistics.sources, statistics.all_variables):
+    for cached in (statistics.sources, statistics.fixed_variables):
         cached.cache_clear()
     yield module
-    for cached in (statistics.sources, statistics.all_variables):
+    for cached in (statistics.sources, statistics.fixed_variables):
         cached.cache_clear()
 
 
@@ -169,7 +209,7 @@ def test_registering_a_source_needs_no_change_anywhere_else(with_fake_source):
     assert statistics.variables_for("admin_1", "fake_bank") == {}
     assert statistics.sources_for("FB.LIT.RATE") == ["fake_bank"]
     assert statistics.level_of("FB.LIT.RATE") == "admin_0"
-    assert "FB.LIT.RATE" in statistics.all_variables()
+    assert "FB.LIT.RATE" in statistics.fixed_variables()
 
 
 def test_a_new_source_reaches_the_validator_and_the_agent(with_fake_source):
@@ -184,7 +224,7 @@ def test_a_new_source_reaches_the_validator_and_the_agent(with_fake_source):
     agent.schema.cache_clear()
     props = agent.schema()["properties"]["manifest"]["properties"]
     assert "fake_bank" in props["variable"]["properties"]["source"]["enum"]
-    assert "FB.LIT.RATE" in props["variable"]["properties"]["id"]["enum"]
+    assert "FB.LIT.RATE" in agent.instructions()
     agent.schema.cache_clear()
 
 

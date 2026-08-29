@@ -109,8 +109,20 @@ def _scheme(manifest: Manifest, rows: list) -> tuple[classify.Classification, li
         raise RenderError("every feature was dropped; nothing to classify", "variable")
     # Dividing by another column yields a continuous ratio whatever the source
     # variable's measurement level was.
-    level = ("ratio" if manifest.normalize else statistics.variables_for(
-        manifest.level, manifest.variable_source)[manifest.variable_id]["level"])
+    # The measurement level decides graded-vs-categorical bins. It comes from
+    # the source, which for a searchable one means a metadata lookup.
+    level = ("ratio" if manifest.normalize
+             else statistics.describe(manifest.variable_source,
+                                      manifest.variable_id).level)
+    if level == "nominal" and colors.kind(manifest.ramp) != "qualitative":
+        # For a searchable source the measurement level is not known until the
+        # metadata has been fetched, which is after validation. Catching it here
+        # keeps the rule enforced whichever kind of source supplied the values.
+        raise RenderError(
+            f"{manifest.variable_id} is nominal, so a {colors.kind(manifest.ramp)} "
+            f"ramp like {manifest.ramp!r} would imply an ordering between "
+            "categories; use a qualitative ramp", "ramp",
+        )
     scheme = classify.build([r["value"] for r in rows], level, manifest.method, manifest.k)
     try:
         return scheme, colors.colors(manifest.ramp, scheme.k)

@@ -18,10 +18,12 @@ import os
 
 from mapsvc import colors, harvest, registry, statistics
 from mapsvc.manifest import Manifest, ManifestError, validate
+from mapsvc.statistics import StatisticsError
 
 DEFAULT_MODEL = "gpt-5.6-terra"
 MAX_OUTPUT_TOKENS = 2000
 REPAIR_ATTEMPTS = 1
+SEARCH_RESULTS = 8
 
 
 class AgentError(ValueError):
@@ -72,11 +74,24 @@ def schema() -> dict:
             "type": "object",
             "properties": {
                 "source": {"type": "string", "enum": list(statistics.sources())},
-                # One flat enum across both levels; the validator rejects a
-                # variable used at the wrong level and the repair loop fixes it.
-                "id": {"type": "string", "enum": sorted(statistics.all_variables())},
+                # Deliberately not an enum. A searched id cannot be enumerated
+                # ahead of time, and an enum here silently forbids the very
+                # answers the search exists to find. The constraint is enforced
+                # instead: a fixed source's id must be in its catalogue (the
+                # validator), and a searchable source's must be one the search
+                # actually returned (checked below). That is a real check rather
+                # than a hope, so nothing is lost by dropping the enum.
+                "id": {"type": "string",
+                       "description": "for a fixed source, one of its listed ids; "
+                                      "for a searchable one, empty on the first "
+                                      "turn then exactly one returned candidate"},
+                "search_query": {
+                    "type": "string",
+                    "description": "for a searchable source: the measure to look "
+                                   "for, e.g. 'unemployment rate'. Empty otherwise.",
+                },
             },
-            "required": ["source", "id"],
+            "required": ["source", "id", "search_query"],
             "additionalProperties": False,
         },
         # null means a base map: boundaries with nothing painted on them.
@@ -85,7 +100,7 @@ def schema() -> dict:
             "description": "true for a base map -- draw the boundaries, shade nothing",
         },
         "normalize": {"type": ["string", "null"],
-                      "enum": sorted(statistics.all_variables()) + [None]},
+                      "enum": sorted(statistics.fixed_variables()) + [None]},
         "classify": {
             "type": "object",
             "properties": {
@@ -153,25 +168,31 @@ def _region_vocabulary() -> str:
 
 def _describe(variables: dict) -> str:
     return "\n".join(
-        f"  {name}: {meta['level']}"
-        + (f", in {meta['unit']}" if meta["unit"] else "")
-        + (f", vintage from {meta['year_col']}" if meta["year_col"] else "")
+        f"  {name}: {meta.level}"
+        + (f", in {meta.unit}" if meta.unit else "")
+        + (f", vintage from {meta.year_col}" if meta.year_col else "")
         for name, meta in variables.items()
-    )
-
-
-def _describe_owid(variables: dict) -> str:
-    return "\n".join(
-        f"  {slug}: {meta['label']}"
-        + (f", in {meta['unit']}" if meta["unit"] else "")
-        for slug, meta in variables.items()
     )
 
 
 def instructions() -> str:
     variables = _describe(statistics.variables_for("admin_0", "natural_earth"))
     admin1 = _describe(statistics.variables_for("admin_1", "natural_earth"))
-    owid = _describe_owid(statistics.variables_for("admin_0", "owid"))
+    blocks = []
+    for c in statistics.all_capabilities():
+        kind = "SEARCHABLE" if c.searchable else "FIXED"
+        block = (f"  source {c.source!r} -- {kind}, levels "
+                 f"{', '.join(c.levels)}.\n    {c.description}")
+        if not c.searchable:
+            # List a fixed source's whole catalogue, whichever source it is --
+            # naming natural_earth here would leave a newly registered fixed
+            # source invisible to the agent.
+            for level in c.levels:
+                listed = _describe(statistics.variables_for(level, c.source))
+                if listed:
+                    block += f"\n    at {level}:\n{listed}"
+        blocks.append(block)
+    sources = "\n\n".join(blocks)
     by_kind: dict[str, list[str]] = {}
     for name, kind in sorted(colors.RAMPS.items()):
         by_kind.setdefault(kind, []).append(name)
@@ -225,26 +246,28 @@ exactly that.
 A variable belongs to exactly one level: GDP_MD at admin_1, or type at admin_0, \
 is rejected.
 
-Statistics come from a source, named in variable.source, and each source \
-publishes a different set:
+Statistics come from a source, named in variable.source. Sources are of two \
+kinds and you use them differently:
 
-source "natural_earth" -- the six country columns and four sub-national ones \
-listed above. Instant, already on disk. Good for population, GDP, income group, \
-economy and subregion.
+{sources}
 
-source "owid" -- Our World in Data, country level (admin_0) only. Reach for \
-this whenever the question is about human development, health, environment or \
-politics, which natural_earth cannot answer at all:
+FIXED sources are small and fully listed above. Put the id straight into \
+variable.id and leave search_query empty.
 
-{owid}
+SEARCHABLE sources are far too large to list. Do NOT guess an id for one. \
+Leave variable.id empty and put a plain-English phrase naming the measure into \
+variable.search_query -- "unemployment rate", "deaths from air pollution", \
+"share of land that is forest". The service will run the search and come back \
+with real candidates; you then pick one of those ids exactly. Choosing an id \
+that was not offered will fail.
 
-Pick the source that actually publishes what was asked. "Life expectancy in \
-Africa" is owid/life-expectancy, not a natural_earth substitute. "Population by \
-country" is natural_earth/POP_EST. If the request needs a variable no source \
-lists, refuse as before.
+Write the query as the measure itself, not as the user's sentence. "How many \
+people are out of work in Europe?" should search for "unemployment rate", not \
+for the whole question.
 
-owid indicators are all country-level: an owid variable with level admin_1 or \
-below is invalid.
+Prefer the source that actually publishes what was asked. Population, GDP, \
+income group, economy and subregion are natural_earth. Almost anything else \
+about people, health, environment, energy or politics is worth searching for.
 
 Colour ramps:
 
@@ -302,6 +325,12 @@ refusal."""
 def describe(prompt: str) -> tuple[Manifest, dict, str]:
     """Assemble and validate a manifest from a natural-language request.
 
+    Two turns when a searchable source is chosen: the first names the source and
+    a query, the service runs the search, and the second picks from the
+    candidates it returns. The agent can therefore reach an indicator this code
+    has never heard of, but cannot invent one -- the choice is constrained to
+    real search hits rather than to a frozen list.
+
     Returns the validated manifest, its raw dict form, and the agent's reasoning.
     """
     if not isinstance(prompt, str) or not prompt.strip():
@@ -310,8 +339,9 @@ def describe(prompt: str) -> tuple[Manifest, dict, str]:
     client = _client()
     conversation: list[dict] = [{"role": "user", "content": prompt.strip()}]
     last_error: ManifestError | None = None
+    offered: set[str] | None = None
 
-    for attempt in range(REPAIR_ATTEMPTS + 1):
+    for attempt in range(REPAIR_ATTEMPTS + 2):
         answer = _ask(client, conversation)
 
         if not answer.get("mappable", False):
@@ -321,8 +351,30 @@ def describe(prompt: str) -> tuple[Manifest, dict, str]:
             )
 
         raw = dict(answer["manifest"])
+        query = (raw.get("variable") or {}).get("search_query") or ""
+        chosen = (raw.get("variable") or {}).get("id") or ""
+        source = (raw.get("variable") or {}).get("source")
+
+        if source and not chosen and query and offered is None:
+            found = _search(source, query)
+            offered = {c.id for c in found}
+            conversation.append({"role": "assistant", "content": json.dumps(answer)})
+            conversation.append({"role": "user", "content": _candidate_prompt(
+                source, query, found)})
+            continue
+
+        if offered is not None and chosen not in offered:
+            # The id has to be one the search returned. Without this the model
+            # could invent a plausible-looking slug, which would 404 later with
+            # a far less useful message -- or worse, silently resolve to the
+            # wrong chart.
+            raise AgentError(
+                f"{chosen!r} was not among the {len(offered)} candidates "
+                f"{source} returned for {query or 'that search'}", "variable.id",
+            )
         # Structured Outputs cannot make one field nullable-by-flag, so the
         # model signals a base map with a boolean and we clear the object here.
+        raw.get("variable", {}).pop("search_query", None)
         if raw.pop("variable_is_null", False):
             raw["variable"] = None
             raw["normalize"] = None
@@ -346,6 +398,30 @@ def describe(prompt: str) -> tuple[Manifest, dict, str]:
     raise AgentError(
         f"could not assemble a valid manifest after {REPAIR_ATTEMPTS + 1} attempts: "
         f"{last_error}", getattr(last_error, "field", "prompt")
+    )
+
+
+def _search(source: str, query: str) -> list:
+    try:
+        return statistics.search(source, query, limit=SEARCH_RESULTS)
+    except StatisticsError:
+        return []
+
+
+def _candidate_prompt(source: str, query: str, found: list) -> str:
+    """Hand the search results back for the next turn."""
+    if not found:
+        return (f"Searching {source} for {query!r} returned nothing. "
+                f"{source} does not publish this. Refuse, unless another source "
+                "can answer it.")
+    listed = "\n".join(f"  {c.as_prompt_line()}" for c in found)
+    return (
+        f"{source} returned these candidates for {query!r}:\n{listed}\n\n"
+        "Reply with the full manifest, setting variable.id to exactly one of "
+        "those ids and leaving search_query empty. Prefer the candidate that "
+        "matches the request most directly and has the widest country coverage; "
+        "avoid ones that split by sex, age or subcategory unless asked. If none "
+        "of them is what was asked for, refuse instead of settling."
     )
 
 

@@ -55,11 +55,15 @@ def reply(manifest=None, mappable=True, refusal=None, reasoning="because"):
 def test_schema_enums_come_from_the_registry():
     from mapsvc import colors, registry, statistics
     props = agent.schema()["properties"]["manifest"]["properties"]
-    # One flat enum across levels; the validator catches wrong-level use.
-    assert props["variable"]["properties"]["id"]["enum"] == sorted(statistics.all_variables())
-    every = set(statistics.all_variables())
+    assert props["variable"]["properties"]["source"]["enum"] == list(statistics.sources())
+    # variable.id is deliberately NOT an enum: a searched id cannot be listed
+    # ahead of time, and an enum would forbid the answers search exists to find.
+    assert "enum" not in props["variable"]["properties"]["id"]
+    every = set(statistics.fixed_variables())
     assert set(statistics.variables_for("admin_0", "natural_earth")) < every
-    assert set(statistics.variables_for("admin_0", "owid")) < every
+    # owid is searchable, so it contributes no fixed entries -- its ids come
+    # from a live search instead.
+    assert statistics.variables_for("admin_0", "owid") == {}
     assert props["ramp"]["enum"] == sorted(colors.RAMPS)
     assert props["classify"]["properties"]["method"]["enum"] == list(registry.METHODS)
     assert props["projection"]["enum"] == list(registry.PROJECTIONS)

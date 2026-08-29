@@ -201,7 +201,7 @@ cartography/   polygons, keyed by ISO 3166-2 (or ISO3 at country level)
   overture.py        admin_0 .. admin_3, queried live from S3 with DuckDB
 statistics/    values, keyed the same way
   natural_earth.py   the six country attributes
-  owid.py            Our World in Data, 10 curated indicators
+  owid.py            Our World in Data, searched not enumerated
 harvest.py     the join
 ```
 
@@ -210,54 +210,36 @@ Adding a data source touches one directory. `basemap` chooses the boundaries,
 
 ### Statistics sources
 
-| source | levels | licence | indicators |
-|---|---|---|---|
-| `natural_earth` | admin_0, admin_1 | public domain | 6 country columns, 4 sub-national |
-| `owid` | admin_0 only | **CC BY 4.0** | 10 curated Our World in Data charts |
+A source declares **what it can do**, not what it holds.
 
-```bash
-curl -X POST localhost:8000/map -H 'content-type: application/json' \
-  -d '{"region":"world","level":"admin_0","basemap":{"source":"natural_earth"},
-       "variable":{"source":"owid","id":"life-expectancy"},
-       "classify":{"method":"quantile","k":6},"ramp":"YlGnBu"}' -o life.svg
+| source | kind | levels | licence |
+|---|---|---|---|
+| `natural_earth` | **fixed** — 10 listed columns | admin_0, admin_1 | public domain |
+| `owid` | **searchable** — thousands of charts | admin_0 | CC BY 4.0 |
+
+A **fixed** source enumerates a small stable set; the agent picks an id directly.
+A **searchable** source is too large to enumerate, so the agent emits a
+plain-English query, the service searches, and the agent picks from what comes
+back.
+
+```
+prompt "unemployment across Europe"
+  turn 1  -> {source: "owid", search_query: "unemployment rate"}
+  service -> /api/search -> 8 candidates with titles and coverage
+  turn 2  -> picks "unemployment-rate", fills in the manifest
 ```
 
-Our World in Data is read through the Grapher CSV API
-(`ourworldindata.org/grapher/<slug>.csv`), which is keyed by ISO3 in a `Code`
-column — already the admin_0 join key, so no name matching is involved. Both
-licences reach the footnote: the basemap's and the statistics source's.
+**The agent cannot invent an id.** For a fixed source the validator checks the
+catalogue; for a searchable one the chosen id is checked against the candidates
+the search actually returned. That constraint is a real check rather than a
+schema enum — an enum on `variable.id` would forbid exactly the answers search
+exists to find, which is a mistake this code made once already.
 
-**Adding an OWID indicator** — take the slug from its
-`ourworldindata.org/grapher/<slug>` URL, confirm the CSV's fourth column is the
-value you want, and add a row to `INDICATORS` in `statistics/owid.py`.
+`describe()` fetches unit, label, measurement level and citation from
+`/grapher/<slug>.metadata.json`, so nothing about an indicator is hardcoded. The
+footnote credits the whole chain:
 
-**Registering a whole new source** is two steps:
-
-1. Write `mapsvc/statistics/<name>.py` declaring four module-level names and one
-   function:
-
-   ```python
-   SOURCE      = "world_bank"
-   LICENSE     = "CC BY 4.0"
-   ATTRIBUTION = "World Bank (CC BY 4.0)"
-   VARIABLES   = {"admin_0": {"SP.DYN.LE00.IN": {
-                      "level": "ratio", "unit": "years", "year_col": None,
-                      "label": "life expectancy at birth"}}}
-
-   def load(variable_id, level, region) -> Values: ...
-   ```
-
-2. Add the module name to `_MODULES` in `statistics/__init__.py`.
-
-That is all. `sources()`, `variables_for()`, `sources_for()` and `level_of()`
-derive from the registered providers, so **nothing branches on a source name**,
-and the agent's JSON schema is generated from those lookups — the new source and
-its indicators become selectable with no prompt edit. `tests/test_statistics.py`
-registers a fake source and asserts exactly this.
-
-`load` returns values keyed by **ISO3** at admin_0 and **ISO 3166-2** at admin_1;
-the join is `harvest.py`'s job. The `level` field in a variable's metadata is
-load-bearing: `count` treats 0 as no-data, `ratio` does not.
+> Variable: Unemployment rate (%), 2021–2025 [ILO Modelled Estimates, via World Bank (2026), via Our World in Data (CC BY 4.0)]
 
 Three things the OWID API does that will bite you:
 
@@ -265,15 +247,14 @@ Three things the OWID API does that will bite you:
   for `life-expectancy` that way returns five countries, not 236. The provider
   fetches the full export instead.
 - **`time=latest` is ignored on the full export**, so the latest year per country
-  is chosen here rather than by the API.
+  is chosen here.
 - **Several series carry projections.** `population-density` and `median-age` run
   to 2100. Observations are capped at the current year so a forecast is never
   mapped as though it were measured.
 
 A fourth: the CDN answers **403 without a User-Agent**.
 
-Countries a source has no row for are dropped with reason `no_join` and hatched
-— 17 of 242 for life expectancy, mostly small territories.
+Countries a source has no row for are dropped with reason `no_join` and hatched.
 
 ### Basemaps
 
@@ -488,7 +469,7 @@ identical to GDP per capita either way.
 uv run pytest
 ```
 
-162 tests, no network and no API key: the harvester's fetch and the OpenAI
+169 tests, no network and no API key: the harvester's fetch and the OpenAI
 client are both stubbed, and the renderer runs against a hand-written 5-feature
 fixture in `tests/fixtures/`, which carries a polygon with a hole, a
 MultiPolygon, and both sentinel values. Running the suite costs nothing.

@@ -137,26 +137,45 @@ def validate(raw: dict) -> Manifest:
         variable_source = variable["source"]
         variable_id = variable["id"]
 
-        available = statistics.variables_for(level, variable_source)
-        if variable_id not in available:
-            elsewhere = statistics.sources_for(variable_id)
-            if elsewhere and variable_source not in elsewhere:
-                raise ManifestError(
-                    f"{variable_id!r} comes from {' or '.join(elsewhere)}, not "
-                    f"{variable_source!r}", "variable.source",
-                )
-            belongs_to = statistics.level_of(variable_id)
-            if belongs_to:
-                raise ManifestError(
-                    f"{variable_id!r} is an {belongs_to} variable, but level is "
-                    f"{level!r}; at {level} {variable_source} offers "
-                    f"{', '.join(sorted(available)) or 'nothing'}", "variable.id",
-                )
+        capabilities = statistics.capabilities(variable_source)
+        if level not in capabilities.levels:
             raise ManifestError(
-                f"unknown variable {variable_id!r}; at {level} {variable_source} "
-                f"offers {', '.join(sorted(available)) or 'nothing'}", "variable.id"
+                f"{variable_source} publishes at {', '.join(capabilities.levels)}, "
+                f"but level is {level!r}", "level",
             )
 
+        if capabilities.searchable:
+            # No local catalogue to check against: the id is a search result and
+            # only the source itself can say whether it exists. That is settled
+            # at harvest, which 404s cleanly.
+            if not str(variable_id).strip():
+                raise ManifestError(
+                    f"{variable_source} is searchable, so variable.id must name a "
+                    "specific indicator", "variable.id",
+                )
+        else:
+            available = statistics.variables_for(level, variable_source)
+            if variable_id not in available:
+                elsewhere = statistics.sources_for(variable_id)
+                if elsewhere and variable_source not in elsewhere:
+                    raise ManifestError(
+                        f"{variable_id!r} comes from {' or '.join(elsewhere)}, not "
+                        f"{variable_source!r}", "variable.source",
+                    )
+                belongs_to = statistics.level_of(variable_id)
+                if belongs_to:
+                    raise ManifestError(
+                        f"{variable_id!r} is an {belongs_to} variable, but level is "
+                        f"{level!r}; at {level} {variable_source} offers "
+                        f"{', '.join(sorted(available)) or 'nothing'}", "variable.id",
+                    )
+                raise ManifestError(
+                    f"unknown variable {variable_id!r}; at {level} "
+                    f"{variable_source} offers "
+                    f"{', '.join(sorted(available)) or 'nothing'}", "variable.id"
+                )
+
+        available = statistics.variables_for(level, variable_source)
         if normalize is not None and normalize not in available:
             raise ManifestError(
                 f"unknown normalize column {normalize!r}; at {level} expected null "
@@ -202,7 +221,13 @@ def validate(raw: dict) -> Manifest:
 
         # Correctness rule: shading unordered categories light-to-dark asserts an
         # ordering that does not exist -- that one subregion is "more" than another.
-        if available[variable_id]["level"] == "nominal" and colors.kind(ramp) != "qualitative":
+        # A searchable source's measurement level is only known after a
+        # metadata fetch, which validate() must not do -- it runs before any
+        # I/O. The nominal rule is therefore enforced at render for those, and
+        # here for fixed sources.
+        fixed = statistics.variables_for(level, variable_source)
+        measurement = fixed[variable_id].level if variable_id in fixed else None
+        if measurement == "nominal" and colors.kind(ramp) != "qualitative":
             qualitative = sorted(n for n, kind in colors.RAMPS.items()
                                  if kind == "qualitative")
             raise ManifestError(

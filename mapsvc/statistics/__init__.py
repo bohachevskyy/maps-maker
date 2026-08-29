@@ -9,25 +9,35 @@ Earth and Overture already carry.
 
 Registering a source
 --------------------
-1. Write `mapsvc/statistics/<name>.py` declaring four module-level names:
+A source declares what it *can do*, not what it holds. Freezing a list of
+indicators into the registry was the earlier design and it was wrong: OWID
+publishes thousands of charts, and a hand-picked ten refused "unemployment"
+while the catalogue had 98 matching charts.
 
-       SOURCE      = "world_bank"
-       LICENSE     = "CC BY 4.0"
-       ATTRIBUTION = "World Bank (CC BY 4.0)"
-       VARIABLES   = {"admin_0": {"<id>": {"level", "unit", "year_col"}}}
+Write `mapsvc/statistics/<name>.py` with a `Capabilities` and the functions it
+advertises, then add the module name to `_MODULES` below.
 
-   and one function, `load(variable_id, level, region) -> Values`.
+    CAPABILITIES = Capabilities(
+        source="owid", levels=("admin_0",), key="ISO3",
+        license="CC BY 4.0", attribution="Our World in Data (CC BY 4.0)",
+        searchable=True,                    # implement search() + describe()
+        description="thousands of charts on health, environment, energy...",
+    )
 
-2. Add the module to `_MODULES` below.
+    def search(query, limit) -> list[Candidate]   # searchable sources only
+    def describe(variable_id) -> Variable         # searchable sources only
+    def variables(level) -> dict[str, Variable]   # fixed sources only
+    def load(variable_id, level, region) -> Values
 
-That is the whole procedure. `SOURCES`, `variables_for`, `sources_for` and
-`level_of` all derive from the providers, so nothing branches on a source name,
-and the agent's JSON schema -- which is generated from these lookups -- picks up
-the new indicators with no prompt edit.
+A **fixed** source (natural_earth) enumerates a small, stable set of columns and
+the agent picks from an enum. A **searchable** source (owid) is too large to
+enumerate: the agent emits a query, the service searches, and the agent picks
+from what came back -- so it still cannot invent an id, the constraint is just
+computed per request instead of frozen.
 
-`level` in a variable's metadata is its measurement level, and it is load-bearing:
-"count" treats 0 as no-data (a country with zero people is a placeholder row),
-"ratio" does not (0% internet use is a real observation).
+`Variable.level` is the measurement level and it is load-bearing: "count" treats
+0 as no-data (a country with zero people is a placeholder row), "ratio" does not
+(0% unemployment is a real observation).
 """
 
 import functools
@@ -35,6 +45,46 @@ from dataclasses import dataclass, field
 
 # The registered sources, in the order they are offered.
 _MODULES = ("natural_earth", "owid")
+
+
+@dataclass(frozen=True)
+class Capabilities:
+    """What a source can do. Declared once per provider module."""
+
+    source: str
+    levels: tuple
+    key: str                      # "ISO3" at admin_0, "ISO3166_2" below
+    license: str
+    attribution: str
+    description: str
+    searchable: bool = False
+
+
+@dataclass(frozen=True)
+class Variable:
+    """One measurable thing, however the source describes it."""
+
+    id: str
+    label: str
+    unit: str | None
+    level: str                    # count | ratio | ordinal | nominal
+    year_col: str | None = None
+    timespan: str | None = None
+    citation: str | None = None
+
+
+@dataclass(frozen=True)
+class Candidate:
+    """A search hit, offered to the agent to choose from."""
+
+    id: str
+    title: str
+    subtitle: str = ""
+    coverage: int = 0             # entities the source has data for
+
+    def as_prompt_line(self) -> str:
+        note = f" — {self.subtitle}" if self.subtitle else ""
+        return f"{self.id}: {self.title}{note} ({self.coverage} entities)"
 
 
 @dataclass
@@ -79,27 +129,64 @@ def load(source: str, variable_id: str, level: str, region: str) -> Values:
     return provider(source).load(variable_id, level, region)
 
 
+def capabilities(source: str) -> Capabilities:
+    return provider(source).CAPABILITIES
+
+
+def all_capabilities() -> list:
+    return [m.CAPABILITIES for m in _providers().values()]
+
+
 def variables_for(level: str, source: str) -> dict:
-    """What `source` publishes at `level`."""
-    return provider(source).VARIABLES.get(level, {})
+    """What a *fixed* source publishes at a level. Empty for searchable ones."""
+    module = provider(source)
+    if module.CAPABILITIES.searchable:
+        return {}
+    return module.VARIABLES.get(level, {})
 
 
-def catalogue() -> dict:
-    """Every source's catalogue: {source: {level: {id: meta}}}."""
-    return {name: module.VARIABLES for name, module in _providers().items()}
+def search(source: str, query: str, limit: int = 8) -> list:
+    """Ask a searchable source for candidates matching a natural-language query."""
+    module = provider(source)
+    if not module.CAPABILITIES.searchable:
+        raise StatisticsError(
+            f"{source!r} is a fixed source; its variables are listed, not searched",
+            "variable.source",
+        )
+    return module.search(query, limit)
+
+
+def describe(source: str, variable_id: str) -> Variable:
+    """Resolve a variable id to its measurement metadata.
+
+    For a fixed source this is a dict lookup; for a searchable one it is a
+    metadata fetch, because there is no local catalogue to consult.
+    """
+    module = provider(source)
+    if module.CAPABILITIES.searchable:
+        return module.describe(variable_id)
+    for level_ids in module.VARIABLES.values():
+        if variable_id in level_ids:
+            return level_ids[variable_id]
+    raise StatisticsError(
+        f"{source!r} has no variable {variable_id!r}", "variable.id"
+    )
 
 
 def sources_for(variable_id: str) -> list[str]:
-    """Which sources publish this variable id."""
+    """Which *fixed* sources publish this id. Searchable ones cannot answer."""
     return [
         name for name, module in _providers().items()
-        if any(variable_id in ids for ids in module.VARIABLES.values())
+        if not module.CAPABILITIES.searchable
+        and any(variable_id in ids for ids in module.VARIABLES.values())
     ]
 
 
 def level_of(variable_id: str) -> str | None:
-    """The admin level a variable belongs to, or None if no source has it."""
+    """The admin level a fixed-source variable belongs to."""
     for module in _providers().values():
+        if module.CAPABILITIES.searchable:
+            continue
         for level, ids in module.VARIABLES.items():
             if variable_id in ids:
                 return level
@@ -107,14 +194,11 @@ def level_of(variable_id: str) -> str | None:
 
 
 @functools.lru_cache(maxsize=1)
-def all_variables() -> dict:
-    """Every variable across every source and level.
-
-    The agent needs one flat enum; the validator rejects a variable used with
-    the wrong source or at the wrong level.
-    """
+def fixed_variables() -> dict:
+    """Every variable a fixed source offers -- the agent's enum comes from here."""
     merged: dict = {}
     for module in _providers().values():
-        for ids in module.VARIABLES.values():
-            merged.update(ids)
+        if not module.CAPABILITIES.searchable:
+            for ids in module.VARIABLES.values():
+                merged.update(ids)
     return merged

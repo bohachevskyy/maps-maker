@@ -1,150 +1,159 @@
-"""Our World in Data, through the Grapher CSV API.
+"""Our World in Data: a searchable source.
 
-Every OWID chart publishes at `ourworldindata.org/grapher/<slug>.csv`, keyed by
-ISO3 in a `Code` column -- which is already this service's admin_0 join key, so
-no name matching is needed anywhere.
+OWID publishes thousands of charts, so there is no catalogue here. The agent
+supplies a natural-language query, `search` returns ranked candidates, and the
+agent picks one of them -- it can name an indicator this module has never heard
+of, but not one the search did not return.
 
-Licensed CC BY 4.0. The attribution travels in `provenance` and the renderer
-puts it in the footnote.
+Three endpoints, all public and unauthenticated:
+
+    /api/search?q=&type=charts       ranked chart slugs for a query
+    /grapher/<slug>.metadata.json    unit, label, type, timespan, citation
+    /grapher/<slug>.csv              Entity, Code, Year, value
+
+Licensed CC BY 4.0; the attribution travels in `provenance` to the footnote.
 """
 
 import csv
 import datetime
+import functools
 import io
-import os
+import json
 import pathlib
 import urllib.error
+import urllib.parse
 import urllib.request
 
-from mapsvc import registry
-from mapsvc.statistics import StatisticsError, Values
+from mapsvc.statistics import Candidate, Capabilities, StatisticsError, Values, Variable
 
-BASE = "https://ourworldindata.org/grapher/{slug}.csv"
+SEARCH = "https://ourworldindata.org/api/search"
+METADATA = "https://ourworldindata.org/grapher/{slug}.metadata.json"
+DATA = "https://ourworldindata.org/grapher/{slug}.csv"
+
 # Without a User-Agent the CDN answers 403.
 USER_AGENT = "mapsvc/0.1 (+https://ourworldindata.org)"
 FETCH_TIMEOUT = 90
 
 SOURCE = "owid"
-LICENSE = "CC BY 4.0"
-ATTRIBUTION = "Our World in Data"
+CAPABILITIES = Capabilities(
+    source=SOURCE,
+    levels=("admin_0",),
+    key="ISO3",
+    license="CC BY 4.0",
+    attribution="Our World in Data (CC BY 4.0)",
+    searchable=True,
+    description=(
+        "Our World in Data: thousands of country-level charts on health, "
+        "population, energy, environment, economy, education, food, war and "
+        "democracy. Country level only. Search it with a plain-English phrase "
+        "naming the measure, e.g. 'unemployment rate' or 'deaths from air "
+        "pollution'."
+    ),
+)
 
-# Row 0 is Entity, 1 is Code, 2 is Year; the value is the fourth column. Charts
-# with several series put the headline one first, which is the one we want.
+# Row 0 is Entity, 1 is Code, 2 is Year; the value is the fourth column.
 VALUE_COLUMN = 3
 
-
-# Our World in Data, fetched through the Grapher CSV API. Country level only:
-# OWID publishes by ISO3 country, which is exactly the admin_0 join key.
-#
-# `level` is the measurement level, and "ratio" matters: unlike "count", a zero
-# is a real observation for a rate or an index, so the 0-as-no-data rule that
-# protects POP_EST and GDP_MD must not apply here.
-#
-# To add an indicator: find its slug in the ourworldindata.org/grapher/<slug>
-# URL, check the CSV's fourth column is the value you want, and add a row.
-INDICATORS = {
-    "life-expectancy": {
-        "level": "ratio", "unit": "years", "year_col": None,
-        "label": "life expectancy at birth"},
-    "gdp-per-capita-worldbank": {
-        "level": "ratio", "unit": "international $", "year_col": None,
-        "label": "GDP per capita"},
-    "co-emissions-per-capita": {
-        "level": "ratio", "unit": "tonnes CO2 per person", "year_col": None,
-        "label": "CO2 emissions per capita"},
-    "human-development-index": {
-        "level": "ratio", "unit": "index 0-1", "year_col": None,
-        "label": "Human Development Index"},
-    "population-density": {
-        "level": "ratio", "unit": "people per km2", "year_col": None,
-        "label": "population density"},
-    "child-mortality": {
-        "level": "ratio", "unit": "% of live births", "year_col": None,
-        "label": "under-five mortality"},
-    "share-of-population-in-extreme-poverty": {
-        "level": "ratio", "unit": "% of population", "year_col": None,
-        "label": "share in extreme poverty"},
-    "share-of-individuals-using-the-internet": {
-        "level": "ratio", "unit": "% of population", "year_col": None,
-        "label": "internet use"},
-    "median-age": {
-        "level": "ratio", "unit": "years", "year_col": None,
-        "label": "median age"},
-    "political-regime": {
-        "level": "ordinal", "unit": None, "year_col": None,
-        "label": "political regime (0 closed autocracy - 3 liberal democracy)"},
-}
-
-VARIABLES = {"admin_0": INDICATORS}
+# OWID marks every column Numeric or Ordinal. Numeric is treated as a ratio,
+# never a count: a 0 in an OWID series is an observation, not a placeholder.
+_LEVELS = {"Numeric": "ratio", "Ordinal": "ordinal", "Categorical": "nominal"}
 
 
-def variables(level: str) -> dict:
-    return VARIABLES.get(level, {})
-
-
-def _cache_path(slug: str) -> pathlib.Path:
-    from mapsvc.harvest import cache_dir
-
-    return cache_dir() / "owid" / f"{slug}.csv"
-
-
-def _fetch(slug: str) -> str:
-    """The whole series for a slug, cached to disk after the first request.
-
-    `csvType=full` is deliberate. The `filtered` variant honours the chart's own
-    default country selection -- life-expectancy returns five countries that way
-    -- and `time=latest` is ignored on the full export, so the latest year has
-    to be chosen here instead.
-    """
-    path = _cache_path(slug)
-    if path.exists():
-        return path.read_text()
-
-    request = urllib.request.Request(BASE.format(slug=slug),
-                                     headers={"User-Agent": USER_AGENT})
+def _get(url: str, timeout: int = FETCH_TIMEOUT) -> str:
+    request = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
     try:
-        with urllib.request.urlopen(request, timeout=FETCH_TIMEOUT) as response:
-            text = response.read().decode("utf-8")
+        with urllib.request.urlopen(request, timeout=timeout) as response:
+            return response.read().decode("utf-8")
     except urllib.error.HTTPError as exc:
+        if exc.code == 404:
+            raise StatisticsError(
+                f"Our World in Data has no chart for {url.rsplit('/', 1)[-1]!r}",
+                "variable.id",
+            ) from exc
         raise StatisticsError(
-            f"Our World in Data has no chart {slug!r} ({exc.code})", "variable.id"
-        ) from exc
+            f"Our World in Data returned {exc.code}", "variable.source") from exc
     except OSError as exc:
         raise StatisticsError(f"could not reach Our World in Data: {exc}",
                               "variable.source") from exc
 
+
+def _cache(kind: str, name: str, produce) -> str:
+    from mapsvc.harvest import cache_dir
+
+    path = pathlib.Path(cache_dir()) / "owid" / kind / name
+    if path.exists():
+        return path.read_text()
+    text = produce()
     path.parent.mkdir(parents=True, exist_ok=True)
-    temporary = path.with_suffix(".part")
+    temporary = path.with_suffix(path.suffix + ".part")
     temporary.write_text(text)
     temporary.replace(path)
     return text
 
 
-def load(variable_id: str, level: str, region: str) -> Values:
-    available = variables(level)
-    if variable_id not in available:
-        if variable_id in INDICATORS:
-            raise StatisticsError(
-                f"Our World in Data publishes {variable_id!r} by country only, "
-                f"but level is {level!r}", "level"
-            )
+@functools.lru_cache(maxsize=256)
+def search(query: str, limit: int = 8) -> list:
+    """Ranked chart candidates for a plain-English query.
+
+    Not cached to disk: the catalogue moves, and a stale search is worse than a
+    slow one. The in-process cache covers repeats within a run.
+    """
+    url = SEARCH + "?" + urllib.parse.urlencode(
+        {"q": query, "type": "charts", "hitsPerPage": limit})
+    payload = json.loads(_get(url, timeout=45))
+    return [
+        Candidate(
+            id=hit["slug"],
+            title=hit.get("title", hit["slug"]),
+            subtitle=(hit.get("subtitle") or "")[:120],
+            coverage=len(hit.get("availableEntities") or []),
+        )
+        for hit in payload.get("results", [])
+        if hit.get("slug")
+    ]
+
+
+def describe(variable_id: str) -> Variable:
+    """Measurement metadata for a slug, from OWID rather than from a local dict."""
+    payload = json.loads(_cache(
+        "metadata", f"{variable_id}.json",
+        lambda: _get(METADATA.format(slug=variable_id))))
+
+    columns = payload.get("columns") or {}
+    if not columns:
         raise StatisticsError(
-            f"unknown Our World in Data indicator {variable_id!r}; the registry "
-            f"holds {', '.join(sorted(INDICATORS))}", "variable.id"
+            f"{variable_id!r} publishes no data columns", "variable.id")
+    name, column = next(iter(columns.items()))
+    chart = payload.get("chart") or {}
+
+    return Variable(
+        id=variable_id,
+        label=column.get("titleShort") or chart.get("title") or name,
+        unit=column.get("unit") or None,
+        level=_LEVELS.get(column.get("type"), "ratio"),
+        timespan=column.get("timespan"),
+        citation=chart.get("citation"),
+    )
+
+
+def load(variable_id: str, level: str, region: str) -> Values:
+    if level not in CAPABILITIES.levels:
+        raise StatisticsError(
+            f"Our World in Data publishes by country only, but level is {level!r}",
+            "level",
         )
 
-    meta = available[variable_id]
-    rows = list(csv.reader(io.StringIO(_fetch(variable_id))))
-    if not rows:
+    meta = describe(variable_id)
+    text = _cache("data", f"{variable_id}.csv",
+                  lambda: _get(DATA.format(slug=variable_id)))
+    rows = list(csv.reader(io.StringIO(text)))
+    if len(rows) < 2:
         raise StatisticsError(f"{variable_id!r} returned an empty CSV", "variable.id")
 
-    header = rows[0]
-    column = header[VALUE_COLUMN] if len(header) > VALUE_COLUMN else "value"
     # Several OWID series run past the present -- population-density and
     # median-age carry UN projections to 2100. Taking the newest row would
     # quietly map a forecast, so observations are capped at the current year.
     this_year = datetime.date.today().year
-
     latest: dict[str, tuple[int, str]] = {}
     for row in rows[1:]:
         if len(row) <= VALUE_COLUMN:
@@ -166,7 +175,7 @@ def load(variable_id: str, level: str, region: str) -> Values:
             "variable.id",
         )
 
-    values: dict[str, float | str] = {}
+    values: dict = {}
     for code, (_, raw) in latest.items():
         try:
             values[code.upper()] = float(raw)
@@ -175,14 +184,16 @@ def load(variable_id: str, level: str, region: str) -> Values:
 
     years = {year for year, _ in latest.values()}
     return Values(values=values, provenance={
-        "source": ATTRIBUTION,
-        "license": LICENSE,
-        "attribution": f"{ATTRIBUTION} ({LICENSE})",
+        "source": "Our World in Data",
+        "license": CAPABILITIES.license,
+        # CC BY 4.0 obliges crediting Our World in Data; the citation names the
+        # upstream study, which is not the same thing. State both.
+        "attribution": (f"{meta.citation}, via {CAPABILITIES.attribution}"
+                        if meta.citation else CAPABILITIES.attribution),
         "vintage": None,
-        "variable": meta.get("label") or variable_id,
-        "unit": meta["unit"],
-        "level": meta["level"],
+        "variable": meta.label,
+        "unit": meta.unit,
+        "level": meta.level,
         "year": str(min(years)) if len(years) == 1 else f"{min(years)}–{max(years)}",
-        "key": "ISO3",
-        "column": column,
+        "key": CAPABILITIES.key,
     })

@@ -193,3 +193,41 @@ variable = "share-of-individuals-using-the-internet"
 name = "still refuses what no source publishes"
 prompt = "average rainfall by country"
 refuse = true
+
+# ------------------------------------- search: beyond any curated list ------
+# These were impossible before the registry became searchable: none of them
+# was in the hand-picked ten, and OWID publishes all of them.
+
+[[case]]
+name = "search finds unemployment"
+prompt = "unemployment across Europe"
+source = "owid"
+variable = "unemployment-rate"
+region = "europe"
+
+[[case]]
+name = "search finds air pollution deaths"
+prompt = "deaths from air pollution by country"
+source = "owid"
+
+[[case]]
+name = "search finds forest cover"
+prompt = "share of land covered by forest"
+source = "owid"
+
+[[case]]
+name = "search finds electricity access"
+prompt = "access to electricity around the world"
+source = "owid"
+
+[[case]]
+name = "a fixed source still answers in one turn"
+prompt = "income groups across Africa"
+source = "natural_earth"
+variable = "INCOME_GRP"
+region = "africa"
+
+[[case]]
+name = "search returning nothing is still a refusal"
+prompt = "average rainfall by country"
+refuse = true

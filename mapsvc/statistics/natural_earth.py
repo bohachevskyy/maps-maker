@@ -6,23 +6,41 @@ onto any provider's polygons -- Overture's included.
 """
 
 from mapsvc import registry
-from mapsvc.statistics import StatisticsError, Values
+from mapsvc.statistics import Capabilities, StatisticsError, Values, Variable
 
 SOURCE = "natural_earth"
-LICENSE = "public domain"
-ATTRIBUTION = "Natural Earth"
+CAPABILITIES = Capabilities(
+    source=SOURCE,
+    levels=("admin_0", "admin_1"),
+    key="ISO3 at admin_0, ISO 3166-2 at admin_1",
+    license="public domain",
+    attribution="Natural Earth",
+    searchable=False,
+    description=(
+        "The columns that ship with the boundary file: population, GDP, income "
+        "group, economy and subregion by country, plus unit type and label rank "
+        "for sub-national units. A small fixed set, instantly available."
+    ),
+)
+LICENSE = CAPABILITIES.license
+ATTRIBUTION = CAPABILITIES.attribution
 
 # The join key each level's rows are addressed by.
 KEY_PROPERTY = {"admin_0": "ADM0_A3", "admin_1": "iso_3166_2"}
 
 # Of the 168 properties on each country, these six are the mappable ones.
+def _v(vid, level, unit=None, year_col=None, label=None):
+    return Variable(id=vid, label=label or vid, unit=unit, level=level,
+                    year_col=year_col)
+
+
 COUNTRY_VARIABLES = {
-    "POP_EST":    {"level": "count",   "unit": "people",      "year_col": "POP_YEAR"},
-    "GDP_MD":     {"level": "count",   "unit": "million USD", "year_col": "GDP_YEAR"},
-    "POP_RANK":   {"level": "ordinal", "unit": None,          "year_col": None},
-    "INCOME_GRP": {"level": "ordinal", "unit": None,          "year_col": None},
-    "ECONOMY":    {"level": "ordinal", "unit": None,          "year_col": None},
-    "SUBREGION":  {"level": "nominal", "unit": None,          "year_col": None},
+    "POP_EST":    _v("POP_EST",    "count",   "people",      "POP_YEAR", "population"),
+    "GDP_MD":     _v("GDP_MD",     "count",   "million USD", "GDP_YEAR", "GDP"),
+    "POP_RANK":   _v("POP_RANK",   "ordinal", None, None, "population rank"),
+    "INCOME_GRP": _v("INCOME_GRP", "ordinal", None, None, "income group"),
+    "ECONOMY":    _v("ECONOMY",    "ordinal", None, None, "economy type"),
+    "SUBREGION":  _v("SUBREGION",  "nominal", None, None, "subregion"),
 }
 
 # Admin-1 carries 121 properties per unit and not one of them is population,
@@ -30,10 +48,10 @@ COUNTRY_VARIABLES = {
 # classification and cartographic prominence -- enough to distinguish the kind
 # of a unit, and nothing that could be mistaken for a statistic.
 UNIT_VARIABLES = {
-    "type":      {"level": "nominal", "unit": None, "year_col": None},
-    "type_en":   {"level": "nominal", "unit": None, "year_col": None},
-    "region":    {"level": "nominal", "unit": None, "year_col": None},
-    "labelrank": {"level": "ordinal", "unit": None, "year_col": None},
+    "type":      _v("type",      "nominal", None, None, "unit type (native)"),
+    "type_en":   _v("type_en",   "nominal", None, None, "unit type (English)"),
+    "region":    _v("region",    "nominal", None, None, "sub-national grouping"),
+    "labelrank": _v("labelrank", "ordinal", None, None, "cartographic prominence"),
 }
 
 # The catalogue this source publishes, by level. `statistics` reads this to
@@ -72,15 +90,17 @@ def load(variable_id: str, level: str, region: str) -> Values:
         if not key:
             continue
         values[str(key).upper()] = props.get(variable_id)
-        if meta["year_col"] and isinstance(props.get(meta["year_col"]), int):
-            years.add(props[meta["year_col"]])
+        if meta.year_col and isinstance(props.get(meta.year_col), int):
+            years.add(props[meta.year_col])
 
     return Values(values=values, provenance={
         "source": registry.SOURCE_NAME,
         "vintage": registry.SOURCE_VINTAGE,
-        "variable": variable_id,
-        "unit": meta["unit"],
-        "level": meta["level"],
+        "variable": meta.label,
+        "unit": meta.unit,
+        "level": meta.level,
+        "license": CAPABILITIES.license,
+        "attribution": CAPABILITIES.attribution,
         "year": _year_label(years),
         "key": key_property,
     })
