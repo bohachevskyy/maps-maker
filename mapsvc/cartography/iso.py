@@ -18,12 +18,20 @@ def _tables() -> tuple[dict, dict]:
     to_two: dict[str, str] = {}
     for feature in load_source("admin_0")["features"]:
         props = feature["properties"]
-        three = props.get("ADM0_A3")
         # ISO_A2 is "-99" for eight countries, France and Norway among them;
         # the _EH variants carry the real code.
         two = props.get("ISO_A2_EH") or props.get("ISO_A2")
-        if three and two and two != "-99":
-            to_two[three.upper()] = two.upper()
+        if not two or two == "-99":
+            continue
+        two = two.upper()
+        # Index every three-letter spelling Natural Earth offers. ADM0_A3 and
+        # ISO_A3 disagree for disputed entities -- Kosovo is ADM0_A3 "KOS",
+        # ISO_A3 "-99", ISO_A2_EH "XK" -- and callers may arrive with either.
+        for key in ("ADM0_A3", "ISO_A3", "ISO_A3_EH"):
+            three = props.get(key)
+            if three and three != "-99":
+                to_two.setdefault(three.upper(), two)
+    # ADM0_A3 wins when two spellings collide, since it is this service's own id.
     return to_two, {v: k for k, v in to_two.items()}
 
 

@@ -50,19 +50,21 @@ def provider(name: str):
 BBox = tuple[float, float, float, float]
 
 
-def load(source: str, level: str, bbox: BBox, detail: str = "simplified") -> Boundaries:
+def load(source: str, level: str, bbox: BBox | None, detail: str = "simplified",
+         within: str | None = None) -> Boundaries:
     """Every unit at `level` whose own bounding box intersects `bbox`.
 
     Spatially scoped, not politically: a box drawn around Ukraine also returns
     Poland's voivodeships and Romania's counties, because they are there. That
     is what a map of an area looks like.
     """
-    return provider(source).load(level, bbox, detail)
+    return provider(source).load(level, bbox, detail, within)
 
 
-def count(source: str, level: str, bbox: BBox) -> int:
+def count(source: str, level: str, bbox: BBox | None,
+          within: str | None = None) -> int:
     """How many units a load would return, without fetching their geometry."""
-    return provider(source).count(level, bbox)
+    return provider(source).count(level, bbox, within)
 
 
 def levels(source: str) -> tuple:

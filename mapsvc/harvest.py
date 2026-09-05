@@ -149,7 +149,8 @@ def _check_granularity(manifest: Manifest) -> None:
     """
     if not registry.COUNT_BEFORE_FETCH:
         return
-    units = cartography.count(manifest.basemap_source, manifest.level, manifest.bbox)
+    units = cartography.count(manifest.basemap_source, manifest.level,
+                              manifest.bbox, manifest.within)
     if units <= registry.MAX_UNITS:
         return
     coarser = _COARSER.get(manifest.level)
@@ -165,9 +166,11 @@ def _check_granularity(manifest: Manifest) -> None:
 def _build(manifest: Manifest) -> HarvestResult:
     _check_granularity(manifest)
     boundaries = cartography.load(manifest.basemap_source, manifest.level,
-                                  manifest.bbox, manifest.basemap_detail)
+                                  manifest.bbox, manifest.basemap_detail,
+                                  manifest.within)
     provenance = {
-        "bbox": list(manifest.bbox),
+        "bbox": None if manifest.bbox is None else list(manifest.bbox),
+        "within": manifest.within,
         "level": manifest.level,
         **{f"basemap_{k}": v for k, v in boundaries.provenance.items()},
         "source": boundaries.provenance.get("source"),

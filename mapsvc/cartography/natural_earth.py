@@ -39,7 +39,15 @@ def _intersecting(features: list, bbox) -> list:
     return kept
 
 
-def _selected(level: str, bbox) -> list:
+def _belongs(feature, codes, level: str) -> bool:
+    props = feature["properties"]
+    unit = str(props.get("iso_3166_2") or "").upper()
+    country = str(props.get(registry.country_property(level)) or "").upper()
+    alpha2 = str(props.get("ISO_A2_EH") or props.get("ISO_A2") or "").upper()
+    return any(code == unit or code == country or code == alpha2 for code in codes)
+
+
+def _selected(level: str, bbox, within: str | None = None) -> list:
     from mapsvc.harvest import load_source
 
     if level not in LEVELS:
@@ -47,17 +55,27 @@ def _selected(level: str, bbox) -> list:
             f"natural_earth has no {level!r}; it provides {', '.join(LEVELS)}. "
             "Use the overture basemap for finer levels.", "level"
         )
-    return _intersecting(load_source(level)["features"], bbox)
+    features = load_source(level)["features"]
+    if within:
+        codes = {c.strip().upper() for c in within}
+        features = [f for f in features if _belongs(f, codes, level)]
+    if bbox is not None:
+        features = _intersecting(features, bbox)
+    return features
 
 
-def count(level: str, bbox) -> int:
-    return len(_selected(level, bbox))
+def count(level: str, bbox, within: str | None = None) -> int:
+    return len(_selected(level, bbox, within))
 
 
-def load(level: str, bbox, detail: str = "simplified") -> Boundaries:
-    features = _selected(level, bbox)
+def load(level: str, bbox, detail: str = "simplified",
+         within: str | None = None) -> Boundaries:
+    features = _selected(level, bbox, within)
     if not features:
-        raise CartographyError("no natural_earth features in that area", "bbox")
+        raise CartographyError(
+            f"no natural_earth features in {', '.join(within)}" if within
+            else "no natural_earth features in that area",
+            "within" if within else "bbox")
 
     id_property = registry.id_property(level)
     name_property = registry.name_property(level)

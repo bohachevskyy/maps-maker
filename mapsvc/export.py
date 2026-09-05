@@ -42,9 +42,13 @@ def filename(manifest: Manifest) -> str:
                            separators=(",", ":"))
     digest = hashlib.sha256(canonical.encode()).hexdigest()[:10]
 
-    # The window names the file, rounded to whole degrees so it stays readable.
-    west, south, east, north = (round(v) for v in manifest.bbox)
-    window = f"{west}_{south}_{east}_{north}"
+    # The scope names the file: a code where there is one, otherwise the window
+    # rounded to whole degrees.
+    if manifest.within:
+        window = _slug(manifest.within)
+    else:
+        west, south, east, north = (round(v) for v in manifest.bbox)
+        window = f"{west}_{south}_{east}_{north}"
     if manifest.variable_id is None:
         # A base map has no variable to name it after; say what it actually is.
         label = f"{window}-{_slug(manifest.level)}-boundaries"

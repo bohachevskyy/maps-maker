@@ -159,8 +159,44 @@ def test_data_key_covers_the_whole_manifest_now():
     """Nothing is render-time any more, so nothing is excluded."""
     a = validate(manifest())
     assert a.data_key() == {
-        "bbox": [-5.0, 35.0, 40.0, 60.0], "level": "admin_0",
+        "bbox": [-5.0, 35.0, 40.0, 60.0], "within": None, "level": "admin_0",
         "basemap": {"source": "natural_earth", "detail": "simplified"},
         "variable": {"source": "natural_earth", "id": "GDP_MD"},
     }
     assert validate(manifest(bbox=[0, 0, 1, 1])).data_key() != a.data_key()
+
+
+# --- within ---------------------------------------------------------------
+
+def test_within_scopes_politically_where_a_bbox_cannot():
+    m = validate({"level": "admin_2", "within": "UA-07", "variable": None})
+    assert m.within == ("UA-07",)
+    assert m.bbox is None
+
+
+def test_within_accepts_a_list_for_a_region_with_no_code():
+    """The Balkans is however many countries you say it is."""
+    m = validate({"level": "admin_1", "variable": None,
+                  "within": ["ALB", "BIH", "HRV", "SRB"]})
+    assert m.within == ("ALB", "BIH", "HRV", "SRB")
+
+
+def test_codes_are_normalised_to_upper_case():
+    assert validate({"level": "admin_1", "within": ["ukr", "ua-07"],
+                     "variable": None}).within == ("UKR", "UA-07")
+
+
+def test_one_of_bbox_or_within_is_required():
+    assert rejects({"level": "admin_1", "variable": None}).field == "bbox"
+
+
+def test_both_together_narrow_twice():
+    m = validate({"level": "admin_1", "within": "UKR", "variable": None,
+                  "bbox": [22.0, 48.0, 26.0, 51.0]})
+    assert m.within == ("UKR",) and m.bbox is not None
+
+
+def test_a_malformed_within_is_rejected():
+    for bad in ([], "", ["  "], [7], {"a": 1}):
+        assert rejects({"level": "admin_1", "within": bad,
+                        "variable": None}).field in ("within", "bbox")

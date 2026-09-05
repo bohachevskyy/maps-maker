@@ -63,6 +63,12 @@ def schema() -> dict:
                            "min_lat south of max_lat.",
             "items": {"type": "number"},
         },
+        "within": {
+            "type": "array",
+            "description": "country codes (ISO3) and/or ISO 3166-2 unit codes "
+                           "to scope the map to. Empty for a bbox-only window.",
+            "items": {"type": "string"},
+        },
         "level": {"type": "string", "enum": list(registry.LEVELS)},
         "basemap": {
             "type": "object",
@@ -172,25 +178,42 @@ for them and you cannot get them wrong.
 A manifest has four things: a window (bbox), a granularity (level), where the \
 outlines come from (basemap), and optionally what to shade them by (variable).
 
-THE WINDOW
+WHAT TO SHOW: `within`, `bbox`, or both
 
-bbox is [min_lon, min_lat, max_lon, max_lat] in degrees. Work it out from the \
-request. You are expected to know roughly where places are:
+`within` is a political filter: a list of country codes (ISO3) and/or ISO 3166-2 \
+unit codes. Only units belonging to those appear. Prefer it whenever the request \
+names real places, because it gives exact borders and no neighbours.
+
+  "Ukraine's oblasts"      within ["UKR"],  level admin_1   -> 27 units
+  "the raions of Volyn"    within ["UA-07"], level admin_2  -> exactly 4
+  "the Balkans"            within ["ALB","BIH","BGR","HRV","GRC","KOS","MNE",
+                                   "MKD","ROU","SRB","SVN"]
+  "Scandinavia"            within ["NOR","SWE","DNK"] (add FIN, ISL if the
+                           request means the Nordics rather than Scandinavia)
+
+An informal region has no code, so you supply the member list yourself. Say in \
+reasoning which countries you counted, since reasonable people draw the Balkans \
+and Scandinavia differently.
+
+`bbox` is [min_lon, min_lat, max_lon, max_lat] in degrees -- a spatial window. \
+Everything overlapping it is returned, neighbours included. Use it when the \
+request is about an *area* rather than named units: "around Kyiv", "the Alps", \
+"the area within 100km of Lviv", or when zooming to a place that is not an \
+administrative unit at all.
 
   Europe          [-25, 34, 45, 72]
-  Ukraine         [22, 44, 41, 53]
-  the Baltics     [20, 53, 29, 60]
-  Benelux         [2.5, 49.4, 7.3, 53.6]
   around Kyiv     [29.2, 49.2, 32.2, 51.6]
   the whole world [-180, -90, 180, 90]
 
-Round to about a tenth of a degree; precision beyond that is false. Pad a little \
-so the subject is not flush against the edge. A window that crosses the \
-antimeridian is not supported -- for the Pacific, pick one side.
+Round bbox to about a tenth of a degree; precision beyond that is false. A \
+window crossing the antimeridian is not supported -- for the Pacific, pick one \
+side.
 
-This replaces named regions entirely, which means places with no official code \
-now work: "Scandinavia", "the Balkans", "the Horn of Africa", "the area around \
-Lviv" are all just windows. There is nothing left to refuse on those grounds.
+Both together narrows twice: within ["UKR"] plus a bbox around Lviv gives \
+Ukrainian units in the west only, with nothing Polish. Give at least one.
+
+Country codes are ISO3 as Natural Earth spells them: Kosovo is KOS or XK, not \
+XKX.
 
 THE GRANULARITY
 
@@ -244,8 +267,8 @@ REFUSING
 Refusal is about what is being measured, never about where or how. Set mappable \
 to false only when no source publishes the requested measure -- rainfall, \
 election results -- or when a search comes back empty. Say so plainly and name \
-what does exist. Never refuse because a place has no official code: every place \
-is a window now.
+what does exist. Never refuse because a place has no official code: name its \
+members in `within`, or draw a `bbox` around it.
 
 {region_hint}"""
 
@@ -303,6 +326,11 @@ def describe(prompt: str) -> tuple[Manifest, dict, str]:
         # Structured Outputs cannot make one field nullable-by-flag, so the
         # model signals a base map with a boolean and we clear the object here.
         raw.get("variable", {}).pop("search_query", None)
+        # An empty list means "no political filter"; the validator wants absence.
+        if not raw.get("within"):
+            raw.pop("within", None)
+        if not raw.get("bbox"):
+            raw.pop("bbox", None)
         if raw.pop("variable_is_null", False):
             raw["variable"] = None
         try:

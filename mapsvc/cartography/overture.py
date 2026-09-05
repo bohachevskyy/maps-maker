@@ -78,21 +78,62 @@ def _intersects(bbox) -> str:
             f"bbox.xmax - bbox.xmin < {MAX_BBOX_WIDTH}")
 
 
-def _where(level: str, bbox) -> str:
+def _within(codes: list) -> str:
+    """SQL for "this unit belongs to one of these".
+
+    A bounding box is spatial, so a window around Volyn also returns Polish and
+    Belarusian raions, and a window over the Balkans takes in half of Italy.
+    `within` is the political filter a box cannot be: Overture tags every unit
+    with its country (ISO2) and, below country level, its parent's ISO 3166-2
+    code. Volyn's four raions all report UA-07.
+
+    A list names a region that has no code of its own -- the Balkans is however
+    many countries you say it is, which is more honest than a rectangle and
+    lets the caller be explicit about the contested memberships.
+    """
+    regions, countries = [], []
+    for code in codes:
+        code = code.strip().upper()
+        if "-" in code:
+            regions.append(code)
+            continue
+        alpha2 = iso.to_alpha2(code)
+        if not alpha2:
+            raise CartographyError(
+                f"cannot resolve {code!r} to a country. Natural Earth's code "
+                "table is the authority here, and it does not use every "
+                "three-letter spelling -- Kosovo is KOS or XK, not XKX. A "
+                "two-letter code always works.", "within")
+        countries.append(alpha2)
+
+    clauses = []
+    if regions:
+        clauses.append("region IN (" + ", ".join(f"'{_quote(c)}'" for c in regions) + ")")
+    if countries:
+        clauses.append("country IN (" + ", ".join(f"'{_quote(c)}'" for c in countries) + ")")
+    return "(" + " OR ".join(clauses) + ")"
+
+
+def _where(level: str, bbox, within: str | None = None) -> str:
     if level not in SUBTYPES:
         raise CartographyError(
             f"overture has no {level!r}; it provides {', '.join(SUBTYPES)}", "level"
         )
     # is_land excludes the separate territorial-sea polygon that coastal
     # divisions also carry, which would otherwise duplicate every coastal unit.
-    return (f"subtype = '{SUBTYPES[level]}' AND is_land AND {_intersects(bbox)}")
+    clauses = [f"subtype = '{SUBTYPES[level]}'", "is_land"]
+    if bbox is not None:
+        clauses.append(_intersects(bbox))
+    if within:
+        clauses.append(_within(within))
+    return " AND ".join(clauses)
 
 
-def count(level: str, bbox) -> int:
+def count(level: str, bbox, within: str | None = None) -> int:
     """Units a load would return. Cheap: no geometry leaves S3."""
     sql = (f"SELECT count(*) FROM read_parquet("
            f"'{DIVISION_AREA.format(release=RELEASE)}', hive_partitioning=1) "
-           f"WHERE {_where(level, bbox)}")
+           f"WHERE {_where(level, bbox, within)}")
     try:
         return _connection().execute(sql).fetchone()[0]
     except CartographyError:
@@ -101,7 +142,8 @@ def count(level: str, bbox) -> int:
         raise CartographyError(f"overture count failed: {exc}", "basemap.source") from exc
 
 
-def load(level: str, bbox, detail: str = "simplified") -> Boundaries:
+def load(level: str, bbox, detail: str = "simplified",
+         within: str | None = None) -> Boundaries:
     sql = f"""
         SELECT id,
                region                          AS iso,
@@ -111,7 +153,7 @@ def load(level: str, bbox, detail: str = "simplified") -> Boundaries:
                ST_AsGeoJSON(geometry)          AS geometry
         FROM read_parquet('{DIVISION_AREA.format(release=RELEASE)}',
                           hive_partitioning=1)
-        WHERE {_where(level, bbox)}
+        WHERE {_where(level, bbox, within)}
     """
     try:
         rows = _connection().execute(sql).fetchall()
@@ -121,8 +163,10 @@ def load(level: str, bbox, detail: str = "simplified") -> Boundaries:
         raise CartographyError(f"overture query failed: {exc}", "basemap.source") from exc
 
     if not rows:
+        where = f"in {', '.join(within)}" if within else "in that area"
         raise CartographyError(
-            f"overture has no {SUBTYPES[level]} divisions in that area", "bbox"
+            f"overture has no {SUBTYPES[level]} divisions {where}",
+            "within" if within else "bbox",
         )
 
     # `region` is the unit's own ISO 3166-2 code at admin_1, but its *parent's*

@@ -30,23 +30,39 @@ contains = [[2.3, 48.9], [-3.7, 40.4], [30.5, 50.5]]   # Paris, Madrid, Kyiv
 excludes = [[-74.0, 40.7], [139.7, 35.7]]              # New York, Tokyo
 
 [[case]]
-name = "scandinavia has no code and is now mappable"
+name = "scandinavia is a country list, not a box"
 prompt = "a map of Scandinavia"
-contains = [[10.7, 59.9], [18.1, 59.3], [12.6, 55.7]]  # Oslo, Stockholm, Copenhagen
-excludes = [[2.3, 48.9]]                               # not Paris
-max_span = 45
+scoped_politically = true
+within = ["NOR", "SWE", "DNK"]
+within_excludes = ["FRA", "DEU", "POL"]
 
 [[case]]
-name = "the balkans have no code either"
+name = "the balkans are a country list too"
 prompt = "show me the Balkans"
-contains = [[20.5, 44.8], [23.7, 38.0]]                # Belgrade, Athens
-max_span = 30
+scoped_politically = true
+within = ["SRB", "HRV", "BIH", "ALB"]
+within_excludes = ["ITA", "TUR", "AUT"]
 
 [[case]]
-name = "a city window is small and fine-grained"
-prompt = "draw the raions around Kyiv"
-level = "admin_2"
+name = "a named country uses its code, not a box"
+prompt = "show me Ukraine's oblasts"
+level = "admin_1"
+scoped_politically = true
+within = ["UKR"]
 variable = "__null__"
+
+[[case]]
+name = "a named sub-national unit uses its 3166-2 code"
+prompt = "the raions of Volyn"
+level = "admin_2"
+scoped_politically = true
+within = ["UA-07"]
+variable = "__null__"
+
+[[case]]
+name = "an informal area uses a box, not a code"
+prompt = "the area around Kyiv"
+scoped_spatially = true
 contains = [[30.5, 50.45]]
 max_span = 8
 

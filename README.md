@@ -177,7 +177,7 @@ Four keys. Two required. Anything else is rejected rather than ignored.
 
 ```json
 {
-  "bbox":    [22, 44, 41, 53],
+  "within":  ["UKR"],
   "level":   "admin_1",
   "basemap": {"source": "overture", "detail": "simplified"},
   "variable": {"source": "owid", "id": "unemployment-rate"}
@@ -186,16 +186,35 @@ Four keys. Two required. Anything else is rejected rather than ignored.
 
 | field | |
 |---|---|
-| `bbox` | **required.** `[min_lon, min_lat, max_lon, max_lat]` in degrees. |
 | `level` | **required.** `admin_0` … `admin_3`. |
+| `within` | political scope: country codes (ISO3) and/or ISO 3166-2 unit codes. |
+| `bbox` | spatial window: `[min_lon, min_lat, max_lon, max_lat]` in degrees. |
 | `basemap` | optional; defaults to `{"source": "overture", "detail": "simplified"}`. |
 | `variable` | optional; `null` draws boundaries with no shading. |
 
-**A window, not a region.** Units are returned if their bounding box *overlaps*
-the window, so a box around Ukraine also returns Polish voivodeships and
-Romanian counties — which is what a map of an area looks like. The upside is
-that places without an official code now work: Scandinavia, the Balkans, the
-area around Lviv are all just windows.
+**At least one of `within` or `bbox`.** They answer different questions:
+
+| request | scope | result |
+|---|---|---|
+| Ukraine's oblasts | `within: ["UKR"]` | exactly 27 |
+| the raions of Volyn | `within: ["UA-07"]` | exactly 4 |
+| the Balkans | `within: ["ALB","BIH","BGR","HRV","GRC","KOS","MNE","MKD","ROU","SRB","SVN"]` | 437 at admin_1 |
+| the area around Kyiv | `bbox: [29.2, 49.2, 32.2, 51.6]` | whatever overlaps |
+
+`within` is **political** and gives exact borders. `bbox` is **spatial** and
+returns everything overlapping, neighbours included — a box around Volyn returns
+45 raions, Polish and Belarusian ones among them, where `within: ["UA-07"]`
+returns its 4.
+
+An informal region has no code, so you name its members. That is more honest
+than a rectangle: reasonable people draw the Balkans differently, and a list
+says which answer you took. The agent states its membership in `reasoning`.
+
+Both together narrows twice — `within: ["UKR"]` plus a bbox around Lviv gives
+Ukrainian units in the west only, with nothing Polish.
+
+Codes are ISO3 as Natural Earth spells them, which is not always what you
+expect: **Kosovo is `KOS` or `XK`, never `XKX`.** Two-letter codes always work.
 
 **Nothing about rendering is in the manifest.** Colour ramp, classification
 method, `k`, projection and missing-value treatment are all derived from the

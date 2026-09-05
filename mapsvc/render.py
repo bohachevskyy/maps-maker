@@ -49,10 +49,10 @@ def render(manifest: Manifest, result: HarvestResult) -> str:
     if not extent_geoms:
         raise RenderError("no features to draw for this region", "region")
 
-    # The window is the manifest's bbox, not something inferred from whatever
-    # geometry came back: the caller asked for an area, and that is the area
-    # they get, whether or not a polygon happens to reach its corners.
-    extent = manifest.bbox
+    # With a bbox the caller named the window, so that is the window. With only
+    # a `within`, the units themselves define it -- "Volyn's raions" implies a
+    # frame around Volyn without anyone having to state its coordinates.
+    extent = manifest.bbox or project.extent_of(extent_geoms)
     name = project.choose(extent)
     projector = project.make(name, extent)
     bounds = project.viewport_bounds(extent_geoms, projector, extent)

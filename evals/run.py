@@ -25,9 +25,11 @@ DIRECT = {
     "basemap": "basemap_source", "detail": "basemap_detail",
     "source": "variable_source",
 }
+# within is a set: order is irrelevant and membership is what matters.
 NULL = "__null__"
 RESERVED = ({"name", "prompt", "refuse", "mentions", "contains", "excludes",
-             "max_span"} | set(DIRECT))
+             "max_span", "within", "within_excludes", "scoped_politically",
+             "scoped_spatially"} | set(DIRECT))
 
 
 class Failure(Exception):
@@ -35,6 +37,8 @@ class Failure(Exception):
 
 
 def _bbox(manifest) -> str:
+    if manifest.within:
+        return "within " + ",".join(manifest.within)
     return "[" + ",".join(f"{v:g}" for v in manifest.bbox) + "]"
 
 
@@ -74,9 +78,26 @@ def check(case: dict, manifest, reasoning: str) -> None:
             if not _matches(case[key], actual):
                 raise Failure(f"{key}: expected {case[key]!r}, got {actual!r}")
 
+    if "within" in case:
+        actual = set(manifest.within or ())
+        expected = {c.upper() for c in case["within"]}
+        if not expected <= actual:
+            raise Failure(f"within {sorted(actual)} is missing {sorted(expected - actual)}")
+    if "within_excludes" in case:
+        actual = set(manifest.within or ())
+        clash = {c.upper() for c in case["within_excludes"]} & actual
+        if clash:
+            raise Failure(f"within should not contain {sorted(clash)}")
+    if case.get("scoped_politically") and not manifest.within:
+        raise Failure("expected a `within` filter, got a bbox-only window")
+    if case.get("scoped_spatially") and manifest.within:
+        raise Failure(f"expected a bbox window, got within {list(manifest.within)}")
+
     # The window is asserted by what it covers, not by exact numbers: two
     # sensible bboxes for "the Balkans" differ by degrees and both are right.
-    west, south, east, north = manifest.bbox
+    west, south, east, north = manifest.bbox or (-180, -90, 180, 90)
+    if manifest.bbox is None:
+        return
     for lon, lat in case.get("contains", []):
         if not (west <= lon <= east and south <= lat <= north):
             raise Failure(f"bbox {_bbox(manifest)} does not contain ({lon}, {lat})")
