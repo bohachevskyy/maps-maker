@@ -23,6 +23,10 @@ DIVISION_AREA = (
     "/theme=divisions/type=division_area/*"
 )
 
+# Beyond this a stored bounding box has wrapped the antimeridian and says
+# nothing about where the unit is.
+MAX_BBOX_WIDTH = 180
+
 LICENSE = "ODbL 1.0"
 ATTRIBUTION = "© OpenStreetMap contributors, © Overture Maps Foundation"
 
@@ -51,38 +55,53 @@ def _connection():
     return con
 
 
-def load(level: str, region: str, detail: str = "simplified") -> Boundaries:
+def _intersects(bbox) -> str:
+    """SQL for "this unit's bounding box overlaps the window".
+
+    Overture stores per-row bbox columns, so this prunes whole row groups
+    before any geometry is read -- which is the difference between a few
+    seconds and a few minutes.
+
+    Testing `bbox.xmin BETWEEN ...` instead is a tempting mistake: it asks
+    whether the unit's *corner* falls inside the window, so a box drawn inside
+    Ukraine returns no country at all, Ukraine's own corner being outside it.
+    """
+    min_lon, min_lat, max_lon, max_lat = bbox
+    return (f"bbox.xmin <= {max_lon} AND bbox.xmax >= {min_lon} AND "
+            f"bbox.ymin <= {max_lat} AND bbox.ymax >= {min_lat} AND "
+            # A unit straddling the antimeridian is stored with xmin near -180
+            # and xmax near +180, so its bounding box spans the planet and
+            # intersects every window on Earth. Alaska's Unorganized Borough
+            # (width 358.9 degrees, thanks to the Aleutians) was arriving on a
+            # three-degree map of Kyiv and dragging the viewport out with it.
+            # Such a box carries no location, so it cannot be filtered on.
+            f"bbox.xmax - bbox.xmin < {MAX_BBOX_WIDTH}")
+
+
+def _where(level: str, bbox) -> str:
     if level not in SUBTYPES:
         raise CartographyError(
             f"overture has no {level!r}; it provides {', '.join(SUBTYPES)}", "level"
         )
-    subtype = SUBTYPES[level]
-
-    where = [f"subtype = '{subtype}'", "is_land"]
-    wanted = region.strip().lower()
-    if wanted != "world":
-        # Overture divisions carry a country code and no continent, so a
-        # continent has to be expanded into its member countries first.
-        members = iso.countries_in(region)
-        if members:
-            listed = ", ".join(f"'{_quote(c)}'" for c in members)
-            where.append(f"country IN ({listed})")
-        else:
-            alpha2 = iso.to_alpha2(region)
-            if not alpha2:
-                raise CartographyError(
-                    f"cannot resolve region {region!r}; expected 'world', a "
-                    "CONTINENT name, or a country code", "region"
-                )
-            where.append(f"country = '{_quote(alpha2)}'")
-    elif level != "admin_0":
-        raise CartographyError(
-            f"region 'world' at {level} would pull every division on earth from "
-            "S3 with no cache in front of it; name a country instead", "region"
-        )
-
     # is_land excludes the separate territorial-sea polygon that coastal
     # divisions also carry, which would otherwise duplicate every coastal unit.
+    return (f"subtype = '{SUBTYPES[level]}' AND is_land AND {_intersects(bbox)}")
+
+
+def count(level: str, bbox) -> int:
+    """Units a load would return. Cheap: no geometry leaves S3."""
+    sql = (f"SELECT count(*) FROM read_parquet("
+           f"'{DIVISION_AREA.format(release=RELEASE)}', hive_partitioning=1) "
+           f"WHERE {_where(level, bbox)}")
+    try:
+        return _connection().execute(sql).fetchone()[0]
+    except CartographyError:
+        raise
+    except Exception as exc:
+        raise CartographyError(f"overture count failed: {exc}", "basemap.source") from exc
+
+
+def load(level: str, bbox, detail: str = "simplified") -> Boundaries:
     sql = f"""
         SELECT id,
                region                          AS iso,
@@ -92,16 +111,18 @@ def load(level: str, region: str, detail: str = "simplified") -> Boundaries:
                ST_AsGeoJSON(geometry)          AS geometry
         FROM read_parquet('{DIVISION_AREA.format(release=RELEASE)}',
                           hive_partitioning=1)
-        WHERE {' AND '.join(where)}
+        WHERE {_where(level, bbox)}
     """
     try:
         rows = _connection().execute(sql).fetchall()
+    except CartographyError:
+        raise
     except Exception as exc:  # duckdb raises a family of its own errors
         raise CartographyError(f"overture query failed: {exc}", "basemap.source") from exc
 
     if not rows:
         raise CartographyError(
-            f"overture returned no {subtype} divisions for region {region!r}", "region"
+            f"overture has no {SUBTYPES[level]} divisions in that area", "bbox"
         )
 
     # `region` is the unit's own ISO 3166-2 code at admin_1, but its *parent's*

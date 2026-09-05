@@ -216,9 +216,9 @@ def test_a_new_source_reaches_the_validator_and_the_agent(with_fake_source):
     from mapsvc import agent
     from mapsvc.manifest import validate
 
-    m = validate({"region": "world", "level": "admin_0",
-                  "variable": {"source": "fake_bank", "id": "FB.LIT.RATE"},
-                  "classify": {"method": "quantile", "k": 5}, "ramp": "YlGnBu"})
+    m = validate({"bbox": [-5, 35, 40, 60], "level": "admin_0",
+                  "basemap": {"source": "natural_earth"},
+                  "variable": {"source": "fake_bank", "id": "FB.LIT.RATE"}})
     assert m.variable_source == "fake_bank"
 
     agent.schema.cache_clear()
@@ -231,8 +231,8 @@ def test_a_new_source_reaches_the_validator_and_the_agent(with_fake_source):
 def test_a_variable_from_a_different_source_is_still_caught(with_fake_source):
     from mapsvc.manifest import ManifestError, validate
     with pytest.raises(ManifestError) as excinfo:
-        validate({"region": "world", "level": "admin_0",
-                  "variable": {"source": "fake_bank", "id": "GDP_MD"},
-                  "classify": {"method": "quantile", "k": 5}, "ramp": "YlGnBu"})
+        validate({"bbox": [-5, 35, 40, 60], "level": "admin_0",
+                  "basemap": {"source": "natural_earth"},
+                  "variable": {"source": "fake_bank", "id": "GDP_MD"}})
     assert excinfo.value.field == "variable.source"
     assert "natural_earth" in str(excinfo.value)

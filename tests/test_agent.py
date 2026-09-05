@@ -8,12 +8,9 @@ from mapsvc import agent, harvest as H
 from mapsvc.manifest import Manifest
 
 GOOD = {
-    "region": "europe", "level": "admin_0",
+    "bbox": [-5.0, 35.0, 40.0, 60.0], "level": "admin_0",
     "variable": {"source": "natural_earth", "id": "GDP_MD"},
-    "normalize": "POP_EST",
-    "classify": {"method": "quantile", "k": 5},
-    "ramp": "YlGnBu", "projection": "auto", "missing": "hatch",
-}
+    }
 
 
 class FakeResponses:
@@ -36,7 +33,6 @@ class FakeClient:
 def stub(monkeypatch, tmp_path):
     """Replace the OpenAI client with canned replies."""
     monkeypatch.setenv("MAPSVC_CACHE", str(tmp_path))
-    monkeypatch.setattr(agent, "_region_vocabulary", lambda: "CONTINENT values: Europe.")
 
     def install(*replies):
         client = FakeClient(replies)
@@ -53,7 +49,7 @@ def reply(manifest=None, mappable=True, refusal=None, reasoning="because"):
 # --- schema ---------------------------------------------------------------
 
 def test_schema_enums_come_from_the_registry():
-    from mapsvc import colors, registry, statistics
+    from mapsvc import statistics
     props = agent.schema()["properties"]["manifest"]["properties"]
     assert props["variable"]["properties"]["source"]["enum"] == list(statistics.sources())
     # variable.id is deliberately NOT an enum: a searched id cannot be listed
@@ -64,17 +60,24 @@ def test_schema_enums_come_from_the_registry():
     # owid is searchable, so it contributes no fixed entries -- its ids come
     # from a live search instead.
     assert statistics.variables_for("admin_0", "owid") == {}
-    assert props["ramp"]["enum"] == sorted(colors.RAMPS)
-    assert props["classify"]["properties"]["method"]["enum"] == list(registry.METHODS)
-    assert props["projection"]["enum"] == list(registry.PROJECTIONS)
-    assert props["missing"]["enum"] == list(registry.MISSING_MODES)
 
 
-def test_k_is_an_enum_because_strict_mode_ignores_numeric_ranges():
-    from mapsvc import registry
-    k = agent.schema()["properties"]["manifest"]["properties"]["classify"]["properties"]["k"]
-    assert k["enum"] == list(range(registry.K_MIN, registry.K_MAX + 1))
-    assert "minimum" not in k
+
+
+
+
+def test_the_schema_has_no_render_time_fields():
+    """Colour, classification, projection and missing handling are derived, so
+    there is nothing for the model to get wrong about them."""
+    props = agent.schema()["properties"]["manifest"]["properties"]
+    for gone in ("ramp", "classify", "projection", "missing", "normalize", "region"):
+        assert gone not in props
+
+
+def test_bbox_is_the_window():
+    props = agent.schema()["properties"]["manifest"]["properties"]
+    assert props["bbox"]["type"] == "array"
+    assert "min_lon" in props["bbox"]["description"]
 
 
 def test_schema_obeys_strict_mode_structural_rules():
@@ -106,7 +109,7 @@ def test_a_plain_request_produces_a_validated_manifest(stub):
     manifest, raw, reasoning = agent.describe("GDP per capita in Europe")
     assert isinstance(manifest, Manifest)
     assert manifest.variable_id == "GDP_MD"
-    assert manifest.normalize == "POP_EST"
+    assert manifest.bbox == (-5.0, 35.0, 40.0, 60.0)
     assert raw == GOOD
     assert reasoning == "because"
 
@@ -153,40 +156,39 @@ def test_a_refusal_without_a_reason_still_fails_cleanly(stub):
 # --- repair loop ----------------------------------------------------------
 
 def test_a_rejected_manifest_is_repaired_on_a_second_attempt(stub):
-    """Structured Outputs cannot express the nominal/sequential rule, so the
-    validator's rejection is handed back to the model."""
-    broken = {**GOOD, "normalize": None,
-              "variable": {"source": "natural_earth", "id": "SUBREGION"},
-              "ramp": "YlGnBu"}
-    fixed = {**broken, "ramp": "Set2"}
+    """The nominal/sequential rule is unrepresentable now, but wrong-level use
+    still is: `type` is an admin_1 column and cannot be mapped at admin_0."""
+    broken = {**GOOD, "variable": {"source": "natural_earth", "id": "type",
+                                   "search_query": ""}}
+    fixed = {**GOOD, "variable": {"source": "natural_earth", "id": "SUBREGION",
+                                  "search_query": ""}}
     client = stub(reply(broken), reply(fixed))
 
-    manifest, raw, _ = agent.describe("show me subregions of Europe")
-    assert manifest.ramp == "Set2"
+    manifest, _, _ = agent.describe("show me subregions of Europe")
+    assert manifest.variable_id == "SUBREGION"
     assert len(client.responses.calls) == 2
 
     followup = client.responses.calls[1]["input"][-1]["content"]
-    assert "rejected" in followup and "ramp" in followup
+    assert "rejected" in followup and "variable.id" in followup
 
 
 def test_repeated_failure_gives_up_and_names_the_field(stub):
-    broken = {**GOOD, "normalize": None,
-              "variable": {"source": "natural_earth", "id": "SUBREGION"},
-              "ramp": "YlGnBu"}
-    client = stub(reply(broken), reply(broken))
+    broken = {**GOOD, "variable": {"source": "natural_earth", "id": "type",
+                                   "search_query": ""}}
+    client = stub(reply(broken), reply(broken), reply(broken))
     with pytest.raises(agent.AgentError) as excinfo:
         agent.describe("subregions")
-    assert excinfo.value.field == "ramp"
-    assert len(client.responses.calls) == 2
+    assert excinfo.value.field == "variable.id"
 
 
 def test_the_agent_output_is_never_trusted_without_validation(stub):
-    """A manifest the schema permits but the validator rejects must not pass."""
-    stub(reply({**GOOD, "level": "admin_0", "region": ""}),
-         reply({**GOOD, "region": ""}))
+    """A manifest the schema permits but the validator rejects must not pass.
+    Structured Outputs cannot express "min_lon must be west of max_lon"."""
+    inverted = {**GOOD, "bbox": [40.0, 35.0, -5.0, 60.0]}
+    stub(reply(inverted), reply(inverted), reply(inverted))
     with pytest.raises(agent.AgentError) as excinfo:
         agent.describe("a map of nowhere")
-    assert excinfo.value.field == "region"
+    assert excinfo.value.field == "bbox"
 
 
 # --- configuration --------------------------------------------------------

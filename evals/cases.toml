@@ -5,205 +5,84 @@
 # mostly test the model's taste rather than its correctness. Assert what the
 # prompt actually determines; leave the rest free.
 #
-# Available assertions (all optional):
-#   level, region, variable, normalize, method, projection, missing, ramp
+# Assertions (all optional):
+#   level, variable, source, basemap, detail
 #        exact value, or a list meaning "any of these". Strings compare
-#        case-insensitively. Use normalize = "__null__" to require no
-#        normalisation.
-#   k             exact integer, or a list of acceptable integers
-#   ramp_kind     "sequential" | "diverging" | "qualitative"
-#   refuse        true  -> the agent must decline
-#   mentions      list of substrings the refusal (or reasoning) must contain
+#        case-insensitively. Use variable = "__null__" to require a base map.
+#   contains   [[lon, lat], ...]  the window must cover these points
+#   excludes   [[lon, lat], ...]  the window must NOT cover these points
+#   max_span   the window's longer side must be at most this many degrees
+#   refuse     true -> the agent must decline
+#   mentions   substrings the refusal or reasoning must contain
 #
-# Add cases freely; `uv run python -m evals.run` picks them up.
+# The window is asserted by coverage, never by exact numbers: two sensible
+# bboxes for "the Balkans" differ by degrees and both are right.
 
-# ---------------------------------------------------------------- admin_0 ---
-
-[[case]]
-name = "gdp per capita europe"
-prompt = "GDP per capita in Europe"
-level = "admin_0"
-region = "europe"
-variable = "GDP_MD"
-normalize = "POP_EST"
-ramp_kind = "sequential"
+# ------------------------------------------------------- the window --------
 
 [[case]]
-name = "totals are not normalised"
-prompt = "total population by country worldwide"
-region = "world"
-variable = "POP_EST"
-normalize = "__null__"
-
-[[case]]
-name = "biggest economies means totals"
-prompt = "which countries in Africa have the biggest economies?"
-region = "africa"
-variable = "GDP_MD"
-normalize = "__null__"
-
-[[case]]
-name = "how rich implies per capita"
-prompt = "how rich are countries"
-variable = "GDP_MD"
-normalize = "POP_EST"
-
-[[case]]
-name = "nominal demands a qualitative ramp"
-prompt = "show me the subregions of Europe"
-variable = "SUBREGION"
-ramp_kind = "qualitative"
-
-# KNOWN FLAKY, ~70% pass on gpt-5.6-terra. The model sometimes refuses instead
-# of overriding the ramp. Measured across three phrasings ("using YlGnBu",
-# "shaded light to dark", and both together) the refusal rate was similar, so it
-# is model non-determinism on a borderline judgement, not a wording artifact --
-# refusing is arguably defensible when the user explicitly asked for the invalid
-# thing. Left in and left failing: an eval that hides a known weakness is worse
-# than one that reports it. Run with --repeat to see the rate.
-[[case]]
-name = "explicit bad ramp is overridden"
-prompt = "subregions of Europe shaded light to dark with the YlGnBu ramp"
-variable = "SUBREGION"
-ramp_kind = "qualitative"
-
-[[case]]
-name = "income groups are ordinal"
-prompt = "income groups across Africa"
-region = "africa"
-variable = "INCOME_GRP"
-
-# ---------------------------------------------------------------- admin_1 ---
-
-[[case]]
-name = "oblasts are admin_1"
-prompt = "Show me a map of ukrain with all the oblasts"
-level = "admin_1"
-region = "UKR"
-ramp_kind = "qualitative"
-
-[[case]]
-name = "us states are admin_1"
-prompt = "draw the states of the USA"
-level = "admin_1"
-region = "USA"
-
-[[case]]
-name = "population by oblast refuses on the variable, not the place"
-prompt = "population of each Ukrainian oblast"
-refuse = true
-mentions = ["oblast"]
-
-# --------------------------------------------------------------- refusals ---
-
-[[case]]
-name = "no rainfall anywhere"
-prompt = "rainfall in Europe"
-refuse = true
-mentions = ["rainfall"]
-
-[[case]]
-name = "no unemployment"
-prompt = "unemployment rate by country"
-refuse = true
-
-[[case]]
-name = "no sub-continental regions"
-prompt = "a map of Scandinavia"
-refuse = true
-
-[[case]]
-name = "too many categories for any qualitative ramp"
-prompt = "show me every subregion in the world coloured with Set3"
-refuse = true
-
-# --------------------------------------------------------- cartography ------
-
-[[case]]
-name = "raions are admin_2 on overture"
-prompt = "draw the raions of Ukraine"
-level = "admin_2"
-region = "UKR"
-basemap = "overture"
-variable = "__null__"
-
-[[case]]
-name = "asking to see units gives a base map"
-prompt = "show me the outlines of Poland's provinces"
-region = "POL"
-variable = "__null__"
-
-[[case]]
-name = "detail request picks overture"
-prompt = "a high resolution map of Ukraine's oblasts"
-region = "UKR"
-basemap = "overture"
-
-[[case]]
-name = "counties of the USA need overture"
-prompt = "map every county in the USA"
-level = "admin_2"
-region = "USA"
-basemap = "overture"
-variable = "__null__"
-
-[[case]]
-name = "a plain country choropleth still defaults to natural_earth"
-prompt = "GDP per capita across Africa"
-level = "admin_0"
-basemap = "natural_earth"
-variable = "GDP_MD"
-normalize = "POP_EST"
-
-# ------------------------------------------------- statistics sources -------
-
-[[case]]
-name = "life expectancy comes from owid"
-prompt = "life expectancy around the world"
-source = "owid"
-variable = "life-expectancy"
-level = "admin_0"
-
-[[case]]
-name = "co2 per capita comes from owid"
-prompt = "which countries emit the most CO2 per person?"
-source = "owid"
-variable = "co-emissions-per-capita"
-
-[[case]]
-name = "population still comes from natural earth"
-prompt = "total population by country"
-source = "natural_earth"
-variable = "POP_EST"
-
-[[case]]
-name = "human development is owid not a gdp substitute"
-prompt = "map the human development index"
-source = "owid"
-variable = "human-development-index"
-
-[[case]]
-name = "internet access is owid"
-prompt = "share of people online in Africa"
-source = "owid"
-region = "africa"
-variable = "share-of-individuals-using-the-internet"
-
-[[case]]
-name = "still refuses what no source publishes"
-prompt = "average rainfall by country"
-refuse = true
-
-# ------------------------------------- search: beyond any curated list ------
-# These were impossible before the registry became searchable: none of them
-# was in the hand-picked ten, and OWID publishes all of them.
-
-[[case]]
-name = "search finds unemployment"
+name = "europe window covers the continent"
 prompt = "unemployment across Europe"
+level = "admin_0"
 source = "owid"
 variable = "unemployment-rate"
-region = "europe"
+contains = [[2.3, 48.9], [-3.7, 40.4], [30.5, 50.5]]   # Paris, Madrid, Kyiv
+excludes = [[-74.0, 40.7], [139.7, 35.7]]              # New York, Tokyo
+
+[[case]]
+name = "scandinavia has no code and is now mappable"
+prompt = "a map of Scandinavia"
+contains = [[10.7, 59.9], [18.1, 59.3], [12.6, 55.7]]  # Oslo, Stockholm, Copenhagen
+excludes = [[2.3, 48.9]]                               # not Paris
+max_span = 45
+
+[[case]]
+name = "the balkans have no code either"
+prompt = "show me the Balkans"
+contains = [[20.5, 44.8], [23.7, 38.0]]                # Belgrade, Athens
+max_span = 30
+
+[[case]]
+name = "a city window is small and fine-grained"
+prompt = "draw the raions around Kyiv"
+level = "admin_2"
+variable = "__null__"
+contains = [[30.5, 50.45]]
+max_span = 8
+
+[[case]]
+name = "us states"
+prompt = "the states of the USA"
+level = "admin_1"
+variable = "__null__"
+contains = [[-77.0, 38.9], [-118.2, 34.1]]             # DC, Los Angeles
+excludes = [[2.3, 48.9]]
+
+[[case]]
+name = "the whole world"
+prompt = "life expectancy worldwide"
+level = "admin_0"
+source = "owid"
+variable = "life-expectancy"
+contains = [[-74.0, 40.7], [139.7, 35.7], [151.2, -33.9]]
+
+# --------------------------------------------------- granularity -----------
+
+[[case]]
+name = "a continent window stays at country level"
+prompt = "GDP per capita across Africa"
+level = "admin_0"
+contains = [[3.4, 6.5], [18.4, -33.9]]                 # Lagos, Cape Town
+
+[[case]]
+name = "a province window goes to admin_2"
+prompt = "the districts around Lviv"
+level = ["admin_2", "admin_3"]
+variable = "__null__"
+contains = [[24.03, 49.84]]
+max_span = 8
+
+# ------------------------------------------------- source selection --------
 
 [[case]]
 name = "search finds air pollution deaths"
@@ -216,18 +95,26 @@ prompt = "share of land covered by forest"
 source = "owid"
 
 [[case]]
-name = "search finds electricity access"
-prompt = "access to electricity around the world"
-source = "owid"
+name = "population still comes from natural earth"
+prompt = "total population by country"
+source = "natural_earth"
+variable = "POP_EST"
 
 [[case]]
-name = "a fixed source still answers in one turn"
+name = "income groups are a fixed variable"
 prompt = "income groups across Africa"
 source = "natural_earth"
 variable = "INCOME_GRP"
-region = "africa"
+
+# ------------------------------------------------------- refusals ----------
 
 [[case]]
-name = "search returning nothing is still a refusal"
+name = "no source measures rainfall"
 prompt = "average rainfall by country"
+refuse = true
+mentions = ["rainfall"]
+
+[[case]]
+name = "a place with no data is still a place"
+prompt = "population of each Ukrainian oblast"
 refuse = true

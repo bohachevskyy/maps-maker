@@ -19,7 +19,7 @@ def test_an_unknown_provider_names_the_basemap_field():
 
 def test_a_provider_refuses_a_level_it_does_not_serve():
     with pytest.raises(CartographyError) as excinfo:
-        cartography.load("natural_earth", "admin_2", "UKR")
+        cartography.load("natural_earth", "admin_2", (22.0, 44.0, 41.0, 53.0))
     assert excinfo.value.field == "level"
     assert "overture" in str(excinfo.value)
 
@@ -38,11 +38,18 @@ def test_overture_maps_canonical_levels_onto_its_own_subtypes():
     assert overture.SUBTYPES["admin_2"] == "county"
 
 
-def test_overture_refuses_a_worldwide_query_below_country_level():
-    """Every division on earth, uncached, is not a request worth serving."""
-    with pytest.raises(CartographyError) as excinfo:
-        overture.load("admin_2", "world")
-    assert excinfo.value.field == "region"
+def test_overture_excludes_antimeridian_wrapped_bounding_boxes():
+    """A unit spanning 358 degrees intersects every window on earth."""
+    sql = overture._intersects((29.2, 49.2, 32.2, 51.6))
+    assert f"bbox.xmax - bbox.xmin < {overture.MAX_BBOX_WIDTH}" in sql
+
+
+def test_overture_tests_intersection_not_corner_containment():
+    """`bbox.xmin BETWEEN ...` asks whether the unit's corner is inside the
+    window, so a box drawn inside Ukraine would return no country at all."""
+    sql = overture._intersects((29.2, 49.2, 32.2, 51.6))
+    assert "bbox.xmin <= 32.2" in sql and "bbox.xmax >= 29.2" in sql
+    assert "BETWEEN" not in sql
 
 
 def test_overture_carries_its_licence_so_the_footnote_can_state_it():
@@ -60,7 +67,7 @@ def test_natural_earth_returns_geometry_and_keys_but_no_values(monkeypatch, tmp_
          "properties": {"ADM0_A3": "FRA", "CONTINENT": "Europe", "NAME": "France",
                         "GDP_MD": 2715518}}]})
 
-    boundaries = natural_earth.load("admin_0", "FRA")
+    boundaries = natural_earth.load("admin_0", (-1.0, -1.0, 2.0, 2.0))
     unit = boundaries.units[0]
     assert unit["id"] == "FRA" and unit["key"] == "FRA"
     assert unit["geometry"] == box

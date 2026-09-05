@@ -24,21 +24,22 @@ def test_post_map_returns_svg(client):
     assert "<svg" in response.text
 
 
-def test_nominal_variable_with_a_sequential_ramp_is_422_naming_the_ramp(client):
-    body = {**copy.deepcopy(RAW), "normalize": None,
-            "variable": {"source": "natural_earth", "id": "SUBREGION"}, "ramp": "YlGnBu"}
-    response = client.post("/map", json=body)
+def test_an_inverted_bbox_is_422_naming_the_bbox(client):
+    """The failure that replaced the ramp rule: a window the wrong way round
+    would render a convincing map of the wrong place."""
+    response = client.post("/map", json={**copy.deepcopy(RAW),
+                                         "bbox": [40.0, 35.0, -5.0, 60.0]})
     assert response.status_code == 422
-    assert response.json()["field"] == "ramp"
-    assert "qualitative" in response.json()["error"]
+    assert response.json()["field"] == "bbox"
 
 
 def test_validation_errors_name_their_field(client):
     cases = [
-        ({"classify": {"method": "quantile", "k": 12}}, "classify.k"),
-        ({"level": "admin_2"}, "level"),
+        ({"bbox": [40.0, 35.0, -5.0, 60.0]}, "bbox"),
+        ({"level": "admin_2"}, "level"),      # natural_earth cannot serve it
+        ({"level": "admin_9"}, "level"),
         ({"variable": {"source": "natural_earth", "id": "GDP_PPP"}}, "variable.id"),
-        ({"ramp": "Viridis"}, "ramp"),
+        ({"basemap": {"source": "gadm"}}, "basemap.source"),
     ]
     for override, field in cases:
         response = client.post("/map", json={**copy.deepcopy(RAW), **override})
@@ -46,10 +47,11 @@ def test_validation_errors_name_their_field(client):
         assert response.json()["field"] == field
 
 
-def test_unknown_region_is_422(client):
-    response = client.post("/map", json={**copy.deepcopy(RAW), "region": "atlantis"})
+def test_a_window_with_nothing_in_it_is_422(client):
+    response = client.post("/map", json={**copy.deepcopy(RAW),
+                                         "bbox": [100.0, 60.0, 110.0, 70.0]})
     assert response.status_code == 422
-    assert response.json()["field"] == "region"
+    assert response.json()["field"] == "bbox"
 
 
 def test_malformed_json_is_422_not_a_crash(client):
@@ -95,8 +97,8 @@ def described(monkeypatch, tmp_path):
 
 def test_describe_returns_manifest_svg_and_reasoning(described):
     from mapsvc.manifest import validate
-    raw = {**copy.deepcopy(RAW), "classify": {"method": "quantile", "k": 3}}
-    client = described(lambda p: (validate(raw), raw, "GDP normalised by population"))
+    raw = copy.deepcopy(RAW)
+    client = described(lambda p: (validate(raw), raw, "GDP by country"))
 
     response = client.post("/describe", json={"prompt": "GDP per capita in Europe"})
     assert response.status_code == 200
@@ -105,13 +107,13 @@ def test_describe_returns_manifest_svg_and_reasoning(described):
     assert body["manifest"] == raw
     assert body["svg"].startswith('<?xml version="1.0" encoding="UTF-8"?>')
     assert "<svg" in body["svg"]
-    assert body["reasoning"] == "GDP normalised by population"
+    assert body["reasoning"] == "GDP by country"
 
 
 def test_the_returned_manifest_round_trips_through_map(described):
     """The caller must be able to edit what the agent produced and re-post it."""
     from mapsvc.manifest import validate
-    raw = {**copy.deepcopy(RAW), "classify": {"method": "quantile", "k": 3}}
+    raw = copy.deepcopy(RAW)
     client = described(lambda p: (validate(raw), raw, ""))
 
     described_svg = client.post("/describe", json={"prompt": "anything"}).json()["svg"]

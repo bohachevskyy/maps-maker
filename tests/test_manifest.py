@@ -5,16 +5,10 @@ import pytest
 from mapsvc.manifest import ManifestError, validate
 
 BASE = {
-    "region": "europe",
+    "bbox": [-5.0, 35.0, 40.0, 60.0],
     "level": "admin_0",
-    # Pinned: these tests stub the Natural Earth loader and never touch S3.
     "basemap": {"source": "natural_earth", "detail": "simplified"},
     "variable": {"source": "natural_earth", "id": "GDP_MD"},
-    "normalize": "POP_EST",
-    "classify": {"method": "quantile", "k": 5},
-    "ramp": "YlGnBu",
-    "projection": "auto",
-    "missing": "hatch",
 }
 
 
@@ -32,203 +26,141 @@ def rejects(raw) -> ManifestError:
 
 def test_the_example_manifest_validates():
     m = validate(manifest())
+    assert m.bbox == (-5.0, 35.0, 40.0, 60.0)
     assert m.variable_id == "GDP_MD"
-    assert m.normalize == "POP_EST"
-    assert m.k == 5
 
 
-def test_rejects_unknown_variable():
-    assert rejects(manifest(variable={"source": "natural_earth", "id": "GDP_PPP"})).field \
-        == "variable.id"
+# --- bbox -----------------------------------------------------------------
+
+def test_bbox_must_have_four_numbers():
+    assert rejects(manifest(bbox=[1, 2, 3])).field == "bbox"
+    assert rejects(manifest(bbox="europe")).field == "bbox"
+    assert rejects(manifest(bbox=[1, 2, 3, "x"])).field == "bbox"
 
 
-def test_rejects_k_of_12():
-    assert rejects(manifest(classify={"method": "quantile", "k": 12})).field == "classify.k"
+def test_bbox_corners_must_be_the_right_way_round():
+    """A silently inverted window renders a convincing map of the wrong place."""
+    assert rejects(manifest(bbox=[40, 35, -5, 60])).field == "bbox"   # east/west
+    assert rejects(manifest(bbox=[-5, 60, 40, 35])).field == "bbox"   # north/south
 
 
-def test_rejects_k_below_three():
-    assert rejects(manifest(classify={"method": "quantile", "k": 2})).field == "classify.k"
+def test_bbox_must_be_on_the_planet():
+    assert rejects(manifest(bbox=[-200, 35, -100, 60])).field == "bbox"
+    assert rejects(manifest(bbox=[-5, -95, 40, 60])).field == "bbox"
 
 
-def test_rejects_nominal_variable_with_a_sequential_ramp():
-    """SUBREGION shaded light-to-dark would imply one region is 'more'."""
-    error = rejects(manifest(variable={"source": "natural_earth", "id": "SUBREGION"},
-                             ramp="YlGnBu"))
-    assert error.field == "ramp"
-    assert "qualitative" in str(error)
+def test_a_degenerate_bbox_is_rejected():
+    assert rejects(manifest(bbox=[10, 35, 10, 60])).field == "bbox"
+    assert rejects(manifest(bbox=[-5, 40, 40, 40])).field == "bbox"
 
 
-def test_rejects_nominal_variable_with_a_diverging_ramp():
-    """Diverging ramps imply a meaningful midpoint, which is just as wrong."""
-    assert rejects(manifest(variable={"source": "natural_earth", "id": "SUBREGION"},
-                            ramp="RdBu")).field == "ramp"
+def test_bbox_is_required():
+    raw = manifest()
+    del raw["bbox"]
+    assert rejects(raw).field == "bbox"
 
 
-def test_accepts_nominal_variable_with_a_qualitative_ramp():
-    assert validate(manifest(variable={"source": "natural_earth", "id": "SUBREGION"},
-                             ramp="Set2")).ramp == "Set2"
+# --- fields that no longer exist ------------------------------------------
 
+@pytest.mark.parametrize("field,value", [
+    ("region", "europe"),
+    ("normalize", "POP_EST"),
+    ("classify", {"method": "quantile", "k": 5}),
+    ("ramp", "YlGnBu"),
+    ("projection", "mercator"),
+    ("missing", "grey"),
+])
+def test_render_time_fields_are_rejected_not_ignored(field, value):
+    """These are derived now. Accepting and ignoring them would let a caller
+    believe they had chosen something they had not."""
+    error = rejects(manifest(**{field: value}))
+    assert error.field == field
+    assert "derived" in str(error) or "expected one of" in str(error)
+
+
+def test_the_nominal_sequential_pairing_is_unrepresentable():
+    """The rule that used to be validated now cannot be expressed: there is no
+    ramp field to get wrong."""
+    m = validate(manifest(variable={"source": "natural_earth", "id": "SUBREGION"}))
+    assert m.variable_id == "SUBREGION"
+    assert not hasattr(m, "ramp")
+
+
+# --- level and basemap ----------------------------------------------------
 
 def test_rejects_an_unknown_level():
     assert rejects(manifest(level="admin_9")).field == "level"
 
 
+def test_a_basemap_must_serve_the_level():
+    assert rejects(manifest(level="admin_2",
+                            basemap={"source": "natural_earth"})).field == "level"
+    assert validate(manifest(level="admin_2", variable=None,
+                             basemap={"source": "overture"})).level == "admin_2"
+
+
 def test_the_default_basemap_is_overture():
-    m = validate({"region": "UKR", "level": "admin_2", "variable": None})
-    assert m.basemap_source == "overture"
+    raw = manifest(variable=None)
+    del raw["basemap"]
+    assert validate(raw).basemap_source == "overture"
 
 
-def test_natural_earth_must_be_asked_for_explicitly():
-    m = validate({"region": "europe", "level": "admin_0", "variable": None,
-                  "basemap": {"source": "natural_earth"}})
-    assert m.basemap_source == "natural_earth"
+# --- variable -------------------------------------------------------------
+
+def test_variable_may_be_null_for_a_base_map():
+    m = validate(manifest(variable=None))
+    assert (m.variable_id, m.variable_source) == (None, None)
 
 
-def test_admin_1_is_valid_with_an_admin_1_variable():
-    m = validate(manifest(level="admin_1", region="UKR", normalize=None,
-                          basemap={"source": "natural_earth"},
-                          variable={"source": "natural_earth", "id": "type"},
-                          ramp="Set2"))
-    assert (m.level, m.variable_id) == ("admin_1", "type")
+def test_rejects_unknown_variable_and_source():
+    assert rejects(manifest(variable={"source": "natural_earth",
+                                      "id": "GDP_PPP"})).field == "variable.id"
+    assert rejects(manifest(variable={"source": "imf",
+                                      "id": "GDP_MD"})).field == "variable.source"
 
 
-def test_a_variable_from_the_wrong_level_is_rejected():
-    """GDP_MD exists, but not on sub-national units."""
-    error = rejects(manifest(level="admin_1", normalize=None,
-                             basemap={"source": "natural_earth"},
-                             variable={"source": "natural_earth", "id": "GDP_MD"}))
+def test_an_owid_id_asked_of_the_fixed_source_names_the_source():
+    """natural_earth is enumerable, so a wrong id there is caught immediately."""
+    error = rejects(manifest(variable={"source": "natural_earth",
+                                       "id": "life-expectancy"}))
     assert error.field == "variable.id"
-    assert "admin_0 variable" in str(error)
-
-    error = rejects(manifest(level="admin_0", normalize=None,
-                             variable={"source": "natural_earth", "id": "type"},
-                             ramp="Set2"))
-    assert error.field == "variable.id"
-    assert "admin_1 variable" in str(error)
 
 
-def test_the_nominal_rule_applies_at_admin_1_too():
-    assert rejects(manifest(level="admin_1", region="UKR", normalize=None,
-                            basemap={"source": "natural_earth"},
-                            variable={"source": "natural_earth", "id": "type"},
-                            ramp="YlGnBu")).field == "ramp"
-
-
-def test_rejects_a_second_source_until_one_exists():
-    """The shape is right so stored manifests survive; the value is not valid yet."""
-    assert rejects(manifest(variable={"source": "world_bank", "id": "GDP_MD"})).field \
-        == "variable.source"
-
-
-def test_rejects_a_bare_string_variable():
-    assert rejects(manifest(variable="GDP_MD")).field == "variable"
-
-
-def test_rejects_unknown_enum_values():
-    assert rejects(manifest(classify={"method": "head_tail", "k": 5})).field == "classify.method"
-    assert rejects(manifest(ramp="Viridis")).field == "ramp"
-    assert rejects(manifest(projection="robinson")).field == "projection"
-    assert rejects(manifest(missing="skip")).field == "missing"
-
-
-def test_rejects_a_misspelled_field_rather_than_silently_defaulting():
-    raw = manifest()
-    raw["projeciton"] = "mercator"
-    assert rejects(raw).field == "projeciton"
-
-
-def test_rejects_missing_required_fields():
-    for field in ("region", "level"):
-        raw = manifest()
-        del raw[field]
-        assert rejects(raw).field == field
-
-
-def test_classify_and_ramp_are_required_only_alongside_a_variable():
-    for field in ("classify", "ramp"):
-        raw = manifest()
-        del raw[field]
-        assert rejects(raw).field == field
-
-    # With no variable there is nothing to classify or colour.
-    base = validate({"region": "europe", "level": "admin_0", "variable": None,
-                     "basemap": {"source": "natural_earth"}})
-    assert (base.variable_id, base.ramp) == (None, None)
-
-
-def test_a_base_map_rejects_normalize():
-    error = rejects({"region": "europe", "level": "admin_0", "variable": None,
-                     "normalize": "POP_EST"})
-    assert error.field == "normalize"
-
-
-def test_optional_fields_default():
-    raw = manifest()
-    for field in ("normalize", "projection", "missing"):
-        del raw[field]
-    m = validate(raw)
-    assert (m.normalize, m.projection, m.missing) == (None, "auto", "hatch")
-
-
-def test_k_must_be_an_integer_not_a_bool():
-    assert rejects(manifest(classify={"method": "quantile", "k": True})).field == "classify.k"
-    assert rejects(manifest(classify={"method": "quantile", "k": 5.5})).field == "classify.k"
-
-
-def test_normalize_may_be_null_and_is_not_second_guessed():
-    """Both POP_EST and GDP_MD are counts; dividing one by the other is the
-    caller's judgement to make, and the validator stays out of it."""
-    assert validate(manifest(normalize=None)).normalize is None
-    assert validate(manifest(normalize="POP_EST")).normalize == "POP_EST"
-    assert rejects(manifest(normalize="POPULATION")).field == "normalize"
-
-
-def test_region_must_be_a_non_empty_string():
-    assert rejects(manifest(region="")).field == "region"
-    assert rejects(manifest(region=None)).field == "region"
-
-
-def test_data_key_excludes_render_time_fields():
-    """ramp and classify must not invalidate a cached fetch."""
-    a = validate(manifest(ramp="YlGnBu", classify={"method": "quantile", "k": 5}))
-    b = validate(manifest(ramp="Blues", classify={"method": "jenks", "k": 7}))
-    assert a.data_key() == b.data_key()
-    c = validate(manifest(region="africa"))
-    assert c.data_key() != a.data_key()
-
-
-def test_an_owid_variable_validates_at_country_level():
-    m = validate({"region": "world", "level": "admin_0",
-                  "variable": {"source": "owid", "id": "life-expectancy"},
-                  "classify": {"method": "quantile", "k": 6}, "ramp": "YlGnBu"})
-    assert (m.variable_source, m.variable_id) == ("owid", "life-expectancy")
-
-
-def test_a_fixed_variable_asked_of_the_wrong_source_names_the_source():
-    error = rejects(manifest(variable={"source": "natural_earth", "id": "POP_RANK"},
-                             level="admin_1", region="UKR", normalize=None,
-                             basemap={"source": "natural_earth"}))
-    assert error.field == "variable.id"
+def test_the_reverse_cannot_be_caught_here_and_should_not_be():
+    """owid is searchable, so validate has no catalogue to check GDP_MD against.
+    It is accepted here and 404s at fetch, which is the only honest answer."""
+    m = validate(manifest(variable={"source": "owid", "id": "GDP_MD"}))
+    assert m.variable_id == "GDP_MD"
 
 
 def test_a_searchable_source_accepts_an_id_the_validator_has_never_seen():
-    """No local catalogue to check against: the id came from a live search, and
-    only the source can say whether it exists."""
-    m = validate(manifest(variable={"source": "owid", "id": "some-new-chart-2026"},
-                          normalize=None))
+    """The id came from a live search; only the source can confirm it exists."""
+    m = validate(manifest(variable={"source": "owid", "id": "some-new-chart-2026"}))
     assert m.variable_id == "some-new-chart-2026"
 
 
 def test_a_searchable_source_still_needs_a_non_empty_id():
-    error = rejects(manifest(variable={"source": "owid", "id": "  "},
-                             normalize=None))
-    assert error.field == "variable.id"
+    assert rejects(manifest(variable={"source": "owid", "id": "  "})).field == "variable.id"
 
 
 def test_owid_is_rejected_below_country_level():
-    """Declared in the source's capabilities, so it is caught before any I/O."""
-    error = rejects(manifest(level="admin_1", region="UKR", normalize=None,
-                             basemap={"source": "natural_earth"},
+    error = rejects(manifest(level="admin_1", basemap={"source": "natural_earth"},
                              variable={"source": "owid", "id": "life-expectancy"}))
     assert error.field == "level"
-    assert "admin_0" in str(error)
+
+
+def test_rejects_a_misspelled_field_rather_than_silently_defaulting():
+    assert rejects(manifest(bbbox=[1, 2, 3, 4])).field == "bbbox"
+
+
+# --- cache key ------------------------------------------------------------
+
+def test_data_key_covers_the_whole_manifest_now():
+    """Nothing is render-time any more, so nothing is excluded."""
+    a = validate(manifest())
+    assert a.data_key() == {
+        "bbox": [-5.0, 35.0, 40.0, 60.0], "level": "admin_0",
+        "basemap": {"source": "natural_earth", "detail": "simplified"},
+        "variable": {"source": "natural_earth", "id": "GDP_MD"},
+    }
+    assert validate(manifest(bbox=[0, 0, 1, 1])).data_key() != a.data_key()

@@ -41,7 +41,7 @@ class RenderError(ValueError):
 def render(manifest: Manifest, result: HarvestResult) -> str:
     rows = sorted(result.rows, key=lambda r: r["id"])
     dropped = sorted(result.dropped, key=lambda r: r["id"])
-    show_missing = manifest.missing != "exclude"
+    show_missing = registry.DEFAULT_MISSING != "exclude"
 
     extent_geoms = [r["geometry"] for r in rows]
     if show_missing:
@@ -49,16 +49,18 @@ def render(manifest: Manifest, result: HarvestResult) -> str:
     if not extent_geoms:
         raise RenderError("no features to draw for this region", "region")
 
-    extent = project.extent_of(extent_geoms)
-    name = manifest.projection
-    if name == "auto":
-        name = project.choose(extent)
+    # The window is the manifest's bbox, not something inferred from whatever
+    # geometry came back: the caller asked for an area, and that is the area
+    # they get, whether or not a polygon happens to reach its corners.
+    extent = manifest.bbox
+    name = project.choose(extent)
     projector = project.make(name, extent)
     bounds = project.viewport_bounds(extent_geoms, projector, extent)
     transform = project.fit(bounds, CANVAS_W, MAP_H, MAP_MARGIN)
     lon0 = (extent[0] + extent[2]) / 2.0
 
-    scheme, swatches = (None, None) if manifest.variable_id is None else _scheme(manifest, rows)
+    scheme, swatches, ramp = (
+        (None, None, None) if manifest.variable_id is None else _scheme(manifest, rows))
 
     # Declared explicitly so a saved .svg is self-describing about its encoding
     # (the footnote carries en dashes and a division sign).
@@ -81,7 +83,7 @@ def render(manifest: Manifest, result: HarvestResult) -> str:
                 else swatches[scheme.bin_of(row["value"])])
         parts.append(_path(row, fill, projector, transform, lon0, drawn))
     if show_missing:
-        fill = f"url(#{colors.HATCH_ID})" if manifest.missing == "hatch" else colors.MISSING_GREY
+        fill = f"url(#{colors.HATCH_ID})"
         for item in dropped:
             if item.get("geometry"):
                 parts.append(_path(item, fill, projector, transform, lon0, drawn))
@@ -103,31 +105,27 @@ def render(manifest: Manifest, result: HarvestResult) -> str:
     return svg
 
 
-def _scheme(manifest: Manifest, rows: list) -> tuple[classify.Classification, list[str]]:
-    """Classification plus one colour per bin."""
+def _scheme(manifest: Manifest, rows: list) -> tuple[classify.Classification, list[str], str]:
+    """Classification, one colour per bin, and the ramp's name.
+
+    None of this is in the manifest any more. The measurement level comes from
+    the source, and the ramp follows from it -- so a nominal variable cannot be
+    shaded light-to-dark, because nothing offers the choice. The rule that used
+    to be validated is now unrepresentable.
+    """
     if not rows:
         raise RenderError("every feature was dropped; nothing to classify", "variable")
-    # Dividing by another column yields a continuous ratio whatever the source
-    # variable's measurement level was.
-    # The measurement level decides graded-vs-categorical bins. It comes from
-    # the source, which for a searchable one means a metadata lookup.
-    level = ("ratio" if manifest.normalize
-             else statistics.describe(manifest.variable_source,
-                                      manifest.variable_id).level)
-    if level == "nominal" and colors.kind(manifest.ramp) != "qualitative":
-        # For a searchable source the measurement level is not known until the
-        # metadata has been fetched, which is after validation. Catching it here
-        # keeps the rule enforced whichever kind of source supplied the values.
-        raise RenderError(
-            f"{manifest.variable_id} is nominal, so a {colors.kind(manifest.ramp)} "
-            f"ramp like {manifest.ramp!r} would imply an ordering between "
-            "categories; use a qualitative ramp", "ramp",
-        )
-    scheme = classify.build([r["value"] for r in rows], level, manifest.method, manifest.k)
+    level = statistics.describe(manifest.variable_source, manifest.variable_id).level
+    ramp = registry.RAMP_FOR_LEVEL.get(level, "YlGnBu")
+
+    scheme = classify.build([r["value"] for r in rows], level,
+                            registry.DEFAULT_METHOD, registry.DEFAULT_K)
     try:
-        return scheme, colors.colors(manifest.ramp, scheme.k)
+        return scheme, colors.colors(ramp, scheme.k), ramp
     except colors.RampError as exc:
-        raise RenderError(str(exc), "ramp") from exc
+        # A nominal variable with more categories than any qualitative ramp
+        # holds. There is nothing to reconfigure: the map cannot be drawn.
+        raise RenderError(str(exc), "variable.id") from exc
 
 
 def _num(v: float) -> str:
@@ -185,12 +183,9 @@ def _legend(manifest, scheme, swatches, dropped, show_missing, provenance, drawn
     labels = scheme.labels()
     entries = list(zip(swatches, labels))
     if show_missing and dropped:
-        fill = f"url(#{colors.HATCH_ID})" if manifest.missing == "hatch" else colors.MISSING_GREY
-        entries.append((fill, "no data"))
+        entries.append((f"url(#{colors.HATCH_ID})", "no data"))
 
     heading = manifest.variable_id
-    if manifest.normalize:
-        heading += f" / {manifest.normalize}"
     # Without the unit, "0.003465" is unreadable: dividing million USD by people
     # gives million USD per person, not dollars.
     subheading = _unit_label(manifest, provenance)
@@ -251,13 +246,7 @@ def _legend_origin(drawn, box_w: float, box_h: float) -> tuple[float, float]:
 
 def _unit_label(manifest: Manifest, provenance: dict) -> str:
     """Units of the classified value, after any normalisation."""
-    unit = provenance.get("unit")
-    if not manifest.normalize:
-        return unit or ""
-    divisor = provenance.get("normalize_unit") or manifest.normalize
-    # "people" reads better singular in a per-unit phrase.
-    divisor = {"people": "person"}.get(divisor, divisor)
-    return f"{unit} per {divisor}" if unit else f"per {divisor}"
+    return provenance.get("unit") or ""
 
 
 def _title(provenance: dict) -> str:
@@ -286,10 +275,10 @@ def _footer(manifest, projection_name, scheme, result) -> str:
     elif scheme.kind == "categorical":
         method = f"one class per category ({scheme.k} categories)"
     else:
-        method = f"{manifest.method}, k={scheme.k}"
-        if scheme.k != manifest.k:
+        method = f"{registry.DEFAULT_METHOD}, k={scheme.k}"
+        if scheme.k != registry.DEFAULT_K:
             plural = "" if scheme.k == 1 else "s"
-            method += f" (requested {manifest.k}; only {scheme.k} distinct value{plural})"
+            method += f" ({scheme.k} distinct value{plural})"
 
     variable = p.get("variable") or manifest.variable_id
     if variable is None:
@@ -303,18 +292,13 @@ def _footer(manifest, projection_name, scheme, result) -> str:
         # different licences. Credit the data as well as the map.
         credit = p.get("statistics_attribution") or p["statistics_source"]
         variable += f" [{credit}]"
-    if manifest.normalize:
-        normalize = manifest.normalize
-        if p.get("normalize_unit"):
-            normalize += f" ({p['normalize_unit']})"
-        variable += f" ÷ {normalize}"
 
     if dropped:
         reasons: dict[str, int] = {}
         for item in dropped:
             reasons[item.get("reason", "unknown")] = reasons.get(item.get("reason", "unknown"), 0) + 1
         detail = ", ".join(f"{count} {reason}" for reason, count in sorted(reasons.items()))
-        shown = "shown as no data" if manifest.missing != "exclude" else "not drawn"
+        shown = "shown as no data"
         excluded = f"{len(dropped)} of {len(dropped) + len(result.rows)} features excluded ({detail}), {shown}"
     else:
         excluded = "0 features excluded"
@@ -353,5 +337,4 @@ _PROJECTION_LABELS = {
 
 
 def _projection_label(name: str, manifest: Manifest) -> str:
-    label = _PROJECTION_LABELS.get(name, name)
-    return f"{label} (auto)" if manifest.projection == "auto" else label
+    return _PROJECTION_LABELS.get(name, name)

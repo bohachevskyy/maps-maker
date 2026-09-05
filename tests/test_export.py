@@ -27,35 +27,30 @@ def test_content_is_rewritten_rather_than_left_stale(monkeypatch, tmp_path):
     assert path.read_text() == "<svg>new</svg>"
 
 
-def test_render_time_fields_change_the_filename(monkeypatch, tmp_path):
-    """Unlike the harvest cache key, ramp and classify DO change the output."""
+def test_the_window_and_level_change_the_filename(monkeypatch, tmp_path):
+    """There are no render-time fields left to vary, so the file is a pure
+    function of the data request."""
     monkeypatch.setenv("MAPSVC_OUTPUT", str(tmp_path))
-    base = export.filename(build_manifest(ramp="YlGnBu", method="quantile", k=5))
-    assert base != export.filename(build_manifest(ramp="Blues", method="quantile", k=5))
-    assert base != export.filename(build_manifest(ramp="YlGnBu", method="jenks", k=5))
-    assert base != export.filename(build_manifest(ramp="YlGnBu", method="quantile", k=7))
+    base = export.filename(build_manifest())
+    assert base != export.filename(build_manifest(bbox=(0.0, 0.0, 1.0, 1.0)))
+    assert base != export.filename(build_manifest(level="admin_1"))
+    assert base != export.filename(build_manifest(basemap_source="overture"))
 
 
-def test_the_name_is_readable_before_the_hash():
-    name = export.filename(build_manifest(region="europe", variable_id="GDP_MD",
-                                          normalize="POP_EST"))
-    assert name.startswith("europe-GDP_MD-per-POP_EST-")
+def test_the_name_states_the_window_and_the_variable():
+    name = export.filename(build_manifest(variable_id="GDP_MD"))
+    assert name.startswith("-5_35_40_60-GDP_MD-")
     assert name.endswith(".svg")
 
 
-def test_a_hostile_region_cannot_escape_the_output_directory(monkeypatch, tmp_path):
+def test_a_bbox_cannot_produce_a_path_outside_the_output_directory(monkeypatch, tmp_path):
+    """The window is numbers, so there is nothing to escape with -- but the
+    level and variable still reach the filename."""
     monkeypatch.setenv("MAPSVC_OUTPUT", str(tmp_path))
-    for nasty in ("../../etc/passwd", "..", "/etc/shadow", "a/b/c", "..\\..\\win"):
-        path, _ = export.write(build_manifest(region=nasty), "<svg/>")
-        assert path.parent == tmp_path, f"{nasty!r} escaped to {path}"
-        assert "/" not in path.name and ".." not in path.name
-    assert all(p.parent == tmp_path for p in tmp_path.iterdir())
+    path, _ = export.write(build_manifest(variable_id="GDP_MD"), "<svg/>")
+    assert path.parent == tmp_path
+    assert "/" not in path.name and ".." not in path.name
 
-
-def test_an_empty_region_still_produces_a_usable_name(monkeypatch, tmp_path):
-    monkeypatch.setenv("MAPSVC_OUTPUT", str(tmp_path))
-    path, _ = export.write(build_manifest(region="..."), "<svg/>")
-    assert path.name.startswith("map-")
 
 
 def test_output_directory_is_configurable(monkeypatch, tmp_path):
@@ -77,10 +72,9 @@ def test_no_part_file_is_left_behind(monkeypatch, tmp_path):
 
 
 def test_a_base_map_is_named_for_what_it_is_not_for_a_missing_variable():
-    name = export.filename(build_manifest(region="UKR", level="admin_1",
-                                          variable_id=None, variable_source=None,
-                                          ramp=None))
-    assert name.startswith("UKR-admin_1-boundaries-")
+    name = export.filename(build_manifest(level="admin_1",
+                                          variable_id=None, variable_source=None))
+    assert name.startswith("-5_35_40_60-admin_1-boundaries-")
     assert "None" not in name
 
 

@@ -1,4 +1,4 @@
-"""Natural Earth boundaries.
+"""Natural Earth boundaries, filtered by bounding box.
 
 The same files the statistics provider reads, but this module returns only
 geometry and identifiers. Anything thematic is the statistics layer's business.
@@ -9,21 +9,55 @@ from mapsvc.cartography import Boundaries, CartographyError
 
 LEVELS = ("admin_0", "admin_1")
 
+# A ring spanning more than this has wrapped the antimeridian, and its bounding
+# box says nothing about where it is. Russia and Alaska would otherwise appear
+# on every map on earth.
+MAX_BBOX_WIDTH = 180.0
 
-def load(level: str, region: str, detail: str = "simplified") -> Boundaries:
-    from mapsvc.harvest import load_source, select_region
+
+def _feature_bbox(geometry) -> tuple | None:
+    rings = (geometry["coordinates"] if geometry["type"] == "Polygon"
+             else [r for part in geometry["coordinates"] for r in part])
+    xs = [c[0] for ring in rings for c in ring]
+    ys = [c[1] for ring in rings for c in ring]
+    if not xs:
+        return None
+    box = (min(xs), min(ys), max(xs), max(ys))
+    return None if box[2] - box[0] >= MAX_BBOX_WIDTH else box
+
+
+def _intersecting(features: list, bbox) -> list:
+    min_lon, min_lat, max_lon, max_lat = bbox
+    kept = []
+    for feature in features:
+        box = _feature_bbox(feature["geometry"])
+        if box is None:
+            continue
+        if (box[0] <= max_lon and box[2] >= min_lon
+                and box[1] <= max_lat and box[3] >= min_lat):
+            kept.append(feature)
+    return kept
+
+
+def _selected(level: str, bbox) -> list:
+    from mapsvc.harvest import load_source
 
     if level not in LEVELS:
         raise CartographyError(
             f"natural_earth has no {level!r}; it provides {', '.join(LEVELS)}. "
             "Use the overture basemap for finer levels.", "level"
         )
+    return _intersecting(load_source(level)["features"], bbox)
 
-    features = select_region(load_source(level)["features"], region, level)
+
+def count(level: str, bbox) -> int:
+    return len(_selected(level, bbox))
+
+
+def load(level: str, bbox, detail: str = "simplified") -> Boundaries:
+    features = _selected(level, bbox)
     if not features:
-        raise CartographyError(
-            f"no features matched region {region!r}", "region"
-        )
+        raise CartographyError("no natural_earth features in that area", "bbox")
 
     id_property = registry.id_property(level)
     name_property = registry.name_property(level)

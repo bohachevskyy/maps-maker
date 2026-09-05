@@ -15,24 +15,27 @@ import pathlib
 import sys
 import tomllib
 
-from mapsvc import colors
 from mapsvc.agent import AgentError, AgentUnavailable, describe, model_name
 
 CASES = pathlib.Path(__file__).parent / "cases.toml"
 
 # Fields compared directly against the manifest.
 DIRECT = {
-    "level": "level", "region": "region", "variable": "variable_id",
-    "normalize": "normalize", "method": "method", "projection": "projection",
-    "missing": "missing", "ramp": "ramp", "basemap": "basemap_source",
-    "detail": "basemap_detail", "source": "variable_source",
+    "level": "level", "variable": "variable_id",
+    "basemap": "basemap_source", "detail": "basemap_detail",
+    "source": "variable_source",
 }
 NULL = "__null__"
-RESERVED = {"name", "prompt", "refuse", "mentions", "ramp_kind", "k"} | set(DIRECT)
+RESERVED = ({"name", "prompt", "refuse", "mentions", "contains", "excludes",
+             "max_span"} | set(DIRECT))
 
 
 class Failure(Exception):
     pass
+
+
+def _bbox(manifest) -> str:
+    return "[" + ",".join(f"{v:g}" for v in manifest.bbox) + "]"
 
 
 def load_cases(patterns: list[str]) -> list[dict]:
@@ -71,18 +74,21 @@ def check(case: dict, manifest, reasoning: str) -> None:
             if not _matches(case[key], actual):
                 raise Failure(f"{key}: expected {case[key]!r}, got {actual!r}")
 
-    if "k" in case and not _matches(case["k"], manifest.k):
-        raise Failure(f"k: expected {case['k']!r}, got {manifest.k!r}")
-
-    if "ramp_kind" in case:
-        if manifest.ramp is None:
-            raise Failure("ramp_kind: expected a ramp, got a base map")
-        actual = colors.kind(manifest.ramp)
-        if actual != case["ramp_kind"]:
+    # The window is asserted by what it covers, not by exact numbers: two
+    # sensible bboxes for "the Balkans" differ by degrees and both are right.
+    west, south, east, north = manifest.bbox
+    for lon, lat in case.get("contains", []):
+        if not (west <= lon <= east and south <= lat <= north):
+            raise Failure(f"bbox {_bbox(manifest)} does not contain ({lon}, {lat})")
+    for lon, lat in case.get("excludes", []):
+        if west <= lon <= east and south <= lat <= north:
+            raise Failure(f"bbox {_bbox(manifest)} should not contain ({lon}, {lat})")
+    if "max_span" in case:
+        span = max(east - west, north - south)
+        if span > case["max_span"]:
             raise Failure(
-                f"ramp_kind: expected {case['ramp_kind']}, got {actual} "
-                f"(ramp {manifest.ramp})"
-            )
+                f"bbox spans {span:.1f} degrees, wider than {case['max_span']} "
+                f"-- too coarse a window for the request")
 
     if case.get("mentions"):
         haystack = reasoning.lower()
@@ -105,13 +111,13 @@ def run_once(case: dict) -> tuple[bool, str]:
 
     if wants_refusal:
         return False, (f"expected a refusal, got {manifest.variable_id} "
-                       f"at {manifest.level} for {manifest.region}")
+                       f"at {manifest.level} for {_bbox(manifest)}")
     try:
         check(case, manifest, reasoning)
     except Failure as failure:
         return False, str(failure)
-    return True, (f"{manifest.basemap_source}/{manifest.level} {manifest.region} "
-                  f"{manifest.variable_id or 'base map'} ramp={manifest.ramp}")
+    return True, (f"{manifest.basemap_source}/{manifest.level} {_bbox(manifest)} "
+                  f"{manifest.variable_id or 'base map'}")
 
 
 def main() -> int:

@@ -32,7 +32,7 @@ NO_DATA = {-99, "-99", "", None}
 # Bump when the shape of a cached HarvestResult changes -- new provenance keys,
 # a different join, altered drop reasons. Without it a code change silently
 # keeps serving rows written in the old format.
-CACHE_VERSION = 2
+CACHE_VERSION = 3
 
 
 class HarvestError(ValueError):
@@ -136,11 +136,38 @@ def harvest(manifest: Manifest) -> HarvestResult:
 
 # -------------------------------------------------------------------- join ---
 
+# One coarser step, for the message when a level is too fine for a window.
+_COARSER = {"admin_3": "admin_2", "admin_2": "admin_1", "admin_1": "admin_0"}
+
+
+def _check_granularity(manifest: Manifest) -> None:
+    """Refuse a window/level pair that would return an unusable number of units.
+
+    Counting is a few seconds and pulls no geometry; fetching Europe at admin_2
+    is 11,497 polygons and hundreds of megabytes. Doing the cheap query first
+    turns a very slow success into a fast, explicit failure.
+    """
+    if not registry.COUNT_BEFORE_FETCH:
+        return
+    units = cartography.count(manifest.basemap_source, manifest.level, manifest.bbox)
+    if units <= registry.MAX_UNITS:
+        return
+    coarser = _COARSER.get(manifest.level)
+    suggestion = (f" Try {coarser}, or a smaller bbox." if coarser
+                  else " Use a smaller bbox.")
+    raise HarvestError(
+        f"{units:,} {manifest.level} units intersect that bbox, over the "
+        f"{registry.MAX_UNITS:,} a single map can carry.{suggestion}",
+        "level",
+    )
+
+
 def _build(manifest: Manifest) -> HarvestResult:
+    _check_granularity(manifest)
     boundaries = cartography.load(manifest.basemap_source, manifest.level,
-                                  manifest.region, manifest.basemap_detail)
+                                  manifest.bbox, manifest.basemap_detail)
     provenance = {
-        "region": manifest.region,
+        "bbox": list(manifest.bbox),
         "level": manifest.level,
         **{f"basemap_{k}": v for k, v in boundaries.provenance.items()},
         "source": boundaries.provenance.get("source"),
@@ -149,7 +176,6 @@ def _build(manifest: Manifest) -> HarvestResult:
         "attribution": boundaries.provenance.get("attribution"),
         "vintage": boundaries.provenance.get("release"),
         "variable": None, "unit": None, "year": None,
-        "normalize": None, "normalize_unit": None,
     }
 
     if manifest.variable_id is None:
@@ -159,11 +185,7 @@ def _build(manifest: Manifest) -> HarvestResult:
         return HarvestResult(rows=rows, provenance=provenance, dropped=[])
 
     values = statistics.load(manifest.variable_source, manifest.variable_id,
-                             manifest.level, manifest.region)
-    divisor = None
-    if manifest.normalize:
-        divisor = statistics.load(manifest.variable_source, manifest.normalize,
-                                  manifest.level, manifest.region)
+                             manifest.level, "world")
 
     provenance.update({
         "variable": values.provenance.get("variable"),
@@ -174,8 +196,6 @@ def _build(manifest: Manifest) -> HarvestResult:
         # licensed differently, and both have to be credited.
         "statistics_license": values.provenance.get("license"),
         "statistics_attribution": values.provenance.get("attribution"),
-        "normalize": manifest.normalize,
-        "normalize_unit": divisor.provenance.get("unit") if divisor else None,
     })
 
     value_level = values.provenance.get("level", "count")
@@ -198,21 +218,7 @@ def _build(manifest: Manifest) -> HarvestResult:
             dropped.append({**entry, "reason": reason})
             continue
 
-        if divisor:
-            other = divisor.values.get(key)
-            reason = _no_data_reason(other, divisor.provenance.get("level", "count"))
-            if reason:
-                dropped.append({**entry, "reason": f"{reason}_normalize"})
-                continue
-            try:
-                value = float(value) / float(other)
-            except (TypeError, ValueError):
-                dropped.append({**entry, "reason": "not_numeric"})
-                continue
-            except ZeroDivisionError:
-                dropped.append({**entry, "reason": "divide_by_zero"})
-                continue
-        elif value_level == "count" or isinstance(value, (int, float)):
+        if value_level == "count" or isinstance(value, (int, float)):
             value = float(value)
 
         rows.append({**entry, "value": value})
@@ -223,10 +229,6 @@ def _build(manifest: Manifest) -> HarvestResult:
     rows.sort(key=lambda r: str(r["id"]))
     dropped.sort(key=lambda r: (str(r["id"]), r["reason"]))
     return HarvestResult(rows=rows, provenance=provenance, dropped=dropped)
-
-
-# Drop reasons that point at the divisor rather than the variable itself.
-_NORMALIZE_REASONS = {"no_data_normalize", "not_numeric", "divide_by_zero"}
 
 
 def _nothing_usable(manifest: Manifest, dropped: list) -> tuple[str, str]:
@@ -240,16 +242,8 @@ def _nothing_usable(manifest: Manifest, dropped: list) -> tuple[str, str]:
             "share a join key at this level",
             "variable.id",
         )
-    if reasons and reasons <= _NORMALIZE_REASONS:
-        return (
-            f"every feature in region {manifest.region!r} was dropped dividing "
-            f"{manifest.variable_id} by {manifest.normalize!r}; "
-            f"{manifest.normalize} is not usable as a divisor here",
-            "normalize",
-        )
     return (
-        f"every feature in region {manifest.region!r} lacks a usable "
-        f"{manifest.variable_id} value",
+        f"no unit in that bbox has a usable {manifest.variable_id} value",
         "variable.id",
     )
 

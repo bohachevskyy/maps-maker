@@ -38,27 +38,18 @@ def filename(manifest: Manifest) -> str:
     harvest cache keys on -- here the ramp and the classification do change the
     file, so they must change its name.
     """
-    canonical = json.dumps(
-        {
-            "region": manifest.region, "level": manifest.level,
-            "basemap": {"source": manifest.basemap_source,
-                        "detail": manifest.basemap_detail},
-            "variable": {"source": manifest.variable_source, "id": manifest.variable_id},
-            "normalize": manifest.normalize, "method": manifest.method, "k": manifest.k,
-            "ramp": manifest.ramp, "projection": manifest.projection,
-            "missing": manifest.missing,
-        },
-        sort_keys=True, separators=(",", ":"),
-    )
+    canonical = json.dumps(manifest.data_key(), sort_keys=True,
+                           separators=(",", ":"))
     digest = hashlib.sha256(canonical.encode()).hexdigest()[:10]
 
+    # The window names the file, rounded to whole degrees so it stays readable.
+    west, south, east, north = (round(v) for v in manifest.bbox)
+    window = f"{west}_{south}_{east}_{north}"
     if manifest.variable_id is None:
         # A base map has no variable to name it after; say what it actually is.
-        label = f"{_slug(manifest.region)}-{_slug(manifest.level)}-boundaries"
+        label = f"{window}-{_slug(manifest.level)}-boundaries"
     else:
-        label = f"{_slug(manifest.region)}-{_slug(manifest.variable_id)}"
-        if manifest.normalize:
-            label += f"-per-{_slug(manifest.normalize)}"
+        label = f"{window}-{_slug(manifest.variable_id)}"
     return f"{label}-{digest}.svg"
 
 

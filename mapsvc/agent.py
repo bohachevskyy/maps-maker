@@ -4,19 +4,18 @@ The agent's only job is assembly. It does not render, and it is not trusted:
 whatever it produces goes through `manifest.validate` exactly like a
 hand-written manifest, and a rejection is fed back for one repair attempt.
 
-The JSON schema is generated from `registry.py`, so Structured Outputs makes it
-structurally impossible to emit an unknown variable, ramp, method, projection or
-k. Adding a variable to the registry extends what the agent can say with no
-prompt edits. What the schema cannot express is the cross-field rule -- that a
-nominal variable rejects a sequential ramp -- which is why the validator stays
-in the loop.
+The schema is generated from the registered sources, so a fixed source's ids
+cannot be invented and a searchable source's must be one the search returned.
+What the schema cannot express -- that a bbox's corners must be the right way
+round, that a variable belongs to one level -- is why the validator stays in the
+loop, with one repair attempt when it objects.
 """
 
 import functools
 import json
 import os
 
-from mapsvc import colors, harvest, registry, statistics
+from mapsvc import registry, statistics
 from mapsvc.manifest import Manifest, ManifestError, validate
 from mapsvc.statistics import StatisticsError
 
@@ -56,10 +55,14 @@ def _client():
 @functools.lru_cache(maxsize=1)
 def schema() -> dict:
     """The response schema, generated from the registry."""
-    ramps = sorted(colors.RAMPS)
     manifest_properties = {
-        "region": {"type": "string",
-                   "description": "'world', a CONTINENT name, or an ADM0_A3 code"},
+        "bbox": {
+            "type": "array",
+            "description": "the map window as [min_lon, min_lat, max_lon, max_lat] "
+                           "in degrees. min_lon must be west of max_lon and "
+                           "min_lat south of max_lat.",
+            "items": {"type": "number"},
+        },
         "level": {"type": "string", "enum": list(registry.LEVELS)},
         "basemap": {
             "type": "object",
@@ -99,23 +102,6 @@ def schema() -> dict:
             "type": "boolean",
             "description": "true for a base map -- draw the boundaries, shade nothing",
         },
-        "normalize": {"type": ["string", "null"],
-                      "enum": sorted(statistics.fixed_variables()) + [None]},
-        "classify": {
-            "type": "object",
-            "properties": {
-                "method": {"type": "string", "enum": list(registry.METHODS)},
-                # An enum rather than minimum/maximum: strict mode honours
-                # enums, and ignores numeric range keywords.
-                "k": {"type": "integer",
-                      "enum": list(range(registry.K_MIN, registry.K_MAX + 1))},
-            },
-            "required": ["method", "k"],
-            "additionalProperties": False,
-        },
-        "ramp": {"type": "string", "enum": ramps},
-        "projection": {"type": "string", "enum": list(registry.PROJECTIONS)},
-        "missing": {"type": "string", "enum": list(registry.MISSING_MODES)},
     }
     return {
         "type": "object",
@@ -147,25 +133,6 @@ def schema() -> dict:
     }
 
 
-@functools.lru_cache(maxsize=1)
-def _region_vocabulary() -> str:
-    """Continents and country codes actually present in the data.
-
-    ADM0_A3 is mostly ISO3 but carries custom codes for disputed and
-    non-sovereign entities, so the real list beats the model's recollection.
-    """
-    features = harvest.load_source("admin_0")["features"]
-    continents = sorted({f["properties"][registry.continent_property("admin_0")]
-                         for f in features})
-    codes = sorted({(f["properties"][registry.id_property("admin_0")],
-                     f["properties"].get("NAME", "")) for f in features})
-    listed = ", ".join(f"{code} ({name})" for code, name in codes)
-    return (
-        f"CONTINENT values: {', '.join(continents)}.\n"
-        f"ADM0_A3 codes: {listed}."
-    )
-
-
 def _describe(variables: dict) -> str:
     return "\n".join(
         f"  {name}: {meta.level}"
@@ -193,61 +160,56 @@ def instructions() -> str:
                     block += f"\n    at {level}:\n{listed}"
         blocks.append(block)
     sources = "\n\n".join(blocks)
-    by_kind: dict[str, list[str]] = {}
-    for name, kind in sorted(colors.RAMPS.items()):
-        by_kind.setdefault(kind, []).append(name)
-    ramps = "\n".join(f"  {kind}: {', '.join(names)}" for kind, names in sorted(by_kind.items()))
+    max_units = f"{registry.MAX_UNITS:,}"
+    region_hint = ("Country codes, if you need one for a statistics join: "
+                   "they are ISO3.")
 
-    return f"""You assemble manifests for a choropleth map service. You choose what to map; \
-you never draw anything.
+    return f"""You assemble manifests for a map service. You choose what to show \
+and where; you never choose how it is drawn. Colour, classification, projection \
+and missing-value handling are all derived from the data, so there are no fields \
+for them and you cannot get them wrong.
 
-Boundaries and statistics come from separate places. `level` picks how fine the \
-units are, `basemap` picks who supplies their outlines, and `variable` picks \
-what -- if anything -- is painted on them.
+A manifest has four things: a window (bbox), a granularity (level), where the \
+outlines come from (basemap), and optionally what to shade them by (variable).
 
-level "admin_0" -- countries. Six mappable variables:
+THE WINDOW
 
-{variables}
+bbox is [min_lon, min_lat, max_lon, max_lat] in degrees. Work it out from the \
+request. You are expected to know roughly where places are:
 
-level "admin_1" -- sub-national units: oblasts, states, provinces, regions, \
-departments, prefectures. Choose this whenever the request is about units \
-*inside* a country. Four mappable variables:
+  Europe          [-25, 34, 45, 72]
+  Ukraine         [22, 44, 41, 53]
+  the Baltics     [20, 53, 29, 60]
+  Benelux         [2.5, 49.4, 7.3, 53.6]
+  around Kyiv     [29.2, 49.2, 32.2, 51.6]
+  the whole world [-180, -90, 180, 90]
 
-{admin1}
+Round to about a tenth of a degree; precision beyond that is false. Pad a little \
+so the subject is not flush against the edge. A window that crosses the \
+antimeridian is not supported -- for the Pacific, pick one side.
 
-levels "admin_2" and "admin_3" -- finer still: raions, counties, districts, \
-localities. These exist only on the overture basemap and have no variables at \
-all, so they are always base maps.
+This replaces named regions entirely, which means places with no official code \
+now work: "Scandinavia", "the Balkans", "the Horn of Africa", "the area around \
+Lviv" are all just windows. There is nothing left to refuse on those grounds.
 
-The basemap decides where the polygons come from, and it is separate from where \
-the numbers come from:
+THE GRANULARITY
 
-  overture      -- the default. admin_0 through admin_3, far the most detail. \
-Queried live from S3, so the first request for a given map takes about ten \
-seconds; afterwards it is cached.
-  natural_earth -- admin_0 and admin_1 only, much coarser, but instant and \
-already on disk. Choose it when the user asks for something fast, rough or \
-low-resolution, or for a whole continent or the world at once, where Overture \
-is slow enough to be a problem.
+Units are returned if they *overlap* the window, so a box around Ukraine also \
+returns Polish voivodeships and Romanian counties. That is what a map of an \
+area looks like; do not try to avoid it.
 
-Set variable_is_null to true for a base map: boundaries drawn with no shading. \
-That is the right answer whenever someone asks to *see* or *draw* units rather \
-than to compare a quantity across them, and it is the only possible answer at \
-admin_2 and admin_3.
+Match the level to the size of the window, or the map is unreadable and the \
+request is refused for carrying too many units. Rough guide, measured:
 
-Admin-1 carries no statistics at all: no population, no GDP, no income. Its 121 \
-properties are classification and cartographic metadata, and area_sqkm is zero \
-for every unit on earth. An admin-1 map can therefore show *where* the units are \
-and *what kind* they are, and nothing else. If someone asks for population or \
-economics by oblast or by state, do not refuse as though the places did not \
-exist -- the boundaries are there; it is the statistic that is missing. Say \
-exactly that.
+  window       admin_0    admin_1    admin_2    admin_3
+  70x38 deg         58      1,281     11,497    304,530     <- continent
+  19x9 deg          11        139      3,434     47,538     <- one country
+  5x4 deg            7         34        520      9,779     <- a few countries
+  3x2 deg            4         10         25      1,303     <- one province
 
-A variable belongs to exactly one level: GDP_MD at admin_1, or type at admin_0, \
-is rejected.
-
-Statistics come from a source, named in variable.source. Sources are of two \
-kinds and you use them differently:
+Aim for roughly 20 to 400 units. So: a continent means admin_0, one country \
+means admin_1, a province or a metro area means admin_2. admin_3 is only ever \
+right for a very small window. More than {max_units} units is rejected.
 
 {sources}
 
@@ -256,70 +218,36 @@ variable.id and leave search_query empty.
 
 SEARCHABLE sources are far too large to list. Do NOT guess an id for one. \
 Leave variable.id empty and put a plain-English phrase naming the measure into \
-variable.search_query -- "unemployment rate", "deaths from air pollution", \
-"share of land that is forest". The service will run the search and come back \
-with real candidates; you then pick one of those ids exactly. Choosing an id \
-that was not offered will fail.
+variable.search_query -- "unemployment rate", "deaths from air pollution". The \
+service will search and come back with real candidates; you then pick one of \
+those ids exactly. Choosing an id that was not offered will fail.
 
 Write the query as the measure itself, not as the user's sentence. "How many \
-people are out of work in Europe?" should search for "unemployment rate", not \
-for the whole question.
+people are out of work in Europe?" should search for "unemployment rate".
 
-Prefer the source that actually publishes what was asked. Population, GDP, \
-income group, economy and subregion are natural_earth. Almost anything else \
-about people, health, environment, energy or politics is worth searching for.
+THE BASEMAP
 
-Colour ramps:
+  overture      -- the default. admin_0 through admin_3, far the most detail. \
+Queried live, so a new window takes about ten seconds; afterwards it is cached.
+  natural_earth -- admin_0 and admin_1 only, much coarser, but instant. Choose \
+it when the user asks for something fast or rough, or for a window the size of \
+a continent, where Overture is slow enough to be a problem.
 
-{ramps}
+A statistics source only publishes at certain levels: everything below admin_1 \
+is boundaries only. Set variable_is_null to true for a base map -- boundaries \
+with no shading. That is right whenever someone asks to *see* or *draw* units \
+rather than compare a quantity, and it is the only possibility at admin_2 and \
+admin_3.
 
-Rules you must follow:
+REFUSING
 
-1. A nominal variable (SUBREGION, type, type_en, region) must use a qualitative \
-ramp. Shading unordered categories light-to-dark claims one is "more" than \
-another. Ordinal and count variables should normally use a sequential ramp.
-   If the user asks for a ramp that breaks this rule, do NOT refuse. Pick a \
-valid ramp, produce the map, and say in reasoning why you overrode them. A bad \
-ramp choice is correctable; refusing a request you can actually satisfy is not.
-2. Choose a qualitative ramp with at least as many colours as the variable has \
-categories in the requested region. SUBREGION has 22 categories worldwide but \
-only 4 in Europe; no qualitative ramp holds more than 12. Refuse only when no \
-available ramp is large enough -- that is a request you cannot satisfy, unlike \
-rule 1 where a valid alternative exists.
-3. Set normalize when the request implies a rate rather than a total: \
-"per capita", "per person", "how rich", "density". GDP_MD normalised by \
-POP_EST is GDP per capita. Leave it null for totals like "total population".
-4. quantile suits skewed data and is a safe default. equal_interval suits evenly \
-spread data and is a poor choice for GDP or population, which are heavily \
-right-skewed. jenks finds natural groupings.
-5. k must be 3-9; 5 is a reasonable default.
-6. Prefer projection "auto" unless the user names one.
-7. missing "hatch" is the default; use "exclude" only if asked to omit \
-countries without data.
+Refusal is about what is being measured, never about where or how. Set mappable \
+to false only when no source publishes the requested measure -- rainfall, \
+election results -- or when a search comes back empty. Say so plainly and name \
+what does exist. Never refuse because a place has no official code: every place \
+is a window now.
 
-Region is a filter, not geography. At admin_0 it is "world", one CONTINENT \
-value, or one ADM0_A3 code; at admin_1 it is "world" or one ADM0_A3 code, \
-because admin-1 features carry no continent. "world" at admin_1 means 4,596 \
-units and a very large file, so prefer a single country unless the whole planet \
-is genuinely wanted. There is no sub-continental grouping: "Scandinavia", "the Balkans" \
-and "the EU" are not regions. If asked for one, either refuse or pick a single \
-country code, and say which you did in reasoning.
-
-{_region_vocabulary()}
-
-Refusal is about *what is being mapped*, never about how it is drawn. Set \
-mappable to false only when no variable answers the request -- rainfall, \
-unemployment, life expectancy, elections -- or when no available ramp is large \
-enough for the categories. Say so plainly and name the variables that do exist. \
-Do not substitute a loosely related variable and hope the caller notices; \
-returning no map is better than returning a map of the wrong thing.
-
-Never refuse over a field you are free to set yourself. The ramp, the \
-projection, the classification method, k and the missing mode are all yours to \
-choose. If the user asks for one of them that you cannot honour, set a correct \
-value, return the map, and explain the substitution in reasoning. "You asked for \
-a sequential ramp on a nominal variable" is a sentence in reasoning, not a \
-refusal."""
+{region_hint}"""
 
 
 def describe(prompt: str) -> tuple[Manifest, dict, str]:
@@ -377,9 +305,6 @@ def describe(prompt: str) -> tuple[Manifest, dict, str]:
         raw.get("variable", {}).pop("search_query", None)
         if raw.pop("variable_is_null", False):
             raw["variable"] = None
-            raw["normalize"] = None
-            raw.pop("classify", None)
-            raw.pop("ramp", None)
         try:
             return validate(raw), raw, answer.get("reasoning", "")
         except ManifestError as error:
@@ -399,6 +324,7 @@ def describe(prompt: str) -> tuple[Manifest, dict, str]:
         f"could not assemble a valid manifest after {REPAIR_ATTEMPTS + 1} attempts: "
         f"{last_error}", getattr(last_error, "field", "prompt")
     )
+
 
 
 def _search(source: str, query: str) -> list:

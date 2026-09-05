@@ -26,6 +26,23 @@ METHODS = ("quantile", "equal_interval", "jenks")
 PROJECTIONS = ("auto", "albers", "mercator", "mollweide")
 MISSING_MODES = ("hatch", "grey", "exclude")
 
+# Rendering is no longer part of the manifest. A map says what to show; how to
+# draw it is derived, so a caller cannot pair a nominal variable with a
+# sequential ramp -- the pairing is chosen from the measurement level instead of
+# being validated after the fact.
+DEFAULT_METHOD = "quantile"
+DEFAULT_K = 5
+DEFAULT_MISSING = "hatch"
+RAMP_FOR_LEVEL = {
+    "count": "YlGnBu", "ratio": "YlGnBu", "ordinal": "PuBuGn", "nominal": "Set2",
+}
+
+# A bbox at too fine a level returns more units than a single map can carry --
+# Europe at admin_2 is 11,497 polygons and hundreds of megabytes. Counting is
+# cheap (~3s) and fetching geometry is not, so the count is a pre-flight guard.
+MAX_UNITS = 800
+COUNT_BEFORE_FETCH = True
+
 K_MIN, K_MAX = 3, 9
 
 _LEVELS = {

@@ -14,16 +14,11 @@ from mapsvc.pipeline import build_map
 BOX = {"type": "Polygon", "coordinates": [[[0, 0], [4, 0], [4, 3], [0, 3], [0, 0]]]}
 
 RAW = {
-    "region": "europe",
+    "bbox": [-5.0, 35.0, 40.0, 60.0],
     "level": "admin_0",
     # Pinned: these tests stub the Natural Earth loader and never touch S3.
     "basemap": {"source": "natural_earth", "detail": "simplified"},
     "variable": {"source": "natural_earth", "id": "GDP_MD"},
-    "normalize": "POP_EST",
-    "classify": {"method": "quantile", "k": 3},
-    "ramp": "YlGnBu",
-    "projection": "auto",
-    "missing": "hatch",
 }
 
 
@@ -68,30 +63,27 @@ def test_a_cached_harvest_renders_the_same_bytes_as_a_fresh_one(offline, monkeyp
     assert build_map(copy.deepcopy(RAW)).encode() == fresh.encode()
 
 
-def test_changing_the_ramp_changes_the_map_but_not_the_cache_entry(offline):
-    build_map(copy.deepcopy(RAW))
-    entries = {p.name for p in (offline / "harvest").glob("*.json")}
 
-    recoloured = build_map({**copy.deepcopy(RAW), "ramp": "Blues"})
-    assert recoloured != build_map(copy.deepcopy(RAW))
-    assert {p.name for p in (offline / "harvest").glob("*.json")} == entries
-
-
-def test_changing_the_classification_does_not_refetch(offline):
-    build_map(copy.deepcopy(RAW))
-    entries = {p.name for p in (offline / "harvest").glob("*.json")}
-    build_map({**copy.deepcopy(RAW), "classify": {"method": "jenks", "k": 4}})
-    assert {p.name for p in (offline / "harvest").glob("*.json")} == entries
-
-
-def test_changing_the_region_does_refetch(offline):
-    build_map(copy.deepcopy(RAW))
-    before = {p.name for p in (offline / "harvest").glob("*.json")}
-    build_map({**copy.deepcopy(RAW), "region": "world"})
-    assert {p.name for p in (offline / "harvest").glob("*.json")} > before
 
 
 def test_output_carries_no_timestamp_or_random_identifier(offline):
     svg = build_map(copy.deepcopy(RAW))
     import datetime
     assert str(datetime.date.today().year) not in svg.replace("2019", "")
+
+
+def test_changing_the_window_refetches(offline):
+    build_map(copy.deepcopy(RAW))
+    before = {p.name for p in (offline / "harvest").glob("*.json")}
+    build_map({**copy.deepcopy(RAW), "bbox": [0.0, 39.0, 12.0, 45.0]})
+    assert {p.name for p in (offline / "harvest").glob("*.json")} > before
+
+
+def test_every_manifest_field_is_data_relevant_now(offline):
+    """The old manifest had render-time fields that deliberately did not
+    invalidate a fetch. There are none left, so any change is a new entry."""
+    build_map(copy.deepcopy(RAW))
+    one = {p.name for p in (offline / "harvest").glob("*.json")}
+    build_map({**copy.deepcopy(RAW), "bbox": [-4.0, 39.0, 39.0, 59.0]})
+    two = {p.name for p in (offline / "harvest").glob("*.json")}
+    assert len(two) == len(one) + 1

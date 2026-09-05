@@ -173,23 +173,66 @@ over a network want `/map` or `/describe`, which return the SVG itself.
 
 ## Manifest
 
-| field | values |
+Four keys. Two required. Anything else is rejected rather than ignored.
+
+```json
+{
+  "bbox":    [22, 44, 41, 53],
+  "level":   "admin_1",
+  "basemap": {"source": "overture", "detail": "simplified"},
+  "variable": {"source": "owid", "id": "unemployment-rate"}
+}
+```
+
+| field | |
 |---|---|
-| `region` | `"world"`, a `CONTINENT` name (`europe`, `africa`, …), or an `ADM0_A3` code (`FRA`). A filter, not geography — it also derives the map extent. |
-| `level` | `admin_0` … `admin_3`. What each basemap serves differs; variables belong to exactly one level. |
-| `basemap` | `{"source": "natural_earth" \| "overture", "detail": "simplified" \| "full"}`. Optional; defaults to Natural Earth. |
-| `variable` | `{"source": "natural_earth" \| "owid", "id": ...}`, or `null` for a base map. |
-| `normalize` | a column name to divide by, or `null`. Optional. |
-| `classify` | `{"method": "quantile" \| "equal_interval" \| "jenks", "k": 3–9}` |
-| `ramp` | `YlGnBu`, `YlOrRd`, `Blues`, `Greens`, `PuBuGn` (sequential); `RdBu`, `BrBG` (diverging); `Set2`, `Set3`, `Dark2`, `Paired` (qualitative) |
-| `projection` | `"auto"`, `"albers"`, `"mercator"`, `"mollweide"` |
-| `missing` | `"hatch"`, `"grey"`, `"exclude"` |
+| `bbox` | **required.** `[min_lon, min_lat, max_lon, max_lat]` in degrees. |
+| `level` | **required.** `admin_0` … `admin_3`. |
+| `basemap` | optional; defaults to `{"source": "overture", "detail": "simplified"}`. |
+| `variable` | optional; `null` draws boundaries with no shading. |
 
-`normalize`, `projection` and `missing` may be omitted; they default to `null`,
-`"auto"` and `"hatch"`.
+**A window, not a region.** Units are returned if their bounding box *overlaps*
+the window, so a box around Ukraine also returns Polish voivodeships and
+Romanian counties — which is what a map of an area looks like. The upside is
+that places without an official code now work: Scandinavia, the Balkans, the
+area around Lviv are all just windows.
 
-`projection: "auto"` picks by latitude span: Mollweide above 90°, Albers for
-mid-latitude regions (centre at or beyond 25°), Mercator otherwise.
+**Nothing about rendering is in the manifest.** Colour ramp, classification
+method, `k`, projection and missing-value treatment are all derived from the
+data and the window. That is not a convenience: it makes the one hard
+cartographic rule *unrepresentable*. A nominal variable cannot be shaded
+light-to-dark because there is no field in which to ask for it — the ramp
+follows from the measurement level, which comes from the source.
+
+### Getting the level right
+
+Units are returned by overlap, so the level has to match the size of the window
+or the map is unreadable. Measured against Overture:
+
+| window | admin_0 | admin_1 | admin_2 | admin_3 |
+|---|---|---|---|---|
+| 70×38° (a continent) | **58** | 1,281 | 11,497 | 304,530 |
+| 19×9° (one country) | 11 | **139** | 3,434 | 47,538 |
+| 5×4° (a few countries) | 7 | **34** | 520 | 9,779 |
+| 3×2° (one province) | 4 | 10 | **25** | 1,303 |
+
+A **pre-flight count** guards this: counting is ~3s and pulls no geometry, while
+fetching Europe at admin_2 is 11,497 polygons and hundreds of megabytes. Over
+`MAX_UNITS` (800) the request is refused, naming a coarser level.
+
+That guard counts *units*, not bytes, and the two diverge: the Balkans at
+admin_1 is only 498 units but **21 MB and 20s**, because Overture polygons are
+detailed. A byte-aware guard would be the better version of this.
+
+**Two antimeridian traps**, both hit in practice:
+
+- A unit straddling 180° is stored with `xmin ≈ -180` and `xmax ≈ 180`, so its
+  bounding box spans the planet and intersects *every* window. Alaska's
+  Unorganized Borough (358.9° wide) was arriving on a 3° map of Kyiv. Boxes
+  wider than 180° are excluded from the filter.
+- Testing `bbox.xmin BETWEEN …` asks whether a unit's *corner* is inside the
+  window, not whether it overlaps. A box drawn inside Ukraine returns no country
+  at all, Ukraine's corner being elsewhere.
 
 ## Cartography and statistics are separate
 

@@ -20,11 +20,14 @@ def mini_raw():
     return json.loads((FIXTURES / "mini_manifest.json").read_text())
 
 
+# The fixture geometry lives here; every offline test uses this window.
+FIXTURE_BBOX = (-5.0, 35.0, 40.0, 60.0)
+
+
 def build_manifest(**overrides) -> Manifest:
     base = dict(
-        region="testland", level="admin_0", variable_source="natural_earth",
-        variable_id="GDP_MD", normalize=None, method="quantile", k=3,
-        ramp="YlGnBu", projection="auto", missing="hatch",
+        bbox=FIXTURE_BBOX, level="admin_0",
+        variable_source="natural_earth", variable_id="GDP_MD",
         # These tests stub Natural Earth's file loader, so they pin the basemap
         # rather than inheriting the Overture default and reaching for S3.
         basemap_source="natural_earth", basemap_detail="simplified",
@@ -57,8 +60,8 @@ def build_result(geojson, manifest) -> HarvestResult:
         rows=rows,
         provenance={"source": registry.SOURCE_NAME, "vintage": registry.SOURCE_VINTAGE,
                     "scale": f"1:{registry.scale_for(manifest.level)}",
-                    "region": manifest.region,
+                    "bbox": list(manifest.bbox),
                     "variable": manifest.variable_id, "unit": meta.unit,
-                    "year": year, "normalize": manifest.normalize},
+                    "year": year},
         dropped=dropped,
     )

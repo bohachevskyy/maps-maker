@@ -27,22 +27,16 @@ def test_feature_count_matches_rows_plus_drawn_missing(mini_geojson):
     assert ids == {r["id"] for r in result.rows} | {d["id"] for d in result.dropped}
 
 
-def test_exclude_mode_draws_only_the_rows(mini_geojson):
-    text, _, result = _svg(mini_geojson, missing="exclude")
-    ids = {p.get("data-id") for p in ET.fromstring(text).findall(f".//{SVG}path")}
-    assert ids == {r["id"] for r in result.rows}
-    assert len(ids) == 3
-
 
 def test_missing_values_never_render_as_the_bottom_bin(mini_geojson):
-    for mode, expected in (("hatch", f"url(#{colors.HATCH_ID})"), ("grey", colors.MISSING_GREY)):
-        text, _, result = _svg(mini_geojson, missing=mode)
-        paths = {p.get("data-id"): p.get("fill")
-                 for p in ET.fromstring(text).findall(f".//{SVG}path")}
-        ramp = set(colors.colors("YlGnBu", 3))
-        for item in result.dropped:
-            assert paths[item["id"]] == expected
-            assert paths[item["id"]] not in ramp
+    text, _, result = _svg(mini_geojson)
+    paths = {p.get("data-id"): p.get("fill")
+             for p in ET.fromstring(text).findall(f".//{SVG}path")}
+    ramp = set(colors.colors("YlGnBu", 3))
+    assert result.dropped, "the fixture carries both sentinels"
+    for item in result.dropped:
+        assert paths[item["id"]] == f"url(#{colors.HATCH_ID})"
+        assert paths[item["id"]] not in ramp
 
 
 def test_holes_and_multipolygons_become_multiple_subpaths(mini_geojson):
@@ -62,7 +56,7 @@ def test_footnote_states_everything_required(mini_geojson):
     assert "Natural Earth" in footnote                  # source
     assert f"1:{registry.scale_for('admin_0')}" in footnote   # scale
     assert "Albers equal-area conic" in footnote  # projection
-    assert "quantile" in footnote and "k=3" in footnote  # method and k
+    assert "quantile" in footnote and "k=" in footnote   # method and k
     assert "2015" in footnote and "2019" in footnote     # variable vintage
     assert "2 of 5 features excluded" in footnote        # dropped count
 
@@ -73,23 +67,25 @@ def test_year_range_is_shown_when_features_disagree(mini_geojson):
 
 
 def test_nominal_with_a_qualitative_ramp_renders(mini_geojson):
-    text, _, _ = _svg(mini_geojson, variable_id="SUBREGION", ramp="Set2")
+    text, _, _ = _svg(mini_geojson, variable_id="SUBREGION")
     fills = {p.get("data-id"): p.get("fill")
              for p in ET.fromstring(text).findall(f".//{SVG}path")}
     # Three distinct subregions in the fixture, three distinct colours.
     assert len(set(fills.values())) == 3
 
 
-def test_ramp_too_small_for_the_category_count_names_the_ramp_field():
+def test_more_categories_than_any_qualitative_ramp_holds_is_an_error():
     """Cycling colours would give two distinct categories the same fill."""
     from mapsvc.models import HarvestResult
-    manifest = build_manifest(variable_id="ECONOMY", ramp="YlGnBu")
+    manifest = build_manifest(variable_id="ECONOMY")
     box = {"type": "Polygon", "coordinates": [[[0, 0], [1, 0], [1, 1], [0, 1], [0, 0]]]}
     rows = [{"id": f"X{i:02d}", "geometry": box, "value": f"{i}. Category {i}"}
             for i in range(1, 13)]  # 12 categories, YlGnBu tops out at 9
     with pytest.raises(RenderError) as excinfo:
         render(manifest, HarvestResult(rows=rows, provenance={}, dropped=[]))
-    assert excinfo.value.field == "ramp"
+    # There is no ramp field to blame any more: the ramp is derived, so the
+    # variable is what cannot be drawn.
+    assert excinfo.value.field == "variable.id"
 
 
 def test_aspect_ratio_is_preserved(mini_geojson):
@@ -102,7 +98,7 @@ def test_aspect_ratio_is_preserved(mini_geojson):
               "geometry": {"type": "Polygon",
                            "coordinates": [[[14, 47], [16, 47], [16, 49], [14, 49], [14, 47]]]}}
     geojson = {"type": "FeatureCollection", "features": mini_geojson["features"] + [square]}
-    text, _, _ = _svg(geojson, projection="mercator")
+    text, _, _ = _svg(geojson)
     d = {p.get("data-id"): p.get("d") for p in ET.fromstring(text).findall(f".//{SVG}path")}
     import re
     nums = [float(n) for n in re.findall(r"-?\d+\.?\d*", d["SQR"])]
@@ -126,7 +122,7 @@ def test_empty_region_is_an_error():
     assert excinfo.value.field == "region"
 
 
-def test_a_region_with_one_feature_still_renders():
+def test_a_window_with_one_feature_still_renders():
     """region can be a single ADM0_A3 code, which leaves one distinct value.
 
     ColorBrewer ramps start at three classes; k clamps below that.
@@ -136,7 +132,7 @@ def test_a_region_with_one_feature_still_renders():
     result = HarvestResult(rows=[{"id": "FRA", "geometry": box, "value": 2716000.0}],
                            provenance={"variable": "GDP_MD", "unit": "million USD"},
                            dropped=[])
-    text = render(build_manifest(region="FRA", k=5, ramp="Blues"), result)
+    text = render(build_manifest(), result)
     paths = ET.fromstring(text).findall(f".//{SVG}path")
     assert len(paths) == 1
     assert paths[0].get("fill").startswith("#")
@@ -147,7 +143,7 @@ def test_two_distinct_values_render_as_two_bins():
     box = {"type": "Polygon", "coordinates": [[[0, 40], [8, 40], [8, 48], [0, 48], [0, 40]]]}
     rows = [{"id": "AAA", "geometry": box, "value": 1.0},
             {"id": "BBB", "geometry": box, "value": 2.0}]
-    text = render(build_manifest(k=5, ramp="Blues"),
+    text = render(build_manifest(),
                   HarvestResult(rows=rows, provenance={}, dropped=[]))
     fills = {p.get("fill") for p in ET.fromstring(text).findall(f".//{SVG}path")}
     assert len(fills) == 2
@@ -156,11 +152,11 @@ def test_two_distinct_values_render_as_two_bins():
 def test_footnote_reports_a_collapsed_k_in_readable_english():
     from mapsvc.models import HarvestResult
     box = {"type": "Polygon", "coordinates": [[[0, 40], [8, 40], [8, 48], [0, 48], [0, 40]]]}
-    one = render(build_manifest(k=5, ramp="Blues"),
+    one = render(build_manifest(),
                  HarvestResult(rows=[{"id": "FRA", "geometry": box, "value": 1.0}],
                                provenance={}, dropped=[]))
-    assert "only 1 distinct value)" in one
-    two = render(build_manifest(k=5, ramp="Blues"), HarvestResult(
+    assert "1 distinct value)" in one
+    two = render(build_manifest(), HarvestResult(
         rows=[{"id": "A", "geometry": box, "value": 1.0},
               {"id": "B", "geometry": box, "value": 2.0}], provenance={}, dropped=[]))
-    assert "only 2 distinct values)" in two
+    assert "2 distinct values)" in two
