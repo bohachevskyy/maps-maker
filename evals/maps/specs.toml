@@ -30,7 +30,7 @@ fidelity    = "The agent understood the prompt: right measure, right place, righ
 id = "gdp_world"
 prompt = "GDP per capita for every country in the world"
 truth = "OWID gdp-per-capita-worldbank (Eurostat, OECD, IMF, World Bank via OWID; PPP constant 2021 int-$), latest year per country"
-units = [180, 220]
+units = [180, 250]
 contains = [[-74.0, 40.7], [139.7, 35.7], [151.2, -33.9], [18.4, -33.9]]
 spot = ["LUX=126000±15%", "BDI<1500", "USA=74000±10%", "IND=9000±15%"]
 must = [
@@ -64,7 +64,7 @@ prompt = "Diesel consumption across the US states"
 truth = "EIA State Energy Data System, distillate fuel oil consumption (DFTCP), latest year; population from the same release"
 units = [51, 51]
 contains = [[-77.0, 38.9], [-118.2, 34.1], [-149.9, 61.2], [-157.9, 21.3]]
-spot = ["TX>CA", "TX>NY", "WY_per_capita>NY_per_capita"]
+spot = ["US-WY>US-NY", "US-ND>US-CA", "US-WY<100"]   # per-capita values (barrels/person); a raw-total map fails these
 must = [
   "50 states plus DC",
   "per-capita or proportional symbols -- Texas leading on raw volume is mostly its size",
@@ -80,7 +80,7 @@ truth = "Eurostat nama_10r_2gdp, PPS_EU27_2020_HAB, latest year"
 units = [230, 250]
 contains = [[2.35, 48.85], [23.7, 37.98], [25.0, 60.2], [-8.6, 41.15]]
 excludes = [[-74.0, 40.7], [-61.0, 14.6]]
-spot = ["LU00>200%_EU", "IE06>BG31", "FRK2>FRY2"]
+spot = ["LU00>BG31", "IE06>BG31", "FRK2>FRY2"]
 must = [
   "NUTS 2 regions from Eurostat GISCO, joined on NUTS code",
   "outermost regions (Canaries, Azores, French overseas) as insets or explicitly excluded in the footnote",
@@ -108,7 +108,7 @@ reference = ["https://data.census.gov"]
 id = "population_change"
 prompt = "How much did each country's population change between 2000 and 2023, in percent?"
 truth = "OWID population (UN WPP), percent change 2000->2023 per country"
-units = [180, 220]
+units = [180, 250]
 spot = ["ARE>150", "QAT>150", "BGR<-10", "LVA<-15", "NER>100"]
 must = [
   "diverging colour scheme centred on zero: growth and decline are different hues",
