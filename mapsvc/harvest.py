@@ -217,6 +217,12 @@ def _add_overlays(manifest: Manifest, result: HarvestResult) -> None:
         except overlays.OverlayError as exc:
             raise HarvestError(str(exc), exc.field) from exc
     brings_places = any(layer["kind"] == "places" for layer in result.overlays)
+    if manifest.bbox is None and geometries:
+        # Labels for what will be framed: the units near the overlay, not
+        # every unit `within` brings (Réunion is not on a map of LGVs).
+        from mapsvc import overlay_render
+
+        extent = project.extent_of(overlay_render.focus(geometries, result.overlays))
     small = (extent[2] - extent[0]) <= PLACES_MAX_SPAN
     if small and not brings_places:
         result.places = context_places(extent, manifest.within)
