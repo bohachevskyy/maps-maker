@@ -98,6 +98,8 @@ def test_thousand_units_are_converted_so_ratios_read_plainly(seds):
     assert values.provenance["unit"] == "barrels per year"
     assert seds.describe("TPOPP").unit == "people"
     assert seds.describe("ESTCD").level == "ratio"
+    assert seds.load("DFTCP", "admin_1", "world").provenance["note"] == \
+        "distillate fuel oil: diesel and heating oil"
     assert seds.describe("DFTCP").level == "count"
 
 

@@ -179,7 +179,7 @@ def test_a_lone_negative_outlier_does_not_trigger_a_diverging_ramp():
 
 def test_diverging_colours_meet_at_the_light_centre():
     below, above = colors.diverging("RdBu", 2, 3), colors.colors("RdBu", 6)
-    assert below == ["#ef8a62", "#fddbc7", "#a6cee3", "#67a9cf", "#2166ac"]
+    assert below == ["#ef8a62", "#f6c4ad", "#b7d7e8", "#67a9cf", "#2166ac"]
     assert below[1:] == above[2:]
 
 
@@ -195,6 +195,16 @@ def test_a_unit_too_small_to_see_gets_a_marker_in_its_class_colour():
     assert [m.get("data-id") for m in markers] == ["LUX"]
     assert markers[0].get("fill") == _features(root)["LUX"].get("fill")
     assert markers[0].get("data-value") == "2"
+    assert markers[0].get("stroke") is None
+    assert _features(root)["LUX"].get("stroke") == "none"
+
+
+def test_diverging_subtitle_names_decline_and_growth_colours():
+    values = [-25.0, -12.0, -6.0, -2.0, 3.0, 8.0, 15.0, 40.0, 90.0, 180.0]
+    text = render(build_manifest(bbox=(-1, 38, 21, 46)),
+                  HarvestResult(rows=_change_rows(values), provenance=_ratio(unit="% change"),
+                                dropped=[]))
+    assert "red = decline; blue = growth" in text
 
 
 # --------------------------------------------------------- texts, frame ---
@@ -441,6 +451,12 @@ def test_far_flung_units_go_to_insets_and_the_frame_fits_the_rest():
                                                          dropped=[])))
     insets = [g.get("data-inset") for g in root.iter(f"{SVG}g") if g.get("data-inset")]
     assert insets == ["Alaska", "Hawaii"]
+    for group in (g for g in root.iter(f"{SVG}g") if g.get("data-inset")):
+        box = group.find(f"{SVG}rect")
+        assert float(box.get("y")) >= R.MAP_TOP
+        assert float(box.get("y")) + float(box.get("height")) <= R.MAP_TOP + R.MAP_H_MAX
+    assert len([g for g in root.iter(f"{SVG}g")
+                if g.get("class") == "inset-scale-bar"]) == 2
     assert "Alaska at" in _footnote(root) and "Hawaii at" in _footnote(root)
     # Every unit is still drawn: nothing silently vanishes.
     assert set(_features(root)) == {r["id"] for r in rows}

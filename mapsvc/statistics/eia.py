@@ -124,6 +124,13 @@ def describe(variable_id: str) -> Variable:
                     citation="EIA State Energy Data System")
 
 
+def _note(description: str) -> str | None:
+    """Reader-facing fuel meaning derived from EIA's series description."""
+    if "distillate fuel oil" in description.casefold():
+        return "distillate fuel oil: diesel and heating oil"
+    return None
+
+
 def _stem(word: str) -> str:
     return word[:-1] if len(word) > 3 and word.endswith("s") and not word.endswith("ss") else word
 
@@ -216,6 +223,7 @@ def load(variable_id: str, level: str, region: str, year: int | None = None) -> 
             "vintage": f"SEDS release {status}" if status else None,
             "variable": meta.label,
             "unit": meta.unit,
+            "note": _note(description),
             "level": meta.level,
             "license": CAPABILITIES.license,
             "attribution": CAPABILITIES.attribution,

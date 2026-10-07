@@ -1,10 +1,10 @@
 """US Census Bureau cartographic boundary files: states and counties.
 
-    https://www2.census.gov/geo/tiger/GENZ{year}/shp/cb_{year}_us_{state|county}_{20m|5m}.zip
+    https://www2.census.gov/geo/tiger/GENZ{year}/shp/cb_{year}_us_{state|county}_{20m|5m|500k}.zip
 
-Generalised for small-scale mapping by the Bureau itself. `simplified` is the
-1:20,000,000 file, `full` the 1:5,000,000 one. Zipped shapefiles only, read by
-`mapsvc.shapefile` -- no GDAL.
+Generalised for small-scale mapping by the Bureau itself. National views use
+the 1:20,000,000 or 1:5,000,000 files; a detailed or single-state county map
+uses 1:500,000. Zipped shapefiles only, read by `mapsvc.shapefile` -- no GDAL.
 
 Keys, declared per level so statistics can only join on what is really here:
 
@@ -33,15 +33,30 @@ LEVELS = ("admin_1", "admin_2")
 KEYS = {"admin_1": ("ISO3166_2",), "admin_2": ("FIPS",)}
 _KIND = {"admin_1": "state", "admin_2": "county"}
 _SCALE = {"simplified": "20m", "full": "5m"}
-_SCALE_LABEL = {"20m": "1:20,000,000", "5m": "1:5,000,000"}
+_SCALE_LABEL = {"20m": "1:20,000,000", "5m": "1:5,000,000",
+                "500k": "1:500,000"}
 
 LICENSE = "public domain"
 ATTRIBUTION = "U.S. Census Bureau, cartographic boundary files"
 
 
-@functools.lru_cache(maxsize=4)
-def _features(level: str, detail: str) -> tuple:
-    kind, scale = _KIND[level], _SCALE.get(detail, "20m")
+def _effective_scale(level: str, detail: str, within=None, bbox=None) -> str:
+    """Choose detailed counties regionally while keeping national files small."""
+    named_national = any(str(code).upper() in ("US", "USA") for code in within or ())
+    world_window = bbox is not None and tuple(bbox) == (-180.0, -90.0, 180.0, 90.0)
+    unscoped = not within and bbox is None
+    national = named_national or world_window or unscoped
+    states = [code for code in within or ()
+              if str(code).upper().startswith("US-")]
+    single_state = len(within or ()) == 1 and len(states) == 1
+    if level == "admin_2" and not national and (detail == "full" or single_state):
+        return "500k"
+    return _SCALE.get(detail, "20m")
+
+
+@functools.lru_cache(maxsize=6)
+def _features(level: str, scale: str) -> tuple:
+    kind = _KIND[level]
     url = URL.format(year=VINTAGE, kind=kind, scale=scale)
     name = f"cb_{VINTAGE}_us_{kind}_{scale}.zip"
     try:
@@ -69,7 +84,8 @@ def _selected(level: str, bbox, within, detail: str = "simplified") -> list:
         raise CartographyError(
             f"census has no {level!r}; it provides {', '.join(LEVELS)} "
             "(states and counties)", "level")
-    features = list(_features(level, detail))
+    scale = _effective_scale(level, detail, within, bbox)
+    features = list(_features(level, scale))
     if within:
         wanted = set()
         for code in within:
@@ -120,7 +136,7 @@ def load(level: str, bbox, detail: str = "simplified", within=None) -> Boundarie
                       "geometry": feature["geometry"]})
     units.sort(key=lambda u: str(u["id"]))
 
-    scale = _SCALE.get(detail, "20m")
+    scale = _effective_scale(level, detail, within, bbox)
     return Boundaries(units=units, keys=KEYS[level], provenance={
         "source": "US Census Bureau",
         "license": LICENSE,

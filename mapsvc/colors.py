@@ -59,12 +59,12 @@ _GRADED = {
         5: ["#ca0020", "#f4a582", "#f7f7f7", "#92c5de", "#0571b0"],
         # The first positive class must remain visibly blue against WATER on a
         # world map; ColorBrewer's #d1e5f0 was only 1.12:1 against #eaf1f7.
-        6: ["#b2182b", "#ef8a62", "#fddbc7", "#a6cee3", "#67a9cf", "#2166ac"],
-        7: ["#b2182b", "#ef8a62", "#fddbc7", "#f7f7f7", "#d1e5f0", "#67a9cf", "#2166ac"],
-        8: ["#b2182b", "#d6604d", "#f4a582", "#fddbc7", "#d1e5f0", "#92c5de", "#4393c3", "#2166ac"],
-        9: ["#b2182b", "#d6604d", "#f4a582", "#fddbc7", "#f7f7f7", "#d1e5f0", "#92c5de", "#4393c3", "#2166ac"],
-        10: ["#67001f", "#b2182b", "#d6604d", "#f4a582", "#fddbc7", "#d1e5f0", "#92c5de", "#4393c3", "#2166ac", "#053061"],
-        11: ["#67001f", "#b2182b", "#d6604d", "#f4a582", "#fddbc7", "#f7f7f7", "#d1e5f0", "#92c5de", "#4393c3", "#2166ac", "#053061"],
+        6: ["#b2182b", "#ef8a62", "#f6c4ad", "#b7d7e8", "#67a9cf", "#2166ac"],
+        7: ["#b2182b", "#ef8a62", "#f6c4ad", "#f7f7f7", "#b7d7e8", "#67a9cf", "#2166ac"],
+        8: ["#b2182b", "#d6604d", "#f4a582", "#f6c4ad", "#b7d7e8", "#92c5de", "#4393c3", "#2166ac"],
+        9: ["#b2182b", "#d6604d", "#f4a582", "#f6c4ad", "#f7f7f7", "#b7d7e8", "#92c5de", "#4393c3", "#2166ac"],
+        10: ["#67001f", "#b2182b", "#d6604d", "#f4a582", "#f6c4ad", "#b7d7e8", "#92c5de", "#4393c3", "#2166ac", "#053061"],
+        11: ["#67001f", "#b2182b", "#d6604d", "#f4a582", "#f6c4ad", "#f7f7f7", "#b7d7e8", "#92c5de", "#4393c3", "#2166ac", "#053061"],
     }),
     "BrBG": ("diverging", {
         3: ["#d8b365", "#f5f5f5", "#5ab4ac"],
@@ -103,13 +103,13 @@ OCEAN = "#ffffff"
 # Inside a window where every unit was fetched, water is tinted so the frame
 # reads as a map. Outside it -- or on a `within` map, where neighbours were not
 # fetched -- the page stays white, so an absent neighbour never passes for sea.
-WATER = "#eaf1f7"
+WATER = "#f4f6f7"
 # Physical context on overlay maps: quiet enough to sit behind the subject,
 # but distinct from both water and the neutral basemap.
 LAKE_FILL = "#dbeaf2"
 LAKE_STROKE = "#9bbdce"
 RIVER = "#7da9c0"
-PLATE = "#8d969c"
+PLATE = "#a65f52"
 # Neighbouring land around a `within` map: there, unshaded, never data. Once it
 # is drawn the sea can be tinted honestly, because no land is missing.
 CONTEXT_LAND = "#f0eee9"

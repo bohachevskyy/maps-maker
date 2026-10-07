@@ -137,6 +137,17 @@ def test_owid_metadata_replaces_the_deleted_catalogue(owid_csv):
     assert v.citation == "UN WPP (2024)"
 
 
+def test_owid_ppp_qualifier_in_column_metadata_reaches_the_unit(owid_csv, monkeypatch):
+    import json
+    metadata = {"chart": {}, "columns": {
+        "GDP per capita, PPP (constant 2021 international $)": {
+            "unit": "international-$ in 2021 prices", "titleShort": "GDP per capita",
+            "type": "Numeric"}}}
+    monkeypatch.setattr(owid_csv, "_cache",
+                        lambda kind, name, produce: json.dumps(metadata))
+    assert owid_csv.describe("gdp").unit == "PPP, constant 2021 international-$"
+
+
 def test_owid_numeric_is_a_ratio_never_a_count(owid_csv):
     """A 0 in an OWID series is an observation, so the count sentinel must not fire."""
     assert owid_csv.describe("life-expectancy").level == "ratio"

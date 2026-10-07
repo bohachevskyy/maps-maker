@@ -58,6 +58,7 @@ CAPABILITIES = Capabilities(
 
 _RDATASETS = "https://raw.githubusercontent.com/vincentarelbundock/Rdatasets/master/csv/"
 _NE = "https://raw.githubusercontent.com/nvkelso/natural-earth-vector/master/geojson/"
+_MINARD_TEMP_URL = _RDATASETS + "HistData/Minard.temp.csv"
 _MINARD = ("Charles Joseph Minard, 'Carte figurative des pertes successives en "
            "hommes de l'Armée Française dans la campagne de Russie 1812–1813' "
            "(1869), as transcribed by L. Wilkinson, The Grammar of Graphics; "
@@ -84,6 +85,7 @@ CATALOGUE = (
                   "end": "≈ {v:,.0f} return"},
         "license": "public domain (1869 figures; transcription distributed in R HistData)",
         "attribution": _MINARD,
+        "companions": (_MINARD_TEMP_URL,),
     },
     {
         "url": _RDATASETS + "HistData/Minard.cities.csv",
@@ -95,6 +97,19 @@ CATALOGUE = (
         "roles": {"lon": "long", "lat": "lat", "name": "city"},
         "major": ("Kowno", "Wilna", "Smolensk", "Moscou"),
         "label": "Towns on Minard's map",
+        "license": "public domain (1869); transcription distributed in R HistData",
+        "attribution": _MINARD,
+    },
+    {
+        "url": _MINARD_TEMP_URL,
+        "title": "Temperatures during Napoleon's retreat from Moscow, 1812",
+        "description": "Minard's temperature observations along the retreat, with dates. "
+                       "Temperatures are recorded in degrees Réaumur and converted to °C.",
+        "keywords": "napoleon minard 1812 russia moscow retreat temperature weather dates",
+        "kind": "temperature",
+        "roles": {"lon": "long", "temperature": "temp", "days": "days",
+                  "date": "date"},
+        "label": "Temperature on the retreat",
         "license": "public domain (1869); transcription distributed in R HistData",
         "attribution": _MINARD,
     },
@@ -151,6 +166,11 @@ CATALOGUE = (
     },
 )
 _BY_URL = {entry["url"]: entry for entry in CATALOGUE}
+
+
+def companions(url: str) -> tuple[str, ...]:
+    """Catalogue companions derived from a requested dataset."""
+    return tuple(_BY_URL.get(url, {}).get("companions") or ())
 
 
 # ------------------------------------------------------------------ parse ---
@@ -296,6 +316,8 @@ def layer_from_bytes(payload: bytes, url: str, window: Window) -> dict:
     base = {"source": "web", "id": url, "provenance": provenance,
             "title": entry.get("title") or f"Data from {host}",
             "label": entry.get("label") or entry.get("title") or host}
+    if entry.get("kind") == "temperature":
+        return _temperature_layer(base, records, roles)
     if lines:
         return _lines_layer(base, lines, roles, window)
     if "lon" not in roles or "lat" not in roles:
@@ -395,6 +417,35 @@ def _number(value):
     except (TypeError, ValueError):
         return None
     return number if math.isfinite(number) else None
+
+
+def _temperature_layer(base: dict, records: list, roles: dict) -> dict:
+    """Minard's dated Réaumur observations as a below-map panel layer."""
+    needed = ("lon", "temperature", "date")
+    if any(role not in roles for role in needed):
+        raise OverlayError("temperature data needs longitude, temperature and date columns",
+                           "overlays.id")
+    features, bad = [], 0
+    for i, record in enumerate(records):
+        lon = _number(record.get(roles["lon"]))
+        reaumur = _number(record.get(roles["temperature"]))
+        if lon is None or reaumur is None:
+            bad += 1
+            continue
+        days = _number(record.get(roles.get("days"))) if roles.get("days") else None
+        features.append({"id": i, "lon": round(lon, 5),
+                         "temperature_r": reaumur,
+                         "temperature_c": reaumur * 1.25,
+                         "days": days,
+                         "date": str(record.get(roles["date"]) or "").strip()})
+    if not features:
+        raise OverlayError("temperature data has no numeric observations", "overlays.id")
+    excluded = ([{"count": bad, "reason": "rows without numeric longitude or temperature"}]
+                if bad else [])
+    return {**base, "kind": "temperature", "features": features,
+            "summary": "Réaumur observations converted to °C",
+            "encoding": "Temperature line in °C (original Réaumur values multiplied by 1.25)",
+            "excluded": excluded}
 
 
 def _numeric_share(records, column) -> float:

@@ -88,7 +88,7 @@ class Frame:
     """
 
     def __init__(self, manifest: Manifest, geometries: list,
-                 centre_lon: float | None = None):
+                 centre_lon: float | None = None, min_height: int | None = None):
         self.extent = tuple(manifest.bbox or project.extent_of(geometries))
         self.is_world = self.extent == WORLD
         if self.is_world and centre_lon:
@@ -120,6 +120,8 @@ class Frame:
         span_y = max(bounds[3] - bounds[1], 1e-9)
         ideal = (MAP_W - 2 * margin) * span_y / span_x + 2 * margin
         self.map_h = int(min(MAP_H_MAX, max(MAP_H_MIN, round(ideal))))
+        if min_height is not None:
+            self.map_h = min(MAP_H_MAX, max(self.map_h, min_height))
         local = project.fit(bounds, MAP_W, self.map_h, margin)
         self.transform = lambda x, y: _shift(local(x, y))
         self.outline = (None if outline is None
@@ -169,7 +171,11 @@ def render(manifest: Manifest, result: HarvestResult) -> str:
 
     framed = (overlay_render.focus(geometries, result.overlays)
               if result.overlays and manifest.bbox is None else geometries)
-    frame = Frame(manifest, framed, overlay_render.centre_lon(result.overlays))
+    # A small atlas-style inset set needs the lower-left sea inside the map,
+    # rather than a box dangling below its frame. A taller frame creates that
+    # room without naming Alaska or Hawaii.
+    inset_room = MAP_H_MAX if 0 < len(insets) <= 2 and not manifest.overlays else None
+    frame = Frame(manifest, framed, overlay_render.centre_lon(result.overlays), inset_room)
     p = result.provenance
     encoding = _encoding(manifest, every_row, p)
 
@@ -185,6 +191,7 @@ def render(manifest: Manifest, result: HarvestResult) -> str:
     has_overlays = bool(result.overlays or result.places)
     border = (overlay_render.MUTED_BORDER if has_overlays and encoding.mode == "basemap"
               else colors.BORDER)
+    unit_stroke = _unit_stroke_width(len(rows), frame)
     body.append('<g clip-path="url(#map-clip)" stroke-linejoin="round">')
     markers: list[str] = []
     for row in rows:
@@ -193,7 +200,8 @@ def render(manifest: Manifest, result: HarvestResult) -> str:
         boxes = _outer_boxes(parts)
         land.extend(boxes)
         units.append(_union(boxes))
-        body.append(_path(row, parts, fill, border))
+        body.append(_path(row, parts, fill, border, unit_stroke,
+                          plain=_visible_area(parts) < MIN_VISIBLE_AREA))
         if encoding.mode == "choropleth" and _visible_area(parts) < MIN_VISIBLE_AREA:
             anchor = _anchor(row["geometry"], frame)
             if anchor:
@@ -205,7 +213,9 @@ def render(manifest: Manifest, result: HarvestResult) -> str:
         boxes = _outer_boxes(parts)
         land.extend(boxes)
         units.append(_union(boxes))
-        body.append(_path(item, parts, f"url(#{colors.HATCH_ID})"))
+        body.append(_path(item, parts, f"url(#{colors.HATCH_ID})",
+                          stroke_width=unit_stroke,
+                          plain=_visible_area(parts) < MIN_VISIBLE_AREA))
     body.append("</g>")
     body.append(_physical_context(result.physical, frame))
     if frame.outline is not None:
@@ -221,13 +231,14 @@ def render(manifest: Manifest, result: HarvestResult) -> str:
     body.append(_enclaves(rows, frame, encoding,
                           named=len(every_row) > LABEL_MAX_UNITS or has_overlays))
     inset_svg, inset_missing = _draw_insets(insets, frame, encoding, bool(result.context),
-                                            land, units)
+                                            land, units, unit_stroke)
     body.append(inset_svg)
 
     art = None
     if has_overlays:
         art = overlay_render.draw(result.overlays, result.places, frame, {
-            "pad": PAD, "map_w": MAP_W, "map_top": MAP_TOP, "font": FONT})
+            "pad": PAD, "map_w": MAP_W, "map_top": MAP_TOP, "font": FONT},
+                                  result.physical)
         body.append('<g clip-path="url(#map-clip)" stroke-linejoin="round">'
                     + "".join(art.svg) + "</g>")
         body.append(f'<g font-family="{FONT}">' + "".join(art.labels) + "</g>")
@@ -482,7 +493,14 @@ def _d(rings) -> str:
     return "".join(subpaths)
 
 
-def _path(item: dict, parts, fill: str, stroke: str = colors.BORDER) -> str:
+def _unit_stroke_width(unit_count: int, frame: Frame) -> float:
+    """A quiet boundary at dense page scales, stronger for sparse maps."""
+    area_per_unit = MAP_W * frame.map_h / max(unit_count, 1)
+    return max(0.18, min(0.35, 0.36 * math.sqrt(area_per_unit / 7600.0)))
+
+
+def _path(item: dict, parts, fill: str, stroke: str = colors.BORDER,
+          stroke_width: float = 0.35, plain: bool = False) -> str:
     d = _d([ring for part in parts for ring in part])
     if not d:
         return ""
@@ -491,7 +509,8 @@ def _path(item: dict, parts, fill: str, stroke: str = colors.BORDER) -> str:
                   else f" data-value={quoteattr(_raw_value(value))}")
     return (
         f'<path d="{d}" fill="{fill}" fill-rule="evenodd" '
-        f'stroke="{stroke}" stroke-width="0.4" '
+        f'stroke="{"none" if plain else stroke}" '
+        f'stroke-width="{_num(0 if plain else stroke_width)}" '
         f'data-id={quoteattr(str(item["id"]))}{value_attr}/>'
     )
 
@@ -573,7 +592,7 @@ def _piece(geometry, frame: Frame):
 def _marker(item: dict, anchor, fill: str) -> str:
     x, y = anchor
     return (f'<circle cx="{_num(x)}" cy="{_num(y)}" r="{MARKER_R}" fill="{fill}" '
-            f'stroke="{colors.BORDER}" stroke-width="0.6" class="small-unit" '
+            f'class="small-unit" '
             f'data-id={quoteattr(str(item["id"]))} '
             f'data-value={quoteattr(_raw_value(item["value"]))}/>')
 
@@ -735,10 +754,11 @@ def _physical_context(layers: list, frame: Frame) -> str:
                 continue
             plate = css_class == "plate-boundaries"
             colour = colors.PLATE if plate else colors.RIVER
-            width = 0.65 if plate else 0.75
+            width = 0.7 if plate else 0.75
+            dash = ' stroke-dasharray="4 2.5"' if plate else ""
             out.append(f'<path d="{d}" class="{escape(css_class)}" fill="none" '
                        f'stroke="{colour}" stroke-width="{width}" '
-                       'stroke-linecap="round" stroke-linejoin="round"/>')
+                       f'stroke-linecap="round" stroke-linejoin="round"{dash}/>')
     out.append("</g>")
     return "".join(out)
 
@@ -1053,7 +1073,7 @@ def _short_name(item: dict) -> str:
 
 
 def _draw_insets(insets: list, frame: Frame, encoding: Encoding, water: bool,
-                 land: list, units: list) -> tuple[str, bool]:
+                 land: list, units: list, stroke_width: float = 0.35) -> tuple[str, bool]:
     """Lay the insets out in a block where they hide the least, and draw them.
 
     The block is a row (wrapping) of boxes, tried in the legend's candidate
@@ -1092,6 +1112,27 @@ def _draw_insets(insets: list, frame: Frame, encoding: Encoding, water: bool,
                 y = by + row * (cell_h + INSET_GAP_PX)
                 layout[n] = (x, y, cell_w, cell_h)
                 placed.append((x, y, x + cell_w, y + cell_h))
+    elif len(insets) == 2:
+        # A paired national inset system reads as one composition. Reduce both
+        # at the same stated factor until they fit the lower-left sea inside
+        # the frame; only then consider an external band.
+        for shrink in (1.0, 0.9, 0.8, 0.7, 0.6, 0.5, 0.4):
+            trial_sizes = [(w * shrink, h * shrink) for w, h in sizes]
+            trial_layout, trial_placed = [None] * len(insets), []
+            for n, (w, h) in enumerate(trial_sizes):
+                spot = _inset_spot(frame, land, occupied, trial_placed, w, h)
+                if spot is None:
+                    break
+                x, y = spot
+                trial_layout[n] = (x, y, w, h)
+                trial_placed.append((x, y, x + w, y + h))
+            if all(item is not None for item in trial_layout):
+                sizes, layout, placed = trial_sizes, trial_layout, trial_placed
+                if shrink != 1.0:
+                    for inset in insets:
+                        inset.factor *= shrink
+                        inset.scale *= shrink
+                break
     else:
         for n, (w, h) in enumerate(sizes):
             spot = _inset_spot(frame, land, occupied, placed, w, h)
@@ -1130,20 +1171,24 @@ def _draw_insets(insets: list, frame: Frame, encoding: Encoding, water: bool,
         for row in inset.rows:
             fill = encoding.fill(row["value"])
             parts = _project(row["geometry"], inset)
-            out.append(_path(row, parts, fill))
+            out.append(_path(row, parts, fill, stroke_width=stroke_width,
+                             plain=_visible_area(parts) < MIN_VISIBLE_AREA))
             if encoding.mode == "choropleth" and _visible_area(parts) < MIN_VISIBLE_AREA:
                 anchor = _anchor(row["geometry"], inset)
                 if anchor:
                     markers.append(_marker(row, anchor, fill))
         for item in inset.missing:
             has_missing = True
-            out.append(_path(item, _project(item["geometry"], inset),
-                             f"url(#{colors.HATCH_ID})"))
+            parts = _project(item["geometry"], inset)
+            out.append(_path(item, parts, f"url(#{colors.HATCH_ID})",
+                             stroke_width=stroke_width,
+                             plain=_visible_area(parts) < MIN_VISIBLE_AREA))
         out.extend(markers)
         if encoding.mode == "symbols":
             svg, _ = _symbols(inset.rows, inset, encoding)
             out.append(svg.replace('clip-path="url(#map-clip)"', f'clip-path="url(#{clip})"'))
         out.append("</g>")
+        out.append(_inset_scale_bar(inset, x0, y0, w, h))
         out.append(f'<text x="{_num(x0 + 5)}" y="{_num(y0 + 11)}" font-size="9.5" '
                    f'fill="{colors.TEXT_MUTED}" font-family="{FONT}">'
                    f'{escape(inset.caption)}</text></g>')
@@ -1152,6 +1197,24 @@ def _draw_insets(insets: list, frame: Frame, encoding: Encoding, water: bool,
             ring = [(x0, y0), (x0 + w, y0), (x0 + w, y0 + h), (x0, y0 + h)]
             land.append(((x0, y0, x0 + w, y0 + h), ring))
     return "".join(out), has_missing
+
+
+def _inset_scale_bar(inset: InsetFrame, x0: float, y0: float,
+                     w: float, h: float) -> str:
+    """A compact geodesic scale for an inset's unit-sphere projection."""
+    target_km = max(1.0, 0.28 * w * 6371.0088 / max(inset.scale, 1e-9))
+    exponent = 10 ** math.floor(math.log10(target_km))
+    km = max(v * exponent for v in (1, 2, 5) if v * exponent <= target_km)
+    px = km * inset.scale / 6371.0088
+    right, base = x0 + w - 6, y0 + h - 6
+    left = right - px
+    return (f'<g class="inset-scale-bar" fill="{colors.TEXT_MUTED}" '
+            f'stroke="{colors.TEXT_MUTED}" stroke-width="0.7">'
+            f'<path d="M{_num(left)},{_num(base - 3)}V{_num(base)}H{_num(right)}'
+            f'V{_num(base - 3)}" fill="none"/>'
+            f'<text x="{_num((left + right) / 2)}" y="{_num(base - 5)}" '
+            f'text-anchor="middle" stroke="none" font-size="8" '
+            f'font-family="{FONT}">{km:g} km</text></g>')
 
 
 def _inset_spot(frame: Frame, land: list, occupied: list, placed_insets: list,
@@ -2007,6 +2070,11 @@ def _subtitle(manifest: Manifest, provenance: dict, encoding: Encoding) -> str:
     if unit and period and unit.endswith(f" {period}"):
         unit = unit[: -len(period) - 1]     # the title already says when
     pieces = [head] + ([unit] if unit else [])
+    note = provenance.get("statistics_note")
+    if note:
+        pieces.append(str(note))
+    if encoding.scheme is not None and encoding.scheme.zero_at is not None:
+        pieces.append("red = decline; blue = growth")
     exceptions = provenance.get("year_exceptions")
     if exceptions:
         named = sum(len(v) for v in exceptions.values())

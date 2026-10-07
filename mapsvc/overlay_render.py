@@ -21,9 +21,10 @@ earlier label or dot, otherwise not at all.
 """
 
 import math
+import re
 from xml.sax.saxutils import escape, quoteattr
 
-from mapsvc import project
+from mapsvc import colors, project
 
 # Ordered categories (depth classes, speed classes): strong to faint.
 ORDERED = ("#d0312d", "#f0962c", "#3f78b5", "#9a9a9a", "#6a3d9a")
@@ -110,7 +111,7 @@ def overlay_extent(layers: list) -> tuple | None:
             for f in layer["features"]:
                 lons.extend(c[0] for c in f["coords"])
                 lats.extend(c[1] for c in f["coords"])
-        else:
+        elif layer["kind"] in ("points", "places", "flow"):
             lons.extend(f["lon"] for f in layer["features"])
             lats.extend(f["lat"] for f in layer["features"])
     if not lons or max(lons) - min(lons) > 180.0:
@@ -161,12 +162,12 @@ def centre_lon(layers: list) -> float | None:
     return project.central_meridian(lons)
 
 
-def draw(layers: list, places: list, frame, layout: dict) -> Art:
+def draw(layers: list, places: list, frame, layout: dict, physical: list = ()) -> Art:
     """Draw every layer, then the labels, then lay out the legend band."""
     art = Art()
     labels = Labels(layout, frame)
     blocks: list = []
-    order = {"flow": 0, "lines": 1, "points": 2, "places": 3}
+    order = {"flow": 0, "lines": 1, "points": 2, "places": 3, "temperature": 4}
     indexed = sorted(enumerate(layers), key=lambda t: (order.get(t[1]["kind"], 9), t[0]))
     anchors: list[tuple] = []         # pixel points the overlays pass through
     # Placed after every layer's own labels: numbers written beside a flow
@@ -187,9 +188,12 @@ def draw(layers: list, places: list, frame, layout: dict) -> Art:
             body, legend = _flow(layer, frame, labels, anchors, deferred, layout)
         elif kind == "places":
             body, legend = _dataset_places(layer, frame, labels)
+        elif kind == "temperature":
+            body, legend = "", [_temperature_block(layer, frame, layout)]
         else:
             continue
-        art.svg.append(head + body + "</g>")
+        if body:
+            art.svg.append(head + body + "</g>")
         blocks.extend(legend)
 
     for obstacle in (d for d in deferred if d[0] == "block"):
@@ -200,9 +204,10 @@ def draw(layers: list, places: list, frame, layout: dict) -> Art:
         labels.context(places, anchors)
 
     art.labels.append(labels.svg())
+    blocks.extend(_physical_legend_blocks(physical))
     _legend(art, blocks, layout)
 
-    main = [layer for layer in layers if layer["kind"] != "places"] or layers
+    main = [layer for layer in layers if layer["kind"] not in ("places", "temperature")] or layers
     if main:
         art.title = main[0].get("title") or ""
         art.subtitle = " · ".join(s for s in (main[0].get("summary"),) if s)
@@ -237,7 +242,8 @@ def _footer_line(layer: dict, credited: set) -> str:
     if layer.get("encoding"):
         line += f" {layer['encoding']}."
     drawn = len(layer.get("features") or [])
-    noun = {"flow": "rows", "lines": "lines", "places": "places"}.get(layer["kind"],
+    noun = {"flow": "rows", "lines": "lines", "places": "places",
+            "temperature": "observations"}.get(layer["kind"],
                                                                      "features")
     excluded = layer.get("excluded") or []
     if excluded:
@@ -830,6 +836,83 @@ def _segments_cross(a, b) -> bool:
 def _text_box_like(box) -> bool:
     """Leaders may pass over small circles and dots, not over text."""
     return (box[3] - box[1]) <= 16 and (box[2] - box[0]) > (box[3] - box[1])
+
+
+def _temperature_block(layer: dict, frame, layout: dict):
+    """Minard's dated temperature trace, sharing the map's longitude axis."""
+    observations = list(layer.get("features") or ())
+    width, height = layout["map_w"], 150.0
+    values = [float(f["temperature_c"]) for f in observations]
+    low = math.floor(min(values) / 10.0) * 10.0
+    high = max(0.0, math.ceil(max(values) / 10.0) * 10.0)
+    plot_top, plot_h = 28.0, 68.0
+
+    def py(value):
+        return plot_top + (high - value) / max(high - low, 1.0) * plot_h
+
+    def px(lon):
+        # The retreat runs close to the frame's central latitude; projecting
+        # that parallel makes each observation line up with its longitude.
+        return frame.xy(float(lon), frame.lat0)[0]
+
+    def date_label(raw: str) -> str:
+        match = re.fullmatch(r"([A-Za-z]{3})(\d{1,2})", raw or "")
+        return f"{int(match.group(2))} {match.group(1)}" if match else raw
+
+    def draw(_x, y):
+        out = [f'<g class="temperature-panel">',
+               f'<text x="{_num(layout["pad"])}" y="{_num(y + 11)}" '
+               f'font-size="11.5" font-weight="600" fill="{TEXT}">'
+               'Temperature on the retreat · Réaumur readings converted to °C</text>']
+        tick = math.ceil(low / 10.0) * 10.0
+        while tick <= high + 1e-9:
+            yy = y + py(tick)
+            out.append(f'<line x1="{_num(layout["pad"])}" y1="{_num(yy)}" '
+                       f'x2="{_num(layout["pad"] + layout["map_w"])}" y2="{_num(yy)}" '
+                       'stroke="#d8dde0" stroke-width="0.5"/>')
+            out.append(f'<text x="{_num(layout["pad"] + 2)}" y="{_num(yy - 2)}" '
+                       f'font-size="8.5" fill="{MUTED}">{tick:g}°C</text>')
+            tick += 10.0
+        points = [(px(f["lon"]), y + py(float(f["temperature_c"])), f)
+                  for f in observations]
+        tiers, last_x = {}, [-float("inf"), -float("inf")]
+        for x, _, feature in sorted(points, key=lambda p: p[0]):
+            if not feature.get("date"):
+                continue
+            tier = 0 if x - last_x[0] >= 62 else 1
+            tiers[feature["id"]] = tier
+            last_x[tier] = x
+        d = "M" + "L".join(f"{_num(x)},{_num(yy)}" for x, yy, _ in points)
+        out.append(f'<path d="{d}" fill="none" stroke="#3f5968" stroke-width="1.3"/>')
+        for x, yy, feature in points:
+            out.append(f'<circle cx="{_num(x)}" cy="{_num(yy)}" r="2.2" fill="#3f5968"/>')
+            date = date_label(str(feature.get("date") or ""))
+            if date:
+                label_y = y + 108 + 22 * tiers.get(feature["id"], 0)
+                out.append(f'<text x="{_num(x)}" y="{_num(label_y)}" font-size="8.5" '
+                           f'text-anchor="middle" fill="{MUTED}">{escape(date)}</text>')
+                out.append(f'<text x="{_num(x)}" y="{_num(label_y + 11)}" font-size="8.5" '
+                           f'text-anchor="middle" fill="{TEXT}">'
+                           f'{float(feature["temperature_c"]):g}°C</text>')
+        out.append("</g>")
+        return "".join(out)
+    return width, height, draw
+
+
+def _physical_legend_blocks(layers: list) -> list:
+    """Legend samples for physical context whose meaning is not self-evident."""
+    if not any(layer.get("class") == "plate-boundaries" for layer in layers or ()):
+        return []
+    heading = "Plate boundaries (Bird 2003)"
+    w, h = _text_w(heading, 10) + 32, 22
+
+    def draw(x, y):
+        return (f'<line x1="{_num(x)}" y1="{_num(y + 10)}" '
+                f'x2="{_num(x + 22)}" y2="{_num(y + 10)}" stroke="{colors.PLATE}" '
+                'stroke-width="0.7" stroke-dasharray="4 2.5"/>'
+                f'<text x="{_num(x + 29)}" y="{_num(y + 13.5)}" font-size="10" '
+                f'fill="{TEXT}">{heading}</text>')
+    return [(w, h, draw)]
 
 
 # ---------------------------------------------------------------- legend ---

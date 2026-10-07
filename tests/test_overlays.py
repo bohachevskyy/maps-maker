@@ -10,7 +10,7 @@ import urllib.error
 
 import pytest
 
-from mapsvc import overlays
+from mapsvc import colors, overlays
 from mapsvc.manifest import ManifestError, validate
 from mapsvc.models import HarvestResult
 from mapsvc.overlays import usgs
@@ -146,6 +146,8 @@ def test_physical_context_is_drawn_and_credited(mini_geojson):
     assert 'class="rivers"' in svg and 'class="plate-boundaries"' in svg
     assert "Natural Earth rivers" in svg and "PB2002 tectonic plate boundaries" in svg
     assert "Bird 2003 / Hugo Ahlenius" in svg and "ODC-By 1.0" in svg
+    assert f'stroke="{colors.PLATE}"' in svg and 'stroke-dasharray="4 2.5"' in svg
+    assert "Plate boundaries (Bird 2003)" in svg
 
 
 def test_overlay_render_module_does_no_io():
@@ -309,6 +311,7 @@ def test_route_length_counts_a_double_track_once():
 
 TROOPS = web._RDATASETS + "HistData/Minard.troops.csv"
 CITIES = web._RDATASETS + "HistData/Minard.cities.csv"
+TEMPS = web._RDATASETS + "HistData/Minard.temp.csv"
 NAPOLEON = overlays.Window((23.0, 53.3, 38.5, 56.4), None, (23.0, 53.3, 38.5, 56.4))
 
 
@@ -347,6 +350,19 @@ def test_minard_cities_are_places():
         "Kowno", "Wilna", "Smolensk", "Moscou"}
 
 
+def test_minard_temperatures_are_converted_and_drawn_below_the_map(mini_geojson):
+    layer = web.layer_from_bytes((FIXTURES / "minard_temp.csv").read_bytes(),
+                                 TEMPS, NAPOLEON)
+    assert layer["kind"] == "temperature"
+    assert layer["features"][3]["temperature_c"] == -26.25
+    troops = web.layer_from_bytes((FIXTURES / "minard_troops.csv").read_bytes(),
+                                  TROOPS, NAPOLEON)
+    svg = _overlay_map(mini_geojson, [troops, layer])
+    assert "temperature-panel" in svg
+    assert "Réaumur readings converted to °C" in svg
+    assert "18 Oct" in svg and "7 Dec" in svg
+
+
 def test_an_unknown_url_is_read_by_column_names_and_says_licence_unknown():
     csv_bytes = b"name,latitude,longitude,count\nA,50.1,30.2,10\nB,50.3,30.6,40\n"
     layer = web.layer_from_bytes(csv_bytes, "https://data.example.org/x.csv",
@@ -365,6 +381,7 @@ def test_a_file_without_coordinates_is_refused():
 def test_catalogue_search_finds_minard():
     found = [c.id for c in web.search("napoleon 1812 russia army")]
     assert found[:2] == [TROOPS, CITIES] or set(found[:2]) == {TROOPS, CITIES}
+    assert web.companions(TROOPS) == (TEMPS,)
 
 
 def test_flow_and_lines_render(mini_geojson):

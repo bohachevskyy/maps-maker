@@ -196,10 +196,19 @@ def describe(variable_id: str) -> Variable:
     name, column = next(iter(columns.items()))
     chart = payload.get("chart") or {}
 
+    unit = column.get("unit") or None
+    # The data-column title can carry a material qualifier omitted from OWID's
+    # shorter unit field. Preserve it without knowing a chart slug.
+    metadata_name = " ".join(str(v or "") for v in (
+        name, column.get("titleLong"), column.get("descriptionShort")))
+    if unit and re.search(r"\bPPP\b", metadata_name, re.I):
+        year = re.search(r"constant\s+(\d{4})", metadata_name, re.I)
+        unit = f"PPP, constant {year.group(1)} international-$" if year else f"PPP, {unit}"
+
     return Variable(
         id=variable_id,
         label=column.get("titleShort") or chart.get("title") or name,
-        unit=column.get("unit") or None,
+        unit=unit,
         level=_LEVELS.get(column.get("type"), "ratio"),
         timespan=column.get("timespan"),
         citation=chart.get("citation"),

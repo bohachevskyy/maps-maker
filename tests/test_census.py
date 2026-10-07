@@ -80,6 +80,7 @@ def offline_census(monkeypatch, tmp_path):
     monkeypatch.setenv("MAPSVC_CACHE", str(tmp_path))
     (tmp_path / "census").mkdir()
     (tmp_path / "census" / f"cb_{census.VINTAGE}_us_county_20m.zip").write_bytes(COUNTIES)
+    (tmp_path / "census" / f"cb_{census.VINTAGE}_us_county_500k.zip").write_bytes(COUNTIES)
     # A recorded slice of acsdt5y2024-b19013.dat, real values.
     acs = tmp_path / "census_acs" / "2024"
     acs.mkdir(parents=True)
@@ -106,6 +107,14 @@ def test_counties_carry_fips_and_within_scopes_to_a_state(offline_census):
     assert [u["keys"] for u in boundaries.units] == [{"FIPS": "06025"}, {"FIPS": "06085"}]
     assert boundaries.keys == ("FIPS",)
     assert census.count("admin_2", None, ("USA",)) == 3
+
+
+def test_county_scale_is_500k_regionally_but_generalised_nationally():
+    assert census._effective_scale("admin_2", "full", ("US-CA",)) == "500k"
+    assert census._effective_scale("admin_2", "simplified", ("US-CA",)) == "500k"
+    assert census._effective_scale("admin_2", "full", ("USA",)) == "5m"
+    assert census._effective_scale("admin_2", "simplified", ("USA",)) == "20m"
+    assert census._effective_scale("admin_1", "full", ("USA",)) == "5m"
 
 
 def test_census_refuses_a_code_it_cannot_scope_to(offline_census):

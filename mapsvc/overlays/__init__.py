@@ -117,6 +117,12 @@ def capabilities(name: str) -> Capabilities:
     return provider(name).CAPABILITIES
 
 
+def companions(source: str, overlay_id: str) -> tuple[str, ...]:
+    """Extra catalogue layers implied by one requested overlay."""
+    fn = getattr(provider(source), "companions", None)
+    return tuple(fn(overlay_id)) if fn else ()
+
+
 def all_capabilities() -> list:
     return [m.CAPABILITIES for m in _providers().values()]
 

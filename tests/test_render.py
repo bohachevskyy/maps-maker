@@ -178,9 +178,10 @@ def test_lightest_positive_diverging_class_contrasts_with_water():
                   for v in channels]
         return 0.2126 * linear[0] + 0.7152 * linear[1] + 0.0722 * linear[2]
 
-    first_growth = colors.diverging("RdBu", 3, 3)[3]
-    lighter, darker = sorted((luminance(first_growth), luminance(colors.WATER)), reverse=True)
-    assert (lighter + 0.05) / (darker + 0.05) >= 1.35
+    for class_colour in colors.diverging("RdBu", 3, 5):
+        lighter, darker = sorted((luminance(class_colour), luminance(colors.WATER)),
+                                 reverse=True)
+        assert (lighter + 0.05) / (darker + 0.05) >= 1.35
 
 
 def test_empty_region_is_an_error():

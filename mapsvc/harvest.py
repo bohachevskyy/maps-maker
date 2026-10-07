@@ -33,7 +33,7 @@ NO_DATA = {-99, "-99", "", None}
 # Bump when the shape of a cached HarvestResult changes -- new provenance keys,
 # a different join, altered drop reasons. Without it a code change silently
 # keeps serving rows written in the old format.
-CACHE_VERSION = 12
+CACHE_VERSION = 13
 
 # Physical context is derived from the overlay and its window, never requested
 # in the manifest. These files are fetched here and cached with the other input
@@ -162,12 +162,7 @@ def _framed_on_overlays(manifest: Manifest) -> HarvestResult:
     from mapsvc import overlay_render
 
     world = overlays.Window(bbox=None, within=None, extent=WORLD_EXTENT)
-    layers = []
-    for source, overlay_id in manifest.overlays:
-        try:
-            layers.append(overlays.load(source, overlay_id, world))
-        except overlays.OverlayError as exc:
-            raise HarvestError(str(exc), exc.field) from exc
+    layers = _load_overlay_layers(manifest.overlays, world)
     box = overlay_render.overlay_extent(layers)
     box = WORLD_EXTENT if box is None else frame_box(box)
     result = _base(dataclasses.replace(manifest, bbox=box))
@@ -235,11 +230,7 @@ def _add_overlays(manifest: Manifest, result: HarvestResult) -> None:
                                      else WORLD_EXTENT))
     window = overlays.Window(bbox=manifest.bbox, within=manifest.within, extent=extent,
                              name=_place_name(manifest.within))
-    for source, overlay_id in manifest.overlays:
-        try:
-            result.overlays.append(overlays.load(source, overlay_id, window))
-        except overlays.OverlayError as exc:
-            raise HarvestError(str(exc), exc.field) from exc
+    result.overlays.extend(_load_overlay_layers(manifest.overlays, window))
     brings_places = any(layer["kind"] == "places" for layer in result.overlays)
     if manifest.bbox is None and geometries:
         # Labels for what will be framed: the units near the overlay, not
@@ -251,6 +242,31 @@ def _add_overlays(manifest: Manifest, result: HarvestResult) -> None:
     if small and not brings_places:
         result.places = context_places(extent, manifest.within)
     _add_physical_context(manifest, result, extent)
+
+
+def _load_overlay_layers(specs, window) -> list:
+    """Requested layers plus deterministic catalogue companions, once each."""
+    requested = list(specs)
+    explicit = set(requested)
+    expanded = []
+    seen = set()
+    for source, overlay_id in requested:
+        pair = (source, overlay_id)
+        if pair not in seen:
+            expanded.append(pair)
+            seen.add(pair)
+        for companion in overlays.companions(source, overlay_id):
+            pair = (source, companion)
+            if pair not in seen and pair not in explicit:
+                expanded.append(pair)
+                seen.add(pair)
+    layers = []
+    for source, overlay_id in expanded:
+        try:
+            layers.append(overlays.load(source, overlay_id, window))
+        except overlays.OverlayError as exc:
+            raise HarvestError(str(exc), exc.field) from exc
+    return layers
 
 
 def _add_physical_context(manifest: Manifest, result: HarvestResult,
