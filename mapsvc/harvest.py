@@ -33,7 +33,7 @@ NO_DATA = {-99, "-99", "", None}
 # Bump when the shape of a cached HarvestResult changes -- new provenance keys,
 # a different join, altered drop reasons. Without it a code change silently
 # keeps serving rows written in the old format.
-CACHE_VERSION = 6
+CACHE_VERSION = 7
 
 
 class HarvestError(ValueError):
@@ -182,12 +182,14 @@ def _base(manifest: Manifest) -> HarvestResult:
     cached = cache_dir() / "harvest" / f"{key}.json"
     if cached.exists():
         stored = json.loads(cached.read_text())
-        return HarvestResult(stored["rows"], stored["provenance"], stored["dropped"])
+        return HarvestResult(stored["rows"], stored["provenance"], stored["dropped"],
+                             context=stored.get("context", []))
 
     result = _build(manifest)
+    _add_context(manifest, result)
     cached.parent.mkdir(parents=True, exist_ok=True)
     payload = {"rows": result.rows, "provenance": result.provenance,
-               "dropped": result.dropped}
+               "dropped": result.dropped, "context": result.context}
     temporary = cached.with_suffix(".part")
     temporary.write_text(json.dumps(payload, sort_keys=True))
     temporary.replace(cached)
@@ -275,6 +277,101 @@ def context_places(extent: tuple, within: tuple | None) -> list:
     found = [p for p in found if p["name"]]
     found.sort(key=lambda p: (-p["pop"], p["name"]))
     return found[:PLACES_KEEP]
+
+
+# ----------------------------------------------------------------- context ---
+
+# How far beyond the mapped units the context land reaches, as a share of the
+# units' larger ground span. The page is at most ~3:1 either way, so 0.8 on
+# each side covers whatever slack the fit leaves; the clipped edges stay off
+# the page.
+CONTEXT_REACH = 0.8
+CONTEXT_LEVEL = "admin_0"
+
+
+def context_countries() -> list:
+    """Natural Earth countries for the context layer. A seam tests replace."""
+    return load_source(CONTEXT_LEVEL)["features"]
+
+
+def _add_context(manifest: Manifest, result: HarvestResult) -> None:
+    """Neighbouring land for a `within` map, muted, so it does not float.
+
+    A bbox map already carries everything in its window; a `within` map
+    carries only the units asked for, and Russia, Poland and Belarus vanish
+    from around Ukraine. Natural Earth countries near the units are clipped to
+    a generous window around them and handed to render as plain geometry.
+    Countries whose label point lies in a drawn unit are the mapped land
+    itself and are left out, so their coarser coastline cannot peek out.
+    """
+    if not manifest.within:
+        return
+    drawn = [r["geometry"] for r in result.rows] + [d["geometry"] for d in result.dropped
+                                                     if d.get("geometry")]
+    if not drawn:
+        return
+    extent = project.extent_of(drawn)
+    if extent == project.WORLD_EXTENT:
+        return
+    window = _context_window(extent)
+    try:
+        features = context_countries()
+    except OSError as exc:      # no network and no cached file: map without it
+        result.provenance["context_error"] = str(exc)
+        return
+
+    outer = [(_box(ring), ring) for g in drawn for ring in project.outer_rings(g)
+             if len(ring) >= 4]
+    context = []
+    for feature in features:
+        props = feature.get("properties") or {}
+        geometry = feature.get("geometry")
+        if not geometry or geometry["type"] not in ("Polygon", "MultiPolygon"):
+            continue
+        label = (props.get("LABEL_X"), props.get("LABEL_Y"))
+        if None not in label and any(
+                b[0] <= label[0] <= b[2] and b[1] <= label[1] <= b[3]
+                and project.point_in_ring(label[0], label[1], ring) for b, ring in outer):
+            continue
+        rings = []
+        for ring in project.outer_rings(geometry):
+            box = _box(ring)
+            if box[2] < window[0] or box[0] > window[2] or box[3] < window[1] \
+                    or box[1] > window[3]:
+                continue
+            clipped = project.clip_to_extent(ring, window)
+            if len(clipped) >= 3:
+                clipped = [(round(x, 5), round(y, 5)) for x, y in clipped]
+                rings.append([list(p) for p in clipped + [clipped[0]]])
+        if rings:
+            context.append({"id": registry.iso3_of(props) or props.get("ADM0_A3"),
+                            "geometry": {"type": "MultiPolygon",
+                                         "coordinates": [[r] for r in rings]}})
+    context.sort(key=lambda c: str(c["id"]))
+    result.context = context
+    if context:
+        result.provenance["context_source"] = (
+            f"{registry.SOURCE_NAME} {registry.SOURCE_VINTAGE} 1:"
+            f"{registry.scale_for(CONTEXT_LEVEL)} (public domain)")
+
+
+def _context_window(extent) -> tuple:
+    import math
+    min_lon, min_lat, max_lon, max_lat = extent
+    lat0 = (min_lat + max_lat) / 2.0
+    squash = max(0.2, math.cos(math.radians(lat0)))
+    ground = max((max_lon - min_lon) * squash, max_lat - min_lat, 1.0)
+    reach_lat = CONTEXT_REACH * ground
+    reach_lon = reach_lat / squash
+    window = (max(-180.0, min_lon - reach_lon), max(-90.0, min_lat - reach_lat),
+              min(180.0, max_lon + reach_lon), min(90.0, max_lat + reach_lat))
+    return window
+
+
+def _box(ring) -> tuple:
+    xs = [p[0] for p in ring]
+    ys = [p[1] for p in ring]
+    return min(xs), min(ys), max(xs), max(ys)
 
 
 # -------------------------------------------------------------------- join ---

@@ -169,6 +169,7 @@ def render(manifest: Manifest, result: HarvestResult) -> str:
     units: list[tuple] = []         # bbox of each unit's (or symbol's) ink
     if frame.windowed:
         body.append(_water(frame))
+    body.append(_context(result.context, frame))
 
     # Feature layers carry the message when there is no variable: the base map
     # recedes to quiet land with white borders.
@@ -554,6 +555,35 @@ def _symbols(rows: list, frame: Frame, encoding: Encoding) -> str:
                    f'data-value={quoteattr(_raw_value(row["value"]))}/>')
     out.append("</g>")
     return "".join(out), [(x - r, y - r, x + r, y + r) for _, _, (x, y), r, _ in placed]
+
+
+# --------------------------------------------------------------- context ---
+
+def _context(context: list, frame: Frame) -> str:
+    """Neighbouring land, muted, under a `within` map; the sea tinted around it.
+
+    Harvest fetched it; render only draws it. It is not land for the legend's
+    purposes -- a legend may sit over Belarus -- and carries no data-id, so
+    nothing reads it as a mapped unit.
+    """
+    if not context or frame.windowed:
+        return ""
+    out = [f'<g clip-path="url(#map-clip)">',
+           f'<rect x="{PAD}" y="{MAP_TOP}" width="{MAP_W}" height="{frame.map_h}" '
+           f'fill="{colors.WATER}"/>',
+           f'<g fill="{colors.CONTEXT_LAND}" stroke="{colors.CONTEXT_BORDER}" '
+           'stroke-width="0.5" stroke-linejoin="round" class="context">']
+    # Clipped to the page in pixels: most of a neighbour (all of Russia
+    # beyond the Urals) is off the page, and its vertices would only add bytes.
+    page = (PAD - 4.0, MAP_TOP - 4.0, PAD + MAP_W + 4.0, frame.bottom + 4.0)
+    for item in context:
+        rings = [project.clip_to_extent(part[0], page)
+                 for part in _project(item["geometry"], frame)]
+        d = _d([ring for ring in rings if len(ring) >= 3])
+        if d:
+            out.append(f'<path d="{d}"/>')
+    out.append("</g></g>")
+    return "".join(out)
 
 
 # -------------------------------------------------------------- enclaves ---
@@ -1012,6 +1042,8 @@ def _footer(manifest, frame: Frame, encoding: Encoding, result, top: float,
     license_note = p.get("license")
     if license_note and license_note != "public domain":
         source += f". {p.get('attribution') or ''} ({license_note})".rstrip()
+    if p.get("context_source") and result.context:
+        source += f". Neighbouring land: {p['context_source']}"
 
     scheme = encoding.scheme
     if encoding.mode == "basemap":

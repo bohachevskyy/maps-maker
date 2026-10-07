@@ -267,3 +267,41 @@ def test_a_count_per_a_count_is_measured_and_drawn_as_a_ratio(series, monkeypatc
     circles = [c for c in root.iter("{http://www.w3.org/2000/svg}circle")
                if c.get("data-id") and c.get("class") != "small-unit"]
     assert circles == []
+
+
+def test_a_within_map_carries_muted_neighbouring_land(monkeypatch, tmp_path):
+    """Ukraine without Poland, Belarus and Russia floats in a white void."""
+    from mapsvc.cartography import Boundaries
+    from mapsvc.render import render
+    monkeypatch.setenv("MAPSVC_CACHE", str(tmp_path))
+    units = [{"id": "UA-30", "keys": {"ISO3166_2": "UA-30"}, "name": "Kyiv",
+              "geometry": BOX}]
+    monkeypatch.setattr(H.cartography, "count", lambda *a, **k: 1)
+    monkeypatch.setattr(H.cartography, "load", lambda *a, **k: Boundaries(
+        units=units, keys=("ISO3166_2",), provenance={"source": "test"}))
+
+    def country(code, x0, label):
+        return {"type": "Feature",
+                "properties": {"ADM0_A3": code, "ISO_A3": code,
+                               "LABEL_X": label[0], "LABEL_Y": label[1]},
+                "geometry": {"type": "Polygon", "coordinates": [[
+                    [x0, 0], [x0 + 1, 0], [x0 + 1, 1], [x0, 1], [x0, 0]]]}}
+    far = {"type": "Feature", "properties": {"ADM0_A3": "FAR", "ISO_A3": "FAR",
+                                            "LABEL_X": 120, "LABEL_Y": 0},
+           "geometry": {"type": "Polygon", "coordinates": [[
+               [120, 0], [121, 0], [121, 1], [120, 1], [120, 0]]]}}
+    monkeypatch.setattr(H, "context_countries", lambda: [
+        country("UKR", 0, (0.5, 0.5)),       # the mapped land itself
+        country("POL", -1, (-0.5, 0.5)),     # a neighbour
+        far])
+    manifest = validate({"within": ["UA-30"], "level": "admin_1",
+                         "basemap": {"source": "overture"},
+                         "variable": {"source": "ukrstat", "id": "present_population"}})
+    result = H.harvest(manifest)
+    assert [c["id"] for c in result.context] == ["POL"]
+    assert "Natural Earth" in result.provenance["context_source"]
+    assert H.harvest(manifest).context == result.context, "cached with the rows"
+
+    text = render(manifest, result)
+    assert text.count('class="context"') == 1
+    assert "Neighbouring land: Natural Earth" in text

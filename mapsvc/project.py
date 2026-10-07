@@ -8,6 +8,7 @@ factor rule stays in a single place.
 import math
 
 Extent = tuple[float, float, float, float]  # min_lon, min_lat, max_lon, max_lat
+WORLD_EXTENT = (-180.0, -90.0, 180.0, 90.0)
 
 # Beyond this the Mercator y blows up and the poles eat the canvas.
 MERCATOR_LAT_LIMIT = 85.0

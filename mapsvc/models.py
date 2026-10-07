@@ -32,6 +32,9 @@ class HarvestResult:
     # window, largest first: [{"name", "lon", "lat", "pop", "capital"}]. Empty
     # unless overlays need orientation and bring no places of their own.
     places: list = field(default_factory=list)
+    # [{"id": "POL", "geometry": {...}}]: neighbouring land drawn muted under a
+    # `within` map, so Ukraine does not float in a void. Not data; never shaded.
+    context: list = field(default_factory=list)
 
 
 @dataclass(frozen=True)

@@ -100,6 +100,10 @@ OCEAN = "#ffffff"
 # reads as a map. Outside it -- or on a `within` map, where neighbours were not
 # fetched -- the page stays white, so an absent neighbour never passes for sea.
 WATER = "#eaf1f7"
+# Neighbouring land around a `within` map: there, unshaded, never data. Once it
+# is drawn the sea can be tinted honestly, because no land is missing.
+CONTEXT_LAND = "#f0eee9"
+CONTEXT_BORDER = "#c8c4bb"
 GRATICULE = "#d3dde5"
 FRAME = "#9aabb8"
 # Proportional symbols for counts, over polygons in a neutral fill.
