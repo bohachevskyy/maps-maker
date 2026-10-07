@@ -1,0 +1,5 @@
+- URL/API: https://ec.europa.eu/eurostat/api/dissemination/statistics/1.0/data/nama_10r_2gdp?freq=A&unit=PPS_EU27_2020_HAB (JSON-stat); geometry https://gisco-services.ec.europa.eu/distribution/v2/nuts/geojson/NUTS_RG_20M_2024_3035_LEVL_2.geojson.
+- Vintage: Eurostat nama_10r_2gdp updated 2026-02-10T11:00:00+0100; latest year per region 2024–2024. Geometry GISCO NUTS 2024, 1:20M, EPSG:3035.
+- Licence: Eurostat data, free reuse with attribution; boundaries © EuroGeographics for the administrative boundaries (GISCO).
+- Rows: 245 — 244 EU NUTS 2 regions (every NUTS 2024 level-2 region of the 27 member states) plus EU27_2020 = 39,900 PPS, used for the `LU00>200%_EU` check. Unmatched geometries: none.
+- Caveat: Greece is 'EL' in NUTS; an earlier draft of this builder used 'GR' and silently dropped all 13 Greek regions. Extra-regio codes (xxZZ) have no geometry and are omitted.

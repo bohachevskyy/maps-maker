@@ -1,0 +1,5 @@
+- URL/API: Overpass API (overpass-api.de, mirror fallback), `area["ISO3166-1"="FR"][admin_level=2]; way[railway=rail][highspeed=yes](area); out tags geom;`.
+- Vintage: OpenStreetMap as of 2026-10-07T03:58:36Z; delete `.cache/france_lgv_overpass.json` to refresh.
+- Licence: © OpenStreetMap contributors, ODbL 1.0. Basemap: geoBoundaries FRA ADM1 from IGN (Etalab Open Licence 2.0) and Natural Earth (public domain).
+- Rows: 7248 OSM ways (osm_id, name, maxspeed, usage, service, length_km = WGS84 geodesic length of the full-resolution way, geometry_wkt simplified ~20 m and rounded to 1e-4°). Sum of ways = 5,282 track-km; dissolved route length of non-service ways = 2,629 km at full resolution (the spot check, recomputed from the stored WKT, gets within a few km).
+- Caveat: OSM maps each track of a double-track LGV as its own way, so the way sum is ~2× the route length. `total_km` is checked against the dissolved route length (union of 30 m flat buffers ÷ 64.5 m); 51 km of crossovers/sidings are excluded from it.

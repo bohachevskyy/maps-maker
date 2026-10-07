@@ -1,0 +1,5 @@
+- URL/API: https://earthquake.usgs.gov/fdsnws/event/1/query?format=geojson&starttime=2025-01-01&endtime=2026-01-01&minmagnitude=6&orderby=time-asc
+- Vintage: USGS ComCat as of 2026-10-07; events 2025-01-01T00:00Z ≤ t < 2026-01-01T00:00Z with magnitude ≥ 6.0.
+- Licence: U.S. Geological Survey Earthquake Hazards Program, U.S. government work (public domain). Plate boundaries for context: Bird (2003) PB2002 via github.com/fraxen/tectonicplates (ODC-BY 1.0).
+- Rows: 145 events — id, UTC time, lon, lat, depth_km, mag, magType, place. M7.7 Mandalay (Myanmar, 28 Mar) and M8.8 Kamchatka (29 Jul) are present.
+- Caveat: ComCat revises magnitudes and adds/removes events; the count can drift by a few. The spec's `count=120±35%` passes at 145.

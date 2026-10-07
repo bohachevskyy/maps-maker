@@ -1,0 +1,5 @@
+- URL/API: https://stat.gov.ua/sites/default/files/2026-09/zb_chnas_22.pdf (linked from https://stat.gov.ua/uk/publications/chyselnist-nayavnoho-naselennya-ukrayiny), table 1 on PDF page 7, parsed by Ukrainian region name.
+- Vintage: Ukrstat estimate of the *present* (наявне, de facto) population on 1 January 2022 — the last pre-invasion estimate. The 25 regional values sum exactly to the printed national total, 41,167,335.
+- Licence: State Statistics Service of Ukraine, official statistics reproduced with attribution. Boundaries: geoBoundaries gbOpen UKR ADM1 v2023 (source OpenStreetMap/Wambacher, 2017 boundaries; ODbL 1.0, © OpenStreetMap contributors).
+- Rows: 27 — 24 oblasts, the Autonomous Republic of Crimea, Kyiv city and Sevastopol; key is ISO 3166-2.
+- Caveat: the table prints '…' for Crimea and Sevastopol (no estimate since 2014), so both values are blank — not zero — and the units are hatched on the map.

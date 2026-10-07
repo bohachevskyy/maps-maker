@@ -1,0 +1,146 @@
+id,time,lon,lat,depth_km,mag,magType,place
+us6000pgv4,2025-01-01T13:48:24Z,-26.7059,-56.4095,70,6.1,mww,South Sandwich Islands region
+us6000phap,2025-01-02T20:43:35Z,-69.1069,-21.7109,99,6.1,mww,"84 km NNW of Calama, Chile"
+us6000pi09,2025-01-05T17:18:45Z,-89.1775,13.0007,46,6.2,mww,"56 km SSE of La Libertad, El Salvador"
+us6000pi9w,2025-01-07T01:05:16Z,87.3781,28.6036,10,7.1,mww,2025 Southern Tibetan Plateau Earthquake
+us6000pjig,2025-01-12T08:32:49Z,-103.3631,18.5019,39,6.2,mww,"18 km SE of Aquila, Mexico"
+us6000pjny,2025-01-13T12:19:32Z,131.5525,31.8326,39,6.8,mww,"15 km SE of Miyazaki, Japan"
+us6000pl8h,2025-01-20T16:17:26Z,120.5448,23.1816,16,6,mww,"10 km NE of Yujing, Taiwan"
+us7000pcdl,2025-02-08T23:23:14Z,-82.395,17.6506,14.326,7.6,mww,"210 km SSW of George Town, Cayman Islands"
+us7000pfmk,2025-02-23T18:16:18Z,166.2902,-11.3195,36,6,mww,"85 km SE of Lata, Solomon Islands"
+us6000pvgx,2025-02-25T22:55:45Z,124.8407,0.3994,21.726,6.1,mww,"45 km E of Modisi, Indonesia"
+us6000px89,2025-03-06T16:21:39Z,-69.0636,-23.3399,96,6,mww,"98 km S of Calama, Chile"
+us6000pxvx,2025-03-10T02:33:14Z,-8.1733,71.176,10,6.5,mww,"34 km NE of Olonkinbyen, Svalbard and Jan Mayen"
+us6000py97,2025-03-12T05:42:11Z,92.5548,6.9701,23,6,mww,"Nicobar Islands, India region"
+us7000pllt,2025-03-21T14:50:51Z,-82.4666,6.9863,10,6.2,mww,"124 km SSE of Burica, Panama"
+us7000pllu,2025-03-21T14:53:41Z,-176.0703,51.1558,17,6.2,mww,"88 km SSE of Adak, Alaska"
+us7000pmem,2025-03-25T01:43:11Z,165.8632,-46.7305,21,6.7,mww,"170 km WSW of Riverton, New Zealand"
+us7000pn7g,2025-03-28T00:34:21Z,-29.665,0.7055,10,6.1,mww,central Mid-Atlantic Ridge
+us7000pn9s,2025-03-28T06:20:52Z,95.9363,22.011,10,7.7,mww,"2025 Mandalay, Burma (Myanmar) Earthquake"
+us7000pn9z,2025-03-28T06:32:04Z,95.969,21.6975,10,6.7,mww,Burma (Myanmar)
+us7000pnf2,2025-03-28T17:17:27Z,-29.7635,0.7561,12.323,6.6,mww,central Mid-Atlantic Ridge
+us7000pntq,2025-03-30T12:18:50Z,-174.0718,-20.3036,29,7,mww,"61 km SSE of Pangai, Tonga"
+us7000pnvp,2025-03-30T15:04:54Z,-174.0115,-20.3816,17,6.2,mww,"72 km SSE of Pangai, Tonga"
+us7000ppd9,2025-04-02T00:29:22Z,-142.2862,-57.0079,10,6.3,mww,Pacific-Antarctic Ridge
+us7000ppfy,2025-04-02T14:03:57Z,131.522,30.9792,29,6.1,mww,"56 km ENE of Nishinoomote, Japan"
+us6000q3nw,2025-04-03T14:09:29Z,-32.1071,52.4538,10,6.9,mww,Reykjanes Ridge
+us6000q41n,2025-04-04T20:04:38Z,151.6257,-6.3025,9,6.9,mww,"184 km ESE of Kimbe, Papua New Guinea"
+us6000q5ka,2025-04-12T03:47:08Z,153.1423,-4.7074,52,6.1,mww,"104 km ESE of Kokopo, Papua New Guinea"
+us6000q5tp,2025-04-13T20:03:22Z,-178.3309,-25.9815,271,6.5,mww,south of the Fiji Islands
+us6000q6cs,2025-04-16T01:42:59Z,99.613,-47.8089,10,6.6,mww,southeast Indian Ridge
+us7000pu62,2025-04-22T10:17:11Z,127.831,4.5538,104,6.2,mww,"271 km SE of Pondaguitan, Philippines"
+us7000pufs,2025-04-23T09:49:11Z,28.1897,40.8342,12.736,6.2,mww,"24 km SE of Marmara Ereğlisi, Turkey"
+us7000pv06,2025-04-25T11:44:52Z,-79.5319,1.0835,18,6.3,mww,"19 km NE of Esmeraldas, Ecuador"
+us7000pvt7,2025-04-29T13:16:32Z,165.3571,-48.1824,10.595,6.2,mww,"285 km SW of Bluff, New Zealand"
+us7000pvtr,2025-04-29T14:53:37Z,155.6446,-54.2616,18.957,6.8,mww,Macquarie Island region
+us7000pwkn,2025-05-02T12:58:26Z,-68.1019,-56.8094,10,7.4,mww,2025 Drake Passage Earthquake
+us7000pwpu,2025-05-02T17:59:07Z,-67.0168,-57.304,8,6.4,mww,"289 km SSE of Ushuaia, Argentina"
+us7000px6v,2025-05-05T03:55:39Z,-107.4203,-35.1429,10,6,mww,southern East Pacific Rise
+us7000pz2p,2025-05-13T22:51:15Z,26.9951,35.237,76.202,6,mww,"20 km SSE of Fry, Greece"
+us7000pz41,2025-05-14T04:15:40Z,-175.3343,-18.7126,260,6.4,mww,"142 km W of Neiafu, Tonga"
+us7000q0bm,2025-05-20T15:05:59Z,144.8116,-3.7575,16.819,6.5,mww,"89 km ENE of Angoram, Papua New Guinea"
+us7000q0pq,2025-05-22T03:19:35Z,25.9159,35.8915,64,6.2,mww,"66 km SE of Emporeío, Greece"
+us7000q14k,2025-05-23T16:33:25Z,147.6655,-56.5536,10,6.1,mww,west of Macquarie Island
+us7000q1e7,2025-05-25T10:49:59Z,-175.8016,-22.8374,48,6,mww,"187 km SSW of ‘Ohonua, Tonga"
+us6000qgts,2025-05-30T05:36:38Z,9.1051,-53.2836,10,6.2,mww,southwest of Africa
+us6000qh1r,2025-05-31T08:37:17Z,144.4895,42.2705,21,6,mww,"78 km S of Kushiro, Japan"
+us6000qh35,2025-05-31T14:28:49Z,-177.9502,-27.7396,10,6.1,mww,Kermadec Islands region
+us6000qh59,2025-05-31T21:21:11Z,-178.5389,-28.1865,10,6,mww,Kermadec Islands region
+us6000qh5j,2025-05-31T22:26:22Z,-178.1234,-27.8491,10,6.2,mww,Kermadec Islands region
+us6000qigd,2025-06-06T17:15:06Z,-70.4039,-26.639,75,6.4,mww,"45 km SW of Diego de Almagro, Chile"
+us6000qisj,2025-06-07T23:20:45Z,115.9955,-47.8272,10,6.2,mww,western Indian-Antarctic Ridge
+us6000qixr,2025-06-08T13:08:05Z,-73.1248,4.4852,9,6.3,mww,"15 km NE of Paratebueno, Colombia"
+us6000qk4v,2025-06-13T18:35:14Z,153.426,46.1842,35,6,mww,Kuril Islands
+us6000qlnz,2025-06-21T21:23:18Z,146.4037,42.8951,18,6,mww,"82 km SE of Nemuro, Japan"
+us7000q8bd,2025-06-24T01:58:06Z,129.9606,7.9765,10,6.2,mww,east of the Philippine Islands
+us7000q8tw,2025-06-25T22:16:13Z,-17.0441,-35.7221,10,6.2,mww,southern Mid-Atlantic Ridge
+us7000q97d,2025-06-27T23:07:10Z,126.0425,5.2888,99.77,6,mww,"65 km E of Sarangani, Philippines"
+us7000q9b5,2025-06-28T08:32:20Z,-38.9672,-60.9793,10,6.6,mww,Scotia Sea
+us7000qb4s,2025-07-07T12:53:44Z,165.4962,-47.1735,22,6.2,mww,"213 km WSW of Riverton, New Zealand"
+us7000qcik,2025-07-14T05:49:58Z,131.2331,-6.2201,70.687,6.7,mww,"180 km WSW of Tual, Indonesia"
+us7000qclp,2025-07-14T17:16:49Z,-82.7372,6.1706,10,6.2,mww,"206 km S of Burica, Panama"
+us7000qd1y,2025-07-16T20:37:41Z,-160.4689,54.5652,38,7.3,mww,"2025 Sand Point, Alaska Earthquake"
+us7000qdye,2025-07-20T06:28:17Z,160.6233,52.9286,23,6.6,mww,"134 km E of Petropavlovsk-Kamchatsky, Russia"
+us7000qdyl,2025-07-20T06:49:04Z,160.6816,52.8301,34,7.4,mww,"2025 Eastern Kamchatka, Russia Earthquake"
+us7000qdyw,2025-07-20T07:07:42Z,160.8332,52.6981,10,6.6,mww,"153 km ESE of Petropavlovsk-Kamchatsky, Russia"
+us7000qdz2,2025-07-20T07:23:02Z,160.7461,52.8915,34.991,6.5,mww,"143 km E of Petropavlovsk-Kamchatsky, Russia"
+us7000qe51,2025-07-20T22:28:00Z,-159.8382,54.6051,40,6.2,mww,"91 km SSE of Sand Point, Alaska"
+us6000qu2r,2025-07-22T01:59:28Z,160.6453,52.4133,12.308,6,mww,"154 km ESE of Petropavlovsk-Kamchatsky, Russia"
+us6000qugg,2025-07-23T20:50:43Z,122.0874,0.4411,142,6.3,mww,"109 km W of Gorontalo, Indonesia"
+us6000quxn,2025-07-24T22:37:27Z,161.0626,53.0151,14,6,mww,"163 km E of Petropavlovsk-Kamchatsky, Russia"
+us6000quy1,2025-07-24T23:37:56Z,-175.7016,-14.9093,314.151,6.6,mww,"187 km SSE of Mata-Utu, Wallis and Futuna"
+us6000qv1b,2025-07-25T11:22:02Z,146.5854,-55.4066,10,6.2,mww,west of Macquarie Island
+us6000qvbw,2025-07-26T16:15:04Z,157.7252,-57.7718,17,6.2,mww,Macquarie Island region
+us6000qvpp,2025-07-28T18:41:50Z,93.0637,6.6907,21,6.4,mww,"264 km WNW of Sabang, Indonesia"
+us6000qvsf,2025-07-28T22:10:35Z,157.0388,-57.605,31,7,mww,Macquarie Island region
+us6000qw1a,2025-07-29T17:53:40Z,178.858,-23.4497,553,6.6,mww,south of the Fiji Islands
+us6000qw60,2025-07-29T23:24:52Z,160.2395,52.4948,35,8.8,mww,"2025 Kamchatka Peninsula, Russia Earthquake"
+us6000r0y5,2025-07-29T23:30:03Z,159.7031,52.5195,16.375,6.3,mb,"94 km SE of Petropavlovsk-Kamchatsky, Russia"
+us6000r0xw,2025-07-29T23:30:44Z,159.5787,52.6498,25.423,6.1,mb,"78 km SE of Petropavlovsk-Kamchatsky, Russia"
+us6000r0qc,2025-07-29T23:36:01Z,158.2503,51.7541,35,6,mb,"124 km ENE of Ozernovskiy, Russia"
+us6000qwhj,2025-07-29T23:37:34Z,159.126,51.5092,35,6,mb,"165 km SSE of Vilyuchinsk, Russia"
+us6000qw6q,2025-07-30T00:09:58Z,159.8008,52.1946,36.622,6.9,mww,"125 km SE of Petropavlovsk-Kamchatsky, Russia"
+us6000qw6s,2025-07-30T00:16:06Z,159.692,52.1048,35,6.2,mb,"126 km SE of Vilyuchinsk, Russia"
+us6000qwfe,2025-07-30T09:56:13Z,160.0013,51.6041,10.445,6.1,mwb,"183 km SE of Vilyuchinsk, Russia"
+us6000qwk1,2025-07-30T16:07:46Z,157.2746,49.6696,35,6,mwb,"138 km SE of Severo-Kuril’sk, Russia"
+us6000qwuh,2025-07-31T05:27:14Z,158.6499,49.5,15,6.2,mww,"222 km SE of Severo-Kuril’sk, Russia"
+us6000qxfn,2025-08-01T18:20:45Z,159.0659,50.2099,10,6.1,mww,"215 km ESE of Severo-Kuril’sk, Russia"
+us6000qxn6,2025-08-02T14:14:03Z,159.4631,51.5911,17,6,mww,"165 km SSE of Vilyuchinsk, Russia"
+us6000qxsv,2025-08-03T04:57:10Z,-128.6508,-55.2284,10,6.3,mww,Pacific-Antarctic Ridge
+us6000qxt4,2025-08-03T05:37:55Z,157.8643,50.5853,30,6.8,mww,"123 km E of Severo-Kuril’sk, Russia"
+us6000qxzw,2025-08-04T04:20:54Z,156.3666,48.8586,16,6.2,mww,"202 km S of Severo-Kuril’sk, Russia"
+us6000qzh9,2025-08-09T14:04:07Z,159.7364,50.0723,11,6,mww,"265 km ESE of Severo-Kuril’sk, Russia"
+us6000qznb,2025-08-10T16:53:47Z,28.0168,39.3709,10,6.1,mww,"10 km WSW of Bigadiç, Turkey"
+us6000r01m,2025-08-12T08:24:23Z,138.966,-2.0302,14,6.3,mww,"195 km WNW of Abepura, Indonesia"
+us6000r0sa,2025-08-14T16:22:34Z,166.2048,-11.6933,44.99,6.3,mww,"115 km SSE of Lata, Solomon Islands"
+us6000r2xq,2025-08-22T02:16:18Z,-61.9221,-60.3187,10,7.5,mww,2025 Southern Drake Passage Earthquake
+us6000r3at,2025-08-23T09:14:22Z,-90.4343,13.0601,17,6,mww,"88 km SW of Acajutla, El Salvador"
+us6000r3l7,2025-08-25T06:48:34Z,160.0428,49.3726,9,6.1,mww,east of the Kuril Islands
+us7000qr8h,2025-08-27T03:49:50Z,157.4273,50.7675,40,6,mww,"92 km E of Severo-Kuril’sk, Russia"
+us7000qsvj,2025-08-31T19:17:34Z,70.8087,34.7106,8,6,mww,"35 km WSW of Asadābād, Afghanistan"
+us7000quvp,2025-09-08T21:47:48Z,173.7046,-21.0025,10,6.4,mww,Vanuatu region
+us7000qvw5,2025-09-13T02:37:56Z,160.1901,53.1969,58,7.4,mww,"105 km E of Petropavlovsk-Kamchatsky, Russia"
+us7000qwch,2025-09-15T16:34:35Z,160.6791,52.6973,15,6,mww,"144 km ESE of Petropavlovsk-Kamchatsky, Russia"
+us7000qwir,2025-09-16T16:59:46Z,153.7354,-5.5179,31,6,mww,"208 km SE of Kokopo, Papua New Guinea"
+us7000qx1z,2025-09-18T18:19:49Z,135.4658,-3.5961,28,6,mww,"26 km S of Nabire, Indonesia"
+us7000qx2g,2025-09-18T18:58:14Z,160.7206,53.1426,27,7.8,mww,"140 km E of Petropavlovsk-Kamchatsky, Russia"
+us6000rge8,2025-09-19T14:55:40Z,157.8629,51.2463,58.287,6,mb,"98 km ESE of Ozernovskiy, Russia"
+us6000rcnw,2025-09-24T22:21:55Z,-70.8781,9.8668,9,6.2,mww,"5 km ENE of Mene Grande, Venezuela"
+us6000rcqw,2025-09-25T03:51:39Z,-70.7081,9.9355,14,6.3,mww,"25 km ENE of Mene Grande, Venezuela"
+us6000rdrz,2025-09-30T13:59:43Z,124.111,11.1557,10,6.9,mww,"8 km ESE of Calape, Philippines"
+us6000rdta,2025-09-30T16:49:43Z,114.1844,-7.2032,19.498,6,mww,"31 km ESE of Kalianget, Indonesia"
+us6000rei1,2025-10-03T16:07:44Z,159.9083,51.6275,19,6.1,mww,"177 km SE of Vilyuchinsk, Russia"
+us6000rfb2,2025-10-07T11:05:17Z,146.8404,-6.7359,98,6.6,mww,"17 km W of Lae, Papua New Guinea"
+us6000rft9,2025-10-09T13:28:44Z,158.2328,51.6683,56.51,6.1,mww,"121 km E of Ozernovskiy, Russia"
+us6000rfwz,2025-10-10T01:43:59Z,126.6902,7.2866,59.425,7.4,mww,"12 km E of Santiago, Philippines"
+us6000rfye,2025-10-10T02:08:10Z,147.9714,-3.0764,10,6.3,mww,"139 km SE of Lorengau, Papua New Guinea"
+us6000rg2r,2025-10-10T11:12:05Z,126.6578,7.2127,47,6.7,mww,"12 km SE of Santiago, Philippines"
+us6000rgf4,2025-10-10T20:29:20Z,-61.8164,-60.1875,5.639,7.6,mww,Drake Passage
+us6000rgkr,2025-10-11T14:32:59Z,126.323,8.9231,67.657,6,mww,"3 km ESE of Bacolod, Philippines"
+us6000rhf2,2025-10-16T01:42:32Z,-61.8649,-59.9658,8,6.3,mww,Drake Passage
+us6000rhg5,2025-10-16T05:48:52Z,138.9531,-2.168,18,6.4,mww,"192 km WNW of Abepura, Indonesia"
+us6000rhns,2025-10-16T23:03:12Z,126.1163,9.7909,32,6,mww,"3 km N of Union, Philippines"
+us6000rjhm,2025-10-25T23:28:02Z,166.4018,-12.3757,34,6,mww,"194 km SSE of Lata, Solomon Islands"
+us6000rjkv,2025-10-26T17:04:25Z,123.9887,-8.8524,75,6.2,mww,"57 km NW of Pante Makasar, Timor Leste"
+us6000rjq8,2025-10-27T12:38:40Z,-59.5574,16.5419,9,6.5,mww,"164 km E of Beauséjour, Guadeloupe"
+us6000rjsu,2025-10-27T19:48:28Z,28.2425,39.1937,8,6,mww,"7 km SE of Sındırgı, Turkey"
+us6000rjx3,2025-10-28T14:40:18Z,129.9887,-6.7001,142,6.4,mww,Banda Sea
+us6000rl31,2025-11-02T20:29:02Z,67.3886,36.5461,28,6.2,mww,"30 km SE of Mazār-e Sharīf, Afghanistan"
+us6000rl5i,2025-11-03T08:44:43Z,160.2108,52.2143,29,6.1,mww,"142 km SE of Petropavlovsk-Kamchatsky, Russia"
+us6000rlcd,2025-11-04T07:37:22Z,143.1427,12.3924,65,6,mww,"191 km WSW of Merizo Village, Guam"
+us6000rlik,2025-11-04T23:28:59Z,160.1897,52.1115,28,6,mww,"149 km SE of Petropavlovsk-Kamchatsky, Russia"
+us6000rmea,2025-11-09T08:03:39Z,143.3782,39.485,18,6.8,mww,"122 km E of Yamada, Japan"
+us6000rmep,2025-11-09T08:54:36Z,143.3097,39.4971,10,6.4,mww,"117 km E of Yamada, Japan"
+us6000rmk2,2025-11-10T07:23:17Z,143.4526,39.5665,11,6,mww,"129 km E of Yamada, Japan"
+us7000re2g,2025-11-27T04:56:24Z,95.9543,2.7191,17,6.4,mww,"54 km WNW of Sinabang, Indonesia"
+ak2025xjbvhj,2025-11-27T17:11:29Z,-150.75079,61.569519,69.433395,6,mww,"12 km WNW of Susitna, Alaska"
+us6000rsy1,2025-12-06T20:41:49Z,-139.5412,60.3127,10.317,7,mww,2025 Hubbard Glacier Earthquake
+us6000rtdt,2025-12-08T14:15:09Z,142.1836,40.9984,40.72,7.6,mww,"2025 Aomori Prefecture, Japan Earthquake"
+us6000rtgd,2025-12-08T18:56:28Z,143.1226,40.9878,22.788,6,mww,"127 km S of Honchō, Japan"
+us6000rtie,2025-12-08T21:52:41Z,143.1504,40.9761,19,6.6,mww,"129 km S of Honchō, Japan"
+us6000ruc4,2025-12-12T02:44:12Z,142.8131,40.8899,19,6.7,mww,"117 km NE of Kuji, Japan"
+us6000rwgh,2025-12-22T10:31:27Z,145.5368,-5.7036,107,6.5,mww,"45 km NNE of Goroka, Papua New Guinea"
+us7000rkjm,2025-12-24T09:47:06Z,121.2494,22.8982,8,6,mww,"2025 Taitung, Taiwan Earthquake"
+us7000rl2n,2025-12-27T15:05:55Z,122.0354,24.6841,63,6.6,mww,"29 km ESE of Yilan, Taiwan"
+us7000rl57,2025-12-28T02:51:49Z,-79.039,-8.9834,58,6.2,mww,"43 km W of Puerto Santa, Peru"
+us7000rlq3,2025-12-31T14:26:57Z,142.9454,40.1161,27,6,mww,"96 km E of Noda, Japan"

@@ -1,0 +1,5 @@
+- URL/API: https://ourworldindata.org/grapher/population.csv (Grapher CSV, full series).
+- Vintage: OWID 'Population (historical)', metadata updated 2024-07-15 (HYDE 2023, Gapminder 2022, UN WPP 2024; WPP 2024 covers 2000 and 2023); value = `(pop_2023 / pop_2000 - 1) × 100`, both inputs kept as columns.
+- Licence: OWID data CC BY 4.0 (UN WPP CC BY 3.0 IGO). Boundaries: Natural Earth 1:50m (public domain).
+- Rows: 238 ISO3 countries and territories with values in both years (OWID regional aggregates excluded; Kosovo keyed KOS).
+- Caveat: includes small territories (e.g. GIB, VAT) that Natural Earth 1:50m does not draw separately; they are in truth but not on the map.

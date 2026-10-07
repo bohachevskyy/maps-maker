@@ -1,0 +1,5 @@
+- URL/API: https://www.eia.gov/state/seds/CDF/Complete_SEDS.csv (series definitions: https://www.eia.gov/state/seds/CDF/Codes_and_Descriptions.xlsx); rows MSN=DFTCP and MSN=TPOPP.
+- Vintage: EIA SEDS complete release, data year 2024 (latest year with both series). DFTCP = distillate fuel oil total consumption, thousand barrels; TPOPP = resident population, thousands.
+- Licence: U.S. Energy Information Administration, U.S. government work (public domain). Boundaries: Census cartographic boundary file 2024, 1:20M (public domain).
+- Rows: 51 — 50 states plus DC. `value` = `total_thousand_barrels` (annual); `per_capita_barrels` = DFTCP ÷ TPOPP (both in thousands, so the ratio is barrels per resident).
+- Caveat: 'distillate fuel oil' is on-road and off-road diesel plus heating oil; EIA SEDS does not publish diesel alone by state, so this is the closest primary series.

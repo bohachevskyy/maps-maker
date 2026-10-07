@@ -1,0 +1,5 @@
+- URL/API: https://www2.census.gov/programs-surveys/acs/summary_file/2023/table-based-SF/data/5YRData/acsdt5y2023-b19013.dat (ACS table-based summary file, rows GEO_ID 0500000US06xxx). The keyless api.census.gov call now returns a 'Missing Key' page, so the flat-file release is used instead.
+- Vintage: American Community Survey 2019–2023 5-year estimates, table B19013 (median household income in the past 12 months, 2023 inflation-adjusted dollars).
+- Licence: U.S. Census Bureau, public domain. Boundaries: Census cartographic boundary file 2023, 1:500k.
+- Rows: 58 California counties; key is the 5-digit FIPS code; `moe` is the published 90% margin of error.
+- Caveat: the spec's `excludes` points (Las Vegas -115.1,36.2 and Reno -119.8,39.5) both lie inside California's own lon/lat bounding box, so no rectangular frame showing all of California can exclude them.

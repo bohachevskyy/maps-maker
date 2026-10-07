@@ -1,0 +1,5 @@
+- URL/API: https://ourworldindata.org/grapher/share-electricity-renewables.csv (Grapher CSV; latest non-missing year per country).
+- Vintage: OWID 'Renewables - % electricity', metadata updated 2026-06-30 (Ember 2026 and Energy Institute); latest year 2022–2025 (UKR is 2022, ALB/ISL 2024, the rest 2025).
+- Licence: OWID data CC BY 4.0 (Ember CC BY 4.0). Boundaries: Natural Earth 1:50m (public domain).
+- Rows: 41 of 46 countries on an explicit European ISO3 list (selection by name, never by box). No source value: AND, LIE, MCO, SMR, VAT. Kosovo is OWID_KOS in the source, keyed KOS.
+- Caveat: Russia is a listed European country and is shaded, but the frame stops near 45°E. Turkey, the South Caucasus and Kazakhstan are not on the list (the spec excludes Yerevan).

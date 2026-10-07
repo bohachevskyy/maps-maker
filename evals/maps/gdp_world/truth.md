@@ -1,0 +1,5 @@
+- URL/API: https://ourworldindata.org/grapher/gdp-per-capita-worldbank.csv (Grapher CSV, full time series; latest non-missing year kept per ISO3 code).
+- Vintage: OWID's current release of `gdp-per-capita-worldbank`, now labelled 'Eurostat, OECD, IMF and World Bank'; latest year per country spans 2022–2025 (2 countries older than 2023).
+- Licence: OWID Grapher data CC BY 4.0; underlying World Bank WDI CC BY 4.0. Boundaries: Natural Earth 1:50m (public domain).
+- Rows: 199 countries; unit is GDP per person in PPP international dollars at constant 2021 prices. Kosovo is OWID_KOS in the source, keyed KOS here (Natural Earth's spelling).
+- Caveat: the slug says World Bank but OWID's metadata now cites 'Eurostat, OECD, IMF, and World Bank (2026)', updated 2026-07-27. Against the spec's centre values: LUX +1.1%, USA +4.0%, IND +11.5% (limit 15%).

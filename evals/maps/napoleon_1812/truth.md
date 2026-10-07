@@ -1,0 +1,5 @@
+- URL/API: https://raw.githubusercontent.com/vincentarelbundock/Rdatasets/master/csv/HistData/Minard.troops.csv, https://raw.githubusercontent.com/vincentarelbundock/Rdatasets/master/csv/HistData/Minard.cities.csv, https://raw.githubusercontent.com/vincentarelbundock/Rdatasets/master/csv/HistData/Minard.temp.csv
+- Vintage: Charles Joseph Minard, 'Carte figurative des pertes successives en hommes de l’Armée Française dans la campagne de Russie 1812–1813' (1869), as transcribed by Wilkinson (*The Grammar of Graphics*) and shipped in R HistData (Friendly).
+- Licence: the 1869 figures are public domain; the transcription is redistributed in HistData (GPL) via Rdatasets — attribution to Minard, Wilkinson and Friendly.
+- Rows: 80 — `record_type` troop (51: lon, lat, survivors, direction A/R, group 1–3), city (20) and temperature (9: degrees Réaumur as on Minard's chart, days, date).
+- Caveat: start_survivors = 422,000 is the sum of the three groups' first rows (340,000 + 60,000 + 22,000); temperatures are Réaumur (°C = °R × 1.25), which HistData leaves unconverted.
