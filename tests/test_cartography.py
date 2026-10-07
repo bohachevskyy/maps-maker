@@ -106,3 +106,22 @@ def test_natural_earth_returns_geometry_and_keys_but_no_values(monkeypatch, tmp_
     assert unit["geometry"] == box
     assert "value" not in unit, "cartography must not carry statistics"
     assert boundaries.provenance["license"] == "public domain"
+
+
+def test_iso2_to_iso3_prefers_the_country_that_owns_the_code(monkeypatch):
+    """Natural Earth gives AU (in ISO_A2_EH) to two Australian territories too."""
+    from mapsvc.cartography import iso
+    features = [{"properties": p} for p in (
+        {"ADM0_A3": "AUS", "ISO_A3": "AUS", "ISO_A2": "AU", "ISO_A2_EH": "AU"},
+        {"ADM0_A3": "IOA", "ISO_A3": "-99", "ISO_A2": "-99", "ISO_A2_EH": "AU"},
+        {"ADM0_A3": "ATC", "ISO_A3": "-99", "ISO_A2": "-99", "ISO_A2_EH": "AU"},
+        {"ADM0_A3": "FRA", "ISO_A3": "FRA", "ISO_A2": "-99", "ISO_A2_EH": "FR"},
+    )]
+    monkeypatch.setattr("mapsvc.harvest.load_source", lambda level="admin_0": {"features": features})
+    iso._tables.cache_clear()
+    try:
+        assert iso.to_alpha3("AU") == "AUS"
+        assert iso.to_alpha3("FR") == "FRA"
+        assert iso.to_alpha2("ATC") == "AU"
+    finally:
+        iso._tables.cache_clear()
