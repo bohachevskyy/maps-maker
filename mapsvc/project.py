@@ -18,14 +18,30 @@ ANTIMERIDIAN_EPS = 179.99
 
 
 def choose(extent: Extent) -> str:
-    """`projection: "auto"` -- pick by latitude span, then by latitude band."""
+    """`projection: "auto"` -- an equal-area projection suited to the window.
+
+    Every choice is equal-area, because a choropleth compares areas by eye and
+    any other projection inflates some units' share of the ink.
+
+    * Nearly the whole globe: Equal Earth.
+    * A mid-latitude window much wider east-west than tall (the conterminous
+      US, Russia, a strip of the Sahel): Albers, whose cone follows the band.
+    * Anything else -- a continent, a country, a city: Lambert azimuthal
+      equal-area centred on the window, as EPSG:3035 does for Europe.
+
+    The rules describe the window's shape, not named places. "Wide" is measured
+    in ground distance, so a degree of longitude counts for cos(latitude).
+    """
     min_lon, min_lat, max_lon, max_lat = extent
-    lat_span = max_lat - min_lat
-    if lat_span > 90.0:
-        return "mollweide"
-    if abs((min_lat + max_lat) / 2.0) >= 25.0:
+    lon_span = max_lon - min_lon
+    lat_span = max(max_lat - min_lat, 1e-9)
+    lat0 = (min_lat + max_lat) / 2.0
+    if lon_span >= 240.0 or (lon_span >= 180.0 and lat_span >= 90.0):
+        return "equal_earth"
+    ground_aspect = lon_span * math.cos(math.radians(lat0)) / lat_span
+    if abs(lat0) >= 25.0 and ground_aspect >= 1.5:
         return "albers"
-    return "mercator"
+    return "laea"
 
 
 def _mercator(lon0: float):
@@ -52,6 +68,50 @@ def _mollweide(lon0: float):
         x = (2 * math.sqrt(2) / math.pi) * math.radians(lon - lon0) * math.cos(theta)
         y = math.sqrt(2) * math.sin(theta)
         return x, y
+    return project
+
+
+def _equal_earth(lon0: float):
+    """Equal Earth (Šavrič, Patterson & Jenny, 2018), unit sphere."""
+    a1, a2, a3, a4 = 1.340264, -0.081106, 0.000893, 0.003796
+
+    def project(lon: float, lat: float) -> tuple[float, float]:
+        lam = math.radians(lon - lon0)
+        phi = math.radians(max(-90.0, min(90.0, lat)))
+        theta = math.asin(math.sqrt(3.0) * math.sin(phi) / 2.0)
+        theta2 = theta * theta
+        theta6 = theta2 * theta2 * theta2
+        denominator = 3.0 * (
+            9.0 * a4 * theta6 * theta2
+            + 7.0 * a3 * theta6
+            + 3.0 * a2 * theta2
+            + a1
+        )
+        x = 2.0 * math.sqrt(3.0) * lam * math.cos(theta) / denominator
+        y = theta * (a4 * theta6 * theta2 + a3 * theta6 + a2 * theta2 + a1)
+        return x, y
+
+    return project
+
+
+def _laea(lon0: float, lat0: float):
+    """Spherical Lambert azimuthal equal-area centred on the extent."""
+    lambda0, phi0 = math.radians(lon0), math.radians(lat0)
+    sin_phi0, cos_phi0 = math.sin(phi0), math.cos(phi0)
+
+    def project(lon: float, lat: float) -> tuple[float, float]:
+        lam, phi = math.radians(lon), math.radians(lat)
+        delta = lam - lambda0
+        sin_phi, cos_phi = math.sin(phi), math.cos(phi)
+        denominator = 1.0 + sin_phi0 * sin_phi + cos_phi0 * cos_phi * math.cos(delta)
+        # The antipode is outside any regional viewport, but keeping the
+        # function finite makes malformed/coarse rings harmless.
+        k = math.sqrt(2.0 / max(denominator, 1e-12))
+        return (
+            k * cos_phi * math.sin(delta),
+            k * (cos_phi0 * sin_phi - sin_phi0 * cos_phi * math.cos(delta)),
+        )
+
     return project
 
 
@@ -111,6 +171,10 @@ def make(name: str, extent: Extent):
         return _mercator(lon0)
     if name == "mollweide":
         return _mollweide(lon0)
+    if name == "equal_earth":
+        return _equal_earth(lon0)
+    if name == "laea":
+        return _laea(lon0, lat0)
     if name == "albers":
         # Standard parallels at the sixth-points of the latitude span keeps
         # distortion balanced across the map (Deetz & Adams's rule of thumb).
@@ -259,3 +323,221 @@ def extent_of(geometries) -> Extent:
     if max_lat - min_lat < 1e-6:
         min_lat, max_lat = min_lat - 0.5, max_lat + 0.5
     return (min_lon, min_lat, max_lon, max_lat)
+
+
+# ------------------------------------------------------------ the window ---
+
+def window_outline(extent: Extent, step: float = 1.0) -> list[tuple[float, float]]:
+    """The extent rectangle as a closed lon/lat ring, densified.
+
+    Under any projection but Mercator a parallel or a meridian is a curve, so
+    four corners are not enough to draw the window. For the whole globe this
+    ring *is* the projection's outline: two pole lines and the two 180th
+    meridians.
+    """
+    min_lon, min_lat, max_lon, max_lat = extent
+
+    def run(a: float, b: float) -> list[float]:
+        n = max(1, math.ceil(abs(b - a) / step))
+        return [a + (b - a) * i / n for i in range(n)]
+
+    ring = [(lon, min_lat) for lon in run(min_lon, max_lon)]
+    ring += [(max_lon, lat) for lat in run(min_lat, max_lat)]
+    ring += [(lon, max_lat) for lon in run(max_lon, min_lon)]
+    ring += [(min_lon, lat) for lat in run(max_lat, min_lat)]
+    ring.append(ring[0])
+    return ring
+
+
+def graticule_interval(extent: Extent) -> float:
+    """A round spacing that puts a handful of lines across the window."""
+    span = max(extent[2] - extent[0], extent[3] - extent[1])
+    for interval in (1.0, 2.0, 5.0, 10.0, 15.0):
+        if span / interval <= 8:
+            return interval
+    return 30.0
+
+
+def graticule(extent: Extent, interval: float, step: float = 1.0) -> list[list]:
+    """Interior meridians and parallels of the window, as lon/lat polylines."""
+    min_lon, min_lat, max_lon, max_lat = extent
+    fine = min(step, interval / 4.0)
+    lines: list[list] = []
+
+    def ticks(lo: float, hi: float) -> list[float]:
+        first = math.floor(lo / interval) * interval + interval
+        out = []
+        v = first
+        while v < hi - 1e-9:
+            if v > lo + 1e-9:
+                out.append(round(v, 9))
+            v += interval
+        return out
+
+    def run(a: float, b: float) -> list[float]:
+        n = max(1, math.ceil((b - a) / fine))
+        return [a + (b - a) * i / n for i in range(n + 1)]
+
+    for lon in ticks(min_lon, max_lon):
+        lines.append([(lon, lat) for lat in run(min_lat, max_lat)])
+    for lat in ticks(min_lat, max_lat):
+        lines.append([(lon, lat) for lon in run(min_lon, max_lon)])
+    return lines
+
+
+def clip_to_extent(ring, extent: Extent) -> list[tuple[float, float]]:
+    """Sutherland-Hodgman clip of a lon/lat ring against the extent rectangle.
+
+    Used only to decide where a symbol goes: a unit cut by the window should
+    carry its symbol on the part that is visible.
+    """
+    min_lon, min_lat, max_lon, max_lat = extent
+    edges = (
+        (lambda p: p[0] >= min_lon, lambda a, b: _cross_x(a, b, min_lon)),
+        (lambda p: p[0] <= max_lon, lambda a, b: _cross_x(a, b, max_lon)),
+        (lambda p: p[1] >= min_lat, lambda a, b: _cross_y(a, b, min_lat)),
+        (lambda p: p[1] <= max_lat, lambda a, b: _cross_y(a, b, max_lat)),
+    )
+    points = list(ring)
+    for inside, cross in edges:
+        if not points:
+            break
+        out = []
+        prev = points[-1]
+        for cur in points:
+            if inside(cur):
+                if not inside(prev):
+                    out.append(cross(prev, cur))
+                out.append(cur)
+            elif inside(prev):
+                out.append(cross(prev, cur))
+            prev = cur
+        points = out
+    return points
+
+
+def _cross_x(a, b, x):
+    t = (x - a[0]) / (b[0] - a[0])
+    return (x, a[1] + t * (b[1] - a[1]))
+
+
+def _cross_y(a, b, y):
+    t = (y - a[1]) / (b[1] - a[1])
+    return (a[0] + t * (b[0] - a[0]), y)
+
+
+# ------------------------------------------------------- planar geometry ---
+# Everything below works in canvas pixels, after projection.
+
+def planar_area(ring) -> float:
+    """Unsigned shoelace area of a ring of (x, y) points."""
+    total = 0.0
+    n = len(ring)
+    for i in range(n):
+        x1, y1 = ring[i]
+        x2, y2 = ring[(i + 1) % n]
+        total += x1 * y2 - x2 * y1
+    return abs(total) / 2.0
+
+
+def point_in_ring(x: float, y: float, ring) -> bool:
+    """Even-odd ray cast."""
+    inside = False
+    n = len(ring)
+    j = n - 1
+    for i in range(n):
+        xi, yi = ring[i]
+        xj, yj = ring[j]
+        if (yi > y) != (yj > y) and x < (xj - xi) * (y - yi) / (yj - yi) + xi:
+            inside = not inside
+        j = i
+    return inside
+
+
+def _segment_distance_sq(px, py, ax, ay, bx, by) -> float:
+    dx, dy = bx - ax, by - ay
+    if dx or dy:
+        t = ((px - ax) * dx + (py - ay) * dy) / (dx * dx + dy * dy)
+        if t > 1:
+            ax, ay = bx, by
+        elif t > 0:
+            ax, ay = ax + dx * t, ay + dy * t
+    dx, dy = px - ax, py - ay
+    return dx * dx + dy * dy
+
+
+def _signed_distance(x: float, y: float, ring) -> float:
+    """Distance to the ring's edge, positive inside and negative outside."""
+    best = float("inf")
+    n = len(ring)
+    for i in range(n):
+        ax, ay = ring[i]
+        bx, by = ring[(i + 1) % n]
+        best = min(best, _segment_distance_sq(x, y, ax, ay, bx, by))
+    d = math.sqrt(best)
+    return d if point_in_ring(x, y, ring) else -d
+
+
+def _decimate(ring, limit: int) -> list:
+    if len(ring) <= limit:
+        return list(ring)
+    stride = math.ceil(len(ring) / limit)
+    return list(ring[::stride])
+
+
+def pole_of_inaccessibility(ring, precision: float = 1.0,
+                            max_vertices: int = 160) -> tuple[float, float]:
+    """The interior point farthest from the ring's edge (Mapbox's polylabel).
+
+    A centroid can fall outside a crescent or a C-shaped unit -- Croatia's
+    centroid is in Bosnia -- and a symbol there would be read as Bosnia's.
+    Quadtree search over cells, best potential first; ties resolve by
+    insertion order so the result is deterministic. The ring is thinned to at
+    most `max_vertices` points first: a symbol position does not need every
+    coastline wiggle, and the search is quadratic in vertex count.
+    """
+    import heapq
+
+    ring = _decimate(ring, max_vertices)
+    xs = [p[0] for p in ring]
+    ys = [p[1] for p in ring]
+    min_x, min_y, max_x, max_y = min(xs), min(ys), max(xs), max(ys)
+    size = min(max_x - min_x, max_y - min_y)
+    if size <= precision or len(ring) < 3:
+        return ((min_x + max_x) / 2.0, (min_y + max_y) / 2.0)
+
+    counter = 0
+    heap: list = []
+
+    def push(cx: float, cy: float, h: float):
+        nonlocal counter
+        d = _signed_distance(cx, cy, ring)
+        heapq.heappush(heap, (-(d + h * math.sqrt(2)), counter, cx, cy, h, d))
+        counter += 1
+
+    h = size / 2.0
+    x = min_x
+    while x < max_x:
+        y = min_y
+        while y < max_y:
+            push(x + h, y + h, h)
+            y += size
+        x += size
+
+    # Start from the vertex-mean, which is usually close and often inside.
+    mx, my = sum(xs) / len(xs), sum(ys) / len(ys)
+    best = (_signed_distance(mx, my, ring), mx, my)
+
+    evaluated = 0
+    while heap and evaluated < 4000:
+        neg_potential, _, cx, cy, h, d = heapq.heappop(heap)
+        if d > best[0]:
+            best = (d, cx, cy)
+        if -neg_potential - best[0] <= precision:
+            continue
+        h /= 2.0
+        for ox in (-h, h):
+            for oy in (-h, h):
+                push(cx + ox, cy + oy, h)
+                evaluated += 1
+    return best[1], best[2]

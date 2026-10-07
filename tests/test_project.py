@@ -13,10 +13,15 @@ def test_fit_uses_one_scale_factor_for_both_axes():
     assert math.isclose(scale_x, scale_y, rel_tol=1e-9)
 
 
-def test_auto_picks_by_latitude_span():
-    assert project.choose((-180, -90, 180, 90)) == "mollweide"
-    assert project.choose((-24.5, 35.8, 40.2, 71.1)) == "albers"
-    assert project.choose((-60, -10, -35, 10)) == "mercator"
+def test_auto_picks_an_equal_area_projection_by_window_shape():
+    assert project.choose((-180, -90, 180, 90)) == "equal_earth"
+    assert project.choose((-24.5, 35.8, 40.2, 71.1)) == "laea"     # Europe, by units
+    assert project.choose((-25, 34, 45, 72)) == "laea"             # Europe, by bbox
+    assert project.choose((-125, 24, -66, 50)) == "albers"         # conterminous US
+    assert project.choose((22, 44, 40.5, 52.5)) == "laea"          # Ukraine
+    assert project.choose((-124.5, 32.5, -114, 42)) == "laea"      # California
+    assert project.choose((-60, -10, -35, 10)) == "laea"           # equatorial
+    assert project.choose((-20, -35, 55, 38)) == "laea"            # Africa
 
 
 def test_unwrap_keeps_a_ring_near_the_antimeridian_in_one_piece():
@@ -79,6 +84,44 @@ def test_mollweide_maps_the_two_edges_of_the_world_to_opposite_sides():
     assert east > 0 > west
 
 
+def test_equal_earth_maps_edges_and_poles_to_a_finite_outline():
+    projector = project.make("equal_earth", (-180, -90, 180, 90))
+    west, equator = projector(-180, 0)
+    east, _ = projector(180, 0)
+    pole_x, north = projector(180, 90)
+    assert west < 0 < east
+    assert abs(pole_x) < east
+    assert math.isfinite(north) and north > equator
+
+
+def test_equal_earth_matches_the_published_outline():
+    """Šavrič et al. (2018): half-width 2.7066, half-height 1.3174 on the unit sphere."""
+    projector = project.make("equal_earth", (-180, -90, 180, 90))
+    x, _ = projector(180, 0)
+    _, y = projector(0, 90)
+    assert math.isclose(x, 2.70663, abs_tol=1e-4)
+    assert math.isclose(y, 1.31736, abs_tol=1e-4)
+
+
+def test_equal_earth_is_equal_area():
+    """A 10x10 degree cell at the equator and at 60N keep the true area ratio."""
+    projector = project.make("equal_earth", (-180, -90, 180, 90))
+
+    def cell_area(lat):
+        ring = [projector(lon, la) for lon, la in
+                project.window_outline((0, lat, 10, lat + 10), 0.5)]
+        return project.planar_area(ring)
+
+    truth = (math.sin(math.radians(70)) - math.sin(math.radians(60))) / math.sin(math.radians(10))
+    assert math.isclose(cell_area(60) / cell_area(0), truth, rel_tol=1e-3)
+
+
+def test_laea_is_centred_on_the_extent():
+    extent = (-24.5, 35.8, 40.2, 71.1)
+    projector = project.make("laea", extent)
+    assert projector((extent[0] + extent[2]) / 2, (extent[1] + extent[3]) / 2) == (0.0, 0.0)
+
+
 def test_a_near_global_extent_snaps_to_the_whole_globe():
     """Otherwise a world map takes its southern limit from Tierra del Fuego and
     clips Antarctica, which the antimeridian filter had set aside."""
@@ -93,3 +136,39 @@ def test_a_regional_extent_is_not_snapped():
     europe = {"type": "Polygon",
               "coordinates": [[[-24, 36], [40, 36], [40, 71], [-24, 71], [-24, 36]]]}
     assert project.extent_of([europe]) == (-24, 36, 40, 71)
+
+
+def test_window_outline_is_closed_and_densified():
+    ring = project.window_outline((-10, 30, 10, 50), step=5)
+    assert ring[0] == ring[-1]
+    assert len(ring) == 4 * 4 + 1
+    assert (0.0, 50) in ring           # a parallel is sampled, not just its ends
+
+
+def test_graticule_lines_stay_inside_the_window():
+    extent = (-25, 34, 45, 72)
+    lines = project.graticule(extent, project.graticule_interval(extent))
+    assert lines
+    for line in lines:
+        for lon, lat in line:
+            assert extent[0] <= lon <= extent[2] and extent[1] <= lat <= extent[3]
+
+
+def test_clip_to_extent_keeps_only_the_inside():
+    ring = [(-5, -5), (5, -5), (5, 5), (-5, 5)]
+    clipped = project.clip_to_extent(ring, (0, 0, 10, 10))
+    assert sorted(clipped) == [(0, 0), (0, 5), (5, 0), (5, 5)]
+    assert project.clip_to_extent(ring, (20, 20, 30, 30)) == []
+
+
+def test_pole_of_inaccessibility_stays_inside_a_c_shape():
+    """A C's centroid lies in its mouth; a symbol there belongs to no one."""
+    c = [(0, 0), (10, 0), (10, 2), (2, 2), (2, 8), (10, 8), (10, 10), (0, 10)]
+    x, y = project.pole_of_inaccessibility(c, precision=0.1)
+    assert project.point_in_ring(x, y, c)
+    assert x < 2.5          # in the spine, not the mouth
+
+
+def test_pole_of_inaccessibility_of_a_square_is_its_centre():
+    x, y = project.pole_of_inaccessibility([(0, 0), (10, 0), (10, 10), (0, 10)], 0.01)
+    assert math.isclose(x, 5, abs_tol=0.05) and math.isclose(y, 5, abs_tol=0.05)

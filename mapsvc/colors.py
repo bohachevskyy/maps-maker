@@ -94,8 +94,20 @@ HATCH_STROKE = "#8c8c8c"
 BORDER = "#4d4d4d"
 # A base map has no variable to encode, so it gets one neutral fill rather than
 # a colour that might be read as meaning something.
-BASEMAP_FILL = "#e8eef2"
+BASEMAP_FILL = "#e6e3dc"
 OCEAN = "#ffffff"
+# Inside a window where every unit was fetched, water is tinted so the frame
+# reads as a map. Outside it -- or on a `within` map, where neighbours were not
+# fetched -- the page stays white, so an absent neighbour never passes for sea.
+WATER = "#eaf1f7"
+GRATICULE = "#d3dde5"
+FRAME = "#9aabb8"
+# Proportional symbols for counts, over polygons in a neutral fill.
+SYMBOL_FILL = "#d95f02"
+SYMBOL_STROKE = "#ffffff"
+COUNT_LAND = "#e6e3dc"
+TEXT = "#1a1a1a"
+TEXT_MUTED = "#666666"
 
 
 class RampError(ValueError):
@@ -136,3 +148,17 @@ def colors(name: str, k: int) -> list[str]:
     if k not in table:
         raise RampError(f"ramp '{name}' supports up to {max(table)} classes, got {k}")
     return list(table[k])
+
+
+def diverging(name: str, below: int, above: int) -> list[str]:
+    """Colours for `below` classes under zero and `above` classes over it.
+
+    Both sides are taken from one symmetric ramp of 2*max(below, above)
+    classes, inner colours first, so the lightest colours meet at zero and a
+    side with fewer classes is not made to look more extreme than it is.
+    """
+    if kind(name) != "diverging":
+        raise RampError(f"ramp '{name}' is not diverging")
+    half = max(below, above)
+    full = colors(name, 2 * half)
+    return full[half - below:half] + full[half:half + above]

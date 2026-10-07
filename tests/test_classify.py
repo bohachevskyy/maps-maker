@@ -74,3 +74,33 @@ def test_k_is_clamped_to_the_number_of_distinct_values():
 def test_empty_domain_is_an_error():
     with pytest.raises(ValueError):
         classify.build([], "count", "quantile", 5)
+
+
+def test_diverging_breaks_put_zero_on_a_class_edge():
+    values = [-30.0, -12.0, -4.0, -1.0, 2.0, 5.0, 9.0, 40.0, 120.0, 210.0]
+    scheme = classify.diverging(values, "quantile", 5)
+    assert scheme.zero_at is not None
+    assert scheme.breaks[scheme.zero_at] == 0.0
+    # Every negative value falls below the zero edge and every positive above.
+    for v in values:
+        assert (scheme.bin_of(v) < scheme.zero_at) == (v < 0)
+
+
+def test_diverging_classifies_each_side_on_its_own():
+    """One +200% outlier must not squash every growing unit into one class."""
+    values = [-20.0, -10.0, -5.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 200.0]
+    scheme = classify.diverging(values, "quantile", 5)
+    bins = {scheme.bin_of(v) for v in values if v > 0}
+    assert len(bins) == scheme.k - scheme.zero_at > 1
+
+
+def test_diverging_never_asks_a_ramp_for_more_than_it_holds():
+    values = [float(v) for v in range(-50, 51) if v]
+    scheme = classify.diverging(values, "quantile", 9)
+    assert scheme.zero_at <= 4 and scheme.k - scheme.zero_at <= 4
+
+
+def test_diverging_requires_ten_percent_on_each_side():
+    assert classify.substantially_diverging([-2, 1, 2, 3, 4, 5, 6, 7, 8, 9])
+    assert not classify.substantially_diverging([-2] + list(range(1, 20)))
+    assert not classify.substantially_diverging([0, 1, 2, 3])
