@@ -523,6 +523,60 @@ def _signed_distance(x: float, y: float, ring) -> float:
     return d if point_in_ring(x, y, ring) else -d
 
 
+def simplify_ring(ring, tolerance: float) -> list:
+    """Douglas-Peucker in page pixels, after a radial-distance pre-pass.
+
+    Applied after projection, so the tolerance means the same thing on a map
+    of Kyiv and a map of the world. Each ring is simplified on its own: a
+    shared border can drift by up to `tolerance` between its two units, which
+    at 0.3 px is below what a 2x raster resolves. The first and last points are
+    kept, so a closed ring stays closed. Deterministic: no randomness, no
+    dependence on anything but the points.
+    """
+    n = len(ring)
+    if n <= 4 or tolerance <= 0:
+        return list(ring)
+    tol2 = tolerance * tolerance
+    # Radial pass: drop runs of vertices within tolerance of the last kept one.
+    # Cheap, and on dense coastlines it removes most points before DP.
+    kept = [ring[0]]
+    for point in ring[1:-1]:
+        dx, dy = point[0] - kept[-1][0], point[1] - kept[-1][1]
+        if dx * dx + dy * dy >= tol2:
+            kept.append(point)
+    kept.append(ring[-1])
+    if len(kept) <= 4:
+        return kept
+
+    keep = [False] * len(kept)
+    keep[0] = keep[-1] = True
+    stack = [(0, len(kept) - 1)]
+    if kept[0] == kept[-1]:
+        # A closed ring: split it at its farthest vertex from the start, or DP
+        # measures every point against a zero-length segment and keeps too few.
+        ax, ay = kept[0]
+        far = max(range(1, len(kept) - 1),
+                  key=lambda i: (kept[i][0] - ax) ** 2 + (kept[i][1] - ay) ** 2)
+        keep[far] = True
+        stack = [(0, far), (far, len(kept) - 1)]
+    while stack:
+        first, last = stack.pop()
+        if last - first < 2:
+            continue
+        ax, ay = kept[first]
+        bx, by = kept[last]
+        best, index = -1.0, -1
+        for i in range(first + 1, last):
+            d = _segment_distance_sq(kept[i][0], kept[i][1], ax, ay, bx, by)
+            if d > best:
+                best, index = d, i
+        if best > tol2:
+            keep[index] = True
+            stack.append((first, index))
+            stack.append((index, last))
+    return [point for point, flag in zip(kept, keep) if flag]
+
+
 def _decimate(ring, limit: int) -> list:
     if len(ring) <= limit:
         return list(ring)

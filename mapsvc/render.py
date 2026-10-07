@@ -31,6 +31,10 @@ MAP_TOP = 76                 # below the title block
 # run off the page.
 MAP_H_MIN, MAP_H_MAX = 300, 700
 COORD_DP = 2
+# Douglas-Peucker tolerance in page pixels (the canvas is 960 px wide).
+SIMPLIFY_PX = 0.3
+# Rings smaller than this on the page (px^2) are not drawn, bar a unit's largest.
+SPECK_PX2 = 0.25
 WORLD = (-180.0, -90.0, 180.0, 90.0)
 WORLD_MARGIN = 10.0
 
@@ -377,16 +381,46 @@ def _parts(geometry) -> list:
 
 
 def _project(geometry, frame: Frame) -> list:
-    """Every ring of every part, in page pixels. Holes survive."""
+    """Every ring of every part, in page pixels, simplified to what shows.
+
+    Holes survive. Overture rings carry metre-level detail -- a world map was
+    25.9 MB -- and almost none of it survives at 960 px. Each ring is thinned
+    in page space to SIMPLIFY_PX, below what the eye or a 2x raster can
+    resolve; see project.simplify_ring.
+    """
     if frame.is_world and frame.lon0 != 0:
-        return [[[frame.xy(lon, lat) for lon, lat in piece]
-                 for ring in part
-                 for piece in project.split_at_seam(project.unwrap_ring(ring, frame.lon0),
-                                                    frame.lon0)]
-                for part in _parts(geometry)]
-    return [[[frame.xy(lon, lat) for lon, lat in project.unwrap_ring(ring, frame.lon0)]
-             for ring in part]
-            for part in _parts(geometry)]
+        # A Pacific-centred world map cuts rings at the seam opposite lon0.
+        rings_of = lambda part: [piece for ring in part
+                                 for piece in project.split_at_seam(
+                                     project.unwrap_ring(ring, frame.lon0), frame.lon0)]
+    else:
+        rings_of = lambda part: [project.unwrap_ring(ring, frame.lon0) for ring in part]
+    parts = [[project.simplify_ring([frame.xy(lon, lat) for lon, lat in ring], SIMPLIFY_PX)
+              for ring in rings_of(part)]
+             for part in _parts(geometry)]
+    return _drop_specks(parts)
+
+
+def _drop_specks(parts) -> list:
+    """Remove rings smaller than SPECK_PX2 on the page, keeping each unit's largest.
+
+    Measured on the Overture world map: 42,946 of 43,453 subpaths were under a
+    quarter of a pixel -- Arctic and Pacific islets -- and they were 2.27 MB of
+    a 2.53 MB file while drawing nothing a reader can see. The largest part of
+    a unit always stays, so a microstate keeps its polygon (and its marker).
+    """
+    if not parts:
+        return parts
+    areas = [project.planar_area(part[0]) if len(part[0]) >= 3 else 0.0 for part in parts]
+    largest = max(range(len(parts)), key=lambda i: areas[i])
+    kept = []
+    for i, part in enumerate(parts):
+        if i != largest and areas[i] < SPECK_PX2:
+            continue
+        holes = [ring for ring in part[1:]
+                 if len(ring) >= 3 and project.planar_area(ring) >= SPECK_PX2]
+        kept.append([part[0]] + holes)
+    return kept
 
 
 def _d(rings) -> str:

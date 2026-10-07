@@ -337,3 +337,19 @@ def test_the_world_outline_does_not_touch_the_page_gutter(mini_geojson):
     frame = R.Frame(manifest, [f["geometry"] for f in mini_geojson["features"]])
     xs = [x for x, _ in frame.outline]
     assert min(xs) >= R.PAD + 8 and max(xs) <= R.PAD + R.MAP_W - 8
+
+
+def test_sub_pixel_islets_are_dropped_but_a_unit_keeps_its_largest_part():
+    islet = [[[20.0 + i * 0.01, 40.0], [20.001 + i * 0.01, 40.0],
+              [20.001 + i * 0.01, 40.001], [20.0 + i * 0.01, 40.0]] for i in range(50)]
+    main = [[[0.0, 40.0], [4.0, 40.0], [4.0, 44.0], [0.0, 44.0], [0.0, 40.0]]]
+    country = {"type": "MultiPolygon", "coordinates": [main] + [[r] for r in islet]}
+    speck = {"type": "Polygon", "coordinates": islet[:1]}
+    root = ET.fromstring(render(build_manifest(bbox=(-2, 38, 22, 46)), HarvestResult(
+        rows=_rows(("BIG", country, 1.0), ("TINY", speck, 2.0)),
+        provenance=_ratio(), dropped=[])))
+    paths = _features(root)
+    assert paths["BIG"].get("d").count("M") == 1, "50 invisible islets not written"
+    # A unit that is all speck still shows: as a marker in its class colour.
+    markers = [c for c in root.iter(f"{SVG}circle") if c.get("class") == "small-unit"]
+    assert [c.get("data-id") for c in markers] == ["TINY"]
