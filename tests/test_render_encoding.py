@@ -53,7 +53,7 @@ def test_a_count_is_drawn_as_circles_over_neutral_polygons(mini_geojson):
     circles = {c.get("data-id"): c for c in _circles(root)}
     assert set(circles) == {r["id"] for r in result.rows}
     for row in result.rows:
-        assert circles[row["id"]].get("data-value") == format(row["value"], ".6g")
+        assert circles[row["id"]].get("data-value") == R._raw_value(row["value"])
 
     paths = _features(root)
     for row in result.rows:
@@ -68,7 +68,7 @@ def test_a_count_is_drawn_as_circles_over_neutral_polygons(mini_geojson):
 def test_circle_area_not_radius_is_proportional_to_value():
     rows = _rows(("A", _box(0, 40, 4, 44), 100.0), ("B", _box(6, 40, 10, 44), 400.0))
     root = ET.fromstring(render(build_manifest(bbox=(-2, 38, 12, 46)),
-                                HarvestResult(rows=rows, provenance={}, dropped=[])))
+                                HarvestResult(rows=rows, provenance={"measurement": "count"}, dropped=[])))
     r = {c.get("data-id"): float(c.get("r")) for c in _circles(root)}
     assert math.isclose((r["B"] / r["A"]) ** 2, 4.0, rel_tol=0.02)
 
@@ -77,7 +77,7 @@ def test_largest_circle_is_drawn_first_so_small_ones_stay_visible():
     rows = _rows(("A", _box(0, 40, 4, 44), 5.0), ("B", _box(6, 40, 10, 44), 500.0),
                  ("C", _box(12, 40, 16, 44), 50.0))
     root = ET.fromstring(render(build_manifest(bbox=(-2, 38, 18, 46)),
-                                HarvestResult(rows=rows, provenance={}, dropped=[])))
+                                HarvestResult(rows=rows, provenance={"measurement": "count"}, dropped=[])))
     assert [c.get("data-id") for c in _circles(root)] == ["B", "C", "A"]
 
 
@@ -87,7 +87,7 @@ def test_a_circle_sits_inside_its_unit_even_when_the_unit_is_a_c():
         [0, 40], [10, 40], [10, 42], [2, 42], [2, 48], [10, 48], [10, 50], [0, 50], [0, 40]]]}
     rows = _rows(("C", c_shape, 10.0))
     text = render(build_manifest(bbox=(-1, 39, 11, 51)),
-                  HarvestResult(rows=rows, provenance={}, dropped=[]))
+                  HarvestResult(rows=rows, provenance={"measurement": "count"}, dropped=[]))
     root = ET.fromstring(text)
     circle = _circles(root)[0]
     cx = float(circle.get("cx"))

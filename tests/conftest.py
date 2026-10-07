@@ -62,6 +62,7 @@ def build_result(geojson, manifest) -> HarvestResult:
                     "scale": f"1:{registry.scale_for(manifest.level)}",
                     "bbox": list(manifest.bbox),
                     "variable": manifest.variable_id, "unit": meta.unit,
+                    "measurement": meta.level,
                     "year": year},
         dropped=dropped,
     )

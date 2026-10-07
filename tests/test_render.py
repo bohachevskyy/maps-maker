@@ -41,12 +41,22 @@ def test_shaded_features_expose_raw_values_but_missing_features_do_not(mini_geoj
     result.rows[0]["value"] = 1234567.89
     text = render(manifest, result)
     paths = {p.get("data-id"): p for p in _features(text)}
-    expected = {row["id"]: format(row["value"], ".6g") for row in result.rows}
-    assert {key: paths[key].get("data-value") for key in expected} == expected
-    assert paths[result.rows[0]["id"]].get("data-value") == "1.23457e+06"
+    assert paths[result.rows[0]["id"]].get("data-value") == "1234567.89"
+    for row in result.rows:
+        assert float(paths[row["id"]].get("data-value")) == row["value"]
     assert all(paths[item["id"]].get("data-value") is None
                for item in result.dropped)
 
+
+def test_data_values_are_exact_for_whole_numbers_and_ten_digits_otherwise():
+    """Kyiv's 2,952,301 people must not come back as 2.9523e+06."""
+    from mapsvc.render import _raw_value
+    assert _raw_value(2952301.0) == "2952301"
+    assert _raw_value(2952301) == "2952301"
+    assert _raw_value(0.1 + 0.2) == "0.3"
+    assert _raw_value(15.284937261) == "15.28493726"
+    assert _raw_value(-0.0) == "0"
+    assert _raw_value("Low income") == "Low income"
 
 
 def test_missing_values_never_render_as_the_bottom_bin(mini_geojson):

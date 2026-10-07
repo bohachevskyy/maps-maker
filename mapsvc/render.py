@@ -19,9 +19,8 @@ import math
 import textwrap
 from xml.sax.saxutils import escape, quoteattr
 
-from mapsvc import classify, colors, overlay_render, project, registry, statistics
-from mapsvc.manifest import Manifest
-from mapsvc.models import HarvestResult
+from mapsvc import classify, colors, overlay_render, project, registry
+from mapsvc.models import HarvestResult, Manifest
 
 CANVAS_W = 960
 PAD = 24                     # page gutter, left and right
@@ -272,12 +271,19 @@ class Encoding:
         return max(SYMBOL_MIN_R, self.r_max * math.sqrt(value / self.vmax))
 
 
-def _measurement(manifest: Manifest, provenance: dict) -> str:
-    """count | ratio | ordinal | nominal, preferably from the harvested data."""
+def _measurement(provenance: dict) -> str:
+    """count | ratio | ordinal | nominal, of the quantity actually drawn.
+
+    Harvest states it: it is the source's level for a raw variable, and ratio
+    for a `per` or `change` result whatever the numerator was. Render cannot
+    look it up itself -- that would be a catalogue read, and render does no I/O
+    -- and must not guess, because the guess decides circles or choropleth.
+    """
     level = provenance.get("measurement")
-    if level:
-        return level
-    return statistics.describe(manifest.variable_source, manifest.variable_id).level
+    if level not in ("count", "ratio", "ordinal", "nominal"):
+        raise RenderError("the harvested data does not state its measurement level",
+                          "variable.id")
+    return level
 
 
 def _encoding(manifest: Manifest, rows: list, provenance: dict) -> Encoding:
@@ -295,7 +301,7 @@ def _encoding(manifest: Manifest, rows: list, provenance: dict) -> Encoding:
     if not rows:
         raise RenderError("every feature was dropped; nothing to classify", "variable")
 
-    level = _measurement(manifest, provenance)
+    level = _measurement(provenance)
     values = [r["value"] for r in rows]
     numeric = all(isinstance(v, (int, float)) and not isinstance(v, bool)
                   for v in values)
@@ -337,10 +343,20 @@ def _num(v: float) -> str:
 
 
 def _raw_value(value) -> str:
-    """Stable machine-readable value, with numeric noise capped at 6 digits."""
-    if isinstance(value, (int, float)) and not isinstance(value, bool):
-        return format(value, ".6g")
-    return str(value)
+    """Stable machine-readable value: exact for whole numbers, else 10 digits.
+
+    A population of 2,952,301 must read back as 2952301, not 2.9523e+06. Ten
+    significant digits keep any real measurement while dropping the float noise
+    a division leaves (0.1 + 0.2), so the bytes stay deterministic.
+    """
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return str(value)
+    if not math.isfinite(value):
+        return str(value)
+    if float(value).is_integer() and abs(value) < 1e15:
+        return str(int(value))
+    text = format(value, ".10g")
+    return "0" if text == "-0" else text
 
 
 def _parts(geometry) -> list:

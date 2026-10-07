@@ -33,7 +33,7 @@ NO_DATA = {-99, "-99", "", None}
 # Bump when the shape of a cached HarvestResult changes -- new provenance keys,
 # a different join, altered drop reasons. Without it a code change silently
 # keeps serving rows written in the old format.
-CACHE_VERSION = 4
+CACHE_VERSION = 5
 
 
 class HarvestError(ValueError):
@@ -364,7 +364,14 @@ def _build(manifest: Manifest) -> HarvestResult:
         "change": values.provenance.get("change"),
     })
 
-    value_level = values.provenance.get("level", "count")
+    # The measurement level of what is drawn, which render reads instead of
+    # consulting a catalogue (that would be I/O). A `per` or `change` result is
+    # a ratio whatever its numerator was: derive says so in its provenance.
+    value_level = values.provenance.get("level")
+    if value_level is None:
+        value_level = statistics.describe(manifest.variable_source,
+                                          manifest.variable_id).level
+    provenance["measurement"] = value_level
     joined_years: set = set()
     joined_divisor_years: set = set()
     rows: list[dict] = []

@@ -239,3 +239,30 @@ def test_harvest_states_numerator_and_divisor_years_for_drawn_units(series, monk
     assert result.provenance["year"] == "2020"
     assert result.provenance["per"]["year"] == "2020"
     assert result.provenance["unit"] == "barrels per person"
+
+
+def test_a_count_per_a_count_is_measured_and_drawn_as_a_ratio(series, monkeypatch, tmp_path):
+    """fuel (a count) per pop (a count) is a ratio: a choropleth, not circles.
+
+    Render used to ask the catalogue for the *numerator's* level, so diesel per
+    person came out as proportional circles. Harvest now states the level of
+    the drawn quantity, and render reads only that.
+    """
+    import xml.etree.ElementTree as ET
+    from mapsvc.render import render
+
+    monkeypatch.setenv("MAPSVC_CACHE", str(tmp_path))
+    features = [{"type": "Feature", "geometry": BOX,
+                 "properties": {"ADM0_A3": code, "NAME": code, "CONTINENT": "X"}}
+                for code in ("AAA", "BBB")]
+    monkeypatch.setattr(H, "load_source", lambda level="admin_0": {"features": features})
+    manifest = _manifest(id="fuel", per={"source": "series_bank", "id": "pop"})
+    result = H.harvest(manifest)
+    assert result.provenance["measurement"] == "ratio"
+    raw = H.harvest(_manifest(id="fuel"))
+    assert raw.provenance["measurement"] == "count"
+
+    root = ET.fromstring(render(manifest, result))
+    circles = [c for c in root.iter("{http://www.w3.org/2000/svg}circle")
+               if c.get("data-id") and c.get("class") != "small-unit"]
+    assert circles == []
