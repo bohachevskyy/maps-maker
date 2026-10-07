@@ -251,3 +251,81 @@ def test_a_floating_legend_avoids_the_corner_with_land():
     root = ET.fromstring(text)
     box = next(r for r in root.findall(f".//{SVG}rect") if r.get("fill-opacity") == "0.94")
     assert float(box.get("x")) > R.CANVAS_W / 2
+
+
+# ---------------------------------------------------------------- texts ---
+
+def _footnote(root):
+    return " ".join(_texts(root))
+
+
+def test_drop_reasons_are_stated_in_words_with_the_units_named():
+    box = _box(0, 40, 4, 44)
+    prov = _ratio(variable="present population", unit="people", year="1 January 2022",
+                  measurement="count",
+                  drop_reasons={"not_estimated": "not estimated by Ukrstat since 2014 "
+                                                 "(temporarily occupied)"})
+    result = HarvestResult(
+        rows=_rows(("UA-30", box, 2952301.0)), provenance=prov,
+        dropped=[{"id": "UA-43", "name": "Crimea", "reason": "not_estimated",
+                  "geometry": _box(6, 40, 10, 44)},
+                 {"id": "UA-40", "name": "Sevastopol", "reason": "not_estimated",
+                  "geometry": _box(6, 38, 7, 39)}])
+    text = _footnote(ET.fromstring(render(build_manifest(bbox=(-2, 36, 12, 46)), result)))
+    assert "not estimated by Ukrstat since 2014" in text
+    assert "— Crimea, Sevastopol" in text
+    assert "not_estimated" not in text
+
+
+def test_title_and_footnote_of_a_per_capita_map_state_the_divisor():
+    box = _box(0, 40, 4, 44)
+    prov = _ratio(variable="Distillate fuel oil total consumption per person",
+                  unit="barrels per person per year", year="2024", years_drawn=[2024],
+                  per={"source": "eia", "source_name": "EIA SEDS", "id": "TPOPP",
+                       "variable": "Resident population including Armed Forces",
+                       "phrase": "person", "year": "2023"})
+    root = ET.fromstring(render(build_manifest(bbox=(-2, 38, 6, 46)),
+                                HarvestResult(rows=_rows(("US-TX", box, 6.2)),
+                                              provenance=prov, dropped=[])))
+    texts = _texts(root)
+    title = root.get("aria-label")
+    assert title == "Distillate fuel oil total consumption per person, 2024"
+    assert "divided by resident population including Armed Forces (EIA SEDS, TPOPP, 2023)" \
+        in " ".join(texts)
+
+
+def test_a_change_names_both_years_and_its_formula():
+    box = _box(0, 40, 4, 44)
+    prov = _ratio(variable="change in population", unit="% change 2000–2023",
+                  year="2000–2023",
+                  change={"from": 2000, "to": 2023, "formula": "(2023 − 2000) / 2000 × 100"})
+    root = ET.fromstring(render(build_manifest(bbox=(-2, 38, 6, 46)),
+                                HarvestResult(rows=_rows(("AAA", box, 12.5)),
+                                              provenance=prov, dropped=[])))
+    assert root.get("aria-label") == "Change in population, 2000–2023"
+    assert "(2023 − 2000) / 2000 × 100" in _footnote(root)
+
+
+def test_title_says_latest_data_only_when_the_drawn_years_disagree():
+    box = _box(0, 40, 4, 44)
+    one = _ratio(variable="median household income", year="2020–2024 (ACS 5-year)",
+                 years_drawn=[2024])
+    root = ET.fromstring(render(build_manifest(bbox=(-2, 38, 6, 46)),
+                                HarvestResult(rows=_rows(("A", box, 1.0)),
+                                              provenance=one, dropped=[])))
+    assert root.get("aria-label") == \
+        "Median household income, 2020–2024 (ACS 5-year)"
+    many = _ratio(variable="share", year="2022–2025", years_drawn=[2022, 2025])
+    root = ET.fromstring(render(build_manifest(bbox=(-2, 38, 6, 46)),
+                                HarvestResult(rows=_rows(("A", box, 1.0)),
+                                              provenance=many, dropped=[])))
+    assert root.get("aria-label") == "Share, latest data (2022–2025)"
+
+
+def test_a_query_string_id_never_reaches_the_page():
+    box = _box(0, 40, 4, 44)
+    manifest = build_manifest(bbox=(-2, 38, 6, 46), variable_source="eurostat",
+                              variable_id="nama_10r_2gdp?freq=A&unit=PPS_EU27_2020_HAB")
+    text = render(manifest, HarvestResult(rows=_rows(("A", box, 1.0)),
+                                          provenance=_ratio(), dropped=[]))
+    assert "?freq" not in text and "&amp;unit" not in text

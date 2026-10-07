@@ -111,7 +111,8 @@ def test_change_is_percent_between_the_two_years(series):
     assert values.values["BBB"] == pytest.approx(-10.0), "decline must stay negative"
     assert values.missing == {"CCC": "no_data", "DDD": "no_data"}
     assert values.provenance["year"] == "2000–2020"
-    assert values.provenance["unit"] == "% change"
+    assert values.provenance["unit"] == "% change 2000–2020"
+    assert values.provenance["variable"] == "change in pop"
     assert values.provenance["level"] == "ratio"
 
 

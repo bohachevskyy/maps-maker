@@ -123,12 +123,21 @@ def _per_provenance(num: dict, den: dict, source: str, variable_id: str,
     den_unit = den.get("unit")
     phrase = _SINGULAR.get(den_unit, den_unit) if den_unit else den.get("variable")
 
+    unit = num.get("unit")
+    if unit and unit.endswith(" per year"):
+        # "barrels per person per year", not "barrels per year per person".
+        unit = f"{unit[:-len(' per year')]} per {phrase} per year"
+    elif unit:
+        unit = f"{unit} per {phrase}"
+    else:
+        unit = f"per {phrase}"
     out = dict(num)
     out.update({
         "variable": f"{num.get('variable')} per {phrase}",
-        "unit": f"{num.get('unit')} per {phrase}" if num.get("unit") else f"per {phrase}",
+        "unit": unit,
         "level": "ratio",
-        "per": {"source": source, "id": variable_id, "phrase": phrase,
+        "per": {"source": source, "source_name": den.get("source"),
+                "id": variable_id, "phrase": phrase,
                 "variable": den.get("variable"), "unit": den_unit,
                 "year": year_label(divisor_years.values()) or den.get("year")},
         # Not every unit's divisor is dated; harvest restates this over the
@@ -140,6 +149,14 @@ def _per_provenance(num: dict, den: dict, source: str, variable_id: str,
         if den.get("license") != num.get("license"):
             out["license"] = f"{num.get('license')}; {den.get('license')}"
     return out
+
+
+def _lower_first(text) -> str:
+    """'Population' -> 'population' for use mid-sentence; 'GDP' stays 'GDP'."""
+    text = str(text or "")
+    if len(text) > 1 and text[0].isupper() and text[1].islower():
+        return text[0].lower() + text[1:]
+    return text
 
 
 def year_label(years) -> str | None:
@@ -166,8 +183,8 @@ def _change(first: Values, last: Values, start: int, end: int) -> Values:
     prov = dict(last.provenance)
     label = last.provenance.get("variable")
     prov.update({
-        "variable": f"change in {label}, {start}–{end}",
-        "unit": "% change",
+        "variable": f"change in {_lower_first(label)}",
+        "unit": f"% change {start}–{end}",
         "level": "ratio",
         "year": f"{start}–{end}",
         "change": {"from": start, "to": end,

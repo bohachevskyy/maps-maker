@@ -241,3 +241,19 @@ def test_the_year_is_a_single_value_or_a_range(offline):
     assert H.harvest(build_manifest(bbox=(-1.0, -1.0, 3.0, 3.0))).provenance["year"] == "2019"
     offline([_at(0, 0, a3="AAA", GDP_YEAR=1999), _at(1, 0, a3="BBB", GDP_YEAR=2019)])
     assert H.harvest(build_manifest(bbox=(-1.0, -1.0, 4.0, 4.0))).provenance["year"] == "1999–2019"
+
+
+def test_the_year_is_that_of_the_drawn_units_not_the_whole_source(offline):
+    """A 16-country map of Europe said 2009-2025 because the world file does."""
+    offline([_at(0, 0, a3="AAA", GDP_YEAR=2019), _at(50, 50, a3="FAR", GDP_YEAR=2009)])
+    result = H.harvest(build_manifest(bbox=(-1.0, -1.0, 3.0, 3.0)))
+    assert [r["id"] for r in result.rows] == ["AAA"]
+    assert result.provenance["year"] == "2019"
+    assert result.provenance["years_drawn"] == [2019]
+
+
+def test_dropped_units_carry_their_name_and_reasons_their_meaning(offline):
+    offline([_at(0, 0, a3="AAA", NAME="Alpha"), _at(1, 0, a3="BBB", NAME="Beta", GDP_MD=-99)])
+    result = H.harvest(build_manifest(bbox=(-1.0, -1.0, 5.0, 3.0)))
+    assert result.dropped[0]["name"] == "Beta"
+    assert result.provenance["drop_reasons"] == {"no_data": "no value reported by the source"}

@@ -33,7 +33,7 @@ NO_DATA = {-99, "-99", "", None}
 # Bump when the shape of a cached HarvestResult changes -- new provenance keys,
 # a different join, altered drop reasons. Without it a code change silently
 # keeps serving rows written in the old format.
-CACHE_VERSION = 5
+CACHE_VERSION = 6
 
 
 class HarvestError(ValueError):
@@ -379,6 +379,9 @@ def _build(manifest: Manifest) -> HarvestResult:
 
     for unit in boundaries.units:
         entry = {"id": unit["id"], "geometry": unit["geometry"]}
+        if unit.get("name"):
+            # For the footnote and labels: "Crimea", not an Overture UUID.
+            entry["name"] = unit["name"]
         raw_key = (unit.get("keys") or {}).get(statistics_key)
         # Compatibility for third-party providers written against the original
         # single-key protocol, but only after their result explicitly declared
@@ -416,23 +419,52 @@ def _build(manifest: Manifest) -> HarvestResult:
     if not rows:
         raise HarvestError(*_nothing_usable(manifest, dropped))
 
-    # A source reports the years of everything it loaded; the footnote must
-    # state the years of what is drawn. Eurostat's NUTS 2 file spans 2021-2024
-    # only because of candidate countries an EU map never shows.
+    _state_what_is_drawn(provenance, values, dropped, joined_years,
+                         joined_divisor_years)
+    rows.sort(key=lambda r: str(r["id"]))
+    dropped.sort(key=lambda r: (str(r["id"]), r["reason"]))
+    return HarvestResult(rows=rows, provenance=provenance, dropped=dropped)
+
+
+# What a drop reason means, for the footnote. A source can add its own (Ukrstat:
+# "not_estimated") or override these through provenance["reasons"].
+DROP_REASONS = {
+    "no_data": "no value reported by the source",
+    "no_join": "no matching row in the statistics source",
+    "no_divisor": "no divisor value to divide by",
+    "not_estimated": "not estimated by the source",
+}
+
+
+def _state_what_is_drawn(provenance: dict, values, dropped: list,
+                         joined_years: set, joined_divisor_years: set) -> None:
+    """Restate the provenance over the units actually drawn, for render to read.
+
+    A source reports the years of everything it loaded; the title and footnote
+    must state the years of what is drawn. Eurostat's NUTS 2 file spans
+    2021-2024 only because of candidate countries an EU map never shows, and
+    Natural Earth's GDP_YEAR spans 2009-2025 over the world but not over a
+    16-country map of Europe.
+    """
     if joined_years and re.fullmatch(r"\d{4}(–\d{4})?", str(provenance.get("year") or "")):
         provenance["year"] = derive.year_label(joined_years)
+    # More than one distinct year means each unit shows its latest observation
+    # and they disagree: the title says "latest data" rather than implying one
+    # vintage.
+    provenance["years_drawn"] = sorted(joined_years)
+
     per = provenance.get("per")
     if per and values.divisor_years is not None and (joined_divisor_years
                                                      or values.divisor_years):
         # The divisor's year over the drawn units only; None if none is dated.
-        per = provenance["per"] = {**per, "year": derive.year_label(joined_divisor_years)}
-        if per["year"] and per["year"] != provenance.get("year"):
-            # Divided by a figure from another year: the footnote must say so.
-            provenance["year"] = f"{provenance.get('year')}; {per['phrase']} {per['year']}"
+        # The footnote states it beside the divisor, and the title keeps the
+        # numerator's year.
+        provenance["per"] = {**per, "year": derive.year_label(joined_divisor_years)}
 
-    rows.sort(key=lambda r: str(r["id"]))
-    dropped.sort(key=lambda r: (str(r["id"]), r["reason"]))
-    return HarvestResult(rows=rows, provenance=provenance, dropped=dropped)
+    meanings = {**DROP_REASONS, **(values.provenance.get("reasons") or {})}
+    present = sorted({item["reason"] for item in dropped})
+    provenance["drop_reasons"] = {reason: meanings.get(reason, reason.replace("_", " "))
+                                  for reason in present}
 
 
 def _nothing_usable(manifest: Manifest, dropped: list) -> tuple[str, str]:

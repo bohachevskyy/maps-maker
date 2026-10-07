@@ -53,8 +53,13 @@ SYMBOL_MIN_R = 1.0
 SYMBOL_MIN_SHARE = 0.10
 
 _SCOPE = {"admin_0": "country", "admin_1": "first-level subdivision",
-          "admin_2": "second-level subdivision", "admin_3": "third-level subdivision"}
-_REASONS = {"no_data": "no value reported", "no_join": "absent from the statistics source"}
+          "admin_2": "second-level subdivision", "admin_3": "third-level subdivision",
+          "nuts_1": "NUTS 1 region", "nuts_2": "NUTS 2 region", "nuts_3": "NUTS 3 region"}
+# Fallbacks for a result that predates provenance["drop_reasons"].
+_REASONS = {"no_data": "no value reported by the source",
+            "no_join": "no matching row in the statistics source"}
+# Name the dropped units in the footnote when there are at most this many.
+NAMED_DROPS = 4
 
 
 class RenderError(ValueError):
@@ -294,7 +299,7 @@ def _encoding(manifest: Manifest, rows: list, provenance: dict) -> Encoding:
     shaded light-to-dark and a population cannot be a raw-count choropleth,
     because nothing offers the choice.
     """
-    label = _human(provenance.get("variable") or manifest.variable_id or "")
+    label = _label(manifest, provenance)
     unit = provenance.get("unit") or ""
     if manifest.variable_id is None:
         return Encoding("basemap", label, unit)
@@ -845,18 +850,33 @@ def _count_label(v: float) -> str:
 
 # ----------------------------------------------------------------- texts ---
 
+def _label(manifest: Manifest, provenance: dict) -> str:
+    """The quantity's human name. Never an id: a Eurostat id is a query string."""
+    label = provenance.get("variable")
+    if not label:
+        label = str(manifest.variable_id or "").split("?")[0].replace("_", " ")
+    return _human(label)
+
+
 def _title(manifest: Manifest, provenance: dict) -> str:
-    """'GDP per capita, latest data (2022–2025)' -- from the variable, never the slug."""
+    """'GDP per inhabitant, 2024' -- from the drawn data, never the slug.
+
+    The year is that of the values drawn. When each unit shows its latest
+    observation and they disagree, the title says so rather than implying one
+    vintage; a change names its two years.
+    """
     if manifest.variable_id is None:
         return _human(f"{_SCOPE.get(manifest.level, manifest.level)} boundaries")
-    label = _human(provenance.get("variable") or manifest.variable_id)
-    if provenance.get("normalize"):
-        label += f" per {provenance['normalize']}"
+    label = _label(manifest, provenance)
+    change = provenance.get("change")
+    if change:
+        return f"{label}, {change['from']}–{change['to']}"
     year = provenance.get("year")
     if not year:
         return label
-    if "–" in str(year):
-        # Each unit's most recent observation, and they disagree on the year.
+    drawn = provenance.get("years_drawn")
+    spread = len(drawn) > 1 if drawn is not None else "–" in str(year)
+    if spread:
         return f"{label}, latest data ({year})"
     return f"{label}, {year}"
 
@@ -877,7 +897,6 @@ def _footer(manifest, frame: Frame, encoding: Encoding, result, top: float,
             extra: tuple | list = ()):
     """The mandatory footnote. Every rendered map states its own provenance."""
     p = result.provenance
-    dropped = result.dropped
 
     scale = p.get("scale") or registry.scale_for(manifest.level)
     vintage = p.get("vintage") or registry.SOURCE_VINTAGE
@@ -905,30 +924,8 @@ def _footer(manifest, frame: Frame, encoding: Encoding, result, top: float,
             plural = "" if scheme.k == 1 else "s"
             method += f" ({scheme.k} distinct value{plural})"
 
-    variable = p.get("variable") or manifest.variable_id
-    if variable is None:
-        variable = f"none -- {manifest.level} boundaries"
-    elif p.get("unit"):
-        variable += f" ({p['unit']})"
-    if p.get("year"):
-        variable += f", {p['year']}"
-    if p.get("statistics_source") and p.get("statistics_source") != p.get("source"):
-        # Boundaries and numbers came from different providers, possibly under
-        # different licences. Credit the data as well as the map.
-        credit = p.get("statistics_attribution") or p["statistics_source"]
-        variable += f" [{credit}]"
-
-    if dropped:
-        reasons: dict[str, int] = {}
-        for item in dropped:
-            reason = item.get("reason", "unknown")
-            reasons[reason] = reasons.get(reason, 0) + 1
-        detail = ", ".join(f"{count} {_REASONS.get(reason, reason)}"
-                           for reason, count in sorted(reasons.items()))
-        excluded = (f"{len(dropped)} of {len(dropped) + len(result.rows)} features "
-                    f"excluded ({detail}), shown hatched as no data")
-    else:
-        excluded = "0 features excluded"
+    variable = _variable_line(manifest, p)
+    excluded = _exclusions(result)
 
     lines = [
         f"Source: {source}.",
@@ -954,6 +951,64 @@ def _footer(manifest, frame: Frame, encoding: Encoding, result, top: float,
         )
     out.append("</g>")
     return "".join(out), 18 + (len(wrapped) - 1) * FOOTER_LEAD
+
+
+def _variable_line(manifest: Manifest, p: dict) -> str:
+    """What is drawn, its unit and year, how it was derived, and who measured it."""
+    if manifest.variable_id is None:
+        return f"none -- {manifest.level} boundaries"
+    variable = _label(manifest, p)
+    if p.get("unit"):
+        variable += f" ({p['unit']})"
+    if p.get("year") and not p.get("change"):
+        variable += f", {p['year']}"
+    per = p.get("per")
+    if per:
+        divisor = per.get("variable") or per.get("id")
+        detail = ", ".join(str(x) for x in (per.get("source_name") or per.get("source"),
+                                            per.get("id"), per.get("year")) if x)
+        variable += f"; divided by {_lower_first(divisor)} ({detail})"
+    change = p.get("change")
+    if change:
+        variable += ("; computed per unit as "
+                     f"{change.get('formula', '(end − start) / start × 100')}")
+    if p.get("statistics_source") and p.get("statistics_source") != p.get("source"):
+        # Boundaries and numbers came from different providers, possibly under
+        # different licences. Credit the data as well as the map.
+        credit = p.get("statistics_attribution") or p["statistics_source"]
+        vintage = p.get("statistics_vintage")
+        if vintage and vintage != p.get("year"):
+            credit += f"; {vintage}"
+        variable += f" [{credit}]"
+    return variable
+
+
+def _exclusions(result) -> str:
+    """How many units are hatched, and why, in words -- naming them when few."""
+    dropped = result.dropped
+    if not dropped:
+        return "0 features excluded"
+    meanings = {**_REASONS, **(result.provenance.get("drop_reasons") or {})}
+    by_reason: dict[str, list] = {}
+    for item in dropped:
+        by_reason.setdefault(item.get("reason", "unknown"), []).append(item)
+    parts = []
+    for reason, items in sorted(by_reason.items()):
+        part = f"{len(items)} {meanings.get(reason, reason.replace('_', ' '))}"
+        names = sorted({str(i["name"]) for i in items if i.get("name")})
+        if 0 < len(items) <= NAMED_DROPS and len(names) == len(items):
+            part += f" — {', '.join(names)}"
+        parts.append(part)
+    total = len(dropped) + len(result.rows)
+    return (f"{len(dropped)} of {total} features excluded, hatched as no data: "
+            + "; ".join(parts))
+
+
+def _lower_first(text: str) -> str:
+    text = str(text)
+    if len(text) > 1 and text[0].isupper() and text[1].islower():
+        return text[0].lower() + text[1:]
+    return text
 
 
 def _projection_label(frame: Frame) -> str:

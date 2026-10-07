@@ -83,7 +83,7 @@ def load(variable_id: str, level: str, region: str) -> Values:
     features = select_region(load_source(level)["features"], region, level)
 
     values: dict = {}
-    years: set = set()
+    keyed_years: dict = {}
     for feature in features:
         props = feature["properties"]
         key = (registry.iso3_of(props) if level == "admin_0"
@@ -92,9 +92,10 @@ def load(variable_id: str, level: str, region: str) -> Values:
             continue
         values[str(key).upper()] = props.get(variable_id)
         if meta.year_col and isinstance(props.get(meta.year_col), int):
-            years.add(props[meta.year_col])
+            keyed_years[str(key).upper()] = props[meta.year_col]
+    years = set(keyed_years.values())
 
-    return Values(values=values, provenance={
+    return Values(values=values, years=keyed_years, provenance={
         "source": registry.SOURCE_NAME,
         "vintage": registry.SOURCE_VINTAGE,
         "variable": meta.label,
