@@ -52,7 +52,7 @@ import functools
 from dataclasses import dataclass, field
 
 # The registered sources, in the order they are offered.
-_MODULES = ("natural_earth", "owid", "ukrstat", "eia", "census_acs")
+_MODULES = ("natural_earth", "owid", "ukrstat", "eia", "census_acs", "eurostat")
 
 # Join-key namespaces, and what each one means. Both sides of the join name
 # their keys from this list.
@@ -110,7 +110,10 @@ class Candidate:
 
     def as_prompt_line(self) -> str:
         note = f" — {self.subtitle}" if self.subtitle else ""
-        return f"{self.id}: {self.title}{note} ({self.coverage} entities)"
+        # Not every source can say how many units it covers without fetching
+        # the data; "(0 entities)" would be a false statement.
+        coverage = f" ({self.coverage} entities)" if self.coverage else ""
+        return f"{self.id}: {self.title}{note}{coverage}"
 
 
 @dataclass

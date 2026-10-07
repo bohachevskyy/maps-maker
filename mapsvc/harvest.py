@@ -11,6 +11,7 @@ to disk, Overture is queried live on every request.
 
 import hashlib
 import json
+import re
 import os
 import pathlib
 import urllib.request
@@ -222,6 +223,7 @@ def _build(manifest: Manifest) -> HarvestResult:
     })
 
     value_level = values.provenance.get("level", "count")
+    joined_years: set = set()
     rows: list[dict] = []
     dropped: list[dict] = []
 
@@ -256,9 +258,18 @@ def _build(manifest: Manifest) -> HarvestResult:
             value = float(value)
 
         rows.append({**entry, "value": value})
+        if key in values.years:
+            joined_years.add(values.years[key])
 
     if not rows:
         raise HarvestError(*_nothing_usable(manifest, dropped))
+
+    # A source reports the years of everything it loaded; the footnote must
+    # state the years of what is drawn. Eurostat's NUTS 2 file spans 2021-2024
+    # only because of candidate countries an EU map never shows.
+    if joined_years and re.fullmatch(r"\d{4}(–\d{4})?", str(provenance.get("year") or "")):
+        low, high = min(joined_years), max(joined_years)
+        provenance["year"] = str(low) if low == high else f"{low}–{high}"
 
     rows.sort(key=lambda r: str(r["id"]))
     dropped.sort(key=lambda r: (str(r["id"]), r["reason"]))
