@@ -18,7 +18,7 @@ import math
 import textwrap
 from xml.sax.saxutils import escape, quoteattr
 
-from mapsvc import classify, colors, project, registry, statistics
+from mapsvc import classify, colors, overlay_render, project, registry, statistics
 from mapsvc.manifest import Manifest
 from mapsvc.models import HarvestResult
 
@@ -145,6 +145,11 @@ def render(manifest: Manifest, result: HarvestResult) -> str:
     if frame.windowed:
         body.append(_water(frame))
 
+    # Feature layers carry the message when there is no variable: the base map
+    # recedes to quiet land with white borders.
+    has_overlays = bool(result.overlays or result.places)
+    border = (overlay_render.MUTED_BORDER if has_overlays and encoding.mode == "basemap"
+              else colors.BORDER)
     body.append('<g clip-path="url(#map-clip)" stroke-linejoin="round">')
     markers: list[str] = []
     for row in rows:
@@ -153,7 +158,7 @@ def render(manifest: Manifest, result: HarvestResult) -> str:
         boxes = _outer_boxes(parts)
         land.extend(boxes)
         units.append(_union(boxes))
-        body.append(_path(row, parts, fill))
+        body.append(_path(row, parts, fill, border))
         if encoding.mode == "choropleth" and _visible_area(parts) < MIN_VISIBLE_AREA:
             anchor = _anchor(row["geometry"], frame)
             if anchor:
@@ -178,13 +183,26 @@ def render(manifest: Manifest, result: HarvestResult) -> str:
         body.append(svg)
         units.extend(circles)
 
+    art = None
+    if has_overlays:
+        art = overlay_render.draw(result.overlays, result.places, frame, {
+            "pad": PAD, "map_w": MAP_W, "map_top": MAP_TOP, "font": FONT})
+        body.append('<g clip-path="url(#map-clip)" stroke-linejoin="round">'
+                    + "".join(art.svg) + "</g>")
+        body.append(f'<g font-family="{FONT}">' + "".join(art.labels) + "</g>")
+
     legend_band = 0.0
     if encoding.mode != "basemap":
         legend, legend_band = _legend(encoding, frame, land,
                                       [u for u in units if u], bool(drawn_missing))
         body.append(legend)
+    if art is not None and art.legend_h:
+        body.append(art.legend(PAD, frame.bottom + legend_band + 16))
+        legend_band += art.legend_h + 16
 
     title, subtitle = _title(manifest, p), _subtitle(manifest, p, encoding)
+    if art is not None and manifest.variable_id is None and art.title:
+        title, subtitle = art.title, art.subtitle
     head = [
         f'<text x="{PAD}" y="36" font-size="21" font-weight="600" '
         f'fill="{colors.TEXT}">{escape(title)}</text>',
@@ -195,7 +213,8 @@ def render(manifest: Manifest, result: HarvestResult) -> str:
     body.append(f'<g font-family="{FONT}">' + "".join(head) + "</g>")
 
     footer_top = frame.bottom + legend_band + 14
-    footer, footer_h = _footer(manifest, frame, encoding, result, footer_top)
+    footer, footer_h = _footer(manifest, frame, encoding, result, footer_top,
+                               art.footer if art is not None else ())
     body.append(footer)
     height = int(math.ceil(footer_top + footer_h + 14))
 
@@ -342,7 +361,7 @@ def _d(rings) -> str:
     return "".join(subpaths)
 
 
-def _path(item: dict, parts, fill: str) -> str:
+def _path(item: dict, parts, fill: str, stroke: str = colors.BORDER) -> str:
     d = _d([ring for part in parts for ring in part])
     if not d:
         return ""
@@ -351,7 +370,7 @@ def _path(item: dict, parts, fill: str) -> str:
                   else f" data-value={quoteattr(_raw_value(value))}")
     return (
         f'<path d="{d}" fill="{fill}" fill-rule="evenodd" '
-        f'stroke="{colors.BORDER}" stroke-width="0.4" '
+        f'stroke="{stroke}" stroke-width="0.4" '
         f'data-id={quoteattr(str(item["id"]))}{value_attr}/>'
     )
 
@@ -820,7 +839,8 @@ def _subtitle(manifest: Manifest, provenance: dict, encoding: Encoding) -> str:
     return f"{head} · {unit}" if unit else head
 
 
-def _footer(manifest, frame: Frame, encoding: Encoding, result, top: float):
+def _footer(manifest, frame: Frame, encoding: Encoding, result, top: float,
+            extra: tuple | list = ()):
     """The mandatory footnote. Every rendered map states its own provenance."""
     p = result.provenance
     dropped = result.dropped
@@ -880,6 +900,7 @@ def _footer(manifest, frame: Frame, encoding: Encoding, result, top: float):
         f"Source: {source}.",
         f"Variable: {variable}.",
         f"Projection: {_projection_label(frame)}. Classification: {method}. {excluded}.",
+        *extra,
     ]
 
     # Attribution can make a line longer than the canvas. There is no text

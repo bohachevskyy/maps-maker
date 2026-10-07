@@ -16,7 +16,7 @@ import os
 import pathlib
 import urllib.request
 
-from mapsvc import cartography, derive, registry, statistics
+from mapsvc import cartography, derive, overlays, project, registry, statistics
 from mapsvc.manifest import Manifest
 from mapsvc.models import HarvestResult
 
@@ -108,6 +108,9 @@ def cache_key(manifest: Manifest) -> str:
     """
     keyed = {**manifest.data_key(), "scale": registry.scale_for(manifest.level),
              "cache_version": CACHE_VERSION}
+    # Overlays are fetched and cached by their own sources; the boundaries and
+    # values under them do not change with them.
+    keyed.pop("overlays", None)
     if manifest.basemap_source == "overture":
         # A new Overture release is new geometry; the old rows must not be
         # served under it.
@@ -119,6 +122,13 @@ def cache_key(manifest: Manifest) -> str:
 
 
 def harvest(manifest: Manifest) -> HarvestResult:
+    result = _base(manifest)
+    if manifest.overlays:
+        _add_overlays(manifest, result)
+    return result
+
+
+def _base(manifest: Manifest) -> HarvestResult:
     key = cache_key(manifest)
     cached = cache_dir() / "harvest" / f"{key}.json"
     if cached.exists():
@@ -133,6 +143,70 @@ def harvest(manifest: Manifest) -> HarvestResult:
     temporary.write_text(json.dumps(payload, sort_keys=True))
     temporary.replace(cached)
     return result
+
+
+# ---------------------------------------------------------------- overlays ---
+
+# Context labels are for orientation on a regional map; on a world map the
+# overlay carries its own labels and city names would only compete with it.
+PLACES_MAX_SPAN = 60.0
+PLACES_KEEP = 80
+PLACES_URL = ("https://raw.githubusercontent.com/nvkelso/natural-earth-vector/"
+              "master/geojson/ne_10m_populated_places_simple.geojson")
+
+
+def _add_overlays(manifest: Manifest, result: HarvestResult) -> None:
+    geometries = [r["geometry"] for r in result.rows]
+    geometries += [d["geometry"] for d in result.dropped if d.get("geometry")]
+    extent = tuple(manifest.bbox or (project.extent_of(geometries) if geometries
+                                     else WORLD_EXTENT))
+    window = overlays.Window(bbox=manifest.bbox, within=manifest.within, extent=extent)
+    for source, overlay_id in manifest.overlays:
+        try:
+            result.overlays.append(overlays.load(source, overlay_id, window))
+        except overlays.OverlayError as exc:
+            raise HarvestError(str(exc), exc.field) from exc
+    brings_places = any(layer["kind"] == "places" for layer in result.overlays)
+    small = (extent[2] - extent[0]) <= PLACES_MAX_SPAN
+    if small and not brings_places:
+        result.places = context_places(extent, manifest.within)
+
+
+WORLD_EXTENT = (-180.0, -90.0, 180.0, 90.0)
+
+
+def context_places(extent: tuple, within: tuple | None) -> list:
+    """Natural Earth populated places inside the window, largest first.
+
+    Public domain, 7,342 places at 1:10m. A `within` of country codes keeps
+    only that country's places: a map of France's railways labels French
+    cities, not Geneva and Turin.
+    """
+    from mapsvc import fetch
+
+    data = json.loads(fetch.cached(PLACES_URL, "ne_10m_populated_places_simple.geojson"))
+    countries = None
+    if within:
+        countries = {code for code in within if "-" not in code and len(code) == 3}
+        countries = countries or None
+    west, south, east, north = extent
+    found = []
+    for feature in data.get("features", []):
+        props = feature.get("properties") or {}
+        lon, lat = (feature.get("geometry") or {}).get("coordinates", (None, None))[:2]
+        if lon is None or not (west <= lon <= east and south <= lat <= north):
+            continue
+        if countries and str(props.get("adm0_a3", "")).upper() not in countries:
+            continue
+        found.append({
+            "name": str(props.get("name") or props.get("nameascii") or ""),
+            "lon": round(float(lon), 4), "lat": round(float(lat), 4),
+            "pop": int(props.get("pop_max") or 0),
+            "capital": bool(props.get("adm0cap")),
+        })
+    found = [p for p in found if p["name"]]
+    found.sort(key=lambda p: (-p["pop"], p["name"]))
+    return found[:PLACES_KEEP]
 
 
 # -------------------------------------------------------------------- join ---

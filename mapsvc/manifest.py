@@ -12,7 +12,7 @@ Validation runs before any I/O, so a bad manifest never reaches the network.
 import datetime
 from dataclasses import dataclass
 
-from mapsvc import cartography, registry, statistics
+from mapsvc import cartography, overlays as overlay_sources, registry, statistics
 
 # The largest window that still means anything: the whole planet.
 WORLD = (-180.0, -90.0, 180.0, 90.0)
@@ -37,6 +37,10 @@ class Manifest:
     per: tuple | None = None
     # (from_year, to_year): percent change of the variable between two years.
     change: tuple | None = None
+    # ((source, id), ...): feature layers drawn above the basemap. What to
+    # fetch, never how to draw it -- points, lines or a flow is the data's
+    # own geometry, and size and colour follow from what the source declares.
+    overlays: tuple = ()
 
     def data_key(self) -> dict:
         """The data-relevant fields only.
@@ -45,7 +49,7 @@ class Manifest:
         the whole thing -- the exception being that rendering choices cannot
         invalidate a fetch because there are none to make.
         """
-        return {
+        key = {
             "bbox": None if self.bbox is None else [round(v, 6) for v in self.bbox],
             "within": None if self.within is None else list(self.within),
             "level": self.level,
@@ -53,6 +57,11 @@ class Manifest:
             "variable": (None if self.variable_id is None
                          else self._variable_key()),
         }
+        # Only present when used, so a manifest without overlays hashes as it
+        # always did.
+        if self.overlays:
+            key["overlays"] = [{"source": s, "id": i} for s, i in self.overlays]
+        return key
 
     def _variable_key(self) -> dict:
         key = {"source": self.variable_source, "id": self.variable_id}
@@ -74,7 +83,8 @@ class ManifestError(ValueError):
 
 REQUIRED = ("level",)
 # One of bbox or within must be present; either can frame a map on its own.
-OPTIONAL = {"variable": None, "basemap": None, "bbox": None, "within": None}
+OPTIONAL = {"variable": None, "basemap": None, "bbox": None, "within": None,
+            "overlays": None}
 KNOWN_KEYS = set(REQUIRED) | set(OPTIONAL)
 # What to show, never how: a divisor and a change between years are both
 # statements about the quantity. Anything else is rejected, as at top level.
@@ -168,8 +178,46 @@ def validate(raw: dict) -> Manifest:
         bbox=bbox, within=within, level=level,
         variable_source=variable_source, variable_id=variable_id,
         basemap_source=basemap_source, basemap_detail=basemap_detail,
-        per=per, change=change,
+        per=per, change=change, overlays=_overlays(raw.get("overlays")),
     )
+
+
+def _overlays(value) -> tuple:
+    """[{"source": ..., "id": ...}, ...], each id checked by its own grammar.
+
+    The grammars are the point: an Overpass filter is key=value pairs, never
+    free Overpass QL, and a web overlay is an https URL, never data values.
+    """
+    if value is None:
+        return ()
+    if not isinstance(value, (list, tuple)):
+        raise ManifestError('overlays must be a list of {"source": ..., "id": ...}',
+                            "overlays")
+    if len(value) > overlay_sources.MAX_OVERLAYS:
+        raise ManifestError(f"at most {overlay_sources.MAX_OVERLAYS} overlays, "
+                            f"got {len(value)}", "overlays")
+    out = []
+    for i, item in enumerate(value):
+        field = f"overlays[{i}]"
+        if not isinstance(item, dict):
+            raise ManifestError(f'{field} must be {{"source": ..., "id": ...}}', field)
+        for key in sorted(set(item) - {"source", "id"}):
+            raise ManifestError(
+                f"unknown field {field}.{key}; an overlay is a source and an id. "
+                "How it is drawn is derived from its data.", f"{field}.{key}")
+        source = item.get("source")
+        if source not in overlay_sources.sources():
+            raise ManifestError(
+                f"unknown overlay source {source!r}; expected one of "
+                f"{', '.join(overlay_sources.sources())}", f"{field}.source")
+        try:
+            overlay_id = overlay_sources.parse(source, item.get("id"))
+        except overlay_sources.OverlayError as exc:
+            raise ManifestError(str(exc), f"{field}.id") from None
+        if (source, overlay_id) in out:
+            raise ManifestError(f"{field} repeats {source} {overlay_id!r}", field)
+        out.append((source, overlay_id))
+    return tuple(out)
 
 
 def _reference(variable: dict, field: str, level: str) -> tuple[str, str]:

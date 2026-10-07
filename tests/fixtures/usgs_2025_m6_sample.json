@@ -1,0 +1,249 @@
+{
+"type": "FeatureCollection",
+"metadata": {
+"generated": 1791347339000,
+"count": 12
+},
+"features": [
+{
+"type": "Feature",
+"properties": {
+"mag": 6.1,
+"place": "South Sandwich Islands region",
+"time": 1735739304752,
+"title": "M 6.1 - South Sandwich Islands region",
+"type": "earthquake",
+"magType": "mww"
+},
+"geometry": {
+"type": "Point",
+"coordinates": [
+-26.7059,
+-56.4095,
+70
+]
+},
+"id": "us6000pgv4"
+},
+{
+"type": "Feature",
+"properties": {
+"mag": 7.6,
+"place": "210 km SSW of George Town, Cayman Islands",
+"time": 1739056994697,
+"title": "M 7.6 - 210 km SSW of George Town, Cayman Islands",
+"type": "earthquake",
+"magType": "mww"
+},
+"geometry": {
+"type": "Point",
+"coordinates": [
+-82.395,
+17.6506,
+14.326
+]
+},
+"id": "us7000pcdl"
+},
+{
+"type": "Feature",
+"properties": {
+"mag": 7.7,
+"place": "2025 Mandalay, Burma (Myanmar) Earthquake",
+"time": 1743142852715,
+"title": "M 7.7 - 2025 Mandalay, Burma (Myanmar) Earthquake",
+"type": "earthquake",
+"magType": "mww"
+},
+"geometry": {
+"type": "Point",
+"coordinates": [
+95.9363,
+22.011,
+10
+]
+},
+"id": "us7000pn9s"
+},
+{
+"type": "Feature",
+"properties": {
+"mag": 7.4,
+"place": "2025 Drake Passage Earthquake",
+"time": 1746190706014,
+"title": "M 7.4 - 2025 Drake Passage Earthquake",
+"type": "earthquake",
+"magType": "mww"
+},
+"geometry": {
+"type": "Point",
+"coordinates": [
+-68.1019,
+-56.8094,
+10
+]
+},
+"id": "us7000pwkn"
+},
+{
+"type": "Feature",
+"properties": {
+"mag": 7.4,
+"place": "2025 Eastern Kamchatka, Russia Earthquake",
+"time": 1752994144327,
+"title": "M 7.4 - 2025 Eastern Kamchatka, Russia Earthquake",
+"type": "earthquake",
+"magType": "mww"
+},
+"geometry": {
+"type": "Point",
+"coordinates": [
+160.6816,
+52.8301,
+34
+]
+},
+"id": "us7000qdyl"
+},
+{
+"type": "Feature",
+"properties": {
+"mag": 8.8,
+"place": "2025 Kamchatka Peninsula, Russia Earthquake",
+"time": 1753831492483,
+"title": "M 8.8 - 2025 Kamchatka Peninsula, Russia Earthquake",
+"type": "earthquake",
+"magType": "mww"
+},
+"geometry": {
+"type": "Point",
+"coordinates": [
+160.2395,
+52.4948,
+35
+]
+},
+"id": "us6000qw60"
+},
+{
+"type": "Feature",
+"properties": {
+"mag": 7.5,
+"place": "2025 Southern Drake Passage Earthquake",
+"time": 1755828978246,
+"title": "M 7.5 - 2025 Southern Drake Passage Earthquake",
+"type": "earthquake",
+"magType": "mww"
+},
+"geometry": {
+"type": "Point",
+"coordinates": [
+-61.9221,
+-60.3187,
+10
+]
+},
+"id": "us6000r2xq"
+},
+{
+"type": "Feature",
+"properties": {
+"mag": 7.4,
+"place": "105 km E of Petropavlovsk-Kamchatsky, Russia",
+"time": 1757731076761,
+"title": "M 7.4 - 105 km E of Petropavlovsk-Kamchatsky, Russia",
+"type": "earthquake",
+"magType": "mww"
+},
+"geometry": {
+"type": "Point",
+"coordinates": [
+160.1901,
+53.1969,
+58
+]
+},
+"id": "us7000qvw5"
+},
+{
+"type": "Feature",
+"properties": {
+"mag": 7.8,
+"place": "140 km E of Petropavlovsk-Kamchatsky, Russia",
+"time": 1758221894939,
+"title": "M 7.8 - 140 km E of Petropavlovsk-Kamchatsky, Russia",
+"type": "earthquake",
+"magType": "mww"
+},
+"geometry": {
+"type": "Point",
+"coordinates": [
+160.7206,
+53.1426,
+27
+]
+},
+"id": "us7000qx2g"
+},
+{
+"type": "Feature",
+"properties": {
+"mag": 7.4,
+"place": "12 km E of Santiago, Philippines",
+"time": 1760060639585,
+"title": "M 7.4 - 12 km E of Santiago, Philippines",
+"type": "earthquake",
+"magType": "mww"
+},
+"geometry": {
+"type": "Point",
+"coordinates": [
+126.6902,
+7.2866,
+59.425
+]
+},
+"id": "us6000rfwz"
+},
+{
+"type": "Feature",
+"properties": {
+"mag": 7.6,
+"place": "Drake Passage",
+"time": 1760128160075,
+"title": "M 7.6 - Drake Passage",
+"type": "earthquake",
+"magType": "mww"
+},
+"geometry": {
+"type": "Point",
+"coordinates": [
+-61.8164,
+-60.1875,
+5.639
+]
+},
+"id": "us6000rgf4"
+},
+{
+"type": "Feature",
+"properties": {
+"mag": 7.6,
+"place": "2025 Aomori Prefecture, Japan Earthquake",
+"time": 1765203309896,
+"title": "M 7.6 - 2025 Aomori Prefecture, Japan Earthquake",
+"type": "earthquake",
+"magType": "mww"
+},
+"geometry": {
+"type": "Point",
+"coordinates": [
+142.1836,
+40.9984,
+40.72
+]
+},
+"id": "us6000rtdt"
+}
+]
+}
