@@ -10,6 +10,9 @@ class Classification:
     k: int
     breaks: list[float] = field(default_factory=list)       # k+1 edges, graded only
     categories: list[str] = field(default_factory=list)     # ordered, categorical only
+    # Diverging only: index into `breaks` of the zero edge, which is also the
+    # number of classes below zero.
+    zero_at: int | None = None
 
     def bin_of(self, value) -> int:
         if self.kind == "categorical":
@@ -55,6 +58,44 @@ def equal_interval(values: list[float], k: int) -> list[float]:
     lo, hi = min(values), max(values)
     step = (hi - lo) / k
     return [lo + i * step for i in range(k)] + [hi]
+
+
+def substantially_diverging(values: list[float], share: float = 0.10) -> bool:
+    """Whether both signs account for a meaningful share of observations.
+
+    One country shrinking among two hundred growing is an outlier, not a second
+    direction; a diverging ramp would spend half its colours on it.
+    """
+    if not values:
+        return False
+    n = len(values)
+    return (sum(v < 0 for v in values) / n >= share
+            and sum(v > 0 for v in values) / n >= share)
+
+
+def diverging(values: list[float], method: str, k: int) -> "Classification":
+    """Classes on each side of zero, with zero itself as a class edge.
+
+    Each sign is classified on its own, with the same method as a one-sided
+    map would use, so a single +200% outlier does not squash every growing unit
+    into one class. The two sides may hold different numbers of classes; the
+    ramp is centred on zero regardless (see `colors.diverging`). Zero itself is
+    lower-closed and lands in the first non-negative class.
+    """
+    if not values:
+        raise ValueError("cannot classify an empty value domain")
+    negative = [float(v) for v in values if v < 0]
+    positive = [float(v) for v in values if v >= 0]
+    if not negative or not positive:
+        raise ValueError("a diverging classification needs values on both sides of zero")
+    # Four a side is the most a ColorBrewer diverging ramp (9 classes) can give.
+    per_side = min(4, max(2, (k + 1) // 2))
+    k_neg = min(per_side, len(set(negative)))
+    k_pos = min(per_side, len(set(positive)))
+    low = METHODS[method](negative, k_neg)
+    high = METHODS[method](positive, k_pos)
+    breaks = low[:-1] + [0.0] + high[1:]
+    return Classification("graded", k_neg + k_pos, breaks=breaks, zero_at=k_neg)
 
 
 def jenks(values: list[float], k: int) -> list[float]:
