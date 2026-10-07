@@ -262,10 +262,25 @@ names real places, because it gives exact borders and no neighbours.
                                    "MKD","ROU","SRB","SVN"]
   "Scandinavia"            within ["NOR","SWE","DNK"] (add FIN, ISL if the
                            request means the Nordics rather than Scandinavia)
+  "Europe"                 within ["AUT","BEL","BGR","HRV","CYP","CZE","DNK",
+                                   "EST","FIN","FRA","DEU","GRC","HUN","IRL",
+                                   "ITA","LVA","LTU","LUX","MLT","NLD","POL",
+                                   "PRT","ROU","SVK","SVN","ESP","SWE","ISL",
+                                   "LIE","NOR","CHE","GBR","ALB","BIH","KOS",
+                                   "MNE","MKD","SRB","UKR","MDA","BLR"]
 
 An informal region has no code, so you supply the member list yourself. Say in \
 reasoning which countries you counted, since reasonable people draw the Balkans \
-and Scandinavia differently.
+and Scandinavia differently. For Europe, use the list above: EU27 + EFTA + the \
+UK + the Western Balkans + Ukraine, Moldova and Belarus. Exclude Russia, Turkey \
+and the Caucasus unless the user asks for them.
+
+Named political regions use `within` only. Do not also put a bounding box around \
+Europe, the EU, the Balkans, or another named region: a box admits unwanted \
+neighbours and can clip legitimate islands and outermost regions. The renderer \
+derives the extent and insets from the selected units. In particular, "EU \
+regions" is within ["EU"] with no bbox, so Martinique, Reunion, the Canaries \
+and the Azores remain eligible for insets.
 
 `bbox` is [min_lon, min_lat, max_lon, max_lat] in degrees -- a spatial window. \
 Everything overlapping it is returned, neighbours included. Use it when the \
@@ -273,7 +288,6 @@ request is about an *area* rather than named units: "around Kyiv", "the Alps", \
 "the area within 100km of Lviv", or when zooming to a place that is not an \
 administrative unit at all.
 
-  Europe          [-25, 34, 45, 72]
   around Kyiv     [29.2, 49.2, 32.2, 51.6]
   the whole world [-180, -90, 180, 90]
 
@@ -358,11 +372,26 @@ DERIVED VARIABLES: variable.per and variable.change
 variable.per divides the variable by another one, keyed the same way: per \
 person, per km², a rate out of its universe. Use it when the request says "per \
 capita", "per person", "per inhabitant", "density" or "rate" and the source \
-has no ready-made ratio. The divisor must be a fixed source's listed id, or one \
-of the divisors a searchable source lists above -- never a guessed id. Leave \
-per.source and per.id empty otherwise.
+has no ready-made ratio. Also infer normalization when comparing totals across \
+units of substantially unequal size: consumption, emissions, GDP and event or \
+people counts should normally be per capita; spatial measures whose opportunity \
+scales with land should normally be per km². Use raw totals only when the user \
+explicitly asks for totals. Population itself is the exception: map it as a \
+count, because the renderer automatically uses proportional circles for counts. \
+State the inferred denominator in reasoning, for example "normalized per capita \
+because state populations differ greatly."
 
-  "diesel use per person by US state"
+Prefer a ready-made ratio published by the source over deriving the same ratio. \
+For GDP comparisons across countries or regions, prefer purchasing-power \
+standards per inhabitant over nominal currency: for Eurostat regional GDP choose \
+unit=PPS_EU27_2020_HAB, not unit=EUR_HAB. This makes living-standard comparisons \
+meaningful across different price levels.
+
+When a derived ratio is needed, the divisor must be a fixed source's listed id, \
+or one of the divisors a searchable source lists above -- never a guessed id. \
+Leave per.source and per.id empty otherwise.
+
+  "diesel consumption across US states" (infer per capita; say so in reasoning)
       variable {{source eia, id <the distillate series found by search>,
                 per {{source eia, id TPOPP}}}}
   "poverty rate by California county"
@@ -520,8 +549,11 @@ def _candidate_prompt(source: str, query: str, found: list) -> str:
         f"{source} returned these candidates for {query!r}:\n{listed}\n\n"
         "Reply with the full manifest, setting variable.id to exactly one of "
         "those ids and leaving search_query empty. Prefer the candidate that "
-        "matches the request most directly and has the widest country coverage; "
-        "avoid ones that split by sex, age or subcategory unless asked. If none "
+        "matches the request most directly and has the widest country coverage. "
+        "Apply the unit preferences in the main instructions: in particular, "
+        "cross-country or regional GDP uses purchasing-power standards per "
+        "inhabitant (PPS), not nominal euros. "
+        "Avoid ones that split by sex, age or subcategory unless asked. If none "
         "of them is what was asked for, refuse instead of settling."
     )
 
