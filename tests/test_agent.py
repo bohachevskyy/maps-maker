@@ -293,3 +293,62 @@ def test_map_endpoint_does_not_need_the_openai_sdk():
     toplevel |= {n.module.split(".")[0] for n in tree.body
                  if isinstance(n, ast.ImportFrom) and n.module}
     assert "openai" not in toplevel
+
+
+# --- per and change -------------------------------------------------------
+
+NONE_PER = {"source": "", "id": ""}
+NONE_CHANGE = {"from": 0, "to": 0}
+
+
+def test_empty_per_and_change_mean_absent(stub):
+    raw = {**GOOD, "variable": {**GOOD["variable"], "search_query": "",
+                                "per": NONE_PER, "change": NONE_CHANGE}}
+    stub(reply(raw))
+    manifest, cleaned, _ = agent.describe("GDP in Europe")
+    assert manifest.per is None and manifest.change is None
+    assert set(cleaned["variable"]) == {"source", "id"}
+
+
+def test_a_searchable_divisor_must_be_a_declared_denominator(stub, monkeypatch):
+    """The agent never saw a search for the divisor, so only the source's
+    declared denominators are fair game -- anything else is sent back."""
+    from mapsvc.statistics import eia
+    monkeypatch.setattr(eia, "search", lambda query, limit=8: [
+        agent.statistics.Candidate(id="DFTCP", title="Distillate fuel oil total consumption")])
+    first = {"within": ["USA"], "level": "admin_1",
+             "basemap": {"source": "natural_earth", "detail": "simplified"},
+             "variable": {"source": "eia", "id": "", "search_query": "diesel",
+                          "per": NONE_PER, "change": NONE_CHANGE}}
+    invented = {**first, "variable": {"source": "eia", "id": "DFTCP", "search_query": "",
+                                      "per": {"source": "eia", "id": "POPULATION"},
+                                      "change": NONE_CHANGE}}
+    declared = {**first, "variable": {"source": "eia", "id": "DFTCP", "search_query": "",
+                                      "per": {"source": "eia", "id": "TPOPP"},
+                                      "change": NONE_CHANGE}}
+    client = stub(reply(first), reply(invented), reply(declared))
+    manifest, _, _ = agent.describe("diesel per person by US state")
+    assert manifest.per == ("eia", "TPOPP")
+    assert "TPOPP" in client.responses.calls[2]["input"][-1]["content"]
+
+
+def test_change_reaches_the_manifest(stub, monkeypatch):
+    from mapsvc.statistics import owid
+    monkeypatch.setattr(owid, "search", lambda query, limit=8: [
+        agent.statistics.Candidate(id="population", title="Population")])
+    first = {"bbox": [-180, -90, 180, 90], "level": "admin_0",
+             "basemap": {"source": "natural_earth", "detail": "simplified"},
+             "variable": {"source": "owid", "id": "", "search_query": "population",
+                          "per": NONE_PER, "change": NONE_CHANGE}}
+    chosen = {**first, "variable": {"source": "owid", "id": "population", "search_query": "",
+                                    "per": NONE_PER, "change": {"from": 2000, "to": 2023}}}
+    stub(reply(first), reply(chosen))
+    manifest, _, _ = agent.describe("population change 2000-2023")
+    assert manifest.change == (2000, 2023)
+
+
+def test_the_instructions_explain_keys_and_derived_variables():
+    text = agent.instructions()
+    for needle in ("JOIN KEYS", "census", "gisco", "variable.per", "variable.change",
+                   "TPOPP", "median household income", "FIPS", "NUTS"):
+        assert needle in text, needle

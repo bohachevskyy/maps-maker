@@ -122,6 +122,44 @@ prompt = "income groups across Africa"
 source = "natural_earth"
 variable = "INCOME_GRP"
 
+# ---------------------------------------------- sub-national sources -------
+
+[[case]]
+name = "diesel by US state comes from EIA SEDS"
+prompt = "Diesel consumption per person across the US states"
+level = "admin_1"
+source = "eia"
+variable = ["DFTCP", "DATCP", "DMTCP", "DFACP"]
+scoped_politically = true
+within = ["USA"]
+
+[[case]]
+name = "county income needs the census basemap"
+prompt = "Median household income by county in California"
+level = "admin_2"
+basemap = "census"
+source = "census_acs"
+variable = "B19013_001E"
+within = ["US-CA"]
+
+[[case]]
+name = "EU regions come from Eurostat on GISCO"
+prompt = "GDP per inhabitant across EU regions (NUTS 2)"
+level = "nuts_2"
+basemap = "gisco"
+source = "eurostat"
+variable = ["nama_10r_2gdp?freq=A&unit=PPS_EU27_2020_HAB",
+            "nama_10r_2gdp?freq=A&unit=EUR_HAB",
+            "nama_10r_2gdp?freq=A&unit=PPS_HAB_EU27_2020",
+            "nama_10r_2gdp?freq=A&unit=EUR_HAB_EU27_2020"]
+
+[[case]]
+name = "population change is computed, not searched for"
+prompt = "How much did each country's population change between 2000 and 2023, in percent?"
+level = "admin_0"
+source = "owid"
+variable = "population"
+
 # ------------------------------------------------------- refusals ----------
 
 [[case]]

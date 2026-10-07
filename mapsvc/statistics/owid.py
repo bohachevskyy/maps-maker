@@ -60,6 +60,8 @@ CAPABILITIES = Capabilities(
     attribution="Our World in Data (CC BY 4.0)",
     searchable=True,
     time_series=True,
+    denominators={"population": "population of each country, people",
+                  "land-area-km": "land area of each country, km²"},
     description=(
         "Our World in Data: thousands of country-level charts on health, "
         "population, energy, environment, economy, education, food, war and "

@@ -124,8 +124,33 @@ def schema() -> dict:
                     "description": "for a searchable source: the measure to look "
                                    "for, e.g. 'unemployment rate'. Empty otherwise.",
                 },
+                # Strict mode wants every property present, so "absent" is an
+                # empty source here and 0/0 for change; describe() strips them.
+                "per": {
+                    "type": "object",
+                    "description": "divide the variable by another, e.g. per "
+                                   "person. Empty source and id for none.",
+                    "properties": {
+                        "source": {"type": "string",
+                                   "enum": [""] + list(statistics.sources())},
+                        "id": {"type": "string"},
+                    },
+                    "required": ["source", "id"],
+                    "additionalProperties": False,
+                },
+                "change": {
+                    "type": "object",
+                    "description": "percent change of the variable from one year "
+                                   "to another. 0 and 0 for none.",
+                    "properties": {
+                        "from": {"type": "integer"},
+                        "to": {"type": "integer"},
+                    },
+                    "required": ["from", "to"],
+                    "additionalProperties": False,
+                },
             },
-            "required": ["source", "id", "search_query"],
+            "required": ["source", "id", "search_query", "per", "change"],
             "additionalProperties": False,
         },
         # null means a base map: boundaries with nothing painted on them.
@@ -166,7 +191,9 @@ def schema() -> dict:
 
 def _describe(variables: dict) -> str:
     return "\n".join(
-        f"  {name}: {meta.level}"
+        f"  {name}: "
+        + (f"{meta.label} -- " if meta.label and meta.label != name else "")
+        + f"{meta.level}"
         + (f", in {meta.unit}" if meta.unit else "")
         + (f", vintage from {meta.year_col}" if meta.year_col else "")
         for name, meta in variables.items()
@@ -179,21 +206,39 @@ def instructions() -> str:
     blocks = []
     for c in statistics.all_capabilities():
         kind = "SEARCHABLE" if c.searchable else "FIXED"
-        block = (f"  source {c.source!r} -- {kind}, levels "
-                 f"{', '.join(c.levels)}.\n    {c.description}")
+        keys = ", ".join(f"{level} by {c.key_at(level)}" for level in c.levels)
+        block = (f"  source {c.source!r} -- {kind}"
+                 f"{', TIME SERIES' if c.time_series else ''}; keyed {keys}."
+                 f"\n    {c.description}")
+        if c.denominators:
+            block += "\n    divisors usable in variable.per without searching:"
+            for divisor, meaning in c.denominators.items():
+                block += f"\n      {divisor}: {meaning}"
         if not c.searchable:
             # List a fixed source's whole catalogue, whichever source it is --
             # naming natural_earth here would leave a newly registered fixed
             # source invisible to the agent.
+            # A catalogue shared by several levels is listed once.
+            listings: dict[str, list[str]] = {}
             for level in c.levels:
                 listed = _describe(statistics.variables_for(level, c.source))
                 if listed:
-                    block += f"\n    at {level}:\n{listed}"
+                    listings.setdefault(listed, []).append(level)
+            for listed, levels in listings.items():
+                block += f"\n    at {', '.join(levels)}:\n{listed}"
         blocks.append(block)
     sources = "\n\n".join(blocks)
+    from mapsvc import cartography
+
+    basemap_keys = "\n".join(
+        f"  {name:<14}" + "; ".join(
+            f"{level} carries {', '.join(cartography.keys(name, level)) or 'no key'}"
+            for level in cartography.levels(name))
+        for name in registry.BASEMAPS)
     max_units = f"{registry.MAX_UNITS:,}"
-    region_hint = ("Country codes, if you need one for a statistics join: "
-                   "they are ISO3.")
+    region_hint = ("Country codes in `within` are ISO3, except where a basemap "
+                   "says otherwise above (census takes US-XX states, gisco "
+                   "takes EU and NUTS codes).")
 
     return f"""You assemble manifests for a map service. You choose what to show \
 and where; you never choose how it is drawn. Colour, classification, projection \
@@ -201,7 +246,9 @@ and missing-value handling are all derived from the data, so there are no fields
 for them and you cannot get them wrong.
 
 A manifest has four things: a window (bbox), a granularity (level), where the \
-outlines come from (basemap), and optionally what to shade them by (variable).
+outlines come from (basemap), and optionally what to shade them by (variable). \
+The variable can be divided by another (variable.per) or turned into a percent \
+change between two years (variable.change).
 
 WHAT TO SHOW: `within`, `bbox`, or both
 
@@ -259,6 +306,12 @@ Aim for roughly 20 to 400 units. So: a continent means admin_0, one country \
 means admin_1, a province or a metro area means admin_2. admin_3 is only ever \
 right for a very small window. More than {max_units} units is rejected.
 
+Two more geographies have their own levels and basemaps, measured:
+
+  EU (within ["EU"])   nuts_1: 92    nuts_2: 244    nuts_3: 1,165 (too many)
+  US counties          California 58, Texas 254, all of the US 3,222 (too many:
+                       scope admin_2 to one or a few states, e.g. ["US-CA"])
+
 {sources}
 
 FIXED sources are small and fully listed above. Put the id straight into \
@@ -280,12 +333,48 @@ Queried live, so a new window takes about ten seconds; afterwards it is cached.
   natural_earth -- admin_0 and admin_1 only, much coarser, but instant. Choose \
 it when the user asks for something fast or rough, or for a window the size of \
 a continent, where Overture is slow enough to be a problem.
+  census        -- US Census Bureau: US states (admin_1) and counties (admin_2). \
+The only basemap whose counties carry FIPS codes. within: "USA" or states as \
+"US-CA".
+  gisco         -- Eurostat GISCO: NUTS regions (nuts_1, nuts_2, nuts_3), the \
+only basemap with NUTS codes. within: "EU", countries (ISO3), or NUTS codes.
 
-A statistics source only publishes at certain levels: everything below admin_1 \
-is boundaries only. Set variable_is_null to true for a base map -- boundaries \
-with no shading. That is right whenever someone asks to *see* or *draw* units \
-rather than compare a quantity, and it is the only possibility at admin_2 and \
-admin_3.
+JOIN KEYS: a variable can only be shaded onto boundaries that carry its key. \
+Each source above says how it is keyed; each basemap carries:
+
+{basemap_keys}
+
+So: US county statistics need basemap census at admin_2; Eurostat needs gisco \
+at a nuts level; ISO 3166-2 statistics (Ukrstat, EIA states) work on overture, \
+natural_earth or census admin_1. Overture's admin_2 and admin_3 carry no key, \
+so they are boundaries only. A mismatch is rejected.
+
+Set variable_is_null to true for a base map -- boundaries with no shading. \
+That is right whenever someone asks to *see* or *draw* units rather than compare \
+a quantity.
+
+DERIVED VARIABLES: variable.per and variable.change
+
+variable.per divides the variable by another one, keyed the same way: per \
+person, per km², a rate out of its universe. Use it when the request says "per \
+capita", "per person", "per inhabitant", "density" or "rate" and the source \
+has no ready-made ratio. The divisor must be a fixed source's listed id, or one \
+of the divisors a searchable source lists above -- never a guessed id. Leave \
+per.source and per.id empty otherwise.
+
+  "diesel use per person by US state"
+      variable {{source eia, id <the distillate series found by search>,
+                per {{source eia, id TPOPP}}}}
+  "poverty rate by California county"
+      variable {{source census_acs, id B17001_002E,
+                per {{source census_acs, id B17001_001E}}}}
+
+variable.change maps the percent change between two years, (to - from) / from \
+x 100, from a TIME SERIES source. Use it whenever the request asks how much \
+something changed, grew or shrank between years: search for the measure \
+itself, never for a "change in ..." chart. Leave both at 0 otherwise.
+
+  "population change 2000-2023"   search "population", change {{from 2000, to 2023}}
 
 REFUSING
 
@@ -315,6 +404,7 @@ def describe(prompt: str) -> tuple[Manifest, dict, str]:
     conversation: list[dict] = [{"role": "user", "content": prompt.strip()}]
     last_error: ManifestError | None = None
     offered: set[str] | None = None
+    repairs = 0
 
     for attempt in range(REPAIR_ATTEMPTS + 2):
         answer = _ask(conversation)
@@ -350,6 +440,7 @@ def describe(prompt: str) -> tuple[Manifest, dict, str]:
         # Structured Outputs cannot make one field nullable-by-flag, so the
         # model signals a base map with a boolean and we clear the object here.
         raw.get("variable", {}).pop("search_query", None)
+        _strip_derivations(raw.get("variable") or {})
         # An empty list means "no political filter"; the validator wants absence.
         if not raw.get("within"):
             raw.pop("within", None)
@@ -358,11 +449,16 @@ def describe(prompt: str) -> tuple[Manifest, dict, str]:
         if raw.pop("variable_is_null", False):
             raw["variable"] = None
         try:
+            _check_per((raw.get("variable") or {}).get("per"))
             return validate(raw), raw, answer.get("reasoning", "")
         except ManifestError as error:
             last_error = error
-            if attempt == REPAIR_ATTEMPTS:
+            # Counted apart from `attempt`: the search turn is not a repair,
+            # and letting it use up the budget meant a searchable source's
+            # manifest was never repaired at all.
+            if repairs == REPAIR_ATTEMPTS:
                 break
+            repairs += 1
             # Hand the rejection back rather than guessing at a fix here; the
             # validator's message already names the field and the reason.
             conversation.append({"role": "assistant", "content": json.dumps(answer)})
@@ -377,6 +473,33 @@ def describe(prompt: str) -> tuple[Manifest, dict, str]:
         f"{last_error}", getattr(last_error, "field", "prompt")
     )
 
+
+
+def _strip_derivations(variable: dict) -> None:
+    """Turn strict mode's "empty means absent" back into absence."""
+    per = variable.get("per")
+    if not per or not per.get("source") or not per.get("id"):
+        variable.pop("per", None)
+    change = variable.get("change")
+    if not change or not change.get("from") or not change.get("to"):
+        variable.pop("change", None)
+
+
+def _check_per(per: dict | None) -> None:
+    """A divisor from a searchable source must be one it declares up front.
+
+    The agent may not invent a searchable id, and it is shown no search for the
+    divisor -- only the source's declared denominators, which are therefore
+    the whole of what it can choose.
+    """
+    if not per or per.get("source") not in statistics.sources():
+        return  # absent, or the validator will name the unknown source
+    capabilities = statistics.capabilities(per["source"])
+    if capabilities.searchable and per.get("id") not in capabilities.denominators:
+        offered = ", ".join(capabilities.denominators) or "none"
+        raise ManifestError(
+            f"variable.per {per['source']}/{per.get('id')!r} was not offered; "
+            f"{per['source']} offers these divisors: {offered}", "variable.per.id")
 
 
 def _search(source: str, query: str) -> list:

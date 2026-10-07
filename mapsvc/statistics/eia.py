@@ -38,6 +38,7 @@ CAPABILITIES = Capabilities(
     attribution="U.S. Energy Information Administration, State Energy Data System",
     searchable=True,
     time_series=True,
+    denominators={"TPOPP": "resident population of each state, people"},
     description=(
         "EIA State Energy Data System: energy consumption, production, prices, "
         "expenditures and CO2 emissions by fuel and sector for the 50 US states "

@@ -79,6 +79,10 @@ class Capabilities:
     searchable: bool = False
     # Accepts load(..., year=Y). Required by `variable.change`.
     time_series: bool = False
+    # {id: description}: well-known divisors a *searchable* source offers for
+    # `variable.per` without a search -- population, area. The agent may only
+    # use a searchable id it was shown, and these are shown up front.
+    denominators: dict = field(default_factory=dict)
 
     def key_at(self, level: str) -> str | None:
         if isinstance(self.key, dict):

@@ -42,6 +42,11 @@ CAPABILITIES = Capabilities(
     attribution="Eurostat (CC BY 4.0)",
     searchable=True,
     time_series=True,
+    denominators={
+        "demo_r_pjangrp3?age=TOTAL&freq=A&sex=T&unit=NR":
+            "population on 1 January, every NUTS level, people",
+        "reg_area3?freq=A&landuse=TOTAL&unit=KM2": "total area, every NUTS level, km²",
+    },
     description=(
         "Eurostat regional statistics for EU, EFTA and candidate countries by "
         "NUTS region (nuts_1, nuts_2, nuts_3): GDP, population, employment and "
@@ -231,6 +236,8 @@ def describe(variable_id: str) -> Variable:
                 f"{dataset} has no {dim}={code}", "variable.id")
     unit_code = pinned.get("unit", "")
     unit = labels.get("unit", {}).get(unit_code) or None
+    if unit_code == "NR" and "population" in shape["label"].lower():
+        unit = "people"   # "Number" would make a ratio read "per Number"
     detail = [labels[d][c] for d, c in pinned.items()
               if d not in ("unit", "freq") and len(labels[d]) > 1]
     label = shape["label"] + (f" ({', '.join(detail)})" if detail else "")
