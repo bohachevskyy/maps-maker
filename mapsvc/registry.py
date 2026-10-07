@@ -18,7 +18,7 @@ SOURCE_VINTAGE = "v5.1.1"
 # vocabulary; not every provider offers every level.
 LEVELS = ("admin_0", "admin_1", "admin_2", "admin_3",
           "nuts_1", "nuts_2", "nuts_3")
-BASEMAPS = ("natural_earth", "overture")
+BASEMAPS = ("natural_earth", "overture", "census")
 # Overture by default: far more detail, and the only source below admin_1. It
 # is queried live, so the harvest cache does the heavy lifting -- see harvest.py.
 DEFAULT_BASEMAP = "overture"
