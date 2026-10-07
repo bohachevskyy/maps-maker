@@ -74,3 +74,5 @@ def _no_context_fetch(monkeypatch):
     tests must not; a test of the context layer installs its own."""
     from mapsvc import harvest
     monkeypatch.setattr(harvest, "context_countries", lambda: [])
+    # Sea names likewise: a test of them installs its own marine areas.
+    monkeypatch.setattr(harvest, "marine_areas", lambda: [])

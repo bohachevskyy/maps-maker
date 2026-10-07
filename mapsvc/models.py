@@ -40,6 +40,10 @@ class HarvestResult:
     # [{"id": "POL", "geometry": {...}}]: neighbouring land drawn muted under a
     # `within` map, so Ukraine does not float in a void. Not data; never shaded.
     context: list = field(default_factory=list)
+    # [{"kind": "sea", "name": "Black Sea", "class", "rank", "geometry"}]:
+    # named features for muted context labels, derived from the map's window.
+    # Not data; render names them only where nothing mapped is labelled.
+    names: list = field(default_factory=list)
 
 
 @dataclass(frozen=True)

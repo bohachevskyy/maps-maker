@@ -274,3 +274,29 @@ def test_the_modal_year_and_its_exceptions_are_named(offline):
     p = H.harvest(build_manifest(bbox=(-1.0, -1.0, 6.0, 3.0))).provenance
     assert p["year_mode"] == 2019
     assert p["year_exceptions"] == {"2015": ["Gamma"]}
+
+
+def test_sea_names_are_clipped_to_the_maps_neighbourhood(monkeypatch):
+    from mapsvc import harvest as H
+    from mapsvc.models import HarvestResult as HR
+
+    near = {"type": "Feature", "properties": {"name": "Near Sea", "featurecla": "sea",
+                                              "min_label": 4},
+            "geometry": {"type": "Polygon", "coordinates": [
+                [[0, 0], [60, 0], [60, 10], [0, 10], [0, 0]]]}}
+    far = {"type": "Feature", "properties": {"name": "Far Sea", "featurecla": "sea",
+                                             "min_label": 2},
+           "geometry": {"type": "Polygon", "coordinates": [
+               [[150, -60], [160, -60], [160, -50], [150, -50], [150, -60]]]}}
+    small = {"type": "Feature", "properties": {"name": "Tiny Bay", "featurecla": "bay",
+                                               "min_label": 7.6},
+             "geometry": {"type": "Polygon", "coordinates": [
+                 [[1, 1], [2, 1], [2, 2], [1, 2], [1, 1]]]}}
+    monkeypatch.setattr(H, "marine_areas", lambda: [near, far, small])
+    manifest = build_manifest(bbox=(0.0, 0.0, 20.0, 20.0))
+    result = HR(rows=[], provenance={}, dropped=[])
+    H._add_names(manifest, result)
+    assert [n["name"] for n in result.names] == ["Near Sea"]
+    ring = result.names[0]["geometry"]["coordinates"][0][0]
+    assert max(p[0] for p in ring) <= 20.0, "clipped to the window"
+    assert result.provenance["names_source"] == H.MARINE_CREDIT

@@ -33,7 +33,7 @@ NO_DATA = {-99, "-99", "", None}
 # Bump when the shape of a cached HarvestResult changes -- new provenance keys,
 # a different join, altered drop reasons. Without it a code change silently
 # keeps serving rows written in the old format.
-CACHE_VERSION = 13
+CACHE_VERSION = 14
 
 # Physical context is derived from the overlay and its window, never requested
 # in the manifest. These files are fetched here and cached with the other input
@@ -199,14 +199,17 @@ def _base(manifest: Manifest) -> HarvestResult:
     if cached.exists():
         stored = json.loads(cached.read_text())
         return HarvestResult(stored["rows"], stored["provenance"], stored["dropped"],
-                             context=stored.get("context", []))
+                             context=stored.get("context", []),
+                             names=stored.get("names", []))
 
     result = _build(manifest)
     _add_context(manifest, result)
+    _add_names(manifest, result)
     result.provenance["place"] = _place(manifest, result)
     cached.parent.mkdir(parents=True, exist_ok=True)
     payload = {"rows": result.rows, "provenance": result.provenance,
-               "dropped": result.dropped, "context": result.context}
+               "dropped": result.dropped, "context": result.context,
+               "names": result.names}
     temporary = cached.with_suffix(".part")
     temporary.write_text(json.dumps(payload, sort_keys=True))
     temporary.replace(cached)
@@ -378,12 +381,18 @@ def _line_features(data: dict, extent: tuple, prefix: str) -> list:
                  else geometry.get("coordinates") or []
                  if geometry.get("type") == "MultiLineString" else [])
         name = _feature_name(feature)
+        props = feature.get("properties") or {}
+        # Natural Earth's own importance: the zoom a feature first shows at.
+        # Render names the major rivers first by it.
+        rank = props.get("min_zoom", props.get("scalerank"))
         for part, coords in enumerate(lines):
             clean = [[round(float(p[0]), 5), round(float(p[1]), 5)]
                      for p in coords if len(p) >= 2]
             if len(clean) >= 2 and _points_intersect(clean, extent):
-                found.append({"id": f"{prefix}-{index}-{part}", "name": name,
-                              "coords": clean})
+                item = {"id": f"{prefix}-{index}-{part}", "name": name, "coords": clean}
+                if rank is not None:
+                    item["rank"] = round(float(rank), 2)
+                found.append(item)
     found.sort(key=lambda f: (f["name"], f["id"]))
     return found
 
@@ -533,15 +542,92 @@ def _add_context(manifest: Manifest, result: HarvestResult) -> None:
                 clipped = [(round(x, 5), round(y, 5)) for x, y in clipped]
                 rings.append([list(p) for p in clipped + [clipped[0]]])
         if rings:
-            context.append({"id": registry.iso3_of(props) or props.get("ADM0_A3"),
-                            "geometry": {"type": "MultiPolygon",
-                                         "coordinates": [[r] for r in rings]}})
+            # The name and Natural Earth's own label point travel with the
+            # land, so render can name the neighbours without a lookup.
+            item = {"id": registry.iso3_of(props) or props.get("ADM0_A3"),
+                    "name": str(props.get("NAME") or props.get("ADMIN") or ""),
+                    "geometry": {"type": "MultiPolygon",
+                                 "coordinates": [[r] for r in rings]}}
+            if None not in label:
+                item["label"] = [round(float(label[0]), 4), round(float(label[1]), 4)]
+            context.append(item)
     context.sort(key=lambda c: str(c["id"]))
     result.context = list(result.context) + context
     if context:
         result.provenance["context_source"] = (
             f"{registry.SOURCE_NAME} {registry.SOURCE_VINTAGE} 1:"
             f"{registry.scale_for(CONTEXT_LEVEL)} (public domain)")
+
+
+# ------------------------------------------------------------------- names ---
+
+# Sea and ocean names for orientation: Natural Earth's marine areas, public
+# domain, 306 named polygons at 1:10m (1.7 MB). Harvest keeps those Natural
+# Earth would label at a country's zoom or wider (min_label <= 6, which takes
+# in the Sea of Azov); render picks by its frame's span which of them to name.
+MARINE_POLYS = "ne_10m_geography_marine_polys.geojson"
+MARINE_CREDIT = "Natural Earth ne_10m_geography_marine_polys (public domain)"
+MARINE_MAX_MIN_LABEL = 6.0
+
+
+def marine_areas() -> list:
+    """Natural Earth marine polygons. A seam tests replace."""
+    return _physical_geojson(MARINE_POLYS).get("features", [])
+
+
+def _add_names(manifest: Manifest, result: HarvestResult) -> None:
+    """Named seas around the map, clipped to its neighbourhood.
+
+    Derived, never requested: a regional map gets the seas Natural Earth
+    would label at its scale; a world map gets none (its oceans are obvious
+    and its labels are the data). A failed fetch leaves the map unnamed,
+    never unmade.
+    """
+    drawn = [r["geometry"] for r in result.rows] + [d["geometry"] for d in result.dropped
+                                                     if d.get("geometry")]
+    if manifest.bbox is not None:
+        extent = tuple(manifest.bbox)
+    elif drawn:
+        extent = project.extent_of(drawn)
+    else:
+        return
+    if extent == project.WORLD_EXTENT or extent[2] - extent[0] >= 180.0:
+        return
+    window = _context_window(extent) if manifest.bbox is None else extent
+    try:
+        features = marine_areas()
+    except (OSError, ValueError) as exc:
+        result.provenance["names_error"] = str(exc)
+        return
+    names = []
+    for feature in features:
+        props = feature.get("properties") or {}
+        name = str(props.get("name_en") or props.get("name") or "").strip()
+        geometry = feature.get("geometry") or {}
+        if not name or geometry.get("type") not in ("Polygon", "MultiPolygon"):
+            continue
+        if float(props.get("min_label") or 99) > MARINE_MAX_MIN_LABEL:
+            continue
+        rings = []
+        for ring in project.outer_rings(geometry):
+            box = _box(ring)
+            if box[2] < window[0] or box[0] > window[2] or box[3] < window[1] \
+                    or box[1] > window[3]:
+                continue
+            clipped = project.clip_to_extent(ring, window)
+            if len(clipped) >= 3:
+                clipped = [(round(x, 4), round(y, 4)) for x, y in clipped]
+                rings.append([list(p) for p in clipped + [clipped[0]]])
+        if rings:
+            names.append({"kind": "sea", "name": name,
+                          "class": str(props.get("featurecla") or "sea").lower(),
+                          "rank": float(props.get("min_label") or 0),
+                          "geometry": {"type": "MultiPolygon",
+                                       "coordinates": [[r] for r in rings]}})
+    names.sort(key=lambda n: (n["rank"], n["name"]))
+    result.names = list(result.names) + names
+    if names:
+        result.provenance["names_source"] = MARINE_CREDIT
 
 
 _UNION = {"EU", "EU27", "EU27_2020"}
