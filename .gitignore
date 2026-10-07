@@ -7,3 +7,5 @@ out/
 .env
 .env.*
 evals/maps/results/
+evals/maps/etalons/.cache/
+.DS_Store
