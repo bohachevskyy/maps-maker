@@ -76,6 +76,7 @@ def _divide(numerator: Values, per: tuple, level: str, year: int | None) -> Valu
         return denominators[None]
 
     numerator_level = numerator.provenance.get("level")
+    divisor_years: dict = {}
     out: dict = {}
     missing: dict = dict(numerator.missing)
     years: dict = {}
@@ -85,12 +86,14 @@ def _divide(numerator: Values, per: tuple, level: str, year: int | None) -> Valu
             missing[key] = "no_data"
             continue
         den = denominator_for(key)
+        divided_by = den
         divisor = None if den is None else _number(den.values.get(key))
         if not divisor and year is None and time_series and numerator.years.get(key) is not None:
             # No divisor from the numerator's own year -- area, for one, is
             # rarely dated. Outside a `change`, the divisor's latest value is
             # the honest fallback; the per-year spread in provenance shows it.
             latest = _latest()
+            divided_by = latest
             divisor = _number(latest.values.get(key)) if latest else None
         if not divisor:
             missing[key] = "no_divisor"
@@ -98,43 +101,53 @@ def _divide(numerator: Values, per: tuple, level: str, year: int | None) -> Valu
         out[key] = value / divisor
         if key in numerator.years:
             years[key] = numerator.years[key]
+        if divided_by is not None and divided_by.years.get(key) is not None:
+            divisor_years[key] = divided_by.years[key]
 
     used = [d for d in denominators.values() if d is not None]
     if not used:
         raise StatisticsError(
             f"{source} has no {variable_id} values to divide by", "variable.per")
-    den_prov = used[0].provenance
-    return Values(values=out, missing=missing, years=years,
+    den_prov = dict(used[0].provenance)
+    if any(d.years for d in used):
+        # A dated source: only the years of divisors actually used count. If
+        # none of them was dated, there is no year to state.
+        den_prov["year"] = None
+    return Values(values=out, missing=missing, years=years, divisor_years=divisor_years,
                   provenance=_per_provenance(numerator.provenance, den_prov,
-                                             source, variable_id, used))
+                                             source, variable_id, divisor_years))
 
 
 def _per_provenance(num: dict, den: dict, source: str, variable_id: str,
-                    used: list) -> dict:
+                    divisor_years: dict) -> dict:
     den_unit = den.get("unit")
     phrase = _SINGULAR.get(den_unit, den_unit) if den_unit else den.get("variable")
-    den_years = sorted({str(d.provenance.get("year")) for d in used
-                        if d.provenance.get("year")})
-    den_year = den_years[0] if len(den_years) == 1 else (
-        f"{den_years[0]}–{den_years[-1]}" if den_years else None)
 
     out = dict(num)
     out.update({
         "variable": f"{num.get('variable')} per {phrase}",
         "unit": f"{num.get('unit')} per {phrase}" if num.get("unit") else f"per {phrase}",
         "level": "ratio",
-        "per": {"source": source, "id": variable_id,
+        "per": {"source": source, "id": variable_id, "phrase": phrase,
                 "variable": den.get("variable"), "unit": den_unit,
-                "year": den_year},
+                "year": year_label(divisor_years.values()) or den.get("year")},
+        # Not every unit's divisor is dated; harvest restates this over the
+        # units actually drawn.
     })
-    if den_year and den_year != num.get("year"):
-        out["year"] = f"{num.get('year')}; {phrase} {den_year}"
     if den.get("source") != num.get("source"):
         # Two sources, possibly two licences: both must be credited.
         out["attribution"] = f"{num.get('attribution')}; {den.get('attribution')}"
         if den.get("license") != num.get("license"):
             out["license"] = f"{num.get('license')}; {den.get('license')}"
     return out
+
+
+def year_label(years) -> str | None:
+    """'2022', or '2018–2022' for a spread; None when nothing is dated."""
+    years = sorted(set(years))
+    if not years:
+        return None
+    return str(years[0]) if len(years) == 1 else f"{years[0]}–{years[-1]}"
 
 
 def _change(first: Values, last: Values, start: int, end: int) -> Values:

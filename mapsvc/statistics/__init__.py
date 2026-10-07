@@ -131,6 +131,8 @@ class Values:
     # estimate (Ukrstat publishes nothing for Crimea since 2014). Kept apart
     # from values so the footnote can say why rather than "no join".
     missing: dict = field(default_factory=dict)
+    # key -> year of the divisor used, for a `per` variable.
+    divisor_years: dict = field(default_factory=dict)
 
 
 class StatisticsError(ValueError):

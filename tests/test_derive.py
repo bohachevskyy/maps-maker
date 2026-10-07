@@ -227,3 +227,15 @@ def test_natural_earth_countries_join_on_iso3_not_adm0_a3():
     assert registry.iso3_of({"ADM0_A3": "SDS", "ISO_A3": "SSD"}) == "SSD"
     assert registry.iso3_of({"ADM0_A3": "KOS", "ISO_A3": "-99"}) == "KOS"
     assert registry.iso3_of({"ADM0_A3": "IOA", "ISO_A3": "-99", "ISO_A3_EH": "AUS"}) == "IOA"
+
+
+def test_harvest_states_numerator_and_divisor_years_for_drawn_units(series, monkeypatch, tmp_path):
+    monkeypatch.setenv("MAPSVC_CACHE", str(tmp_path))
+    features = [{"type": "Feature", "geometry": BOX,
+                 "properties": {"ADM0_A3": code, "NAME": code, "CONTINENT": "X"}}
+                for code in ("AAA", "BBB")]
+    monkeypatch.setattr(H, "load_source", lambda level="admin_0": {"features": features})
+    result = H.harvest(_manifest(id="fuel", per={"source": "series_bank", "id": "pop"}))
+    assert result.provenance["year"] == "2020"
+    assert result.provenance["per"]["year"] == "2020"
+    assert result.provenance["unit"] == "barrels per person"

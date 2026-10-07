@@ -224,6 +224,7 @@ def _build(manifest: Manifest) -> HarvestResult:
 
     value_level = values.provenance.get("level", "count")
     joined_years: set = set()
+    joined_divisor_years: set = set()
     rows: list[dict] = []
     dropped: list[dict] = []
 
@@ -260,6 +261,8 @@ def _build(manifest: Manifest) -> HarvestResult:
         rows.append({**entry, "value": value})
         if key in values.years:
             joined_years.add(values.years[key])
+        if key in values.divisor_years:
+            joined_divisor_years.add(values.divisor_years[key])
 
     if not rows:
         raise HarvestError(*_nothing_usable(manifest, dropped))
@@ -268,8 +271,15 @@ def _build(manifest: Manifest) -> HarvestResult:
     # state the years of what is drawn. Eurostat's NUTS 2 file spans 2021-2024
     # only because of candidate countries an EU map never shows.
     if joined_years and re.fullmatch(r"\d{4}(–\d{4})?", str(provenance.get("year") or "")):
-        low, high = min(joined_years), max(joined_years)
-        provenance["year"] = str(low) if low == high else f"{low}–{high}"
+        provenance["year"] = derive.year_label(joined_years)
+    per = provenance.get("per")
+    if per and values.divisor_years is not None and (joined_divisor_years
+                                                     or values.divisor_years):
+        # The divisor's year over the drawn units only; None if none is dated.
+        per = provenance["per"] = {**per, "year": derive.year_label(joined_divisor_years)}
+        if per["year"] and per["year"] != provenance.get("year"):
+            # Divided by a figure from another year: the footnote must say so.
+            provenance["year"] = f"{provenance.get('year')}; {per['phrase']} {per['year']}"
 
     rows.sort(key=lambda r: str(r["id"]))
     dropped.sort(key=lambda r: (str(r["id"]), r["reason"]))
