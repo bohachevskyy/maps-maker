@@ -19,9 +19,8 @@ import math
 import textwrap
 from xml.sax.saxutils import escape, quoteattr
 
-from mapsvc import classify, colors, overlay_render, project, registry, statistics
-from mapsvc.manifest import Manifest
-from mapsvc.models import HarvestResult
+from mapsvc import classify, colors, overlay_render, project, registry
+from mapsvc.models import HarvestResult, Manifest
 
 CANVAS_W = 960
 PAD = 24                     # page gutter, left and right
@@ -32,7 +31,12 @@ MAP_TOP = 76                 # below the title block
 # run off the page.
 MAP_H_MIN, MAP_H_MAX = 300, 700
 COORD_DP = 2
+# Douglas-Peucker tolerance in page pixels (the canvas is 960 px wide).
+SIMPLIFY_PX = 0.3
+# Rings smaller than this on the page (px^2) are not drawn, bar a unit's largest.
+SPECK_PX2 = 0.25
 WORLD = (-180.0, -90.0, 180.0, 90.0)
+WORLD_MARGIN = 10.0
 
 FOOTER_SIZE, FOOTER_LEAD = 10.5, 15
 # Characters that fit across the footer at FOOTER_SIZE in the chosen font.
@@ -54,8 +58,13 @@ SYMBOL_MIN_R = 1.0
 SYMBOL_MIN_SHARE = 0.10
 
 _SCOPE = {"admin_0": "country", "admin_1": "first-level subdivision",
-          "admin_2": "second-level subdivision", "admin_3": "third-level subdivision"}
-_REASONS = {"no_data": "no value reported", "no_join": "absent from the statistics source"}
+          "admin_2": "second-level subdivision", "admin_3": "third-level subdivision",
+          "nuts_1": "NUTS 1 region", "nuts_2": "NUTS 2 region", "nuts_3": "NUTS 3 region"}
+# Fallbacks for a result that predates provenance["drop_reasons"].
+_REASONS = {"no_data": "no value reported by the source",
+            "no_join": "no matching row in the statistics source"}
+# Name the dropped units in the footnote when there are at most this many.
+NAMED_DROPS = 4
 
 
 class RenderError(ValueError):
@@ -97,7 +106,11 @@ class Frame:
                        for lon, lat in project.window_outline(self.extent)]
             xs, ys = [p[0] for p in outline], [p[1] for p in outline]
             bounds = (min(xs), min(ys), max(xs), max(ys))
-            margin = 1.0
+            # The globe's outline is a curve whose widest point is a single
+            # vertex at the equator: fitted with a 1 px margin it sits on the
+            # page gutter and reads as cut off flat. A bbox window is a
+            # rectangle-ish frame and can go to the edge.
+            margin = WORLD_MARGIN if self.is_world else 1.0
         else:
             outline = None
             bounds = project.viewport_bounds(geometries, self.projector, self.extent)
@@ -111,6 +124,10 @@ class Frame:
         self.transform = lambda x, y: _shift(local(x, y))
         self.outline = (None if outline is None
                         else [self.transform(x, y) for x, y in outline])
+        # Page pixels per projected unit. Every projection here is on the unit
+        # sphere, so an inset drawn at this scale is at the same scale.
+        self.scale = local(1.0, 0.0)[0] - local(0.0, 0.0)[0]
+        self.insets: list = []
 
     def xy(self, lon: float, lat: float) -> tuple[float, float]:
         return self.transform(*self.projector(lon, lat))
@@ -140,6 +157,10 @@ def render(manifest: Manifest, result: HarvestResult) -> str:
     dropped = sorted(result.dropped, key=lambda r: r["id"])
     show_missing = registry.DEFAULT_MISSING != "exclude"
     drawn_missing = [d for d in dropped if d.get("geometry")] if show_missing else []
+    # Far-flung units (Alaska, the Canaries) go to insets; the main frame is
+    # fitted to the rest. Classification still sees every row.
+    every_row = rows
+    rows, drawn_missing, insets = _split_insets(manifest, rows, drawn_missing)
 
     geometries = [r["geometry"] for r in rows] + [d["geometry"] for d in drawn_missing]
     if not geometries:
@@ -149,13 +170,14 @@ def render(manifest: Manifest, result: HarvestResult) -> str:
               if result.overlays and manifest.bbox is None else geometries)
     frame = Frame(manifest, framed, overlay_render.centre_lon(result.overlays))
     p = result.provenance
-    encoding = _encoding(manifest, rows, p)
+    encoding = _encoding(manifest, every_row, p)
 
     body: list[str] = []
     land: list[tuple] = []          # (bbox, ring) of every drawn outer ring
     units: list[tuple] = []         # bbox of each unit's (or symbol's) ink
     if frame.windowed:
         body.append(_water(frame))
+    body.append(_context(result.context, frame))
 
     # Feature layers carry the message when there is no variable: the base map
     # recedes to quiet land with white borders.
@@ -194,6 +216,10 @@ def render(manifest: Manifest, result: HarvestResult) -> str:
         svg, circles = _symbols(rows, frame, encoding)
         body.append(svg)
         units.extend(circles)
+    body.append(_enclaves(rows, frame, encoding))
+    inset_svg, inset_missing = _draw_insets(insets, frame, encoding, bool(result.context),
+                                            land, units)
+    body.append(inset_svg)
 
     art = None
     if has_overlays:
@@ -206,7 +232,8 @@ def render(manifest: Manifest, result: HarvestResult) -> str:
     legend_band = 0.0
     if encoding.mode != "basemap":
         legend, legend_band = _legend(encoding, frame, land,
-                                      [u for u in units if u], bool(drawn_missing))
+                                      [u for u in units if u],
+                                      bool(drawn_missing) or inset_missing)
         body.append(legend)
     if art is not None and art.legend_h:
         body.append(art.legend(PAD, frame.bottom + legend_band + 16))
@@ -272,12 +299,19 @@ class Encoding:
         return max(SYMBOL_MIN_R, self.r_max * math.sqrt(value / self.vmax))
 
 
-def _measurement(manifest: Manifest, provenance: dict) -> str:
-    """count | ratio | ordinal | nominal, preferably from the harvested data."""
+def _measurement(provenance: dict) -> str:
+    """count | ratio | ordinal | nominal, of the quantity actually drawn.
+
+    Harvest states it: it is the source's level for a raw variable, and ratio
+    for a `per` or `change` result whatever the numerator was. Render cannot
+    look it up itself -- that would be a catalogue read, and render does no I/O
+    -- and must not guess, because the guess decides circles or choropleth.
+    """
     level = provenance.get("measurement")
-    if level:
-        return level
-    return statistics.describe(manifest.variable_source, manifest.variable_id).level
+    if level not in ("count", "ratio", "ordinal", "nominal"):
+        raise RenderError("the harvested data does not state its measurement level",
+                          "variable.id")
+    return level
 
 
 def _encoding(manifest: Manifest, rows: list, provenance: dict) -> Encoding:
@@ -288,14 +322,14 @@ def _encoding(manifest: Manifest, rows: list, provenance: dict) -> Encoding:
     shaded light-to-dark and a population cannot be a raw-count choropleth,
     because nothing offers the choice.
     """
-    label = _human(provenance.get("variable") or manifest.variable_id or "")
+    label = _label(manifest, provenance)
     unit = provenance.get("unit") or ""
     if manifest.variable_id is None:
         return Encoding("basemap", label, unit)
     if not rows:
         raise RenderError("every feature was dropped; nothing to classify", "variable")
 
-    level = _measurement(manifest, provenance)
+    level = _measurement(provenance)
     values = [r["value"] for r in rows]
     numeric = all(isinstance(v, (int, float)) and not isinstance(v, bool)
                   for v in values)
@@ -337,10 +371,20 @@ def _num(v: float) -> str:
 
 
 def _raw_value(value) -> str:
-    """Stable machine-readable value, with numeric noise capped at 6 digits."""
-    if isinstance(value, (int, float)) and not isinstance(value, bool):
-        return format(value, ".6g")
-    return str(value)
+    """Stable machine-readable value: exact for whole numbers, else 10 digits.
+
+    A population of 2,952,301 must read back as 2952301, not 2.9523e+06. Ten
+    significant digits keep any real measurement while dropping the float noise
+    a division leaves (0.1 + 0.2), so the bytes stay deterministic.
+    """
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return str(value)
+    if not math.isfinite(value):
+        return str(value)
+    if float(value).is_integer() and abs(value) < 1e15:
+        return str(int(value))
+    text = format(value, ".10g")
+    return "0" if text == "-0" else text
 
 
 def _parts(geometry) -> list:
@@ -351,16 +395,46 @@ def _parts(geometry) -> list:
 
 
 def _project(geometry, frame: Frame) -> list:
-    """Every ring of every part, in page pixels. Holes survive."""
+    """Every ring of every part, in page pixels, simplified to what shows.
+
+    Holes survive. Overture rings carry metre-level detail -- a world map was
+    25.9 MB -- and almost none of it survives at 960 px. Each ring is thinned
+    in page space to SIMPLIFY_PX, below what the eye or a 2x raster can
+    resolve; see project.simplify_ring.
+    """
     if frame.is_world and frame.lon0 != 0:
-        return [[[frame.xy(lon, lat) for lon, lat in piece]
-                 for ring in part
-                 for piece in project.split_at_seam(project.unwrap_ring(ring, frame.lon0),
-                                                    frame.lon0)]
-                for part in _parts(geometry)]
-    return [[[frame.xy(lon, lat) for lon, lat in project.unwrap_ring(ring, frame.lon0)]
-             for ring in part]
-            for part in _parts(geometry)]
+        # A Pacific-centred world map cuts rings at the seam opposite lon0.
+        rings_of = lambda part: [piece for ring in part
+                                 for piece in project.split_at_seam(
+                                     project.unwrap_ring(ring, frame.lon0), frame.lon0)]
+    else:
+        rings_of = lambda part: [project.unwrap_ring(ring, frame.lon0) for ring in part]
+    parts = [[project.simplify_ring([frame.xy(lon, lat) for lon, lat in ring], SIMPLIFY_PX)
+              for ring in rings_of(part)]
+             for part in _parts(geometry)]
+    return _drop_specks(parts)
+
+
+def _drop_specks(parts) -> list:
+    """Remove rings smaller than SPECK_PX2 on the page, keeping each unit's largest.
+
+    Measured on the Overture world map: 42,946 of 43,453 subpaths were under a
+    quarter of a pixel -- Arctic and Pacific islets -- and they were 2.27 MB of
+    a 2.53 MB file while drawing nothing a reader can see. The largest part of
+    a unit always stays, so a microstate keeps its polygon (and its marker).
+    """
+    if not parts:
+        return parts
+    areas = [project.planar_area(part[0]) if len(part[0]) >= 3 else 0.0 for part in parts]
+    largest = max(range(len(parts)), key=lambda i: areas[i])
+    kept = []
+    for i, part in enumerate(parts):
+        if i != largest and areas[i] < SPECK_PX2:
+            continue
+        holes = [ring for ring in part[1:]
+                 if len(ring) >= 3 and project.planar_area(ring) >= SPECK_PX2]
+        kept.append([part[0]] + holes)
+    return kept
 
 
 def _d(rings) -> str:
@@ -428,7 +502,7 @@ def _anchor(geometry, frame: Frame) -> tuple[float, float] | None:
 
 def _placement(geometry, frame: Frame):
     """(anchor, share of the unit's area inside the window), or None."""
-    best, best_area = None, 0.0
+    best, best_area, best_holes = None, 0.0, []
     total = visible = 0.0
     for part in _parts(geometry):
         ring = project.unwrap_ring(part[0], frame.lon0)
@@ -445,10 +519,12 @@ def _placement(geometry, frame: Frame):
         visible += area
         if best is None or area > best_area:
             best, best_area = pts, area
+            best_holes = [[frame.xy(lon, lat) for lon, lat in project.unwrap_ring(h, frame.lon0)]
+                          for h in part[1:] if len(h) >= 3]
     if best is None:
         return None
     precision = max(0.5, math.sqrt(best_area) / 50.0)
-    x, y = project.pole_of_inaccessibility(best, precision)
+    x, y = project.pole_of_inaccessibility(best, precision, holes=best_holes)
     if not frame.visible(x, y):
         return None
     share = visible / total if total > 0 else 1.0
@@ -491,6 +567,495 @@ def _symbols(rows: list, frame: Frame, encoding: Encoding) -> str:
                    f'data-value={quoteattr(_raw_value(row["value"]))}/>')
     out.append("</g>")
     return "".join(out), [(x - r, y - r, x + r, y + r) for _, _, (x, y), r, _ in placed]
+
+
+# --------------------------------------------------------------- context ---
+
+def _context(context: list, frame: Frame) -> str:
+    """Neighbouring land, muted, under a `within` map; the sea tinted around it.
+
+    Harvest fetched it; render only draws it. It is not land for the legend's
+    purposes -- a legend may sit over Belarus -- and carries no data-id, so
+    nothing reads it as a mapped unit.
+    """
+    if not context:
+        return ""
+    out = [f'<g clip-path="url(#map-clip)">']
+    if not frame.windowed:
+        # A windowed map has its water already.
+        out.append(f'<rect x="{PAD}" y="{MAP_TOP}" width="{MAP_W}" height="{frame.map_h}" '
+                   f'fill="{colors.WATER}"/>')
+    out += [f'<g fill="{colors.CONTEXT_LAND}" stroke="{colors.CONTEXT_BORDER}" '
+           'stroke-width="0.5" stroke-linejoin="round" class="context">']
+    # Clipped to the page in pixels: most of a neighbour (all of Russia
+    # beyond the Urals) is off the page, and its vertices would only add bytes.
+    page = (PAD - 4.0, MAP_TOP - 4.0, PAD + MAP_W + 4.0, frame.bottom + 4.0)
+    for item in context:
+        rings = [project.clip_to_extent(part[0], page)
+                 for part in _project(item["geometry"], frame)]
+        d = _d([ring for ring in rings if len(ring) >= 3])
+        if d:
+            out.append(f'<path d="{d}"/>')
+    out.append("</g></g>")
+    return "".join(out)
+
+
+# ---------------------------------------------------------------- insets ---
+
+# A group of units goes to an inset when it is not part of the main cluster
+# (no touching bounding boxes), would grow the main frame's projected area by
+# INSET_INFLATION or more, is more than INSET_GAP of the main cluster's ground
+# diagonal away from it, and holds less than INSET_MAX_AREA of its land.
+# Measured growth against the main cluster, in its own projection:
+#   EU NUTS 2: Cyprus 1.17, Madeira 1.26, Azores 1.41, Canaries 1.42,
+#              Guadeloupe 2.59, Guyane 3.18, Reunion 4.84
+#   US states: Puerto Rico 1.38, Hawaii 1.81, Alaska 2.87-2.91
+#   Iceland on a map of European countries: under 1.02.
+# 1.20 keeps Cyprus and Iceland in the main frame, as an atlas page of Europe
+# does, and sends every outermost region and AK/HI/PR to an inset. The margin
+# between Cyprus and Madeira is narrow; it is a measured threshold, not a law.
+INSET_INFLATION = 1.20
+INSET_GAP = 0.05
+INSET_MAX_AREA = 0.25
+INSET_MAX = 12
+INSET_MAX_W, INSET_MAX_H = 0.20, 0.30      # of the map area, per inset
+INSET_MIN_W, INSET_MIN_H = 84.0, 60.0
+# An inset whose land would be smaller than its box at the main scale is
+# enlarged to fill it, up to this factor: Mayotte at the scale of Europe is a
+# speck. The caption states the factor either way.
+INSET_MAX_ZOOM = 4.0
+INSET_RING_SHARE = 0.08
+INSET_PAD, INSET_LABEL_H, INSET_GAP_PX = 6.0, 14.0, 8.0
+# The share of the inset block that may lie over mapped land before the insets
+# move to a band under the map instead.
+INSET_MAX_COVER = 0.04
+KM_PER_DEGREE = 111.32
+
+
+def _split_insets(manifest: Manifest, rows: list, missing: list):
+    """(main rows, main missing, [InsetFrame]) -- far-flung groups set apart.
+
+    Only for maps framed by their units: a bbox is a window the reader asked
+    for, and moving part of it elsewhere would misrepresent it. Units are
+    grouped by touching bounding boxes; the group with the most land is the
+    main cluster, and any other group that is both far from it and small next
+    to it becomes an inset. Nothing here names a place.
+    """
+    items = [("row", r) for r in rows] + [("missing", m) for m in missing]
+    if manifest.bbox is not None or manifest.overlays or len(items) < 2:
+        # An overlay map frames on the units near its features (Réunion is
+        # not on a map of LGVs); boxing the far ones would bring them back.
+        return rows, missing, []
+    reps = []
+    for _, item in items:
+        rings = project.outer_rings(item["geometry"])
+        rings = [r for r in rings if len(r) >= 4]
+        if not rings:
+            reps.append(None)
+            continue
+        ring = max(rings, key=project._ring_area)
+        ring = project.unwrap_ring(ring, 0.0)
+        reps.append((_lonlat_box(ring), ring, _ground_area(ring)))
+
+    # Union-find over bounding boxes that touch (with a quarter-degree slack).
+    parent = list(range(len(items)))
+
+    def find(i):
+        while parent[i] != i:
+            parent[i] = parent[parent[i]]
+            i = parent[i]
+        return i
+    for i in range(len(items)):
+        for j in range(i + 1, len(items)):
+            if reps[i] and reps[j] and _boxes_touch(reps[i][0], reps[j][0], 0.25):
+                a, b = find(i), find(j)
+                if a != b:
+                    parent[max(a, b)] = min(a, b)
+    groups: dict = {}
+    for i in range(len(items)):
+        if reps[i]:
+            groups.setdefault(find(i), []).append(i)
+    if len(groups) < 2:
+        return rows, missing, []
+    area = {g: sum(reps[i][2] for i in members) for g, members in groups.items()}
+    core = max(groups, key=lambda g: (area[g], -g))
+    core_box = _union_box([reps[i][0] for i in groups[core]])
+    diagonal = _ground_distance((core_box[0], core_box[1]), (core_box[2], core_box[3]))
+    core_rings = [(reps[i][0], project._decimate(reps[i][1], 64)) for i in groups[core]]
+
+    # Inflation is measured in the projection the main map would use, on the
+    # core's own extent: Iceland sits inside the box Portugal and Norway
+    # already span, the Canaries do not. Groups that do not inflate it join the
+    # main frame, and the test repeats against the grown frame -- Crete is its
+    # own group, and Cyprus must be judged against a frame that includes it.
+    core_geoms = [items[i][1]["geometry"] for i in groups[core]]
+    core_extent = project.extent_of(core_geoms)
+    projector = project.make(project.choose(core_extent), core_extent)
+    main = list(project.viewport_bounds(core_geoms, projector, core_extent))
+    projected = {g: [projector(lon, lat) for i in members for lon, lat in reps[i][1]]
+                 for g, members in groups.items() if g != core}
+    pending = sorted(g for g in groups if g != core)
+    changed = True
+    while changed:
+        changed = False
+        for g in list(pending):
+            xs = [x for x, _ in projected[g]]
+            ys = [y for _, y in projected[g]]
+            grown = [min(main[0], min(xs)), min(main[1], min(ys)),
+                     max(main[2], max(xs)), max(main[3], max(ys))]
+            before = max((main[2] - main[0]) * (main[3] - main[1]), 1e-12)
+            after = (grown[2] - grown[0]) * (grown[3] - grown[1])
+            if after / before < INSET_INFLATION or area[g] >= INSET_MAX_AREA * area[core]:
+                main = grown
+                pending.remove(g)
+                changed = True
+
+    far = []
+    for g in pending:
+        members = groups[g]
+        gap = min(_gap_to(project._decimate(reps[i][1], 64), reps[i][0], core_rings)
+                  for i in members)
+        if gap > INSET_GAP * diagonal:
+            far.append(members)
+    if not far or len(far) > INSET_MAX:
+        return rows, missing, []
+
+    moved = {i for members in far for i in members}
+    insets = []
+    for members in far:
+        member_items = [items[i] for i in sorted(members)]
+        insets.append(InsetFrame([it for kind, it in member_items if kind == "row"],
+                                 [it for kind, it in member_items if kind == "missing"],
+                                 sum(reps[i][2] for i in members)))
+    insets.sort(key=lambda f: (-f.area, f.label))
+    keep_rows = [it for i, (kind, it) in enumerate(items) if kind == "row" and i not in moved]
+    keep_missing = [it for i, (kind, it) in enumerate(items)
+                    if kind == "missing" and i not in moved]
+    return keep_rows, keep_missing, insets
+
+
+def _ground_area(ring) -> float:
+    lat = sum(p[1] for p in ring) / len(ring)
+    return (project._ring_area(ring) * math.cos(math.radians(lat))
+            * KM_PER_DEGREE * KM_PER_DEGREE)
+
+
+def _ground_distance(a, b) -> float:
+    lat = math.radians((a[1] + b[1]) / 2.0)
+    dx = project._shortest(b[0] - a[0]) * math.cos(lat)
+    dy = b[1] - a[1]
+    return math.hypot(dx, dy) * KM_PER_DEGREE
+
+
+def _boxes_touch(a, b, slack: float) -> bool:
+    return not (a[2] + slack < b[0] or b[2] + slack < a[0]
+                or a[3] + slack < b[1] or b[3] + slack < a[1])
+
+
+def _union_box(boxes) -> tuple:
+    return (min(b[0] for b in boxes), min(b[1] for b in boxes),
+            max(b[2] for b in boxes), max(b[3] for b in boxes))
+
+
+def _box_gap(a, b) -> float:
+    """A lower bound on the ground distance between two lon/lat boxes."""
+    dx = max(0.0, b[0] - a[2], a[0] - b[2])
+    dy = max(0.0, b[1] - a[3], a[1] - b[3])
+    lat = math.radians(max(abs(a[1]), abs(a[3]), abs(b[1]), abs(b[3]), 0.0))
+    return math.hypot(dx * math.cos(min(lat, math.radians(89))), dy) * KM_PER_DEGREE
+
+
+def _gap_to(ring, box, core_rings) -> float:
+    """Shortest vertex-to-vertex ground distance from a ring to the core."""
+    best = float("inf")
+    for core_box, core_ring in sorted(core_rings, key=lambda c: _box_gap(box, c[0])):
+        if _box_gap(box, core_box) >= best:
+            break
+        for a in ring:
+            for b in core_ring:
+                d = _ground_distance(a, b)
+                if d < best:
+                    best = d
+    return best
+
+
+class InsetFrame:
+    """A boxed inset: its own equal-area projection, placed on the map page.
+
+    Drawn at the main map's scale when it fits, so areas stay comparable;
+    shrunk to fit otherwise (Alaska), and the label says by how much. Offers
+    the same interface as Frame, so the drawing helpers take either.
+    """
+
+    windowed = False
+    is_world = False
+
+    def __init__(self, rows: list, missing: list, area: float):
+        self.rows, self.missing, self.area = rows, missing, area
+        named = sorted({_short_name(i) for i in rows + missing})
+        self.label = named[0] if len(named) == 1 else ", ".join(named[:2]) + (
+            "…" if len(named) > 2 else "")
+        self.geometries = [i["geometry"] for i in rows + missing]
+        self.extent = project.extent_of(self.geometries)
+        self.projection = project.choose(self.extent)
+        self.projector = project.make(self.projection, self.extent)
+        self.lon0 = (self.extent[0] + self.extent[2]) / 2.0
+        self.lat0 = (self.extent[1] + self.extent[3]) / 2.0
+        self.bounds = _inset_bounds(self.geometries, self.projector, self.lon0)
+        self.factor = 1.0
+        self.box = (0.0, 0.0, 0.0, 0.0)
+
+    def size(self, scale: float, max_w: float, max_h: float) -> tuple:
+        span_x = max(self.bounds[2] - self.bounds[0], 1e-9) * scale
+        span_y = max(self.bounds[3] - self.bounds[1], 1e-9) * scale
+        room_w, room_h = max_w - 2 * INSET_PAD, max_h - 2 * INSET_PAD - INSET_LABEL_H
+        self.factor = min(1.0, room_w / span_x, room_h / span_y)
+        min_w = max(INSET_MIN_W, _text_w(self.caption, 9.5) + 12)
+        fill_w, fill_h = min_w - 2 * INSET_PAD, INSET_MIN_H - 2 * INSET_PAD - INSET_LABEL_H
+        if self.factor == 1.0 and span_x < fill_w and span_y < fill_h:
+            self.factor = min(INSET_MAX_ZOOM, fill_w / span_x, fill_h / span_y)
+            self.factor = math.floor(self.factor * 10) / 10.0   # a round, stated factor
+        min_w = max(INSET_MIN_W, _text_w(self.caption, 9.5) + 12)
+        self.scale = scale * self.factor
+        w = max(min_w, span_x * self.factor + 2 * INSET_PAD)
+        h = max(INSET_MIN_H, span_y * self.factor + 2 * INSET_PAD + INSET_LABEL_H)
+        return w, h
+
+    def place(self, x: float, y: float, w: float, h: float) -> None:
+        self.box = (x, y, w, h)
+        inner_top = y + INSET_LABEL_H
+        span_x = (self.bounds[2] - self.bounds[0]) * self.scale
+        span_y = (self.bounds[3] - self.bounds[1]) * self.scale
+        self._ox = x + (w - span_x) / 2.0
+        self._oy = inner_top + (h - INSET_LABEL_H - span_y) / 2.0
+
+    def xy(self, lon: float, lat: float) -> tuple:
+        px, py = self.projector(lon, lat)
+        return (self._ox + (px - self.bounds[0]) * self.scale,
+                self._oy + (self.bounds[3] - py) * self.scale)
+
+    def visible(self, x: float, y: float) -> bool:
+        bx, by, bw, bh = self.box
+        return bx <= x <= bx + bw and by <= y <= by + bh
+
+    @property
+    def caption(self) -> str:
+        if abs(self.factor - 1.0) < 0.005:
+            return self.label
+        return f"{self.label} (×{self.factor:.2g})"
+
+    @property
+    def scale_note(self) -> str:
+        if abs(self.factor - 1.0) < 0.005:
+            return f"{self.label} at the main scale"
+        return f"{self.label} at {self.factor:.2g}× the main scale"
+
+
+def _inset_bounds(geometries, projector, lon0: float) -> tuple:
+    """Projected bounds of every ring of at least INSET_RING_SHARE of its unit's largest.
+
+    An inset is about one place, so the Canaries are all seven islands (El
+    Hierro is 13% of Tenerife) -- the main map's largest-ring rule would show
+    one. Outliers filed under the same unit do not stretch the box: Alaska's
+    Aleutians, the Selvagens under Madeira, Saint-Martin (6% of Basse-Terre)
+    under Guadeloupe. They are still drawn where they fall inside it.
+    """
+    xs: list = []
+    ys: list = []
+    for geometry in geometries:
+        rings = [r for r in project.outer_rings(geometry) if len(r) >= 4]
+        if not rings:
+            continue
+        rings = [project.unwrap_ring(r, lon0) for r in rings]
+        largest = max(project._ring_area(r) for r in rings)
+        for ring in rings:
+            if project._ring_area(ring) >= INSET_RING_SHARE * largest:
+                for lon, lat in ring:
+                    x, y = projector(lon, lat)
+                    xs.append(x)
+                    ys.append(y)
+    if not xs:
+        return (0.0, 0.0, 1.0, 1.0)
+    return (min(xs), min(ys), max(xs), max(ys))
+
+
+def _short_name(item: dict) -> str:
+    """A unit's name for a caption: the first of a bilingual pair, trimmed."""
+    name = str(item.get("name") or item["id"]).strip()
+    return name.split("/")[0].strip() or name
+
+
+def _draw_insets(insets: list, frame: Frame, encoding: Encoding, water: bool,
+                 land: list, units: list) -> tuple[str, bool]:
+    """Lay the insets out in a block where they hide the least, and draw them.
+
+    The block is a row (wrapping) of boxes, tried in the legend's candidate
+    spots; the chosen boxes are then added to `land` and `units` so the legend
+    keeps clear of them. Returns the SVG and whether any inset has no-data.
+    """
+    frame.insets = insets
+    if not insets:
+        return "", False
+    max_w, max_h = INSET_MAX_W * MAP_W, INSET_MAX_H * frame.map_h
+    sizes = [inset.size(frame.scale, max_w, max_h) for inset in insets]
+    # Each inset, largest first, goes where it hides no unit and next to no
+    # mapped land -- open sea or neighbouring land, bottom-left first, as on
+    # an atlas page of the US. What fits nowhere goes to a band under the map.
+    occupied = [u for u in units if u]
+    placed: list = []
+    layout: list = [None] * len(insets)
+    for n, (w, h) in enumerate(sizes):
+        spot = _inset_spot(frame, land, occupied, placed, w, h)
+        if spot is not None:
+            x, y = spot
+            layout[n] = (x, y, w, h)
+            placed.append((x, y, x + w, y + h))
+            land.append(((x, y, x + w, y + h), [(x, y), (x + w, y), (x + w, y + h), (x, y + h)]))
+    band = [n for n, item in enumerate(layout) if item is None]
+    if band:
+        x, y, row_h = PAD + LEGEND_INSET, frame.bottom + INSET_GAP_PX, 0.0
+        top = y
+        for n in band:
+            w, h = sizes[n]
+            if x > PAD + LEGEND_INSET and x + w > PAD + MAP_W - LEGEND_INSET:
+                x, y, row_h = PAD + LEGEND_INSET, y + row_h + INSET_GAP_PX, 0.0
+            layout[n] = (x, y, w, h)
+            x += w + INSET_GAP_PX
+            row_h = max(row_h, h)
+        frame.map_h += int(math.ceil(y + row_h - top + 2 * INSET_GAP_PX))
+    out = []
+    has_missing = False
+    background = colors.WATER if water else "#ffffff"
+    for n, (inset, (x0, y0, w, h)) in enumerate(zip(insets, layout)):
+        inset.place(x0, y0, w, h)
+        clip = f"inset-clip-{n}"
+        out.append(f'<g class="inset" data-inset={quoteattr(inset.label)}>'
+                   f'<clipPath id="{clip}"><rect x="{_num(x0)}" y="{_num(y0)}" '
+                   f'width="{_num(w)}" height="{_num(h)}"/></clipPath>'
+                   f'<rect x="{_num(x0)}" y="{_num(y0)}" width="{_num(w)}" height="{_num(h)}" '
+                   f'fill="{background}" stroke="{colors.FRAME}" stroke-width="0.8"/>'
+                   f'<g clip-path="url(#{clip})" stroke-linejoin="round">')
+        markers = []
+        for row in inset.rows:
+            fill = encoding.fill(row["value"])
+            parts = _project(row["geometry"], inset)
+            out.append(_path(row, parts, fill))
+            if encoding.mode == "choropleth" and _visible_area(parts) < MIN_VISIBLE_AREA:
+                anchor = _anchor(row["geometry"], inset)
+                if anchor:
+                    markers.append(_marker(row, anchor, fill))
+        for item in inset.missing:
+            has_missing = True
+            out.append(_path(item, _project(item["geometry"], inset),
+                             f"url(#{colors.HATCH_ID})"))
+        out.extend(markers)
+        if encoding.mode == "symbols":
+            svg, _ = _symbols(inset.rows, inset, encoding)
+            out.append(svg.replace('clip-path="url(#map-clip)"', f'clip-path="url(#{clip})"'))
+        out.append("</g>")
+        out.append(f'<text x="{_num(x0 + 5)}" y="{_num(y0 + 11)}" font-size="9.5" '
+                   f'fill="{colors.TEXT_MUTED}" font-family="{FONT}">'
+                   f'{escape(inset.caption)}</text></g>')
+        units.append((x0, y0, x0 + w, y0 + h))
+        if n in band:
+            ring = [(x0, y0), (x0 + w, y0), (x0 + w, y0 + h), (x0, y0 + h)]
+            land.append(((x0, y0, x0 + w, y0 + h), ring))
+    return "".join(out), has_missing
+
+
+def _inset_spot(frame: Frame, land: list, occupied: list, placed_insets: list,
+                w: float, h: float):
+    """The first spot, bottom-left outward, that hides nothing mapped."""
+    left, right = PAD + LEGEND_INSET, PAD + MAP_W - w - LEGEND_INSET
+    top, bottom = MAP_TOP + LEGEND_INSET, frame.bottom - h - LEGEND_INSET
+    if right < left or bottom < top:
+        return None
+    steps = 16
+    xs = [left + (right - left) * i / steps for i in range(steps + 1)]
+    ys = [bottom - (bottom - top) * i / steps for i in range(steps + 1)]
+    candidates = ([(x, bottom) for x in xs] + [(left, y) for y in ys[1:]]
+                  + [(right, y) for y in ys[1:]] + [(x, top) for x in xs])
+    for x, y in candidates:
+        if any(_overlaps((x - INSET_GAP_PX, y - INSET_GAP_PX, x + w + INSET_GAP_PX,
+                          y + h + INSET_GAP_PX), box) for box in placed_insets):
+            continue   # never on, or touching, another inset
+        if any(_hidden(u, x, y, w, h) for u in occupied):
+            continue   # never hides a unit, a marker or a circle
+        if _land_share(frame, land, x, y, w, h) <= INSET_MAX_COVER:
+            return x, y
+    return None
+
+
+def _overlaps(a, b) -> bool:
+    return a[0] < b[2] and b[0] < a[2] and a[1] < b[3] and b[1] < a[3]
+
+
+# -------------------------------------------------------------- enclaves ---
+
+def _enclaves(rows: list, frame: Frame, encoding: Encoding) -> str:
+    """Outline and name units that sit in a hole of another unit.
+
+    Kyiv city is an enclave in Kyiv oblast: a few pixels across, with the
+    oblast all round it. Its own circle or colour is not enough to read as a
+    separate unit, so its boundary is redrawn above the symbols and it gets a
+    name. Only true enclaves qualify -- a unit inside another's hole -- so a
+    small unit on a coast or a border is left alone.
+    """
+    holes = []
+    for row in rows:
+        for part in _parts(row["geometry"]):
+            for hole in part[1:]:
+                if len(hole) >= 4:
+                    holes.append((_lonlat_box(hole), hole, row["id"]))
+    if not holes:
+        return ""
+    out = []
+    for row in rows:
+        rings = [part[0] for part in _parts(row["geometry"]) if len(part[0]) >= 4]
+        if not rings:
+            continue
+        ring = max(rings, key=project.planar_area)
+        box = _lonlat_box(ring)
+        lon, lat = ring[0]
+        inside = any(owner != row["id"] and _box_within(box, hbox)
+                     and project.point_in_ring(lon, lat, hole)
+                     for hbox, hole, owner in holes)
+        if not inside:
+            continue
+        parts = _project(row["geometry"], frame)
+        d = _d([part[0] for part in parts])
+        if not d:
+            continue
+        out.append(f'<path d="{d}" fill="none" stroke="{colors.TEXT}" stroke-width="0.9" '
+                   f'class="enclave" data-id={quoteattr(str(row["id"]))}/>')
+        if encoding.mode != "symbols":
+            # In a choropleth the enclave carries its own colour; the outline
+            # is enough. A circle, though, hides the shape under it.
+            continue
+        placed = _placement(row["geometry"], frame)
+        if placed is None:
+            continue
+        (x, y), _ = placed
+        reach = encoding.radius(float(row["value"])) if (
+            encoding.mode == "symbols" and isinstance(row["value"], (int, float))) else 0.0
+        reach = max(reach, MARKER_R, max(b[0][2] - b[0][0] for b in _outer_boxes(parts)) / 2)
+        name = _short_name(row)
+        out.append(f'<text x="{_num(x + reach + 4)}" y="{_num(y + 4)}" font-size="11" '
+                   f'font-weight="600" fill="{colors.TEXT}" stroke="#ffffff" '
+                   'stroke-width="3" stroke-linejoin="round" paint-order="stroke" '
+                   f'font-family="{FONT}">{escape(name)}</text>')
+    return "".join(out)
+
+
+def _lonlat_box(ring) -> tuple:
+    lons = [p[0] for p in ring]
+    lats = [p[1] for p in ring]
+    return min(lons), min(lats), max(lons), max(lats)
+
+
+def _box_within(inner: tuple, outer: tuple, slack: float = 1e-6) -> bool:
+    return (inner[0] >= outer[0] - slack and inner[1] >= outer[1] - slack
+            and inner[2] <= outer[2] + slack and inner[3] <= outer[3] + slack)
 
 
 # ------------------------------------------------------------ background ---
@@ -829,20 +1394,39 @@ def _count_label(v: float) -> str:
 
 # ----------------------------------------------------------------- texts ---
 
-def _title(manifest: Manifest, provenance: dict) -> str:
-    """'GDP per capita, latest data (2022–2025)' -- from the variable, never the slug."""
-    if manifest.variable_id is None:
-        return _human(f"{_SCOPE.get(manifest.level, manifest.level)} boundaries")
-    label = _human(provenance.get("variable") or manifest.variable_id)
-    if provenance.get("normalize"):
-        label += f" per {provenance['normalize']}"
+def _label(manifest: Manifest, provenance: dict) -> str:
+    """The quantity's human name. Never an id: a Eurostat id is a query string."""
+    label = provenance.get("variable")
+    if not label:
+        label = str(manifest.variable_id or "").split("?")[0].replace("_", " ")
+    return _human(label)
+
+
+def _period(provenance: dict) -> str | None:
+    """The period of the values drawn: a change's two years, the year most
+    units share, or the source's own vintage label."""
+    change = provenance.get("change")
+    if change:
+        return f"{change['from']}–{change['to']}"
+    if provenance.get("year_mode") is not None:
+        return str(provenance["year_mode"])
     year = provenance.get("year")
-    if not year:
-        return label
-    if "–" in str(year):
-        # Each unit's most recent observation, and they disagree on the year.
-        return f"{label}, latest data ({year})"
-    return f"{label}, {year}"
+    return str(year) if year else None
+
+
+def _title(manifest: Manifest, provenance: dict) -> str:
+    """Concept, place, period: 'Present population, Ukraine, 1 January 2022'.
+
+    From the drawn data, never the slug; no "latest data" filler -- when units
+    disagree on the year, the title gives the year most share and the subtitle
+    names the exceptions.
+    """
+    if manifest.variable_id is None:
+        head = _human(f"{_SCOPE.get(manifest.level, manifest.level)} boundaries")
+        place = provenance.get("place")
+        return f"{head}, {place}" if place else head
+    parts = [_label(manifest, provenance), provenance.get("place"), _period(provenance)]
+    return ", ".join(str(part) for part in parts if part)
 
 
 def _subtitle(manifest: Manifest, provenance: dict, encoding: Encoding) -> str:
@@ -854,14 +1438,26 @@ def _subtitle(manifest: Manifest, provenance: dict, encoding: Encoding) -> str:
     unit = provenance.get("unit")
     if unit == "%":
         unit = "percent"
-    return f"{head} · {unit}" if unit else head
+    period = _period(provenance)
+    if unit and period and unit.endswith(f" {period}"):
+        unit = unit[: -len(period) - 1]     # the title already says when
+    pieces = [head] + ([unit] if unit else [])
+    exceptions = provenance.get("year_exceptions")
+    if exceptions:
+        named = sum(len(v) for v in exceptions.values())
+        if named <= 8:
+            detail = "; ".join(f"{', '.join(names)} {year}"
+                               for year, names in sorted(exceptions.items(), reverse=True))
+        else:
+            detail = f"{named} units earlier, {min(exceptions)}–{max(exceptions)}"
+        pieces.append(f"latest year {provenance['year_mode']} ({detail})")
+    return " · ".join(pieces)
 
 
 def _footer(manifest, frame: Frame, encoding: Encoding, result, top: float,
             extra: tuple | list = ()):
     """The mandatory footnote. Every rendered map states its own provenance."""
     p = result.provenance
-    dropped = result.dropped
 
     scale = p.get("scale") or registry.scale_for(manifest.level)
     vintage = p.get("vintage") or registry.SOURCE_VINTAGE
@@ -871,6 +1467,8 @@ def _footer(manifest, frame: Frame, encoding: Encoding, result, top: float,
     license_note = p.get("license")
     if license_note and license_note != "public domain":
         source += f". {p.get('attribution') or ''} ({license_note})".rstrip()
+    if p.get("context_source") and result.context:
+        source += f". Neighbouring land: {p['context_source']}"
 
     scheme = encoding.scheme
     if encoding.mode == "basemap":
@@ -889,35 +1487,14 @@ def _footer(manifest, frame: Frame, encoding: Encoding, result, top: float,
             plural = "" if scheme.k == 1 else "s"
             method += f" ({scheme.k} distinct value{plural})"
 
-    variable = p.get("variable") or manifest.variable_id
-    if variable is None:
-        variable = f"none -- {manifest.level} boundaries"
-    elif p.get("unit"):
-        variable += f" ({p['unit']})"
-    if p.get("year"):
-        variable += f", {p['year']}"
-    if p.get("statistics_source") and p.get("statistics_source") != p.get("source"):
-        # Boundaries and numbers came from different providers, possibly under
-        # different licences. Credit the data as well as the map.
-        credit = p.get("statistics_attribution") or p["statistics_source"]
-        variable += f" [{credit}]"
-
-    if dropped:
-        reasons: dict[str, int] = {}
-        for item in dropped:
-            reason = item.get("reason", "unknown")
-            reasons[reason] = reasons.get(reason, 0) + 1
-        detail = ", ".join(f"{count} {_REASONS.get(reason, reason)}"
-                           for reason, count in sorted(reasons.items()))
-        excluded = (f"{len(dropped)} of {len(dropped) + len(result.rows)} features "
-                    f"excluded ({detail}), shown hatched as no data")
-    else:
-        excluded = "0 features excluded"
+    variable = _variable_line(manifest, p)
+    excluded = _exclusions(result)
 
     lines = [
         f"Source: {source}.",
         f"Variable: {variable}.",
-        f"Projection: {_projection_label(frame)}. Classification: {method}. {excluded}.",
+        f"Projection: {_projection_label(frame)}. Classification: {method}. {excluded}."
+        + (f" {_plain_land_note(p)}" if _plain_land_note(p) else ""),
         *extra,
     ]
 
@@ -940,7 +1517,81 @@ def _footer(manifest, frame: Frame, encoding: Encoding, result, top: float,
     return "".join(out), 18 + (len(wrapped) - 1) * FOOTER_LEAD
 
 
+def _variable_line(manifest: Manifest, p: dict) -> str:
+    """What is drawn, its unit and year, how it was derived, and who measured it."""
+    if manifest.variable_id is None:
+        return f"none -- {manifest.level} boundaries"
+    variable = _label(manifest, p)
+    if p.get("unit"):
+        variable += f" ({p['unit']})"
+    if p.get("year") and not p.get("change"):
+        variable += f", {p['year']}"
+    per = p.get("per")
+    if per:
+        divisor = per.get("variable") or per.get("id")
+        detail = ", ".join(str(x) for x in (per.get("source_name") or per.get("source"),
+                                            per.get("id"), per.get("year")) if x)
+        variable += f"; divided by {_lower_first(divisor)} ({detail})"
+    change = p.get("change")
+    if change:
+        variable += ("; computed per unit as "
+                     f"{change.get('formula', '(end − start) / start × 100')}")
+    if p.get("statistics_source") and p.get("statistics_source") != p.get("source"):
+        # Boundaries and numbers came from different providers, possibly under
+        # different licences. Credit the data as well as the map.
+        credit = p.get("statistics_attribution") or p["statistics_source"]
+        vintage = p.get("statistics_vintage")
+        if vintage and vintage != p.get("year"):
+            credit += f"; {vintage}"
+        variable += f" [{credit}]"
+    return variable
+
+
+def _exclusions(result) -> str:
+    """How many units are hatched, and why, in words -- naming them when few."""
+    dropped = result.dropped
+    if not dropped:
+        return "0 features excluded"
+    meanings = {**_REASONS, **(result.provenance.get("drop_reasons") or {})}
+    by_reason: dict[str, list] = {}
+    for item in dropped:
+        by_reason.setdefault(item.get("reason", "unknown"), []).append(item)
+    parts = []
+    for reason, items in sorted(by_reason.items()):
+        part = f"{len(items)} {meanings.get(reason, reason.replace('_', ' '))}"
+        names = sorted({str(i["name"]) for i in items if i.get("name")})
+        if 0 < len(items) <= NAMED_DROPS and len(names) == len(items):
+            part += f" — {', '.join(names)}"
+        parts.append(part)
+    total = len(dropped) + len(result.rows)
+    return (f"{len(dropped)} of {total} features excluded, hatched as no data: "
+            + "; ".join(parts))
+
+
+def _plain_land_note(p: dict) -> str:
+    names = p.get("plain_land")
+    if not names:
+        return ""
+    return (f"{', '.join(names)} drawn as plain land: no permanent population, "
+            "so no statistics.")
+
+
+def _lower_first(text: str) -> str:
+    text = str(text)
+    if len(text) > 1 and text[0].isupper() and text[1].islower():
+        return text[0].lower() + text[1:]
+    return text
+
+
 def _projection_label(frame: Frame) -> str:
+    label = _main_projection_label(frame)
+    if getattr(frame, "insets", None):
+        label += ("; insets, each in its own equal-area projection: "
+                  + ", ".join(inset.scale_note for inset in frame.insets))
+    return label
+
+
+def _main_projection_label(frame: Frame) -> str:
     if frame.is_world and frame.lon0 != 0:
         lon = frame.lon0
         return (f"{_PROJECTION_LABELS.get(frame.projection, frame.projection)}, "

@@ -62,6 +62,15 @@ def build_result(geojson, manifest) -> HarvestResult:
                     "scale": f"1:{registry.scale_for(manifest.level)}",
                     "bbox": list(manifest.bbox),
                     "variable": manifest.variable_id, "unit": meta.unit,
+                    "measurement": meta.level,
                     "year": year},
         dropped=dropped,
     )
+
+
+@pytest.fixture(autouse=True)
+def _no_context_fetch(monkeypatch):
+    """`within` maps fetch Natural Earth countries as context land. Offline
+    tests must not; a test of the context layer installs its own."""
+    from mapsvc import harvest
+    monkeypatch.setattr(harvest, "context_countries", lambda: [])

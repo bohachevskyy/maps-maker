@@ -172,3 +172,25 @@ def test_pole_of_inaccessibility_stays_inside_a_c_shape():
 def test_pole_of_inaccessibility_of_a_square_is_its_centre():
     x, y = project.pole_of_inaccessibility([(0, 0), (10, 0), (10, 10), (0, 10)], 0.01)
     assert math.isclose(x, 5, abs_tol=0.05) and math.isclose(y, 5, abs_tol=0.05)
+
+
+def test_simplify_ring_keeps_shape_within_tolerance_and_stays_closed():
+    import math
+    # A circle of radius 100 px with 10,000 vertices: far more than shows.
+    ring = [(100 * math.cos(2 * math.pi * i / 10000), 100 * math.sin(2 * math.pi * i / 10000))
+            for i in range(10000)]
+    ring.append(ring[0])
+    out = project.simplify_ring(ring, 0.3)
+    assert out[0] == out[-1], "a closed ring stays closed"
+    assert 20 < len(out) < 200
+    # Every dropped vertex lies within tolerance of the simplified outline.
+    for x, y in ring[::97]:
+        nearest = min(project._segment_distance_sq(x, y, *out[i], *out[i + 1])
+                      for i in range(len(out) - 1))
+        assert nearest <= 0.3 ** 2 + 1e-9
+    assert project.simplify_ring(ring, 0.3) == out, "deterministic"
+
+
+def test_simplify_ring_leaves_tiny_rings_alone():
+    tri = [(0, 0), (1, 0), (0, 1), (0, 0)]
+    assert project.simplify_ring(tri, 0.3) == tri

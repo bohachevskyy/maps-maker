@@ -95,7 +95,7 @@ def test_values_are_keyed_iso_3166_2_and_leave_out_non_states(seds):
 def test_thousand_units_are_converted_so_ratios_read_plainly(seds):
     values = seds.load("DFTCP", "admin_1", "world")
     assert values.values["US-TX"] == 186_538_000
-    assert values.provenance["unit"] == "barrels"
+    assert values.provenance["unit"] == "barrels per year"
     assert seds.describe("TPOPP").unit == "people"
     assert seds.describe("ESTCD").level == "ratio"
     assert seds.describe("DFTCP").level == "count"
@@ -130,7 +130,7 @@ def test_diesel_per_capita_matches_the_hand_computed_ratio(seds):
     assert values.values["US-WY"] == pytest.approx(13642 / 587)
     assert values.values["US-NY"] == pytest.approx(58462 / 20001)
     assert values.values["US-WY"] > values.values["US-NY"]
-    assert values.provenance["unit"] == "barrels per person"
+    assert values.provenance["unit"] == "barrels per person per year"
 
 
 def test_eia_is_state_level_only(seds):

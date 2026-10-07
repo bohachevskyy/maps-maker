@@ -137,7 +137,11 @@ def test_search_offers_one_candidate_per_unit_with_the_cell_in_the_id(offline):
 
 def test_describe_reads_unit_and_level_from_the_pinned_cell(offline):
     variable = eurostat.describe(GDP)
-    assert variable.unit.startswith("Purchasing power standard")
+    # The cell's unit, made into a heading: "per inhabitant" belongs to the
+    # quantity, and the table's "by NUTS 2 region" to no map of one cell.
+    assert variable.label == "GDP per inhabitant"
+    assert variable.unit == "PPS (EU27 from 2020)"
+    assert "?" not in variable.label
     assert variable.level == "ratio"
     assert eurostat.describe("nama_10r_2gdp?freq=A&unit=MIO_EUR").level == "count"
     with pytest.raises(StatisticsError):
@@ -162,3 +166,16 @@ def test_eurostat_needs_a_basemap_with_nuts_codes():
         validate({"within": ["FRA"], "level": "nuts_2", "basemap": {"source": "overture"},
                   "variable": {"source": "eurostat", "id": GDP}})
     assert excinfo.value.field == "level", "overture has no nuts_2"
+
+
+def test_human_labels_shorten_eurostat_titles_without_losing_the_unit():
+    title = "Gross domestic product (GDP) at current market prices by NUTS 2 region"
+    assert eurostat.human_label(title, "Euro per inhabitant", []) == (
+        "GDP per inhabitant", "euro")
+    assert eurostat.human_label(title, "Million euro", []) == ("GDP", "Million euro")
+    assert eurostat.human_label(
+        title, "Million purchasing power standards (PPS, EU27 from 2020)", []) == (
+        "GDP", "Million PPS (EU27 from 2020)")
+    # Brackets that are not an abbreviation of the words before them stay.
+    assert eurostat.human_label("Population (persons) by NUTS 3 region", "Number", [])[0] \
+        == "Population (persons)"

@@ -53,7 +53,7 @@ def test_a_count_is_drawn_as_circles_over_neutral_polygons(mini_geojson):
     circles = {c.get("data-id"): c for c in _circles(root)}
     assert set(circles) == {r["id"] for r in result.rows}
     for row in result.rows:
-        assert circles[row["id"]].get("data-value") == format(row["value"], ".6g")
+        assert circles[row["id"]].get("data-value") == R._raw_value(row["value"])
 
     paths = _features(root)
     for row in result.rows:
@@ -68,7 +68,7 @@ def test_a_count_is_drawn_as_circles_over_neutral_polygons(mini_geojson):
 def test_circle_area_not_radius_is_proportional_to_value():
     rows = _rows(("A", _box(0, 40, 4, 44), 100.0), ("B", _box(6, 40, 10, 44), 400.0))
     root = ET.fromstring(render(build_manifest(bbox=(-2, 38, 12, 46)),
-                                HarvestResult(rows=rows, provenance={}, dropped=[])))
+                                HarvestResult(rows=rows, provenance={"measurement": "count"}, dropped=[])))
     r = {c.get("data-id"): float(c.get("r")) for c in _circles(root)}
     assert math.isclose((r["B"] / r["A"]) ** 2, 4.0, rel_tol=0.02)
 
@@ -77,7 +77,7 @@ def test_largest_circle_is_drawn_first_so_small_ones_stay_visible():
     rows = _rows(("A", _box(0, 40, 4, 44), 5.0), ("B", _box(6, 40, 10, 44), 500.0),
                  ("C", _box(12, 40, 16, 44), 50.0))
     root = ET.fromstring(render(build_manifest(bbox=(-2, 38, 18, 46)),
-                                HarvestResult(rows=rows, provenance={}, dropped=[])))
+                                HarvestResult(rows=rows, provenance={"measurement": "count"}, dropped=[])))
     assert [c.get("data-id") for c in _circles(root)] == ["B", "C", "A"]
 
 
@@ -87,7 +87,7 @@ def test_a_circle_sits_inside_its_unit_even_when_the_unit_is_a_c():
         [0, 40], [10, 40], [10, 42], [2, 42], [2, 48], [10, 48], [10, 50], [0, 50], [0, 40]]]}
     rows = _rows(("C", c_shape, 10.0))
     text = render(build_manifest(bbox=(-1, 39, 11, 51)),
-                  HarvestResult(rows=rows, provenance={}, dropped=[]))
+                  HarvestResult(rows=rows, provenance={"measurement": "count"}, dropped=[]))
     root = ET.fromstring(text)
     circle = _circles(root)[0]
     cx = float(circle.get("cx"))
@@ -251,3 +251,184 @@ def test_a_floating_legend_avoids_the_corner_with_land():
     root = ET.fromstring(text)
     box = next(r for r in root.findall(f".//{SVG}rect") if r.get("fill-opacity") == "0.94")
     assert float(box.get("x")) > R.CANVAS_W / 2
+
+
+# ---------------------------------------------------------------- texts ---
+
+def _footnote(root):
+    return " ".join(_texts(root))
+
+
+def test_drop_reasons_are_stated_in_words_with_the_units_named():
+    box = _box(0, 40, 4, 44)
+    prov = _ratio(variable="present population", unit="people", year="1 January 2022",
+                  measurement="count",
+                  drop_reasons={"not_estimated": "not estimated by Ukrstat since 2014 "
+                                                 "(temporarily occupied)"})
+    result = HarvestResult(
+        rows=_rows(("UA-30", box, 2952301.0)), provenance=prov,
+        dropped=[{"id": "UA-43", "name": "Crimea", "reason": "not_estimated",
+                  "geometry": _box(6, 40, 10, 44)},
+                 {"id": "UA-40", "name": "Sevastopol", "reason": "not_estimated",
+                  "geometry": _box(6, 38, 7, 39)}])
+    text = _footnote(ET.fromstring(render(build_manifest(bbox=(-2, 36, 12, 46)), result)))
+    assert "not estimated by Ukrstat since 2014" in text
+    assert "— Crimea, Sevastopol" in text
+    assert "not_estimated" not in text
+
+
+def test_title_and_footnote_of_a_per_capita_map_state_the_divisor():
+    box = _box(0, 40, 4, 44)
+    prov = _ratio(variable="Distillate fuel oil total consumption per person",
+                  unit="barrels per person per year", year="2024", years_drawn=[2024],
+                  per={"source": "eia", "source_name": "EIA SEDS", "id": "TPOPP",
+                       "variable": "Resident population including Armed Forces",
+                       "phrase": "person", "year": "2023"})
+    root = ET.fromstring(render(build_manifest(bbox=(-2, 38, 6, 46)),
+                                HarvestResult(rows=_rows(("US-TX", box, 6.2)),
+                                              provenance=prov, dropped=[])))
+    texts = _texts(root)
+    title = root.get("aria-label")
+    assert title == "Distillate fuel oil total consumption per person, 2024"
+    assert "divided by resident population including Armed Forces (EIA SEDS, TPOPP, 2023)" \
+        in " ".join(texts)
+
+
+def test_a_change_names_both_years_and_its_formula():
+    box = _box(0, 40, 4, 44)
+    prov = _ratio(variable="change in population", unit="% change 2000–2023",
+                  year="2000–2023",
+                  change={"from": 2000, "to": 2023, "formula": "(2023 − 2000) / 2000 × 100"})
+    root = ET.fromstring(render(build_manifest(bbox=(-2, 38, 6, 46)),
+                                HarvestResult(rows=_rows(("AAA", box, 12.5)),
+                                              provenance=prov, dropped=[])))
+    assert root.get("aria-label") == "Change in population, 2000–2023"
+    assert "(2023 − 2000) / 2000 × 100" in _footnote(root)
+
+
+def test_title_is_concept_place_period_without_filler():
+    box = _box(0, 40, 4, 44)
+    one = _ratio(variable="median household income", year="2020–2024 (ACS 5-year)",
+                 years_drawn=[2024], place="California")
+    root = ET.fromstring(render(build_manifest(bbox=(-2, 38, 6, 46)),
+                                HarvestResult(rows=_rows(("A", box, 1.0)),
+                                              provenance=one, dropped=[])))
+    assert root.get("aria-label") == \
+        "Median household income, California, 2020–2024 (ACS 5-year)"
+    many = _ratio(variable="share", year="2022–2025", years_drawn=[2022, 2024, 2025],
+                  place="Europe", year_mode=2025,
+                  year_exceptions={"2022": ["Ukraine"], "2024": ["Albania", "Iceland"]})
+    root = ET.fromstring(render(build_manifest(bbox=(-2, 38, 6, 46)),
+                                HarvestResult(rows=_rows(("A", box, 1.0)),
+                                              provenance=many, dropped=[])))
+    assert root.get("aria-label") == "Share, Europe, 2025"
+    assert "latest data" not in " ".join(_texts(root))
+    assert "latest year 2025 (Albania, Iceland 2024; Ukraine 2022)" in " ".join(_texts(root))
+
+
+def test_a_query_string_id_never_reaches_the_page():
+    box = _box(0, 40, 4, 44)
+    manifest = build_manifest(bbox=(-2, 38, 6, 46), variable_source="eurostat",
+                              variable_id="nama_10r_2gdp?freq=A&unit=PPS_EU27_2020_HAB")
+    text = render(manifest, HarvestResult(rows=_rows(("A", box, 1.0)),
+                                          provenance=_ratio(), dropped=[]))
+    assert "?freq" not in text and "&amp;unit" not in text
+
+
+def test_the_world_outline_does_not_touch_the_page_gutter(mini_geojson):
+    """Its widest point is one equator vertex; at a 1 px margin it read as cut."""
+    manifest = build_manifest(bbox=WORLD, variable_id="POP_RANK")
+    frame = R.Frame(manifest, [f["geometry"] for f in mini_geojson["features"]])
+    xs = [x for x, _ in frame.outline]
+    assert min(xs) >= R.PAD + 8 and max(xs) <= R.PAD + R.MAP_W - 8
+
+
+def test_sub_pixel_islets_are_dropped_but_a_unit_keeps_its_largest_part():
+    islet = [[[20.0 + i * 0.01, 40.0], [20.001 + i * 0.01, 40.0],
+              [20.001 + i * 0.01, 40.001], [20.0 + i * 0.01, 40.0]] for i in range(50)]
+    main = [[[0.0, 40.0], [4.0, 40.0], [4.0, 44.0], [0.0, 44.0], [0.0, 40.0]]]
+    country = {"type": "MultiPolygon", "coordinates": [main] + [[r] for r in islet]}
+    speck = {"type": "Polygon", "coordinates": islet[:1]}
+    root = ET.fromstring(render(build_manifest(bbox=(-2, 38, 22, 46)), HarvestResult(
+        rows=_rows(("BIG", country, 1.0), ("TINY", speck, 2.0)),
+        provenance=_ratio(), dropped=[])))
+    paths = _features(root)
+    assert paths["BIG"].get("d").count("M") == 1, "50 invisible islets not written"
+    # A unit that is all speck still shows: as a marker in its class colour.
+    markers = [c for c in root.iter(f"{SVG}circle") if c.get("class") == "small-unit"]
+    assert [c.get("data-id") for c in markers] == ["TINY"]
+
+
+def test_an_enclave_is_outlined_named_and_its_host_symbol_kept_off_it():
+    """Kyiv city inside Kyiv oblast: two circles, the city's on the city."""
+    host = {"type": "Polygon", "coordinates": [
+        [[0, 40], [10, 40], [10, 50], [0, 50], [0, 40]],
+        [[4, 44], [6, 44], [6, 46], [4, 46], [4, 44]]]}          # the hole
+    city = {"type": "Polygon", "coordinates": [[[4, 44], [6, 44], [6, 46], [4, 46], [4, 44]]]}
+    rows = [{"id": "UA-32", "name": "Kyiv Oblast", "geometry": host, "value": 1_800_000.0},
+            {"id": "UA-30", "name": "Kyiv", "geometry": city, "value": 2_952_301.0}]
+    root = ET.fromstring(render(build_manifest(bbox=(-1, 39, 11, 51)), HarvestResult(
+        rows=rows, provenance={"measurement": "count"}, dropped=[])))
+    enclaves = [p for p in root.iter(f"{SVG}path") if p.get("class") == "enclave"]
+    assert [p.get("data-id") for p in enclaves] == ["UA-30"]
+    assert "Kyiv" in _texts(root)
+    circles = {c.get("data-id"): c for c in _circles(root)}
+    path = _features(root)["UA-30"].get("d")
+    pts = [tuple(map(float, p.split(","))) for p in re.findall(r"-?[\d.]+,-?[\d.]+", path)]
+    x0, x1 = min(x for x, _ in pts), max(x for x, _ in pts)
+    y0, y1 = min(y for _, y in pts), max(y for _, y in pts)
+    def on_city(c):
+        return x0 <= float(c.get("cx")) <= x1 and y0 <= float(c.get("cy")) <= y1
+    assert on_city(circles["UA-30"])
+    assert not on_city(circles["UA-32"]), "the oblast's circle avoids its hole"
+
+
+# ---------------------------------------------------------------- insets ---
+
+def _grid(prefix, lon0, lat0, nx, ny, size=4.0):
+    return [(f"{prefix}{i}{j}", _box(lon0 + i * size, lat0 + j * size,
+                                     lon0 + (i + 1) * size, lat0 + (j + 1) * size), 1.0 + i + j)
+            for i in range(nx) for j in range(ny)]
+
+
+def _within(**kw):
+    from mapsvc.models import Manifest
+    return Manifest(bbox=None, within=("USA",), level="admin_1", variable_source="eia",
+                    variable_id="X", basemap_source="census", **kw)
+
+
+def test_far_flung_units_go_to_insets_and_the_frame_fits_the_rest():
+    """A conterminous block, an 'Alaska' to the north-west and a 'Hawaii' far
+    south-west: both go to boxed insets, captioned, and the footnote says so."""
+    core = _grid("C", -120, 30, 6, 3)                       # 24 x 12 degrees
+    alaska = ("AK", _box(-160, 60, -148, 68), 5.0)            # ~19% of the core, far
+    hawaii = ("HI", _box(-160, 19, -155, 22), 2.0)            # small, far
+    rows = [{"id": i, "name": n, "geometry": g, "value": v}
+            for (i, g, v), n in zip(core + [alaska, hawaii],
+                                    [None] * len(core) + ["Alaska", "Hawaii"])]
+    root = ET.fromstring(render(_within(), HarvestResult(rows=rows, provenance=_ratio(),
+                                                         dropped=[])))
+    insets = [g.get("data-inset") for g in root.iter(f"{SVG}g") if g.get("data-inset")]
+    assert insets == ["Alaska", "Hawaii"]
+    assert "Alaska at" in _footnote(root) and "Hawaii at" in _footnote(root)
+    # Every unit is still drawn: nothing silently vanishes.
+    assert set(_features(root)) == {r["id"] for r in rows}
+
+
+def test_a_nearby_island_stays_in_the_main_frame():
+    """Cyprus-like: separate, but inside the box the core already spans."""
+    core = _grid("C", 0, 40, 6, 4)
+    island = ("CY", _box(20, 41, 22, 42), 3.0)
+    rows = [{"id": i, "geometry": g, "value": v} for i, g, v in core + [island]]
+    root = ET.fromstring(render(_within(), HarvestResult(rows=rows, provenance=_ratio(),
+                                                         dropped=[])))
+    assert not [g for g in root.iter(f"{SVG}g") if g.get("data-inset")]
+
+
+def test_a_bbox_map_never_moves_units_to_insets():
+    core = _grid("C", -120, 30, 6, 3)
+    far = ("HI", _box(-160, 19, -155, 22), 2.0)
+    rows = [{"id": i, "geometry": g, "value": v} for i, g, v in core + [far]]
+    root = ET.fromstring(render(build_manifest(bbox=(-170, 10, -90, 50)),
+                                HarvestResult(rows=rows, provenance=_ratio(), dropped=[])))
+    assert not [g for g in root.iter(f"{SVG}g") if g.get("data-inset")]

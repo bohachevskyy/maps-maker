@@ -16,6 +16,7 @@ def _tables() -> tuple[dict, dict]:
     from mapsvc.harvest import load_source  # late: avoids an import cycle
 
     to_two: dict[str, str] = {}
+    to_three: dict[str, str] = {}
     for feature in load_source("admin_0")["features"]:
         props = feature["properties"]
         # ISO_A2 is "-99" for eight countries, France and Norway among them;
@@ -31,8 +32,16 @@ def _tables() -> tuple[dict, dict]:
             three = props.get(key)
             if three and three != "-99":
                 to_two.setdefault(three.upper(), two)
-    # ADM0_A3 wins when two spellings collide, since it is this service's own id.
-    return to_two, {v: k for k, v in to_two.items()}
+        # The reverse is one-to-many: ISO_A2_EH gives AU to Australia, the
+        # Indian Ocean Territories (IOA) and Ashmore and Cartier (ATC). The
+        # country that holds the code in its own ISO_A2 owns it; letting the
+        # last row win mapped Overture's AU to ATC and hatched Australia.
+        # The ISO3 spelling is the join key's (South Sudan is SSD, not NE's SDS).
+        owns = str(props.get("ISO_A2") or "").upper() == two
+        three = registry.iso3_of(props) or ""
+        if three and (owns or two not in to_three):
+            to_three[two] = three
+    return to_two, to_three
 
 
 def to_alpha2(code: str) -> str | None:

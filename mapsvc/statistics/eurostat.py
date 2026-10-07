@@ -240,9 +240,58 @@ def describe(variable_id: str) -> Variable:
         unit = "people"   # "Number" would make a ratio read "per Number"
     detail = [labels[d][c] for d, c in pinned.items()
               if d not in ("unit", "freq") and len(labels[d]) > 1]
-    label = shape["label"] + (f" ({', '.join(detail)})" if detail else "")
-    return Variable(id=variable_id, label=label, unit=unit,
+    label, unit_text = human_label(shape["label"], unit, detail)
+    return Variable(id=variable_id, label=label, unit=unit_text,
                     level=_level(unit_code, unit or ""), citation=f"Eurostat {dataset}")
+
+
+def _abbreviate(text: str) -> str:
+    """'Gross domestic product (GDP)' -> 'GDP'; 'Purchasing power standard
+    (PPS, EU27 from 2020)' -> 'PPS (EU27 from 2020)'.
+
+    Only where the words before the brackets really spell the abbreviation, so
+    'Population (persons)' is left alone.
+    """
+    def replace(match: re.Match) -> str:
+        words, abbr, rest = match.group(1).split(), match.group(2), match.group(3)
+        for n in range(len(words), 0, -1):
+            initials = "".join(w[0] for w in words[-n:]).upper()
+            if initials == abbr.upper():
+                kept = " ".join(words[:-n])
+                tail = f" ({rest.strip()})" if rest else ""
+                return f"{kept} {abbr}{tail}".strip()
+        return match.group(0)
+
+    return re.sub(r"((?:[A-Za-z][\w-]*\s+){1,6}?)\(([A-Z][A-Z0-9]{1,6})(?:,([^)]*))?\)",
+                  lambda m: replace(m) + " ", text).replace("  ", " ").strip()
+
+
+def human_label(dataset_label: str, unit: str | None, detail: list) -> tuple:
+    """A dataset title and a unit label, as a legend heading and its unit line.
+
+    Eurostat's titles describe the table, not the quantity: "Gross domestic
+    product (GDP) at current market prices by NUTS 2 region" with the unit
+    "Purchasing power standard (PPS, EU27 from 2020), per inhabitant". A map of
+    one cell of it shows "GDP per inhabitant" in "PPS (EU27 from 2020)". The
+    dataset id stays in the footnote's vintage.
+    """
+    label = re.sub(r"\s*(,|\band\b|\bby\b)?\s*NUTS\s*\d?\s*regions?\b", "",
+                   dataset_label, flags=re.I)
+    label = re.sub(r"\s+(by|and)\s*$", "", label.strip(" ,"))
+    label = re.sub(r"\s+at current (market )?prices\b", "", label, flags=re.I)
+    label = _abbreviate(label)
+    text = _abbreviate(unit) if unit else None
+    if text:
+        match = re.match(r"^(.*?),?\s*\bper (inhabitant|capita|person)\b(.*)$", text, re.I)
+        if match:
+            label = f"{label} per {match.group(2).lower()}"
+            text = " ".join(part for part in (match.group(1).strip(" ,"),
+                                              match.group(3).strip(" ,")) if part) or None
+            if text and text.lower() in ("euro", "euros"):
+                text = "euro"
+    if detail:
+        label += f" ({', '.join(detail)})"
+    return label, text
 
 
 @functools.lru_cache(maxsize=16)

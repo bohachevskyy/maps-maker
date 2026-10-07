@@ -57,13 +57,13 @@ VARIABLES = {
     "admin_1": {
         "present_population": Variable(
             id="present_population",
-            label="population (present, 1 Jan 2022)",
+            label="present population",
             unit="people", level="count",
             citation="Ukrstat, Population (by estimate) as of January 1, 2022",
         ),
         "resident_population": Variable(
             id="resident_population",
-            label="population (resident, 1 Jan 2022)",
+            label="resident population",
             unit="people", level="count",
             citation="Ukrstat, Population (by estimate) as of January 1, 2022",
         ),
@@ -115,6 +115,8 @@ def load(variable_id: str, level: str, region: str) -> Values:
             "attribution": CAPABILITIES.attribution,
             "year": VINTAGE,
             "key": "ISO3166_2",
+            "reasons": {NOT_ESTIMATED: "not estimated by Ukrstat since 2014 "
+                                       "(temporarily occupied)"},
             "note": ("Excludes the temporarily occupied territories of the "
                      "Autonomous Republic of Crimea and Sevastopol (Ukrstat "
                      "publishes no estimate for them)"),

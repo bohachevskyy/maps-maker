@@ -33,7 +33,7 @@ NO_DATA = {-99, "-99", "", None}
 # Bump when the shape of a cached HarvestResult changes -- new provenance keys,
 # a different join, altered drop reasons. Without it a code change silently
 # keeps serving rows written in the old format.
-CACHE_VERSION = 4
+CACHE_VERSION = 10
 
 
 class HarvestError(ValueError):
@@ -182,12 +182,15 @@ def _base(manifest: Manifest) -> HarvestResult:
     cached = cache_dir() / "harvest" / f"{key}.json"
     if cached.exists():
         stored = json.loads(cached.read_text())
-        return HarvestResult(stored["rows"], stored["provenance"], stored["dropped"])
+        return HarvestResult(stored["rows"], stored["provenance"], stored["dropped"],
+                             context=stored.get("context", []))
 
     result = _build(manifest)
+    _add_context(manifest, result)
+    result.provenance["place"] = _place(manifest, result)
     cached.parent.mkdir(parents=True, exist_ok=True)
     payload = {"rows": result.rows, "provenance": result.provenance,
-               "dropped": result.dropped}
+               "dropped": result.dropped, "context": result.context}
     temporary = cached.with_suffix(".part")
     temporary.write_text(json.dumps(payload, sort_keys=True))
     temporary.replace(cached)
@@ -277,6 +280,154 @@ def context_places(extent: tuple, within: tuple | None) -> list:
     return found[:PLACES_KEEP]
 
 
+# ----------------------------------------------------------------- context ---
+
+# How far beyond the mapped units the context land reaches, as a share of the
+# units' larger ground span. The page is at most ~3:1 either way, so 0.8 on
+# each side covers whatever slack the fit leaves; the clipped edges stay off
+# the page.
+CONTEXT_REACH = 0.8
+CONTEXT_LEVEL = "admin_0"
+
+
+def context_countries() -> list:
+    """Natural Earth countries for the context layer. A seam tests replace."""
+    return load_source(CONTEXT_LEVEL)["features"]
+
+
+def _add_context(manifest: Manifest, result: HarvestResult) -> None:
+    """Neighbouring land for a `within` map, muted, so it does not float.
+
+    A bbox map already carries everything in its window; a `within` map
+    carries only the units asked for, and Russia, Poland and Belarus vanish
+    from around Ukraine. Natural Earth countries near the units are clipped to
+    a generous window around them and handed to render as plain geometry.
+    Countries whose label point lies in a drawn unit are the mapped land
+    itself and are left out, so their coarser coastline cannot peek out.
+    """
+    if not manifest.within:
+        return
+    drawn = [r["geometry"] for r in result.rows] + [d["geometry"] for d in result.dropped
+                                                     if d.get("geometry")]
+    if not drawn:
+        return
+    extent = project.extent_of(drawn)
+    if extent == project.WORLD_EXTENT:
+        return
+    window = _context_window(extent)
+    try:
+        features = context_countries()
+    except OSError as exc:      # no network and no cached file: map without it
+        result.provenance["context_error"] = str(exc)
+        return
+
+    outer = [(_box(ring), ring) for g in drawn for ring in project.outer_rings(g)
+             if len(ring) >= 4]
+    context = []
+    for feature in features:
+        props = feature.get("properties") or {}
+        geometry = feature.get("geometry")
+        if not geometry or geometry["type"] not in ("Polygon", "MultiPolygon"):
+            continue
+        label = (props.get("LABEL_X"), props.get("LABEL_Y"))
+        if None not in label and any(
+                b[0] <= label[0] <= b[2] and b[1] <= label[1] <= b[3]
+                and project.point_in_ring(label[0], label[1], ring) for b, ring in outer):
+            continue
+        rings = []
+        for ring in project.outer_rings(geometry):
+            box = _box(ring)
+            if box[2] < window[0] or box[0] > window[2] or box[3] < window[1] \
+                    or box[1] > window[3]:
+                continue
+            clipped = project.clip_to_extent(ring, window)
+            if len(clipped) >= 3:
+                clipped = [(round(x, 5), round(y, 5)) for x, y in clipped]
+                rings.append([list(p) for p in clipped + [clipped[0]]])
+        if rings:
+            context.append({"id": registry.iso3_of(props) or props.get("ADM0_A3"),
+                            "geometry": {"type": "MultiPolygon",
+                                         "coordinates": [[r] for r in rings]}})
+    context.sort(key=lambda c: str(c["id"]))
+    result.context = list(result.context) + context
+    if context:
+        result.provenance["context_source"] = (
+            f"{registry.SOURCE_NAME} {registry.SOURCE_VINTAGE} 1:"
+            f"{registry.scale_for(CONTEXT_LEVEL)} (public domain)")
+
+
+_UNION = {"EU", "EU27", "EU27_2020"}
+
+
+def _place(manifest: Manifest, result: HarvestResult) -> str | None:
+    """Where the map is, in words, for the title: 'Ukraine', 'California', 'Europe'.
+
+    From the political filter the manifest names, resolved against Natural
+    Earth's country names (the context file, already on disk) and the static
+    US state table. A long list of countries is named by the continent most of
+    them share, or not at all; a bbox is named only when it is the world.
+    """
+    from mapsvc import usfips
+
+    if not manifest.within:
+        return "World" if manifest.bbox is not None and tuple(manifest.bbox) == \
+            project.WORLD_EXTENT else None
+    try:
+        countries = context_countries()
+    except OSError:
+        countries = []
+    by_code: dict = {}
+    for feature in countries:
+        props = feature.get("properties") or {}
+        for key in ("ADM0_A3", "ISO_A3", "ISO_A2_EH", "ISO_A2"):
+            code = str(props.get(key) or "").upper()
+            if code and code != "-99":
+                by_code.setdefault(code, props)
+    unit_names = {str(u["id"]).upper(): u.get("name") for u in result.rows + result.dropped}
+
+    names, continents = [], []
+    for code in manifest.within:
+        if code in _UNION:
+            names.append("European Union")
+        elif code.startswith("US-") and code[3:] in usfips.NAMES:
+            names.append(usfips.NAMES[code[3:]])
+        elif code in by_code:
+            names.append(by_code[code].get("NAME") or code)
+            continents.append(by_code[code].get("CONTINENT"))
+        elif unit_names.get(code):
+            names.append(unit_names[code])
+        else:
+            names.append(code)
+    if len(names) == 1:
+        return names[0]
+    if len(names) <= 3:
+        return ", ".join(names[:-1]) + " and " + names[-1]
+    if continents and len(continents) == len(names):
+        top = max(set(continents), key=lambda c: (continents.count(c), str(c)))
+        if top and continents.count(top) >= 0.8 * len(continents):
+            return top
+    return None
+
+
+def _context_window(extent) -> tuple:
+    import math
+    min_lon, min_lat, max_lon, max_lat = extent
+    lat0 = (min_lat + max_lat) / 2.0
+    squash = max(0.2, math.cos(math.radians(lat0)))
+    ground = max((max_lon - min_lon) * squash, max_lat - min_lat, 1.0)
+    reach_lat = CONTEXT_REACH * ground
+    reach_lon = reach_lat / squash
+    window = (max(-180.0, min_lon - reach_lon), max(-90.0, min_lat - reach_lat),
+              min(180.0, max_lon + reach_lon), min(90.0, max_lat + reach_lat))
+    return window
+
+
+def _box(ring) -> tuple:
+    xs = [p[0] for p in ring]
+    ys = [p[1] for p in ring]
+    return min(xs), min(ys), max(xs), max(ys)
+
+
 # -------------------------------------------------------------------- join ---
 
 # One coarser step, for the message when a level is too fine for a window.
@@ -364,14 +515,26 @@ def _build(manifest: Manifest) -> HarvestResult:
         "change": values.provenance.get("change"),
     })
 
-    value_level = values.provenance.get("level", "count")
+    # The measurement level of what is drawn, which render reads instead of
+    # consulting a catalogue (that would be I/O). A `per` or `change` result is
+    # a ratio whatever its numerator was: derive says so in its provenance.
+    value_level = values.provenance.get("level")
+    if value_level is None:
+        value_level = statistics.describe(manifest.variable_source,
+                                          manifest.variable_id).level
+    provenance["measurement"] = value_level
     joined_years: set = set()
     joined_divisor_years: set = set()
+    drawn_years: list = []          # (name, year) of each drawn unit
+    keys_of: dict = {}
     rows: list[dict] = []
     dropped: list[dict] = []
 
     for unit in boundaries.units:
         entry = {"id": unit["id"], "geometry": unit["geometry"]}
+        if unit.get("name"):
+            # For the footnote and labels: "Crimea", not an Overture UUID.
+            entry["name"] = unit["name"]
         raw_key = (unit.get("keys") or {}).get(statistics_key)
         # Compatibility for third-party providers written against the original
         # single-key protocol, but only after their result explicitly declared
@@ -379,6 +542,7 @@ def _build(manifest: Manifest) -> HarvestResult:
         if raw_key is None and statistics_key in boundary_keys:
             raw_key = unit.get("key")
         key = str(raw_key).upper() if raw_key else None
+        keys_of[unit["id"]] = key
 
         if key is not None and key in values.missing:
             # The source covers this unit and says why it has no value.
@@ -403,29 +567,93 @@ def _build(manifest: Manifest) -> HarvestResult:
         rows.append({**entry, "value": value})
         if key in values.years:
             joined_years.add(values.years[key])
+            drawn_years.append((entry.get("name") or str(unit["id"]), values.years[key]))
         if key in values.divisor_years:
             joined_divisor_years.add(values.divisor_years[key])
 
     if not rows:
         raise HarvestError(*_nothing_usable(manifest, dropped))
 
-    # A source reports the years of everything it loaded; the footnote must
-    # state the years of what is drawn. Eurostat's NUTS 2 file spans 2021-2024
-    # only because of candidate countries an EU map never shows.
+    plain = _plain_land(dropped, keys_of, statistics_key)
+    if plain:
+        dropped = [d for d in dropped if d not in plain]
+        provenance["plain_land"] = sorted(str(d.get("name") or d["id"]) for d in plain)
+    _state_what_is_drawn(provenance, values, dropped, joined_years,
+                         joined_divisor_years, drawn_years)
+    rows.sort(key=lambda r: str(r["id"]))
+    dropped.sort(key=lambda r: (str(r["id"]), r["reason"]))
+    context = [{"id": str(d["id"]), "geometry": d["geometry"]}
+               for d in sorted(plain, key=lambda d: str(d["id"]))]
+    return HarvestResult(rows=rows, provenance=provenance, dropped=dropped,
+                         context=context)
+
+
+# Territories with no permanent population, which no statistics source covers.
+# Hatching Antarctica as "no data" on every world map says a value is missing
+# where none could exist; it is drawn as plain land and not counted as excluded.
+UNINHABITED = {"ATA", "ATF", "HMD", "BVT", "SGS"}
+
+
+def _plain_land(dropped: list, keys_of: dict, statistics_key: str) -> list:
+    if statistics_key != "ISO3":
+        return []
+    return [d for d in dropped if d["reason"] in ("no_join", "no_data")
+            and keys_of.get(d["id"]) in UNINHABITED]
+
+
+# What a drop reason means, for the footnote. A source can add its own (Ukrstat:
+# "not_estimated") or override these through provenance["reasons"].
+DROP_REASONS = {
+    "no_data": "no value reported by the source",
+    "no_join": "no matching row in the statistics source",
+    "no_divisor": "no divisor value to divide by",
+    "not_estimated": "not estimated by the source",
+}
+
+
+def _state_what_is_drawn(provenance: dict, values, dropped: list,
+                         joined_years: set, joined_divisor_years: set,
+                         drawn_years: list = ()) -> None:
+    """Restate the provenance over the units actually drawn, for render to read.
+
+    A source reports the years of everything it loaded; the title and footnote
+    must state the years of what is drawn. Eurostat's NUTS 2 file spans
+    2021-2024 only because of candidate countries an EU map never shows, and
+    Natural Earth's GDP_YEAR spans 2009-2025 over the world but not over a
+    16-country map of Europe.
+    """
     if joined_years and re.fullmatch(r"\d{4}(–\d{4})?", str(provenance.get("year") or "")):
         provenance["year"] = derive.year_label(joined_years)
+    # More than one distinct year means each unit shows its latest observation
+    # and they disagree: the title says "latest data" rather than implying one
+    # vintage.
+    provenance["years_drawn"] = sorted(joined_years)
+    if len(joined_years) > 1 and drawn_years:
+        # The year most units share, and who differs: "2025 (Ukraine 2022;
+        # Albania, Iceland 2024)" rather than a "latest data (2022-2025)" range.
+        counts: dict = {}
+        for _, year in drawn_years:
+            counts[year] = counts.get(year, 0) + 1
+        mode = max(counts, key=lambda y: (counts[y], y))
+        others: dict = {}
+        for name, year in drawn_years:
+            if year != mode:
+                others.setdefault(str(year), []).append(name)
+        provenance["year_mode"] = mode
+        provenance["year_exceptions"] = {y: sorted(n) for y, n in sorted(others.items())}
+
     per = provenance.get("per")
     if per and values.divisor_years is not None and (joined_divisor_years
                                                      or values.divisor_years):
         # The divisor's year over the drawn units only; None if none is dated.
-        per = provenance["per"] = {**per, "year": derive.year_label(joined_divisor_years)}
-        if per["year"] and per["year"] != provenance.get("year"):
-            # Divided by a figure from another year: the footnote must say so.
-            provenance["year"] = f"{provenance.get('year')}; {per['phrase']} {per['year']}"
+        # The footnote states it beside the divisor, and the title keeps the
+        # numerator's year.
+        provenance["per"] = {**per, "year": derive.year_label(joined_divisor_years)}
 
-    rows.sort(key=lambda r: str(r["id"]))
-    dropped.sort(key=lambda r: (str(r["id"]), r["reason"]))
-    return HarvestResult(rows=rows, provenance=provenance, dropped=dropped)
+    meanings = {**DROP_REASONS, **(values.provenance.get("reasons") or {})}
+    present = sorted({item["reason"] for item in dropped})
+    provenance["drop_reasons"] = {reason: meanings.get(reason, reason.replace("_", " "))
+                                  for reason in present}
 
 
 def _nothing_usable(manifest: Manifest, dropped: list) -> tuple[str, str]:

@@ -113,8 +113,14 @@ def describe(variable_id: str) -> Variable:
         raise StatisticsError(f"EIA SEDS has no series {variable_id!r}", "variable.id")
     description, unit = found
     _, plain = _scale(description, unit)
+    level = _level(description, unit)
+    if plain and level == "count" and re.search(r"consumption|production|expenditures",
+                                                description, re.I):
+        # SEDS flows are annual totals; a bare "barrels" leaves the reader
+        # guessing the period.
+        plain = f"{plain} per year"
     return Variable(id=variable_id, label=description, unit=plain or None,
-                    level=_level(description, unit),
+                    level=level,
                     citation="EIA State Energy Data System")
 
 
