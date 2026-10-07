@@ -259,3 +259,36 @@ def test_flow_and_lines_render(mini_geojson):
     assert "Band width = soldiers" in svg
     assert "Retreat, Oct.–Dec." in svg
     assert svg == _overlay_map(mini_geojson, [troops])
+
+
+# --------------------------------------------------------------- framing ---
+
+from mapsvc import overlay_render, project  # noqa: E402
+
+
+def test_world_map_centres_on_concentrated_overlays():
+    pacific = [150.0, 160.0, 170.0, -170.0, 140.0, 120.0, -75.0]
+    assert project.central_meridian(pacific) == 150.0
+    assert project.central_meridian([-10.0, 10.0, 100.0, -100.0]) is None   # spread out
+    assert project.central_meridian([1.0, -2.0, 3.0]) is None               # already 0
+
+
+def test_rings_crossing_a_moved_seam_are_split_not_smeared():
+    greenland = [(-70.0, 60.0), (-15.0, 60.0), (-15.0, 80.0), (-70.0, 80.0), (-70.0, 60.0)]
+    pieces = project.split_at_seam(project.unwrap_ring(greenland, 150.0), 150.0)
+    assert len(pieces) == 2
+    for piece in pieces:
+        lons = [lon for lon, _ in piece]
+        assert -30.0 - 1e-9 <= min(lons) and max(lons) <= 330.0 + 1e-9
+    inside = [(10.0, 0.0), (20.0, 0.0), (20.0, 10.0), (10.0, 0.0)]
+    assert project.split_at_seam(inside, 150.0) == [inside]
+
+
+def test_within_maps_frame_on_units_near_the_overlay():
+    def square(lon, lat):
+        return {"type": "Polygon", "coordinates": [[(lon, lat), (lon + 1, lat), (lon + 1, lat + 1),
+                                                    (lon, lat + 1), (lon, lat)]]}
+    mainland, overseas = square(2.0, 46.0), square(-53.0, 4.0)
+    layer = {"kind": "points", "features": [{"lon": 2.5, "lat": 46.5}]}
+    assert overlay_render.focus([mainland, overseas], [layer]) == [mainland]
+    assert overlay_render.focus([mainland, overseas], []) == [mainland, overseas]

@@ -98,6 +98,51 @@ def _palette(category: dict | None, kind: str) -> dict:
 
 # ------------------------------------------------------------------- draw ---
 
+FOCUS_PAD = 0.25
+
+
+def overlay_extent(layers: list) -> tuple | None:
+    """lon/lat box of every overlay feature, or None (none, or wraps the globe)."""
+    lons, lats = [], []
+    for layer in layers or []:
+        if layer["kind"] == "lines":
+            for f in layer["features"]:
+                lons.extend(c[0] for c in f["coords"])
+                lats.extend(c[1] for c in f["coords"])
+        else:
+            lons.extend(f["lon"] for f in layer["features"])
+            lats.extend(f["lat"] for f in layer["features"])
+    if not lons or max(lons) - min(lons) > 180.0:
+        return None
+    return (min(lons), min(lats), max(lons), max(lats))
+
+
+def focus(geometries: list, layers: list) -> list:
+    """The polygons a `within` map should be framed on, when it has overlays.
+
+    `within ["FRA"]` brings French Guiana and Réunion; framed on every unit,
+    the high-speed lines of metropolitan France shrink to a corner. The units
+    near the overlay -- its own extent padded by a quarter -- define the frame
+    instead; the rest are still drawn, clipped by the page.
+    """
+    box = overlay_extent(layers)
+    if box is None:
+        return geometries
+    dx = (box[2] - box[0]) * FOCUS_PAD + 0.5
+    dy = (box[3] - box[1]) * FOCUS_PAD + 0.5
+    west, south, east, north = box[0] - dx, box[1] - dy, box[2] + dx, box[3] + dy
+    keep = []
+    for geometry in geometries:
+        for ring in project.outer_rings(geometry):
+            lons = [p[0] for p in ring]
+            lats = [p[1] for p in ring]
+            if (max(lons) - min(lons) <= 180.0 and min(lons) <= east and max(lons) >= west
+                    and min(lats) <= north and max(lats) >= south):
+                keep.append(geometry)
+                break
+    return keep or geometries
+
+
 def centre_lon(layers: list) -> float | None:
     """A world map's central meridian, derived from where its overlays are.
 

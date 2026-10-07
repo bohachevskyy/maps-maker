@@ -476,8 +476,9 @@ one country) so the overlay carries the message.
       "atlantic hurricane storm tracks"}}] -- then pick from the candidates.
 
 A `within` country includes its overseas parts (France's Caribbean and Indian \
-Ocean departments, Norway's Svalbard): when the request means the mainland, \
-add a bbox around it as well. A world map is bbox [-180, -90, 180, 90]. An \
+Ocean departments); with an overlay the map frames itself on the units near \
+the overlay, so `within` alone is right for a country's network. Add a bbox \
+only to zoom in. A world map is bbox [-180, -90, 180, 90]. An \
 end date is exclusive: all of 2019 is start=2019-01-01;end=2020-01-01.
 
 For `web`, never invent data and never paste values: either search the curated \

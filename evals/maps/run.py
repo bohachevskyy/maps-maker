@@ -265,6 +265,11 @@ def _extent_for(manifest, result=None):
     result = result or harvest(manifest)
     geometries = [row["geometry"] for row in result.rows]
     geometries.extend(item["geometry"] for item in result.dropped if item.get("geometry"))
+    if getattr(result, "overlays", None):
+        # The same framing the renderer uses: the units near the overlay.
+        from mapsvc import overlay_render
+
+        geometries = overlay_render.focus(geometries, result.overlays)
     return project.extent_of(geometries) if geometries else None
 
 

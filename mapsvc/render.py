@@ -140,7 +140,9 @@ def render(manifest: Manifest, result: HarvestResult) -> str:
     if not geometries:
         raise RenderError("no features to draw for this region", "region")
 
-    frame = Frame(manifest, geometries, overlay_render.centre_lon(result.overlays))
+    framed = (overlay_render.focus(geometries, result.overlays)
+              if result.overlays and manifest.bbox is None else geometries)
+    frame = Frame(manifest, framed, overlay_render.centre_lon(result.overlays))
     p = result.provenance
     encoding = _encoding(manifest, rows, p)
 
