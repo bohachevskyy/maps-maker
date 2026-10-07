@@ -511,16 +511,22 @@ def _segment_distance_sq(px, py, ax, ay, bx, by) -> float:
     return dx * dx + dy * dy
 
 
-def _signed_distance(x: float, y: float, ring) -> float:
-    """Distance to the ring's edge, positive inside and negative outside."""
+def _signed_distance(x: float, y: float, ring, holes=()) -> float:
+    """Distance to the polygon's edge, positive inside and negative outside.
+
+    A hole's edge is an edge, and a point in a hole is outside: Kyiv oblast
+    surrounds Kyiv city, and the oblast's symbol must not land on the city.
+    """
     best = float("inf")
-    n = len(ring)
-    for i in range(n):
-        ax, ay = ring[i]
-        bx, by = ring[(i + 1) % n]
-        best = min(best, _segment_distance_sq(x, y, ax, ay, bx, by))
+    for r in (ring, *holes):
+        n = len(r)
+        for i in range(n):
+            ax, ay = r[i]
+            bx, by = r[(i + 1) % n]
+            best = min(best, _segment_distance_sq(x, y, ax, ay, bx, by))
     d = math.sqrt(best)
-    return d if point_in_ring(x, y, ring) else -d
+    inside = point_in_ring(x, y, ring) and not any(point_in_ring(x, y, h) for h in holes)
+    return d if inside else -d
 
 
 def simplify_ring(ring, tolerance: float) -> list:
@@ -585,7 +591,7 @@ def _decimate(ring, limit: int) -> list:
 
 
 def pole_of_inaccessibility(ring, precision: float = 1.0,
-                            max_vertices: int = 160) -> tuple[float, float]:
+                            max_vertices: int = 160, holes=()) -> tuple[float, float]:
     """The interior point farthest from the ring's edge (Mapbox's polylabel).
 
     A centroid can fall outside a crescent or a C-shaped unit -- Croatia's
@@ -598,6 +604,7 @@ def pole_of_inaccessibility(ring, precision: float = 1.0,
     import heapq
 
     ring = _decimate(ring, max_vertices)
+    holes = [_decimate(h, max_vertices) for h in holes if len(h) >= 3]
     xs = [p[0] for p in ring]
     ys = [p[1] for p in ring]
     min_x, min_y, max_x, max_y = min(xs), min(ys), max(xs), max(ys)
@@ -610,7 +617,7 @@ def pole_of_inaccessibility(ring, precision: float = 1.0,
 
     def push(cx: float, cy: float, h: float):
         nonlocal counter
-        d = _signed_distance(cx, cy, ring)
+        d = _signed_distance(cx, cy, ring, holes)
         heapq.heappush(heap, (-(d + h * math.sqrt(2)), counter, cx, cy, h, d))
         counter += 1
 
@@ -625,7 +632,7 @@ def pole_of_inaccessibility(ring, precision: float = 1.0,
 
     # Start from the vertex-mean, which is usually close and often inside.
     mx, my = sum(xs) / len(xs), sum(ys) / len(ys)
-    best = (_signed_distance(mx, my, ring), mx, my)
+    best = (_signed_distance(mx, my, ring, holes), mx, my)
 
     evaluated = 0
     while heap and evaluated < 4000:

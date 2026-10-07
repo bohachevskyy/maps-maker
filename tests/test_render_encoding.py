@@ -353,3 +353,27 @@ def test_sub_pixel_islets_are_dropped_but_a_unit_keeps_its_largest_part():
     # A unit that is all speck still shows: as a marker in its class colour.
     markers = [c for c in root.iter(f"{SVG}circle") if c.get("class") == "small-unit"]
     assert [c.get("data-id") for c in markers] == ["TINY"]
+
+
+def test_an_enclave_is_outlined_named_and_its_host_symbol_kept_off_it():
+    """Kyiv city inside Kyiv oblast: two circles, the city's on the city."""
+    host = {"type": "Polygon", "coordinates": [
+        [[0, 40], [10, 40], [10, 50], [0, 50], [0, 40]],
+        [[4, 44], [6, 44], [6, 46], [4, 46], [4, 44]]]}          # the hole
+    city = {"type": "Polygon", "coordinates": [[[4, 44], [6, 44], [6, 46], [4, 46], [4, 44]]]}
+    rows = [{"id": "UA-32", "name": "Kyiv Oblast", "geometry": host, "value": 1_800_000.0},
+            {"id": "UA-30", "name": "Kyiv", "geometry": city, "value": 2_952_301.0}]
+    root = ET.fromstring(render(build_manifest(bbox=(-1, 39, 11, 51)), HarvestResult(
+        rows=rows, provenance={"measurement": "count"}, dropped=[])))
+    enclaves = [p for p in root.iter(f"{SVG}path") if p.get("class") == "enclave"]
+    assert [p.get("data-id") for p in enclaves] == ["UA-30"]
+    assert "Kyiv" in _texts(root)
+    circles = {c.get("data-id"): c for c in _circles(root)}
+    path = _features(root)["UA-30"].get("d")
+    pts = [tuple(map(float, p.split(","))) for p in re.findall(r"-?[\d.]+,-?[\d.]+", path)]
+    x0, x1 = min(x for x, _ in pts), max(x for x, _ in pts)
+    y0, y1 = min(y for _, y in pts), max(y for _, y in pts)
+    def on_city(c):
+        return x0 <= float(c.get("cx")) <= x1 and y0 <= float(c.get("cy")) <= y1
+    assert on_city(circles["UA-30"])
+    assert not on_city(circles["UA-32"]), "the oblast's circle avoids its hole"

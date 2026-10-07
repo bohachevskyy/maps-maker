@@ -207,6 +207,7 @@ def render(manifest: Manifest, result: HarvestResult) -> str:
         svg, circles = _symbols(rows, frame, encoding)
         body.append(svg)
         units.extend(circles)
+    body.append(_enclaves(rows, frame, encoding))
 
     art = None
     if has_overlays:
@@ -488,7 +489,7 @@ def _anchor(geometry, frame: Frame) -> tuple[float, float] | None:
 
 def _placement(geometry, frame: Frame):
     """(anchor, share of the unit's area inside the window), or None."""
-    best, best_area = None, 0.0
+    best, best_area, best_holes = None, 0.0, []
     total = visible = 0.0
     for part in _parts(geometry):
         ring = project.unwrap_ring(part[0], frame.lon0)
@@ -505,10 +506,12 @@ def _placement(geometry, frame: Frame):
         visible += area
         if best is None or area > best_area:
             best, best_area = pts, area
+            best_holes = [[frame.xy(lon, lat) for lon, lat in project.unwrap_ring(h, frame.lon0)]
+                          for h in part[1:] if len(h) >= 3]
     if best is None:
         return None
     precision = max(0.5, math.sqrt(best_area) / 50.0)
-    x, y = project.pole_of_inaccessibility(best, precision)
+    x, y = project.pole_of_inaccessibility(best, precision, holes=best_holes)
     if not frame.visible(x, y):
         return None
     share = visible / total if total > 0 else 1.0
@@ -551,6 +554,70 @@ def _symbols(rows: list, frame: Frame, encoding: Encoding) -> str:
                    f'data-value={quoteattr(_raw_value(row["value"]))}/>')
     out.append("</g>")
     return "".join(out), [(x - r, y - r, x + r, y + r) for _, _, (x, y), r, _ in placed]
+
+
+# -------------------------------------------------------------- enclaves ---
+
+def _enclaves(rows: list, frame: Frame, encoding: Encoding) -> str:
+    """Outline and name units that sit in a hole of another unit.
+
+    Kyiv city is an enclave in Kyiv oblast: a few pixels across, with the
+    oblast all round it. Its own circle or colour is not enough to read as a
+    separate unit, so its boundary is redrawn above the symbols and it gets a
+    name. Only true enclaves qualify -- a unit inside another's hole -- so a
+    small unit on a coast or a border is left alone.
+    """
+    holes = []
+    for row in rows:
+        for part in _parts(row["geometry"]):
+            for hole in part[1:]:
+                if len(hole) >= 4:
+                    holes.append((_lonlat_box(hole), hole, row["id"]))
+    if not holes:
+        return ""
+    out = []
+    for row in rows:
+        rings = [part[0] for part in _parts(row["geometry"]) if len(part[0]) >= 4]
+        if not rings:
+            continue
+        ring = max(rings, key=project.planar_area)
+        box = _lonlat_box(ring)
+        lon, lat = ring[0]
+        inside = any(owner != row["id"] and _box_within(box, hbox)
+                     and project.point_in_ring(lon, lat, hole)
+                     for hbox, hole, owner in holes)
+        if not inside:
+            continue
+        parts = _project(row["geometry"], frame)
+        d = _d([part[0] for part in parts])
+        if not d:
+            continue
+        out.append(f'<path d="{d}" fill="none" stroke="{colors.TEXT}" stroke-width="0.9" '
+                   f'class="enclave" data-id={quoteattr(str(row["id"]))}/>')
+        placed = _placement(row["geometry"], frame)
+        if placed is None:
+            continue
+        (x, y), _ = placed
+        reach = encoding.radius(float(row["value"])) if (
+            encoding.mode == "symbols" and isinstance(row["value"], (int, float))) else 0.0
+        reach = max(reach, MARKER_R, max(b[0][2] - b[0][0] for b in _outer_boxes(parts)) / 2)
+        name = str(row.get("name") or row["id"])
+        out.append(f'<text x="{_num(x + reach + 4)}" y="{_num(y + 4)}" font-size="11" '
+                   f'font-weight="600" fill="{colors.TEXT}" stroke="#ffffff" '
+                   'stroke-width="3" stroke-linejoin="round" paint-order="stroke" '
+                   f'font-family="{FONT}">{escape(name)}</text>')
+    return "".join(out)
+
+
+def _lonlat_box(ring) -> tuple:
+    lons = [p[0] for p in ring]
+    lats = [p[1] for p in ring]
+    return min(lons), min(lats), max(lons), max(lats)
+
+
+def _box_within(inner: tuple, outer: tuple, slack: float = 1e-6) -> bool:
+    return (inner[0] >= outer[0] - slack and inner[1] >= outer[1] - slack
+            and inner[2] <= outer[2] + slack and inner[3] <= outer[3] + slack)
 
 
 # ------------------------------------------------------------ background ---
