@@ -95,7 +95,7 @@ prompt = "Median household income by county in California"
 truth = "US Census ACS 5-year 2019-2023, B19013_001E, by county FIPS"
 units = [58, 58]
 contains = [[-122.4, 37.77], [-118.2, 34.05], [-124.1, 40.8], [-114.6, 32.7]]
-excludes = [[-115.1, 36.2], [-119.8, 39.5]]
+excludes = [[-112.07, 33.45], [-111.89, 40.76]]          # Phoenix, Salt Lake City (Las Vegas/Reno sit inside CA's own bbox)
 spot = ["06085>150000", "06025<60000", "06085>06019"]
 must = [
   "exactly the 58 California counties, joined on 5-digit FIPS",
@@ -124,6 +124,8 @@ truth = "OpenStreetMap via Overpass: railway=rail + highspeed=yes inside metropo
 units = [1, 20000]
 contains = [[2.35, 48.85], [5.37, 43.3], [-0.58, 44.84], [7.75, 48.57], [-1.68, 48.11]]
 excludes = [[-61.0, 14.6], [55.5, -21.1]]
+# total_km is ROUTE length: parallel tracks merged (summing OSM ways double-counts, 5,282 km).
+# line_near tolerance is 20 km: LGVs stop 8-12 km short of city centres.
 spot = ["total_km=2800±20%", "line_near=4.83,45.76", "line_near=-0.58,44.84", "line_near=7.75,48.57"]
 must = [
   "lines drawn over a muted basemap of the French regions",
