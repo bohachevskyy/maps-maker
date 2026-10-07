@@ -94,18 +94,18 @@ HATCH_STROKE = "#8c8c8c"
 BORDER = "#4d4d4d"
 # A base map has no variable to encode, so it gets one neutral fill rather than
 # a colour that might be read as meaning something.
-BASEMAP_FILL = "#e8eef2"
+BASEMAP_FILL = "#e6e3dc"
 OCEAN = "#ffffff"
 # Inside a window where every unit was fetched, water is tinted so the frame
 # reads as a map. Outside it -- or on a `within` map, where neighbours were not
 # fetched -- the page stays white, so an absent neighbour never passes for sea.
-WATER = "#eef3f7"
+WATER = "#eaf1f7"
 GRATICULE = "#d3dde5"
 FRAME = "#9aabb8"
 # Proportional symbols for counts, over polygons in a neutral fill.
 SYMBOL_FILL = "#d95f02"
 SYMBOL_STROKE = "#ffffff"
-COUNT_LAND = "#e3e6e8"
+COUNT_LAND = "#e6e3dc"
 TEXT = "#1a1a1a"
 TEXT_MUTED = "#666666"
 
