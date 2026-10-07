@@ -79,8 +79,15 @@ def _selected(level: str, bbox, within, detail: str = "simplified") -> list:
                     f"census cannot scope to {code!r}: use USA, or a state as "
                     "ISO 3166-2 (US-CA)", "within")
             wanted.add(fips)
-        if "*" not in wanted:
-            features = [f for f in features if f["properties"].get("STATEFP") in wanted]
+        # "USA" means the 50 states and DC. The territories (FIPS 60 and up:
+        # American Samoa, Guam, the Northern Marianas, Puerto Rico, the Virgin
+        # Islands) carry no data in most state-level series, so they would only
+        # add hatched shapes; name one (US-PR) to get it.
+        if "*" in wanted:
+            wanted.discard("*")
+            wanted |= {f["properties"].get("STATEFP") for f in features
+                       if f["properties"].get("STATEFP", "99") < "60"}
+        features = [f for f in features if f["properties"].get("STATEFP") in wanted]
     if bbox is not None:
         features = _intersecting(features, bbox)
     return features

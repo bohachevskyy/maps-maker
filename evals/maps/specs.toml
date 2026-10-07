@@ -79,7 +79,7 @@ prompt = "GDP per inhabitant across EU regions (NUTS 2)"
 truth = "Eurostat nama_10r_2gdp, PPS_EU27_2020_HAB, latest year"
 units = [230, 250]
 contains = [[2.35, 48.85], [23.7, 37.98], [25.0, 60.2], [-8.6, 41.15]]
-excludes = [[-74.0, 40.7], [-61.0, 14.6]]
+excludes = [[-74.0, 40.7]]                              # Martinique is EU (FRY2): an inset, not an exclusion
 spot = ["LU00>BG31", "IE06>BG31", "FRK2>FRY2"]
 must = [
   "NUTS 2 regions from Eurostat GISCO, joined on NUTS code",

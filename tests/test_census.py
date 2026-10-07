@@ -167,3 +167,15 @@ def test_an_unknown_acs_id_is_rejected():
                   "variable": {"source": "census_acs", "id": "B99999_001E"}})
     with pytest.raises(StatisticsError):
         census_acs.load("B99999_001E", "admin_2", "world")
+
+def test_usa_means_states_and_dc_not_territories(monkeypatch):
+    from mapsvc.cartography import census
+
+    def feature(fips):
+        return {"type": "Feature", "properties": {"STATEFP": fips},
+                "geometry": {"type": "Polygon", "coordinates": [[[0, 0], [1, 0], [1, 1], [0, 0]]]}}
+
+    monkeypatch.setattr(census, "_features",
+                        lambda level, detail="simplified": tuple(feature(f) for f in ("06", "11", "56", "60", "72")))
+    assert census.count("admin_1", None, ["USA"]) == 3
+    assert census.count("admin_1", None, ["USA", "US-PR"]) == 4
