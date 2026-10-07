@@ -273,9 +273,9 @@ def render(manifest: Manifest, result: HarvestResult) -> str:
         f'<text x="{PAD}" y="36" font-size="21" font-weight="600" '
         f'fill="{colors.TEXT}">{escape(title)}</text>',
     ]
-    if subtitle:
-        head.append(f'<text x="{PAD}" y="58" font-size="12.5" '
-                    f'fill="{colors.TEXT_MUTED}">{escape(subtitle)}</text>')
+    for y, size, line in _subtitle_lines(subtitle):
+        head.append(f'<text x="{PAD}" y="{y}" font-size="{size}" '
+                    f'fill="{colors.TEXT_MUTED}">{escape(line)}</text>')
     body.append(f'<g font-family="{FONT}">' + "".join(head) + "</g>")
 
     footer_top = frame.bottom + legend_band + 14
@@ -2579,6 +2579,34 @@ def _water(frame: Frame) -> str:
 def _text_w(text: str, size: float) -> float:
     """Rough advance width; there are no font metrics in a bare SVG."""
     return len(text) * size * 0.56
+
+
+def _subtitle_lines(subtitle: str | None) -> list[tuple[float, float, str]]:
+    """(baseline y, font size, text) for the subtitle, never wider than the map.
+
+    One line at 12.5 px if it fits, else one at 11.5, else two lines at 11.5
+    split at the last " · " (or space) that fits -- the second line still ends
+    above MAP_TOP. Hard-truncating would drop exactly the caveats (occupied
+    territories, heating oil) that the subtitle exists to carry.
+    """
+    if not subtitle:
+        return []
+    for size in (12.5, 11.5):
+        if _text_w(subtitle, size) <= MAP_W:
+            return [(58, size, subtitle)]
+    size = 11.5
+    limit = int(MAP_W / (size * 0.56))
+    cut = -1
+    for separator in (" · ", " "):
+        cut = subtitle.rfind(separator, 0, limit)
+        if cut > 0:
+            first, rest = subtitle[:cut], subtitle[cut + len(separator):]
+            break
+    if cut <= 0:
+        first, rest = subtitle[:limit], subtitle[limit:]
+    if _text_w(rest, size) > MAP_W:
+        rest = rest[: max(0, limit - 1)].rstrip() + "…"
+    return [(54, size, first), (69, size, rest)]
 
 
 def _legend(encoding: Encoding, frame: Frame, land: list, units: list,
