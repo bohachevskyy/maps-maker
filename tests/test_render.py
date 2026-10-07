@@ -7,6 +7,14 @@ from mapsvc.render import RenderError, render
 from tests.conftest import build_manifest, build_result
 
 SVG = "{http://www.w3.org/2000/svg}"
+# Natural Earth publishes no ratio variables; harvest passes the measurement
+# level through provenance, so a synthetic result can declare one.
+RATIO = {"measurement": "ratio"}
+
+
+def _features(text):
+    """The unit polygons -- not the water, the frame or the graticule."""
+    return [p for p in ET.fromstring(text).findall(f".//{SVG}path") if p.get("data-id")]
 
 
 def _svg(geojson, **overrides):
@@ -23,7 +31,7 @@ def test_render_produces_wellformed_svg(mini_geojson):
 
 def test_feature_count_matches_rows_plus_drawn_missing(mini_geojson):
     text, _, result = _svg(mini_geojson)
-    ids = {p.get("data-id") for p in ET.fromstring(text).findall(f".//{SVG}path")}
+    ids = {p.get("data-id") for p in _features(text)}
     assert ids == {r["id"] for r in result.rows} | {d["id"] for d in result.dropped}
 
 
@@ -32,8 +40,7 @@ def test_shaded_features_expose_raw_values_but_missing_features_do_not(mini_geoj
     result = build_result(mini_geojson, manifest)
     result.rows[0]["value"] = 1234567.89
     text = render(manifest, result)
-    paths = {p.get("data-id"): p
-             for p in ET.fromstring(text).findall(f".//{SVG}path")}
+    paths = {p.get("data-id"): p for p in _features(text)}
     expected = {row["id"]: format(row["value"], ".6g") for row in result.rows}
     assert {key: paths[key].get("data-value") for key in expected} == expected
     assert paths[result.rows[0]["id"]].get("data-value") == "1.23457e+06"
@@ -44,8 +51,7 @@ def test_shaded_features_expose_raw_values_but_missing_features_do_not(mini_geoj
 
 def test_missing_values_never_render_as_the_bottom_bin(mini_geojson):
     text, _, result = _svg(mini_geojson)
-    paths = {p.get("data-id"): p.get("fill")
-             for p in ET.fromstring(text).findall(f".//{SVG}path")}
+    paths = {p.get("data-id"): p.get("fill") for p in _features(text)}
     ramp = set(colors.colors("YlGnBu", 3))
     assert result.dropped, "the fixture carries both sentinels"
     for item in result.dropped:
@@ -55,7 +61,7 @@ def test_missing_values_never_render_as_the_bottom_bin(mini_geojson):
 
 def test_holes_and_multipolygons_become_multiple_subpaths(mini_geojson):
     text, _, _ = _svg(mini_geojson)
-    d = {p.get("data-id"): p.get("d") for p in ET.fromstring(text).findall(f".//{SVG}path")}
+    d = {p.get("data-id"): p.get("d") for p in _features(text)}
     assert d["AAA"].count("M") == 2   # outer ring plus a hole
     assert d["CCC"].count("M") == 2   # mainland plus an island
     assert d["BBB"].count("M") == 1
@@ -69,10 +75,17 @@ def test_footnote_states_everything_required(mini_geojson):
     )
     assert "Natural Earth" in footnote                  # source
     assert f"1:{registry.scale_for('admin_0')}" in footnote   # scale
-    assert "Albers equal-area conic" in footnote  # projection
-    assert "quantile" in footnote and "k=" in footnote   # method and k
+    assert "Lambert azimuthal equal-area" in footnote   # projection
+    assert "proportional circles" in footnote           # GDP_MD is a count
     assert "2015" in footnote and "2019" in footnote     # variable vintage
     assert "2 of 5 features excluded" in footnote        # dropped count
+
+
+def test_footnote_states_the_classification_of_a_choropleth(mini_geojson):
+    text, _, _ = _svg(mini_geojson, variable_id="POP_RANK")
+    footnote = " ".join(
+        e.text for e in ET.fromstring(text).findall(f".//{SVG}text") if e.text)
+    assert "quantile" in footnote and "k=" in footnote
 
 
 def test_year_range_is_shown_when_features_disagree(mini_geojson):
@@ -82,8 +95,7 @@ def test_year_range_is_shown_when_features_disagree(mini_geojson):
 
 def test_nominal_with_a_qualitative_ramp_renders(mini_geojson):
     text, _, _ = _svg(mini_geojson, variable_id="SUBREGION")
-    fills = {p.get("data-id"): p.get("fill")
-             for p in ET.fromstring(text).findall(f".//{SVG}path")}
+    fills = {p.get("data-id"): p.get("fill") for p in _features(text)}
     # Three distinct subregions in the fixture, three distinct colours.
     assert len(set(fills.values())) == 3
 
@@ -113,7 +125,7 @@ def test_aspect_ratio_is_preserved(mini_geojson):
                            "coordinates": [[[14, 47], [16, 47], [16, 49], [14, 49], [14, 47]]]}}
     geojson = {"type": "FeatureCollection", "features": mini_geojson["features"] + [square]}
     text, _, _ = _svg(geojson)
-    d = {p.get("data-id"): p.get("d") for p in ET.fromstring(text).findall(f".//{SVG}path")}
+    d = {p.get("data-id"): p.get("d") for p in _features(text)}
     import re
     nums = [float(n) for n in re.findall(r"-?\d+\.?\d*", d["SQR"])]
     xs, ys = nums[0::2], nums[1::2]
@@ -144,10 +156,11 @@ def test_a_window_with_one_feature_still_renders():
     from mapsvc.models import HarvestResult
     box = {"type": "Polygon", "coordinates": [[[0, 40], [8, 40], [8, 48], [0, 48], [0, 40]]]}
     result = HarvestResult(rows=[{"id": "FRA", "geometry": box, "value": 2716000.0}],
-                           provenance={"variable": "GDP_MD", "unit": "million USD"},
+                           provenance={"variable": "GDP_MD", "unit": "million USD",
+                                       "measurement": "ratio"},
                            dropped=[])
     text = render(build_manifest(), result)
-    paths = ET.fromstring(text).findall(f".//{SVG}path")
+    paths = _features(text)
     assert len(paths) == 1
     assert paths[0].get("fill").startswith("#")
 
@@ -158,8 +171,8 @@ def test_two_distinct_values_render_as_two_bins():
     rows = [{"id": "AAA", "geometry": box, "value": 1.0},
             {"id": "BBB", "geometry": box, "value": 2.0}]
     text = render(build_manifest(),
-                  HarvestResult(rows=rows, provenance={}, dropped=[]))
-    fills = {p.get("fill") for p in ET.fromstring(text).findall(f".//{SVG}path")}
+                  HarvestResult(rows=rows, provenance=RATIO, dropped=[]))
+    fills = {p.get("fill") for p in _features(text)}
     assert len(fills) == 2
 
 
@@ -168,9 +181,9 @@ def test_footnote_reports_a_collapsed_k_in_readable_english():
     box = {"type": "Polygon", "coordinates": [[[0, 40], [8, 40], [8, 48], [0, 48], [0, 40]]]}
     one = render(build_manifest(),
                  HarvestResult(rows=[{"id": "FRA", "geometry": box, "value": 1.0}],
-                               provenance={}, dropped=[]))
+                               provenance=RATIO, dropped=[]))
     assert "1 distinct value)" in one
     two = render(build_manifest(), HarvestResult(
         rows=[{"id": "A", "geometry": box, "value": 1.0},
-              {"id": "B", "geometry": box, "value": 2.0}], provenance={}, dropped=[]))
+              {"id": "B", "geometry": box, "value": 2.0}], provenance=RATIO, dropped=[]))
     assert "2 distinct values)" in two
