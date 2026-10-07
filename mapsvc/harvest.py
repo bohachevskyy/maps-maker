@@ -246,7 +246,8 @@ def _build(manifest: Manifest) -> HarvestResult:
             continue
 
         value = values.values[key]
-        reason = _no_data_reason(value, value_level)
+        reason = _no_data_reason(
+            value, "ratio" if values.provenance.get("zero_is_data") else value_level)
         if reason:
             dropped.append({**entry, "reason": reason})
             continue
