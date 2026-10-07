@@ -232,8 +232,6 @@ def _footer_line(layer: dict, credited: set) -> str:
     parts = [f"Overlay: {layer.get('title') or layer.get('label')}. {source}"]
     if p.get("vintage"):
         parts.append(p["vintage"])
-    if p.get("url"):
-        parts.append(p["url"])
     line = "; ".join(parts) + "."
     if layer.get("encoding"):
         line += f" {layer['encoding']}."

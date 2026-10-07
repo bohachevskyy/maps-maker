@@ -305,3 +305,26 @@ def test_a_within_map_carries_muted_neighbouring_land(monkeypatch, tmp_path):
     text = render(manifest, result)
     assert text.count('class="context"') == 1
     assert "Neighbouring land: Natural Earth" in text
+
+
+def test_overlay_physical_context_is_derived_from_extent_and_theme(monkeypatch):
+    """Regional overlays get hydrography; seismic overlays get plate lines."""
+    calls = []
+    monkeypatch.setattr(H, "load_physical_context",
+                        lambda kind, extent: calls.append((kind, extent)) or [
+                            {"kind": "lines", "class": kind, "features": []}])
+    regional = validate({"bbox": [20, 50, 39, 58], "level": "admin_0",
+                         "overlays": [{"source": "web", "id":
+                            "https://raw.githubusercontent.com/vincentarelbundock/"
+                            "Rdatasets/master/csv/HistData/Minard.troops.csv"}]})
+    result = H.HarvestResult()
+    H._add_physical_context(regional, result, tuple(regional.bbox))
+    assert [kind for kind, _ in calls] == ["hydrography"]
+
+    calls.clear()
+    seismic = validate({"bbox": [-180, -90, 180, 90], "level": "admin_0",
+                        "overlays": [{"source": "usgs", "id":
+                            "start=2025-01-01;end=2026-01-01;minmagnitude=6"}]})
+    result = H.HarvestResult()
+    H._add_physical_context(seismic, result, tuple(seismic.bbox))
+    assert [kind for kind, _ in calls] == ["tectonic_plates"]

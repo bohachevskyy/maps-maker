@@ -29,6 +29,7 @@ CAPABILITIES = Capabilities(
             "both required, end exclusive), minmagnitude, maxmagnitude, "
             "mindepth, maxdepth (km), e.g. "
             "'start=2024-01-01;end=2024-07-01;minmagnitude=5.5'",
+    theme="seismic",
 )
 
 KEYS = ("start", "end", "minmagnitude", "maxmagnitude", "mindepth", "maxdepth")

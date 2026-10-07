@@ -206,6 +206,7 @@ def render(manifest: Manifest, result: HarvestResult) -> str:
         units.append(_union(boxes))
         body.append(_path(item, parts, f"url(#{colors.HATCH_ID})"))
     body.append("</g>")
+    body.append(_physical_context(result.physical, frame))
     if frame.outline is not None:
         body.append(f'<path d="{_d([frame.outline])}" fill="none" '
                     f'stroke="{colors.FRAME}" stroke-width="0.8"/>')
@@ -600,6 +601,62 @@ def _context(context: list, frame: Frame) -> str:
     return "".join(out)
 
 
+def _physical_context(layers: list, frame: Frame) -> str:
+    """Draw physical geometry already fetched and selected by harvest."""
+    if not layers:
+        return ""
+    out = ['<g clip-path="url(#map-clip)" class="physical-context">']
+    for layer in layers:
+        css_class = layer.get("class") or "physical"
+        if layer.get("kind") == "polygons":
+            paths = []
+            for feature in layer.get("features", []):
+                parts = _project(feature["geometry"], frame)
+                paths.append(_d([ring for part in parts for ring in part]))
+            d = "".join(paths)
+            if d:
+                out.append(f'<path d="{d}" class="{escape(css_class)}" '
+                           f'fill="{colors.LAKE_FILL}" stroke="{colors.LAKE_STROKE}" '
+                           'stroke-width="0.45" fill-rule="evenodd"/>')
+        elif layer.get("kind") == "lines":
+            paths = []
+            for feature in layer.get("features", []):
+                paths.extend(_physical_line(feature.get("coords") or [], frame))
+            d = _line_d(paths)
+            if not d:
+                continue
+            plate = css_class == "plate-boundaries"
+            colour = colors.PLATE if plate else colors.RIVER
+            width = 0.65 if plate else 0.75
+            out.append(f'<path d="{d}" class="{escape(css_class)}" fill="none" '
+                       f'stroke="{colour}" stroke-width="{width}" '
+                       'stroke-linecap="round" stroke-linejoin="round"/>')
+    out.append("</g>")
+    return "".join(out)
+
+
+def _physical_line(coords: list, frame: Frame) -> list:
+    """Project a polyline, breaking it at the visible world's seam."""
+    runs, run = [], []
+    previous = None
+    for lon, lat in coords:
+        wrapped = frame.lon0 + project._shortest(float(lon) - frame.lon0)
+        if previous is not None and abs(wrapped - previous) > 180.0:
+            if len(run) >= 2:
+                runs.append(project.simplify_ring(run, SIMPLIFY_PX))
+            run = []
+        run.append(frame.xy(wrapped, float(lat)))
+        previous = wrapped
+    if len(run) >= 2:
+        runs.append(project.simplify_ring(run, SIMPLIFY_PX))
+    return [run for run in runs if len(run) >= 2]
+
+
+def _line_d(lines: list) -> str:
+    return "".join("M" + "L".join(f"{_num(x)},{_num(y)}" for x, y in line)
+                   for line in lines if len(line) >= 2)
+
+
 # ---------------------------------------------------------------- insets ---
 
 # A group of units goes to an inset when it is not part of the main cluster
@@ -626,9 +683,6 @@ INSET_MIN_W, INSET_MIN_H = 84.0, 60.0
 INSET_MAX_ZOOM = 4.0
 INSET_RING_SHARE = 0.08
 INSET_PAD, INSET_LABEL_H, INSET_GAP_PX = 6.0, 14.0, 8.0
-# The share of the inset block that may lie over mapped land before the insets
-# move to a band under the map instead.
-INSET_MAX_COVER = 0.04
 KM_PER_DEGREE = 111.32
 
 
@@ -727,7 +781,12 @@ def _split_insets(manifest: Manifest, rows: list, missing: list):
         insets.append(InsetFrame([it for kind, it in member_items if kind == "row"],
                                  [it for kind, it in member_items if kind == "missing"],
                                  sum(reps[i][2] for i in members)))
-    insets.sort(key=lambda f: (-f.area, f.label))
+    if len(insets) >= 3:
+        # Geographic order makes a grid scan predictably west to east instead
+        # of shuffling EU boxes by the land area of each outermost region.
+        insets.sort(key=lambda f: ((f.extent[0] + f.extent[2]) / 2.0, f.label))
+    else:
+        insets.sort(key=lambda f: (-f.area, f.label))
     keep_rows = [it for i, (kind, it) in enumerate(items) if kind == "row" and i not in moved]
     keep_missing = [it for i, (kind, it) in enumerate(items)
                     if kind == "missing" and i not in moved]
@@ -898,19 +957,43 @@ def _draw_insets(insets: list, frame: Frame, encoding: Encoding, water: bool,
         return "", False
     max_w, max_h = INSET_MAX_W * MAP_W, INSET_MAX_H * frame.map_h
     sizes = [inset.size(frame.scale, max_w, max_h) for inset in insets]
+    grid = len(insets) >= 3
+    if grid:
+        # EU outermost regions read as one system: equal boxes in a west-to-east
+        # grid, rather than unrelated boxes scattered around whatever sea fits.
+        cell_w = max(w for w, _ in sizes)
+        cell_h = max(h for _, h in sizes)
+        sizes = [(cell_w, cell_h)] * len(insets)
     # Each inset, largest first, goes where it hides no unit and next to no
     # mapped land -- open sea or neighbouring land, bottom-left first, as on
     # an atlas page of the US. What fits nowhere goes to a band under the map.
     occupied = [u for u in units if u]
     placed: list = []
     layout: list = [None] * len(insets)
-    for n, (w, h) in enumerate(sizes):
-        spot = _inset_spot(frame, land, occupied, placed, w, h)
+    if grid:
+        columns = 2
+        rows = math.ceil(len(insets) / columns)
+        block_w = columns * cell_w + (columns - 1) * INSET_GAP_PX
+        block_h = rows * cell_h + (rows - 1) * INSET_GAP_PX
+        spot = _inset_spot(frame, land, occupied, [], block_w, block_h)
         if spot is not None:
-            x, y = spot
-            layout[n] = (x, y, w, h)
-            placed.append((x, y, x + w, y + h))
-            land.append(((x, y, x + w, y + h), [(x, y), (x + w, y), (x + w, y + h), (x, y + h)]))
+            bx, by = spot
+            for n in range(len(insets)):
+                row, column = divmod(n, columns)
+                x = bx + column * (cell_w + INSET_GAP_PX)
+                y = by + row * (cell_h + INSET_GAP_PX)
+                layout[n] = (x, y, cell_w, cell_h)
+                placed.append((x, y, x + cell_w, y + cell_h))
+    else:
+        for n, (w, h) in enumerate(sizes):
+            spot = _inset_spot(frame, land, occupied, placed, w, h)
+            if spot is not None:
+                x, y = spot
+                layout[n] = (x, y, w, h)
+                placed.append((x, y, x + w, y + h))
+    for box in placed:
+        x0, y0, x1, y1 = box
+        land.append((box, [(x0, y0), (x1, y0), (x1, y1), (x0, y1)]))
     band = [n for n, item in enumerate(layout) if item is None]
     if band:
         x, y, row_h = PAD + LEGEND_INSET, frame.bottom + INSET_GAP_PX, 0.0
@@ -979,9 +1062,15 @@ def _inset_spot(frame: Frame, land: list, occupied: list, placed_insets: list,
         if any(_overlaps((x - INSET_GAP_PX, y - INSET_GAP_PX, x + w + INSET_GAP_PX,
                           y + h + INSET_GAP_PX), box) for box in placed_insets):
             continue   # never on, or touching, another inset
-        if any(_hidden(u, x, y, w, h) for u in occupied):
+        clearance = INSET_GAP_PX
+        if any(_hidden(u, x - clearance, y - clearance,
+                       w + 2 * clearance, h + 2 * clearance) for u in occupied):
             continue   # never hides a unit, a marker or a circle
-        if _land_share(frame, land, x, y, w, h) <= INSET_MAX_COVER:
+        # A visible moat keeps Alaska's box from touching the conterminous US.
+        # Sampling the expanded rectangle also catches an edge contact that
+        # has zero covered area in the box itself.
+        if _land_share(frame, land, x - clearance, y - clearance,
+                       w + 2 * clearance, h + 2 * clearance) == 0.0:
             return x, y
     return None
 
@@ -1461,14 +1550,11 @@ def _footer(manifest, frame: Frame, encoding: Encoding, result, top: float,
 
     scale = p.get("scale") or registry.scale_for(manifest.level)
     vintage = p.get("vintage") or registry.SOURCE_VINTAGE
-    source = f"{p.get('source') or registry.SOURCE_NAME} {vintage}, {scale}"
-    # ODbL requires attribution wherever the data is shown; the footnote is the
-    # only place this map has to say it.
-    license_note = p.get("license")
-    if license_note and license_note != "public domain":
-        source += f". {p.get('attribution') or ''} ({license_note})".rstrip()
-    if p.get("context_source") and result.context:
-        source += f". Neighbouring land: {p['context_source']}"
+    source = f"{_boundary_credit(p)}, {vintage}, {scale}"
+    context_source = p.get("context_source")
+    if (context_source and result.context
+            and str(p.get("source") or "").casefold() not in context_source.casefold()):
+        source += f". Neighbouring land: {context_source}"
 
     scheme = encoding.scheme
     if encoding.mode == "basemap":
@@ -1490,13 +1576,18 @@ def _footer(manifest, frame: Frame, encoding: Encoding, result, top: float,
     variable = _variable_line(manifest, p)
     excluded = _exclusions(result)
 
-    lines = [
-        f"Source: {source}.",
-        f"Variable: {variable}.",
-        f"Projection: {_projection_label(frame)}. Classification: {method}. {excluded}."
-        + (f" {_plain_land_note(p)}" if _plain_land_note(p) else ""),
-        *extra,
-    ]
+    overlay_only = manifest.variable_id is None and bool(result.overlays)
+    lines = [f"Boundaries: {source}."]
+    if overlay_only:
+        lines.append(f"Projection: {_projection_label(frame)}.")
+    else:
+        lines.extend([
+            f"Variable: {variable}.",
+            f"Projection: {_projection_label(frame)}. Classification: {method}. {excluded}."
+            + (f" {_plain_land_note(p)}" if _plain_land_note(p) else ""),
+        ])
+    lines.extend(_physical_credit(layer) for layer in result.physical)
+    lines.extend(extra)
 
     # Attribution can make a line longer than the canvas. There is no text
     # measurement in a bare SVG, so wrap on a character budget tuned to the
@@ -1515,6 +1606,36 @@ def _footer(manifest, frame: Frame, encoding: Encoding, result, top: float,
         )
     out.append("</g>")
     return "".join(out), 18 + (len(wrapped) - 1) * FOOTER_LEAD
+
+
+def _boundary_credit(p: dict) -> str:
+    """A stable, explicit boundary credit for each cartography provider."""
+    source = str(p.get("source") or registry.SOURCE_NAME)
+    low = source.casefold()
+    attribution = str(p.get("attribution") or "")
+    license_note = str(p.get("license") or "")
+    if "natural earth" in low:
+        return "Natural Earth (public domain)"
+    if "overture" in low:
+        detail = attribution or "© Overture Maps Foundation"
+        return f"Overture Maps (ODbL 1.0; {detail})"
+    if "gisco" in low:
+        return f"Eurostat GISCO ({attribution or '© EuroGeographics'})"
+    if "census" in low:
+        detail = f"; {attribution}" if attribution else ""
+        return f"U.S. Census Bureau (public domain{detail})"
+    if license_note:
+        return f"{source} ({license_note})"
+    return source
+
+
+def _physical_credit(layer: dict) -> str:
+    p = layer.get("provenance") or {}
+    name = p.get("name") or layer.get("class") or "Physical context"
+    publisher = p.get("publisher")
+    licence = p.get("license")
+    details = ", ".join(str(x) for x in (publisher, licence) if x)
+    return f"Physical context: {name}" + (f" ({details})." if details else ".")
 
 
 def _variable_line(manifest: Manifest, p: dict) -> str:

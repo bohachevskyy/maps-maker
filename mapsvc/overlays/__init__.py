@@ -62,6 +62,9 @@ class Capabilities:
     # How to write an id, shown to the agent and in validation errors.
     id_help: str
     searchable: bool = False
+    # A semantic theme lets harvest derive appropriate physical context without
+    # naming providers. For example, seismic overlays get plate boundaries.
+    theme: str | None = None
 
 
 @dataclass(frozen=True)
