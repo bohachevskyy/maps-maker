@@ -52,6 +52,11 @@ mapsvc/
                  (US states/counties), gisco (NUTS). Each declares KEYS per level.
   statistics/    values, keyed the same way. Fixed: natural_earth, ukrstat,
                  census_acs, wikidata. Searchable: owid, eia, eurostat.
+  overlays/      feature layers above the basemap, {source, id} in the manifest.
+                 usgs (quake query spec), overpass (OSM tag filter), web (an
+                 https CSV/GeoJSON URL; small searchable catalogue). Each id
+                 has a grammar parsed in validate(); drawing is derived.
+  overlay_render.py  points, lines, Minard flows, place labels. Pure.
   derive.py      variable.per (divide) and variable.change (percent change).
   harvest.py     the join, plus caching and the granularity guard.
   render.py      SVG. Must not import anything that does I/O.
@@ -110,12 +115,19 @@ evals/           prompts and the manifests they should produce. Costs money.
   `electricity-mix` is total TWh -- the renewables share is that slug plus
   query parameters, so view ids keep them.
 
+- **Overpass is slower still, and moody.** Measured 2026-10-07: France's
+  LGVs, 145-180 s and 11 MB uncached; one attempt hit the 180 s server
+  timeout (now 400 s); kumi.systems answered 504 after 60 s. overpass-api.de
+  returns 406 without a User-Agent. Every response is cached by its QL.
+- **Summing OSM ways double-counts a double-track line** (5,275 vs 2,637 km
+  for French LGVs). `overlays/geo.route_m` merges parallel lines within 20 m.
+
 ## Running it
 
 ```bash
 uv sync
 ./run.sh                 # foreground on :8000; re-run to restart
-uv run pytest            # 248 tests, offline, no API key, free
+uv run pytest            # 321 tests, offline, no API key, free
 
 set -a; source .env; set +a
 uv run python -m evals.run --repeat 3   # live model, costs a few cents
