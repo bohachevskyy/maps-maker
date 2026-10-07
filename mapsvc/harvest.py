@@ -15,7 +15,7 @@ import os
 import pathlib
 import urllib.request
 
-from mapsvc import cartography, registry, statistics
+from mapsvc import cartography, derive, registry, statistics
 from mapsvc.manifest import Manifest
 from mapsvc.models import HarvestResult
 
@@ -32,7 +32,7 @@ NO_DATA = {-99, "-99", "", None}
 # Bump when the shape of a cached HarvestResult changes -- new provenance keys,
 # a different join, altered drop reasons. Without it a code change silently
 # keeps serving rows written in the old format.
-CACHE_VERSION = 3
+CACHE_VERSION = 4
 
 
 class HarvestError(ValueError):
@@ -137,7 +137,8 @@ def harvest(manifest: Manifest) -> HarvestResult:
 # -------------------------------------------------------------------- join ---
 
 # One coarser step, for the message when a level is too fine for a window.
-_COARSER = {"admin_3": "admin_2", "admin_2": "admin_1", "admin_1": "admin_0"}
+_COARSER = {"admin_3": "admin_2", "admin_2": "admin_1", "admin_1": "admin_0",
+            "nuts_3": "nuts_2", "nuts_2": "nuts_1"}
 
 
 def _check_granularity(manifest: Manifest) -> None:
@@ -187,18 +188,37 @@ def _build(manifest: Manifest) -> HarvestResult:
                  "name": u.get("name")} for u in boundaries.units]
         return HarvestResult(rows=rows, provenance=provenance, dropped=[])
 
-    values = statistics.load(manifest.variable_source, manifest.variable_id,
-                             manifest.level, "world")
+    statistics_key = statistics.key_at(manifest.variable_source, manifest.level)
+    boundary_keys = tuple(boundaries.keys or boundaries.provenance.get("keys", ()))
+    if statistics_key not in boundary_keys:
+        # validate() refuses this before any I/O; this guards providers whose
+        # result disagrees with what their module declared.
+        available = ", ".join(boundary_keys) or "no standard join keys"
+        raise HarvestError(
+            f"{manifest.basemap_source} {manifest.level} boundaries carry "
+            f"{available}, but {manifest.variable_source} requires "
+            f"{statistics_key}; choose a basemap and statistics source that "
+            "share a join key",
+            "basemap.source",
+        )
+
+    values = derive.values(manifest)
 
     provenance.update({
         "variable": values.provenance.get("variable"),
         "unit": values.provenance.get("unit"),
         "year": values.provenance.get("year"),
         "statistics_source": values.provenance.get("source"),
+        "statistics_vintage": values.provenance.get("vintage"),
         # Carried separately from the basemap's: boundaries and numbers can be
         # licensed differently, and both have to be credited.
         "statistics_license": values.provenance.get("license"),
         "statistics_attribution": values.provenance.get("attribution"),
+        "statistics_note": values.provenance.get("note"),
+        "statistics_level": values.provenance.get("level"),
+        "join_key": statistics_key,
+        "per": values.provenance.get("per"),
+        "change": values.provenance.get("change"),
     })
 
     value_level = values.provenance.get("level", "count")
@@ -207,8 +227,18 @@ def _build(manifest: Manifest) -> HarvestResult:
 
     for unit in boundaries.units:
         entry = {"id": unit["id"], "geometry": unit["geometry"]}
-        key = str(unit.get("key")).upper() if unit.get("key") else None
+        raw_key = (unit.get("keys") or {}).get(statistics_key)
+        # Compatibility for third-party providers written against the original
+        # single-key protocol, but only after their result explicitly declared
+        # that the legacy key is in the required namespace.
+        if raw_key is None and statistics_key in boundary_keys:
+            raw_key = unit.get("key")
+        key = str(raw_key).upper() if raw_key else None
 
+        if key is not None and key in values.missing:
+            # The source covers this unit and says why it has no value.
+            dropped.append({**entry, "reason": values.missing[key]})
+            continue
         if key is None or key not in values.values:
             # The polygon exists but this source has no row for it. Common when
             # boundaries and statistics come from different providers.
@@ -237,7 +267,7 @@ def _build(manifest: Manifest) -> HarvestResult:
 def _nothing_usable(manifest: Manifest, dropped: list) -> tuple[str, str]:
     """Explain an empty result by blaming the column actually at fault."""
     reasons = {item["reason"] for item in dropped}
-    if reasons == {"no_join"}:
+    if reasons and reasons <= {"no_join", "not_estimated"} and "no_join" in reasons:
         return (
             f"none of the {len(dropped)} {manifest.level} boundaries could be "
             f"matched to a {manifest.variable_source} row for "

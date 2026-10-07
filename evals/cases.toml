@@ -131,6 +131,9 @@ refuse = true
 mentions = ["rainfall"]
 
 [[case]]
-name = "a place with no data is still a place"
+name = "oblast population comes from Ukrstat"
 prompt = "population of each Ukrainian oblast"
-refuse = true
+level = "admin_1"
+scoped_politically = true
+within = ["UKR"]
+variable = "present_population"

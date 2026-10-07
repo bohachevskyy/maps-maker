@@ -41,6 +41,12 @@ SUBTYPES = {
     "admin_3": "locality",
 }
 LEVELS = tuple(SUBTYPES)
+KEYS = {
+    "admin_0": ("ISO3",),
+    "admin_1": ("ISO3166_2",),
+    "admin_2": (),
+    "admin_3": (),
+}
 
 
 @functools.lru_cache(maxsize=1)
@@ -251,20 +257,23 @@ def load(level: str, bbox, detail: str = "simplified",
         # names.primary is localised -- Ukrainian oblasts come back in Cyrillic.
         # Prefer the English common name so labels and ids stay legible.
         name = name_en or name_primary or oid
+        join_key = (unit_iso if codes_are_ids
+                    else (iso.to_alpha3(country) if level == "admin_0" else None))
         units.append({
             "id": unit_iso if codes_are_ids else oid,
             # The join key: ISO 3166-2 where the unit has its own, ISO3 for a
             # country, and nothing below that -- no standard code exists, so
             # statistics cannot be joined at admin_2 and should not pretend to.
-            "key": (unit_iso if codes_are_ids
-                    else (iso.to_alpha3(country) if level == "admin_0" else None)),
+            "key": join_key,
+            "keys": ({KEYS[level][0]: join_key}
+                     if KEYS[level] and join_key else {}),
             "parent": unit_iso if not codes_are_ids else None,
             "name": name,
             "geometry": json.loads(geometry),
         })
     units.sort(key=lambda u: (u["name"] or "", u["id"]))
 
-    return Boundaries(units=units, provenance={
+    return Boundaries(units=units, keys=KEYS[level], provenance={
         "source": "Overture Maps",
         "license": LICENSE,
         "attribution": ATTRIBUTION,
@@ -272,6 +281,7 @@ def load(level: str, bbox, detail: str = "simplified",
         "level": level,
         "detail": "full",  # Overture publishes one resolution
         "scale": "divisions theme",
+        "keys": list(KEYS[level]),
     })
 
 

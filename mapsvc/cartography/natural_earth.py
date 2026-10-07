@@ -8,6 +8,7 @@ from mapsvc import registry
 from mapsvc.cartography import Boundaries, CartographyError
 
 LEVELS = ("admin_0", "admin_1")
+KEYS = {"admin_0": ("ISO3",), "admin_1": ("ISO3166_2",)}
 
 FULL_CIRCLE = 360.0
 
@@ -122,18 +123,20 @@ def load(level: str, bbox, detail: str = "simplified",
     units = []
     for feature in features:
         props = feature["properties"]
+        # ISO 3166-2 below country level, ADM0_A3 at country level.
+        key = (props.get("iso_3166_2") if level == "admin_1"
+               else props.get(id_property))
         units.append({
             "id": props.get(id_property),
-            # ISO 3166-2 below country level, ADM0_A3 at country level.
-            "key": (props.get("iso_3166_2") if level == "admin_1"
-                    else props.get(id_property)),
+            "key": key,
+            "keys": {KEYS[level][0]: key} if key else {},
             "name": props.get(name_property),
             "geometry": feature["geometry"],
             "properties": props,
         })
     units.sort(key=lambda u: str(u["id"]))
 
-    return Boundaries(units=units, provenance={
+    return Boundaries(units=units, keys=KEYS[level], provenance={
         "source": registry.SOURCE_NAME,
         "license": "public domain",
         "attribution": "Natural Earth",
@@ -141,4 +144,5 @@ def load(level: str, bbox, detail: str = "simplified",
         "level": level,
         "detail": detail,
         "scale": f"1:{registry.scale_for(level)}",
+        "keys": list(KEYS[level]),
     })

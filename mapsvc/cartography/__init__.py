@@ -15,10 +15,11 @@ from dataclasses import dataclass, field
 class Boundaries:
     """Polygons for one level of one region.
 
-    units       [{"id", "key", "name", "geometry"}, ...]
-                `id` identifies the polygon within this map; `key` is the join
-                key statistics are matched on -- ISO 3166-2 below country level,
-                ISO3 at country level.
+    units       [{"id", "keys", "name", "geometry"}, ...]
+                `id` identifies the polygon within this map; `keys` maps each
+                join-key namespace the unit carries to its value, e.g.
+                {"ISO3166_2": "US-CA", "FIPS": "06"}. Statistics are matched on
+                whichever namespace their source declares.
     provenance  {source, license, attribution, release, level, detail}
                 The licence is carried, not assumed: Overture is ODbL and the
                 footnote has to say so.
@@ -26,6 +27,11 @@ class Boundaries:
 
     units: list = field(default_factory=list)
     provenance: dict = field(default_factory=dict)
+    # Join-key namespaces carried by every unit.  A unit stores the concrete
+    # values in ``keys`` (for example {"ISO3166_2": "US-TX"}).  Keeping this
+    # declaration separate from the display id makes incompatible joins
+    # impossible to mistake for missing data.
+    keys: tuple = field(default_factory=tuple)
 
 
 class CartographyError(ValueError):
@@ -34,16 +40,23 @@ class CartographyError(ValueError):
         self.field = field
 
 
-def provider(name: str):
-    from mapsvc.cartography import natural_earth, overture
+# Registered boundary providers. Each module declares LEVELS and KEYS
+# ({level: (key namespace, ...)}) and implements load() and count().
+def _modules() -> tuple:
+    from mapsvc import registry
 
-    providers = {"natural_earth": natural_earth, "overture": overture}
-    if name not in providers:
+    return registry.BASEMAPS
+
+
+def provider(name: str):
+    if name not in _modules():
         raise CartographyError(
             f"unknown basemap source {name!r}; expected one of "
-            f"{', '.join(sorted(providers))}", "basemap.source"
+            f"{', '.join(sorted(_modules()))}", "basemap.source"
         )
-    return providers[name]
+    from importlib import import_module
+
+    return import_module(f"mapsvc.cartography.{name}")
 
 
 # A geographic window: min_lon, min_lat, max_lon, max_lat.
@@ -69,3 +82,8 @@ def count(source: str, level: str, bbox: BBox | None,
 
 def levels(source: str) -> tuple:
     return provider(source).LEVELS
+
+
+def keys(source: str, level: str) -> tuple:
+    """Named join-key namespaces a boundary provider carries at ``level``."""
+    return tuple(provider(source).KEYS.get(level, ()))

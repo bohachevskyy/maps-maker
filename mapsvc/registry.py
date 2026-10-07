@@ -16,7 +16,8 @@ SOURCE_VINTAGE = "v5.1.1"
 
 # Canonical levels. Each cartography provider maps these onto its own
 # vocabulary; not every provider offers every level.
-LEVELS = ("admin_0", "admin_1", "admin_2", "admin_3")
+LEVELS = ("admin_0", "admin_1", "admin_2", "admin_3",
+          "nuts_1", "nuts_2", "nuts_3")
 BASEMAPS = ("natural_earth", "overture")
 # Overture by default: far more detail, and the only source below admin_1. It
 # is queried live, so the harvest cache does the heavy lifting -- see harvest.py.
@@ -74,6 +75,14 @@ _LEVELS = {
         "dataset": None, "id": "id", "name": "name",
         "country": "country", "continent": None,
     },
+    # NUTS levels are served by GISCO, not Natural Earth.  Placeholder entries
+    # keep the generic accessors total over every canonical level.
+    "nuts_1": {"dataset": None, "id": "NUTS_ID", "name": "NAME_LATN",
+               "country": "CNTR_CODE", "continent": None},
+    "nuts_2": {"dataset": None, "id": "NUTS_ID", "name": "NAME_LATN",
+               "country": "CNTR_CODE", "continent": None},
+    "nuts_3": {"dataset": None, "id": "NUTS_ID", "name": "NAME_LATN",
+               "country": "CNTR_CODE", "continent": None},
 }
 
 

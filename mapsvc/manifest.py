@@ -9,6 +9,7 @@ which to violate it.
 Validation runs before any I/O, so a bad manifest never reaches the network.
 """
 
+import datetime
 from dataclasses import dataclass
 
 from mapsvc import cartography, registry, statistics
@@ -32,6 +33,10 @@ class Manifest:
     within: tuple | None = None
     basemap_source: str = registry.DEFAULT_BASEMAP
     basemap_detail: str = "simplified"
+    # (source, id) of a divisor: diesel *per person*, income *per household*.
+    per: tuple | None = None
+    # (from_year, to_year): percent change of the variable between two years.
+    change: tuple | None = None
 
     def data_key(self) -> dict:
         """The data-relevant fields only.
@@ -46,8 +51,17 @@ class Manifest:
             "level": self.level,
             "basemap": {"source": self.basemap_source, "detail": self.basemap_detail},
             "variable": (None if self.variable_id is None
-                         else {"source": self.variable_source, "id": self.variable_id}),
+                         else self._variable_key()),
         }
+
+    def _variable_key(self) -> dict:
+        key = {"source": self.variable_source, "id": self.variable_id}
+        # Only present when used, so a plain manifest hashes as it always did.
+        if self.per is not None:
+            key["per"] = {"source": self.per[0], "id": self.per[1]}
+        if self.change is not None:
+            key["change"] = {"from": self.change[0], "to": self.change[1]}
+        return key
 
 
 class ManifestError(ValueError):
@@ -62,6 +76,9 @@ REQUIRED = ("level",)
 # One of bbox or within must be present; either can frame a map on its own.
 OPTIONAL = {"variable": None, "basemap": None, "bbox": None, "within": None}
 KNOWN_KEYS = set(REQUIRED) | set(OPTIONAL)
+# What to show, never how: a divisor and a change between years are both
+# statements about the quantity. Anything else is rejected, as at top level.
+VARIABLE_KEYS = {"source", "id", "per", "change"}
 
 
 def validate(raw: dict) -> Manifest:
@@ -117,57 +134,137 @@ def validate(raw: dict) -> Manifest:
 
     variable = raw.get("variable")
     variable_source = variable_id = None
+    per = change = None
     if variable is not None:
         if not isinstance(variable, dict):
             raise ManifestError('variable must be null, or an object of the form '
                                 '{"source": ..., "id": ...}', "variable")
-        for key in ("source", "id"):
-            if key not in variable:
-                raise ManifestError(f"variable is missing {key!r}", f"variable.{key}")
-        variable_source = variable["source"]
-        if variable_source not in statistics.sources():
+        for key in sorted(set(variable) - VARIABLE_KEYS):
             raise ManifestError(
-                f"unknown variable source {variable_source!r}; expected "
-                f"{', '.join(statistics.sources())}", "variable.source"
-            )
-        variable_id = variable["id"]
+                f"unknown field variable.{key}; expected one of "
+                f"{', '.join(sorted(VARIABLE_KEYS))}", f"variable.{key}")
+        variable_source, variable_id = _reference(variable, "variable", level)
+        _check_join(variable_source, basemap_source, level, "variable.source")
 
-        capabilities = statistics.capabilities(variable_source)
-        if level not in capabilities.levels:
-            raise ManifestError(
-                f"{variable_source} publishes at {', '.join(capabilities.levels)}, "
-                f"but level is {level!r}", "level",
-            )
+        if variable.get("per") is not None:
+            per_raw = variable["per"]
+            if not isinstance(per_raw, dict):
+                raise ManifestError('variable.per must be an object of the form '
+                                    '{"source": ..., "id": ...}', "variable.per")
+            for key in sorted(set(per_raw) - {"source", "id"}):
+                raise ManifestError(
+                    f"unknown field variable.per.{key}; expected source and id",
+                    f"variable.per.{key}")
+            per = _reference(per_raw, "variable.per", level)
+            if per == (variable_source, variable_id):
+                raise ManifestError("a variable divided by itself is 1 everywhere",
+                                    "variable.per")
+            _check_join(per[0], basemap_source, level, "variable.per.source")
 
-        if capabilities.searchable:
-            # No local catalogue to check against: the id came from a live
-            # search and only the source can say whether it exists. Settled at
-            # harvest, which 404s cleanly.
-            if not str(variable_id).strip():
-                raise ManifestError(
-                    f"{variable_source} is searchable, so variable.id must name a "
-                    "specific indicator", "variable.id",
-                )
-        else:
-            available = statistics.variables_for(level, variable_source)
-            if variable_id not in available:
-                elsewhere = statistics.sources_for(variable_id)
-                if elsewhere and variable_source not in elsewhere:
-                    raise ManifestError(
-                        f"{variable_id!r} comes from {' or '.join(elsewhere)}, not "
-                        f"{variable_source!r}", "variable.source",
-                    )
-                raise ManifestError(
-                    f"unknown variable {variable_id!r}; at {level} "
-                    f"{variable_source} offers "
-                    f"{', '.join(sorted(available)) or 'nothing'}", "variable.id"
-                )
+        if variable.get("change") is not None:
+            change = _change(variable["change"], variable_source, per)
 
     return Manifest(
         bbox=bbox, within=within, level=level,
         variable_source=variable_source, variable_id=variable_id,
         basemap_source=basemap_source, basemap_detail=basemap_detail,
+        per=per, change=change,
     )
+
+
+def _reference(variable: dict, field: str, level: str) -> tuple[str, str]:
+    """Check one {source, id} pair against the registry, before any I/O."""
+    for key in ("source", "id"):
+        if key not in variable:
+            raise ManifestError(f"{field} is missing {key!r}", f"{field}.{key}")
+    source = variable["source"]
+    if source not in statistics.sources():
+        raise ManifestError(
+            f"unknown variable source {source!r}; expected "
+            f"{', '.join(statistics.sources())}", f"{field}.source"
+        )
+    variable_id = variable["id"]
+
+    capabilities = statistics.capabilities(source)
+    if level not in capabilities.levels:
+        raise ManifestError(
+            f"{source} publishes at {', '.join(capabilities.levels)}, "
+            f"but level is {level!r}", "level",
+        )
+
+    if capabilities.searchable:
+        # No local catalogue to check against: the id came from a live
+        # search and only the source can say whether it exists. Settled at
+        # harvest, which 404s cleanly.
+        if not isinstance(variable_id, str) or not variable_id.strip():
+            raise ManifestError(
+                f"{source} is searchable, so {field}.id must name a "
+                "specific indicator", f"{field}.id",
+            )
+    else:
+        available = statistics.variables_for(level, source)
+        if variable_id not in available:
+            elsewhere = statistics.sources_for(variable_id)
+            if elsewhere and source not in elsewhere:
+                raise ManifestError(
+                    f"{variable_id!r} comes from {' or '.join(elsewhere)}, not "
+                    f"{source!r}", f"{field}.source",
+                )
+            raise ManifestError(
+                f"unknown variable {variable_id!r}; at {level} "
+                f"{source} offers "
+                f"{', '.join(sorted(available)) or 'nothing'}", f"{field}.id"
+            )
+    return source, variable_id
+
+
+def _check_join(source: str, basemap: str, level: str, field: str) -> None:
+    """Statistics and boundaries must share a key namespace at this level.
+
+    Both sides declare their keys statically, so a mismatch -- county incomes
+    keyed by FIPS on Overture counties that carry no code at all -- is refused
+    here rather than rendered as a map of nothing but hatching.
+    """
+    wanted = statistics.key_at(source, level)
+    carried = cartography.keys(basemap, level)
+    if wanted in carried:
+        return
+    offering = [b for b in registry.BASEMAPS
+                if level in cartography.levels(b) and wanted in cartography.keys(b, level)]
+    hint = (f"; use basemap {' or '.join(offering)}" if offering
+            else "; no basemap carries that key at this level")
+    raise ManifestError(
+        f"{source} rows are keyed by {wanted} at {level}, but {basemap} "
+        f"{level} boundaries carry {', '.join(carried) or 'no join key'}{hint}",
+        "basemap.source" if field == "variable.source" else field,
+    )
+
+
+def _change(value, source: str, per: tuple | None) -> tuple[int, int]:
+    """{"from": year, "to": year}: percent change, so both must exist."""
+    if not isinstance(value, dict) or set(value) != {"from", "to"}:
+        raise ManifestError('variable.change must be {"from": year, "to": year}',
+                            "variable.change")
+    years = value["from"], value["to"]
+    this_year = datetime.date.today().year
+    for year in years:
+        if isinstance(year, bool) or not isinstance(year, int):
+            raise ManifestError(f"variable.change years must be integers, got {year!r}",
+                                "variable.change")
+        if not 1700 <= year <= this_year:
+            raise ManifestError(
+                f"variable.change year {year} is outside 1700-{this_year}; "
+                "projections are not observations", "variable.change")
+    if years[0] >= years[1]:
+        raise ManifestError(
+            f"variable.change.from ({years[0]}) must be before to ({years[1]})",
+            "variable.change")
+    for name in {source, *((per[0],) if per else ())}:
+        if not statistics.capabilities(name).time_series:
+            raise ManifestError(
+                f"{name} publishes a single vintage, so it has no change "
+                "between years", "variable.change")
+    return years
 
 
 def _within(value) -> tuple | None:

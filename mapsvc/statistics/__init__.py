@@ -4,8 +4,11 @@ A provider knows nothing about polygons. It answers "what is this variable, for
 these keys" and hands back a mapping. Cartography supplies the keys; `harvest`
 performs the join.
 
-Keys are ISO3 at country level and ISO 3166-2 below it -- the codes both Natural
-Earth and Overture already carry.
+Keys are named namespaces, declared per level: "ISO3" for countries,
+"ISO3166_2" for first-level units, "FIPS" for US counties, "NUTS" for Eurostat
+regions. A cartography provider declares the same names for what its polygons
+carry, and the join only happens on a namespace both sides share -- a mismatch
+is refused before any I/O instead of surfacing as a map of no-data hatching.
 
 Registering a source
 --------------------
@@ -18,7 +21,7 @@ Write `mapsvc/statistics/<name>.py` with a `Capabilities` and the functions it
 advertises, then add the module name to `_MODULES` below.
 
     CAPABILITIES = Capabilities(
-        source="owid", levels=("admin_0",), key="ISO3",
+        source="owid", levels=("admin_0",), key="ISO3",   # or {level: key}
         license="CC BY 4.0", attribution="Our World in Data (CC BY 4.0)",
         searchable=True,                    # implement search() + describe()
         description="thousands of charts on health, environment, energy...",
@@ -27,13 +30,18 @@ advertises, then add the module name to `_MODULES` below.
     def search(query, limit) -> list[Candidate]   # searchable sources only
     def describe(variable_id) -> Variable         # searchable sources only
     def variables(level) -> dict[str, Variable]   # fixed sources only
-    def load(variable_id, level, region) -> Values
+    def load(variable_id, level, region, year=None) -> Values
+                                                  # year only if time_series
 
 A **fixed** source (natural_earth) enumerates a small, stable set of columns and
 the agent picks from an enum. A **searchable** source (owid) is too large to
 enumerate: the agent emits a query, the service searches, and the agent picks
 from what came back -- so it still cannot invent an id, the constraint is just
 computed per request instead of frozen.
+
+A **time-series** source (`time_series=True`) answers `load(..., year=Y)` with
+the observation for year Y. That is what `variable.change` needs, and what lets
+`variable.per` divide by a denominator from the same year as the numerator.
 
 `Variable.level` is the measurement level and it is load-bearing: "count" treats
 0 as no-data (a country with zero people is a placeholder row), "ratio" does not
@@ -44,7 +52,16 @@ import functools
 from dataclasses import dataclass, field
 
 # The registered sources, in the order they are offered.
-_MODULES = ("natural_earth", "owid")
+_MODULES = ("natural_earth", "owid", "ukrstat")
+
+# Join-key namespaces, and what each one means. Both sides of the join name
+# their keys from this list.
+KEYS = {
+    "ISO3": "ISO 3166-1 alpha-3 country code (Natural Earth ADM0_A3 spelling)",
+    "ISO3166_2": "ISO 3166-2 subdivision code, e.g. US-TX, UA-30",
+    "FIPS": "5-digit US county FIPS code, e.g. 06085",
+    "NUTS": "Eurostat NUTS code, e.g. FR10, DE21",
+}
 
 
 @dataclass(frozen=True)
@@ -53,11 +70,20 @@ class Capabilities:
 
     source: str
     levels: tuple
-    key: str                      # "ISO3" at admin_0, "ISO3166_2" below
+    # The join-key namespace (see KEYS): one name for every level, or a
+    # {level: name} mapping when it differs by level.
+    key: str | dict
     license: str
     attribution: str
     description: str
     searchable: bool = False
+    # Accepts load(..., year=Y). Required by `variable.change`.
+    time_series: bool = False
+
+    def key_at(self, level: str) -> str | None:
+        if isinstance(self.key, dict):
+            return self.key.get(level)
+        return self.key
 
 
 @dataclass(frozen=True)
@@ -91,6 +117,13 @@ class Candidate:
 class Values:
     values: dict = field(default_factory=dict)      # key -> raw value
     provenance: dict = field(default_factory=dict)  # source, variable, unit, year
+    # key -> year of that key's observation, when sources mix years (OWID's
+    # "latest" differs by country). Lets `per` match a denominator's year.
+    years: dict = field(default_factory=dict)
+    # key -> reason, for units the source covers but deliberately does not
+    # estimate (Ukrstat publishes nothing for Crimea since 2014). Kept apart
+    # from values so the footnote can say why rather than "no join".
+    missing: dict = field(default_factory=dict)
 
 
 class StatisticsError(ValueError):
@@ -125,8 +158,22 @@ def provider(name: str):
     return providers[name]
 
 
-def load(source: str, variable_id: str, level: str, region: str) -> Values:
-    return provider(source).load(variable_id, level, region)
+def load(source: str, variable_id: str, level: str, region: str,
+         year: int | None = None) -> Values:
+    module = provider(source)
+    if year is None:
+        return module.load(variable_id, level, region)
+    if not module.CAPABILITIES.time_series:
+        raise StatisticsError(
+            f"{source} publishes one vintage only; it cannot be asked for {year}",
+            "variable.change",
+        )
+    return module.load(variable_id, level, region, year=year)
+
+
+def key_at(source: str, level: str) -> str | None:
+    """The join-key namespace a source's rows carry at `level`."""
+    return capabilities(source).key_at(level)
 
 
 def capabilities(source: str) -> Capabilities:
