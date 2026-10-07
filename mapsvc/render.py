@@ -32,6 +32,7 @@ MAP_TOP = 76                 # below the title block
 MAP_H_MIN, MAP_H_MAX = 300, 700
 COORD_DP = 2
 WORLD = (-180.0, -90.0, 180.0, 90.0)
+WORLD_MARGIN = 10.0
 
 FOOTER_SIZE, FOOTER_LEAD = 10.5, 15
 # Characters that fit across the footer at FOOTER_SIZE in the chosen font.
@@ -101,7 +102,11 @@ class Frame:
                        for lon, lat in project.window_outline(self.extent)]
             xs, ys = [p[0] for p in outline], [p[1] for p in outline]
             bounds = (min(xs), min(ys), max(xs), max(ys))
-            margin = 1.0
+            # The globe's outline is a curve whose widest point is a single
+            # vertex at the equator: fitted with a 1 px margin it sits on the
+            # page gutter and reads as cut off flat. A bbox window is a
+            # rectangle-ish frame and can go to the edge.
+            margin = WORLD_MARGIN if self.is_world else 1.0
         else:
             outline = None
             bounds = project.viewport_bounds(geometries, self.projector, self.extent)

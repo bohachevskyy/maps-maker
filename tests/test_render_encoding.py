@@ -329,3 +329,11 @@ def test_a_query_string_id_never_reaches_the_page():
     text = render(manifest, HarvestResult(rows=_rows(("A", box, 1.0)),
                                           provenance=_ratio(), dropped=[]))
     assert "?freq" not in text and "&amp;unit" not in text
+
+
+def test_the_world_outline_does_not_touch_the_page_gutter(mini_geojson):
+    """Its widest point is one equator vertex; at a 1 px margin it read as cut."""
+    manifest = build_manifest(bbox=WORLD, variable_id="POP_RANK")
+    frame = R.Frame(manifest, [f["geometry"] for f in mini_geojson["features"]])
+    xs = [x for x, _ in frame.outline]
+    assert min(xs) >= R.PAD + 8 and max(xs) <= R.PAD + R.MAP_W - 8
