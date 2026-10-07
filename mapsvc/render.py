@@ -133,6 +133,13 @@ def _num(v: float) -> str:
     return "0" if s in ("", "-0", "-") else s
 
 
+def _raw_value(value) -> str:
+    """Stable machine-readable value, with numeric noise capped at 6 digits."""
+    if isinstance(value, (int, float)) and not isinstance(value, bool):
+        return format(value, ".6g")
+    return str(value)
+
+
 def _rings(geometry) -> list:
     """Every ring, exterior and interior, so holes survive."""
     if geometry["type"] == "Polygon":
@@ -159,10 +166,13 @@ def _path(item: dict, fill: str, projector, transform, lon0: float,
         subpaths.append("M" + "L".join(points) + "Z")
     if not subpaths:
         return ""
+    value = item.get("value")
+    value_attr = ("" if value is None
+                  else f" data-value={quoteattr(_raw_value(value))}")
     return (
         f'<path d="{"".join(subpaths)}" fill="{fill}" fill-rule="evenodd" '
         f'stroke="{colors.BORDER}" stroke-width="0.4" '
-        f'data-id={quoteattr(item["id"])}/>'
+        f'data-id={quoteattr(item["id"])}{value_attr}/>'
     )
 
 

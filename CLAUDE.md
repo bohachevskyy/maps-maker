@@ -14,6 +14,12 @@ five-minute conversation first.
 "Let's implement it", "ok, let's do it" or similar is the go-ahead. Absent that,
 present and wait.
 
+**Delegated workers.** When Claude delegates a task (e.g. to the Codex CLI)
+within a direction Dmytro has already agreed, Claude's brief is the go-ahead:
+Dmytro authorized Claude to approve delegated proposals on his behalf. A worker
+should implement, and report anything that contradicts the brief. Architecture
+changes outside the agreed direction still go to Dmytro.
+
 **Verify rather than assert.** Nearly every real bug in this project was found by
 measuring, not by reasoning: Alaska's bounding box spanning 358.9°, OWID's
 `csvType=filtered` silently returning five countries, Overture's `region` column
@@ -103,8 +109,8 @@ set -a; source .env; set +a
 uv run python -m evals.run --repeat 3   # live model, costs a few cents
 ```
 
-`.env` holds `OPENAI_API_KEY` and is gitignored. `POST /map` needs no
-environment at all; only `/describe` and prompt-driven `/export` do.
+`/describe` defaults to the `codex` CLI when it is on `PATH` and no API key is
+set; `MAPSVC_LLM=codex|openai` overrides that choice. `POST /map` needs no LLM.
 
 Use `--repeat` before trusting a green eval run — the model is
 non-deterministic, and that flag is how a case that passed once but works only

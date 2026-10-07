@@ -1,6 +1,8 @@
 """Agent tests. No network, no API key, no tokens spent."""
 
 import json
+import pathlib
+import subprocess
 
 import pytest
 
@@ -33,6 +35,8 @@ class FakeClient:
 def stub(monkeypatch, tmp_path):
     """Replace the OpenAI client with canned replies."""
     monkeypatch.setenv("MAPSVC_CACHE", str(tmp_path))
+    monkeypatch.setenv("MAPSVC_LLM", "openai")
+    monkeypatch.setenv("OPENAI_API_KEY", "test-key")
 
     def install(*replies):
         client = FakeClient(replies)
@@ -136,6 +140,57 @@ def test_the_default_model_is_terra(monkeypatch):
     assert agent.model_name() == "gpt-5.6-terra"
 
 
+def test_backend_defaults_to_codex_only_without_a_key_when_it_is_on_path(monkeypatch):
+    monkeypatch.delenv("MAPSVC_LLM", raising=False)
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    monkeypatch.setattr(agent.shutil, "which", lambda name: "/bin/codex")
+    assert agent.backend_name() == "codex"
+
+    monkeypatch.setenv("OPENAI_API_KEY", "test-key")
+    assert agent.backend_name() == "openai"
+
+
+def test_codex_backend_uses_schema_transcript_and_first_json_object(monkeypatch):
+    monkeypatch.setenv("MAPSVC_LLM", "codex")
+    monkeypatch.setenv("MAPSVC_CODEX_MODEL", "test-model")
+    monkeypatch.setattr(agent.shutil, "which", lambda name: "/bin/codex")
+    seen = {}
+
+    def run(command, **kwargs):
+        seen["command"] = command
+        seen["kwargs"] = kwargs
+        schema_path = command[command.index("--output-schema") + 1]
+        output_path = command[command.index("-o") + 1]
+        assert json.loads(pathlib.Path(schema_path).read_text()) == agent.schema()
+        payload = json.dumps(reply())
+        pathlib.Path(output_path).write_text(payload + payload)
+        return subprocess.CompletedProcess(command, 0, "", "")
+
+    monkeypatch.setattr(agent.subprocess, "run", run)
+    manifest, _, _ = agent.describe("GDP per capita in Europe")
+
+    assert manifest.variable_id == "GDP_MD"
+    assert seen["command"][:3] == ["/bin/codex", "exec", "--ephemeral"]
+    assert seen["command"][-1] == "-"
+    assert seen["command"][seen["command"].index("-m") + 1] == "test-model"
+    assert seen["kwargs"]["timeout"] == 180
+    assert "USER: GDP per capita in Europe" in seen["kwargs"]["input"]
+    assert "You assemble manifests" in seen["kwargs"]["input"]
+
+
+def test_codex_timeout_is_an_agent_error(monkeypatch):
+    monkeypatch.setenv("MAPSVC_LLM", "codex")
+    monkeypatch.setattr(agent.shutil, "which", lambda name: "/bin/codex")
+
+    def timeout(*args, **kwargs):
+        raise subprocess.TimeoutExpired(args[0], kwargs["timeout"])
+
+    monkeypatch.setattr(agent.subprocess, "run", timeout)
+    with pytest.raises(agent.AgentError, match="timed out") as excinfo:
+        agent.describe("anything")
+    assert excinfo.value.field == "prompt"
+
+
 # --- refusal --------------------------------------------------------------
 
 def test_an_unmappable_request_is_refused_not_substituted(stub):
@@ -194,6 +249,7 @@ def test_the_agent_output_is_never_trusted_without_validation(stub):
 # --- configuration --------------------------------------------------------
 
 def test_a_missing_api_key_is_a_deployment_problem_not_a_bad_request(monkeypatch):
+    monkeypatch.setenv("MAPSVC_LLM", "openai")
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
     with pytest.raises(agent.AgentUnavailable) as excinfo:
         agent.describe("anything")
@@ -201,7 +257,16 @@ def test_a_missing_api_key_is_a_deployment_problem_not_a_bad_request(monkeypatch
     assert "/map" in str(excinfo.value)
 
 
+def test_no_available_default_backend_is_unavailable(monkeypatch):
+    monkeypatch.delenv("MAPSVC_LLM", raising=False)
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    monkeypatch.setattr(agent.shutil, "which", lambda name: None)
+    with pytest.raises(agent.AgentUnavailable):
+        agent.describe("anything")
+
+
 def test_an_empty_prompt_is_rejected_before_any_api_call(monkeypatch):
+    monkeypatch.setenv("MAPSVC_LLM", "openai")
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
     for bad in ("", "   ", None, 42):
         with pytest.raises(agent.AgentError) as excinfo:

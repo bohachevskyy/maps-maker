@@ -1,0 +1,179 @@
+# The reference set: ten maps a competent cartographer would be proud of.
+#
+# Each map is judged three ways:
+#   1. automatically, against truth.csv -- values sampled from the primary
+#      source independently of mapsvc, so a wrong join cannot grade itself;
+#   2. against reference.png -- a hand-built rendering of the same data, made
+#      outside mapsvc (evals/maps/etalons/), showing what "good" looks like;
+#   3. by a critic, scoring the rubric below from 1 to 5.
+#
+# Done = mean >= 4.0, no map below 3, stable over --repeat 3.
+#
+# Keys
+#   prompt       exactly what the customer types
+#   truth        primary source of the ground-truth values, with vintage
+#   units        how many features the map should carry (range)
+#   contains     [lon, lat] that must be inside the window
+#   excludes     [lon, lat] that must be outside it
+#   spot         "key=value±tolerance" checks against what the map encodes
+#   must         requirements the critic checks one by one
+#   reference    published maps worth comparing against
+
+[rubric]
+data        = "Values are right: spot checks pass, vintage stated, nothing silently dropped."
+geography   = "The right units and only them; window framed tightly; no stray features, no antimeridian artefacts."
+cartography = "Projection suits the extent; encoding suits the variable (counts are never a raw choropleth); legend readable with units; title says what the map shows."
+provenance  = "Footnote names every source, licence, vintage, projection, classification and exclusions."
+fidelity    = "The agent understood the prompt: right measure, right place, right granularity."
+
+[[map]]
+id = "gdp_world"
+prompt = "GDP per capita for every country in the world"
+truth = "OWID gdp-per-capita-worldbank (Eurostat, OECD, IMF, World Bank via OWID; PPP constant 2021 int-$), latest year per country"
+units = [180, 220]
+contains = [[-74.0, 40.7], [139.7, 35.7], [151.2, -33.9], [18.4, -33.9]]
+spot = ["LUX=126000±15%", "BDI<1500", "USA=74000±10%", "IND=9000±15%"]
+must = [
+  "equal-area world projection with a visible outline (Equal Earth or Mollweide)",
+  "classed or log-scaled colour: values span two orders of magnitude",
+  "legend title is a human label with units, not a slug",
+  "map fills the canvas; legend does not cover land",
+]
+reference = ["https://ourworldindata.org/grapher/gdp-per-capita-worldbank"]
+
+[[map]]
+id = "ukraine_oblast_population"
+prompt = "Population of every oblast in Ukraine"
+truth = "State Statistics Service of Ukraine, estimated resident population 1 Jan 2022 (last pre-invasion estimate)"
+units = [27, 27]
+contains = [[30.5, 50.45], [37.8, 48.0], [34.1, 44.95], [22.3, 48.6]]
+excludes = [[21.0, 52.2], [37.6, 55.75]]
+spot = ["UA-30=2952301±3%", "UA-63=2598961±3%", "UA-14>UA-30", "UA-46>UA-21"]
+must = [
+  "all 27 units: 24 oblasts, the AR of Crimea, Kyiv city and Sevastopol",
+  "Crimea and Sevastopol have no Ukrstat 2022 estimate: drawn as missing (hatched), and the footnote says why",
+  "a count is shown as proportional symbols or as density per km2, never as a raw-count choropleth",
+  "Kyiv city is visible despite being small",
+  "no Polish, Russian or Belarusian units are shaded",
+]
+reference = ["https://en.wikipedia.org/wiki/Oblasts_of_Ukraine"]
+
+[[map]]
+id = "us_diesel"
+prompt = "Diesel consumption across the US states"
+truth = "EIA State Energy Data System, distillate fuel oil consumption (DFTCP), latest year; population from the same release"
+units = [51, 51]
+contains = [[-77.0, 38.9], [-118.2, 34.1], [-149.9, 61.2], [-157.9, 21.3]]
+spot = ["TX>CA", "TX>NY", "WY_per_capita>NY_per_capita"]
+must = [
+  "50 states plus DC",
+  "per-capita or proportional symbols -- Texas leading on raw volume is mostly its size",
+  "Alaska and Hawaii shown as insets, conterminous US in an equal-area conic (Albers)",
+  "unit stated: barrels or gallons, per year",
+]
+reference = ["https://www.eia.gov/state/seds/"]
+
+[[map]]
+id = "eu_nuts2_gdp"
+prompt = "GDP per inhabitant across EU regions (NUTS 2)"
+truth = "Eurostat nama_10r_2gdp, PPS_EU27_2020_HAB, latest year"
+units = [230, 250]
+contains = [[2.35, 48.85], [23.7, 37.98], [25.0, 60.2], [-8.6, 41.15]]
+excludes = [[-74.0, 40.7], [-61.0, 14.6]]
+spot = ["LU00>200%_EU", "IE06>BG31", "FRK2>FRY2"]
+must = [
+  "NUTS 2 regions from Eurostat GISCO, joined on NUTS code",
+  "outermost regions (Canaries, Azores, French overseas) as insets or explicitly excluded in the footnote",
+  "Lambert azimuthal equal-area (EPSG:3035 style) for Europe",
+  "© EuroGeographics credited for boundaries",
+]
+reference = ["https://ec.europa.eu/eurostat/statistics-explained/index.php?title=Regional_GDP"]
+
+[[map]]
+id = "ca_county_income"
+prompt = "Median household income by county in California"
+truth = "US Census ACS 5-year 2019-2023, B19013_001E, by county FIPS"
+units = [58, 58]
+contains = [[-122.4, 37.77], [-118.2, 34.05], [-124.1, 40.8], [-114.6, 32.7]]
+excludes = [[-115.1, 36.2], [-119.8, 39.5]]
+spot = ["06085>150000", "06025<60000", "06085>06019"]
+must = [
+  "exactly the 58 California counties, joined on 5-digit FIPS",
+  "no Nevada, Oregon or Arizona units shaded",
+  "currency and survey vintage in the legend or footnote",
+]
+reference = ["https://data.census.gov"]
+
+[[map]]
+id = "population_change"
+prompt = "How much did each country's population change between 2000 and 2023, in percent?"
+truth = "OWID population (UN WPP), percent change 2000->2023 per country"
+units = [180, 220]
+spot = ["ARE>150", "QAT>150", "BGR<-10", "LVA<-15", "NER>100"]
+must = [
+  "diverging colour scheme centred on zero: growth and decline are different hues",
+  "both years stated; the change is computed, not a single-year value",
+  "equal-area world projection",
+]
+reference = ["https://ourworldindata.org/grapher/population"]
+
+[[map]]
+id = "france_lgv"
+prompt = "France's high-speed railway network"
+truth = "OpenStreetMap via Overpass: railway=rail + highspeed=yes inside metropolitan France"
+units = [1, 20000]
+contains = [[2.35, 48.85], [5.37, 43.3], [-0.58, 44.84], [7.75, 48.57], [-1.68, 48.11]]
+excludes = [[-61.0, 14.6], [55.5, -21.1]]
+spot = ["total_km=2800±20%", "line_near=4.83,45.76", "line_near=-0.58,44.84", "line_near=7.75,48.57"]
+must = [
+  "lines drawn over a muted basemap of the French regions",
+  "metropolitan France framed; overseas departments not dragging the window",
+  "major cities labelled (Paris, Lyon, Marseille, Bordeaux, Lille, Strasbourg, Rennes)",
+  "OpenStreetMap ODbL credited",
+]
+reference = ["https://en.wikipedia.org/wiki/LGV#/media/File:Carte_TGV.svg"]
+
+[[map]]
+id = "napoleon_1812"
+prompt = "Napoleon's 1812 march to Moscow and the retreat, showing how the army shrank"
+truth = "Minard (1869) as transcribed by Wilkinson, The Grammar of Graphics: troops, cities, temperatures"
+units = [1, 200]
+contains = [[24.0, 54.9], [37.6, 55.8]]
+excludes = [[2.35, 48.85]]
+spot = ["start_survivors=422000±5%", "moscow_survivors=100000±10%", "end_survivors<15000"]
+must = [
+  "a flow line whose width is proportional to the number of soldiers",
+  "advance and retreat in contrasting colours",
+  "cities labelled along the route (Kowno, Vilna, Smolensk, Moscou)",
+  "source of the historical data cited (Minard 1869)",
+]
+reference = ["https://en.wikipedia.org/wiki/Charles_Joseph_Minard#/media/File:Minard.png"]
+
+[[map]]
+id = "quakes_2025"
+prompt = "Every magnitude 6+ earthquake in 2025"
+truth = "USGS FDSN event service, 2025-01-01 to 2026-01-01, minmagnitude=6"
+units = [80, 200]
+spot = ["count=120±35%", "event_near=96.0,22.0", "event_near=160.0,52.5"]
+must = [
+  "points sized by magnitude, the largest drawn last or translucent so clusters read",
+  "world projection; the Pacific ring of fire is legible",
+  "the M8.8 Kamchatka and M7.7 Myanmar events are visible",
+  "USGS credited (public domain)",
+]
+reference = ["https://earthquake.usgs.gov/earthquakes/map/"]
+
+[[map]]
+id = "eu_renewables"
+prompt = "Share of electricity from renewables across Europe"
+truth = "OWID share-electricity-renewables (Ember, Energy Institute), latest year"
+units = [35, 50]
+contains = [[10.75, 59.9], [21.0, 52.2], [-3.7, 40.4], [-21.9, 64.1]]
+excludes = [[-74.0, 40.7], [44.5, 40.2]]
+spot = ["NOR>90", "ISL>95", "POL<40", "ALB>90"]
+must = [
+  "European countries only, chosen by name, not by box",
+  "conic or azimuthal projection suited to Europe",
+  "percentage scale 0-100 stated",
+]
+reference = ["https://ourworldindata.org/grapher/share-electricity-renewables"]

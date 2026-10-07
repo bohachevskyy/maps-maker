@@ -27,6 +27,20 @@ def test_feature_count_matches_rows_plus_drawn_missing(mini_geojson):
     assert ids == {r["id"] for r in result.rows} | {d["id"] for d in result.dropped}
 
 
+def test_shaded_features_expose_raw_values_but_missing_features_do_not(mini_geojson):
+    manifest = build_manifest()
+    result = build_result(mini_geojson, manifest)
+    result.rows[0]["value"] = 1234567.89
+    text = render(manifest, result)
+    paths = {p.get("data-id"): p
+             for p in ET.fromstring(text).findall(f".//{SVG}path")}
+    expected = {row["id"]: format(row["value"], ".6g") for row in result.rows}
+    assert {key: paths[key].get("data-value") for key in expected} == expected
+    assert paths[result.rows[0]["id"]].get("data-value") == "1.23457e+06"
+    assert all(paths[item["id"]].get("data-value") is None
+               for item in result.dropped)
+
+
 
 def test_missing_values_never_render_as_the_bottom_bin(mini_geojson):
     text, _, result = _svg(mini_geojson)

@@ -14,6 +14,10 @@ loop, with one repair attempt when it objects.
 import functools
 import json
 import os
+import pathlib
+import shutil
+import subprocess
+import tempfile
 
 from mapsvc import registry, statistics
 from mapsvc.manifest import Manifest, ManifestError, validate
@@ -23,6 +27,7 @@ DEFAULT_MODEL = "gpt-5.6-terra"
 MAX_OUTPUT_TOKENS = 2000
 REPAIR_ATTEMPTS = 1
 SEARCH_RESULTS = 8
+CODEX_TIMEOUT = 180
 
 
 class AgentError(ValueError):
@@ -33,12 +38,32 @@ class AgentError(ValueError):
         self.field = field
 
 
+class AgentRefusal(AgentError):
+    """The model understood the prompt but no available source can answer it."""
+
+
 class AgentUnavailable(RuntimeError):
     """The agent is not configured -- a deployment problem, not a bad request."""
 
 
 def model_name() -> str:
     return os.environ.get("OPENAI_MODEL", DEFAULT_MODEL)
+
+
+def backend_name() -> str:
+    """Choose the configured LLM backend without importing either client."""
+    configured = os.environ.get("MAPSVC_LLM")
+    if configured:
+        backend = configured.strip().lower()
+        if backend not in {"openai", "codex"}:
+            raise AgentUnavailable(
+                "MAPSVC_LLM must be 'openai' or 'codex', got "
+                f"{configured!r}."
+            )
+        return backend
+    if not os.environ.get("OPENAI_API_KEY") and shutil.which("codex"):
+        return "codex"
+    return "openai"
 
 
 def _client():
@@ -287,16 +312,15 @@ def describe(prompt: str) -> tuple[Manifest, dict, str]:
     if not isinstance(prompt, str) or not prompt.strip():
         raise AgentError("prompt must be a non-empty string", "prompt")
 
-    client = _client()
     conversation: list[dict] = [{"role": "user", "content": prompt.strip()}]
     last_error: ManifestError | None = None
     offered: set[str] | None = None
 
     for attempt in range(REPAIR_ATTEMPTS + 2):
-        answer = _ask(client, conversation)
+        answer = _ask(conversation)
 
         if not answer.get("mappable", False):
-            raise AgentError(
+            raise AgentRefusal(
                 answer.get("refusal") or "this request cannot be mapped from the "
                 "available data", "prompt"
             )
@@ -379,7 +403,14 @@ def _candidate_prompt(source: str, query: str, found: list) -> str:
     )
 
 
-def _ask(client, conversation: list[dict]) -> dict:
+def _ask(conversation: list[dict]) -> dict:
+    backend = backend_name()
+    if backend == "codex":
+        return _ask_codex(conversation)
+    return _ask_openai(_client(), conversation)
+
+
+def _ask_openai(client, conversation: list[dict]) -> dict:
     response = client.responses.create(
         model=model_name(),
         instructions=instructions(),
@@ -389,6 +420,66 @@ def _ask(client, conversation: list[dict]) -> dict:
                          "strict": True, "schema": schema()}},
     )
     try:
-        return json.loads(response.output_text)
+        return _first_json_object(response.output_text)
     except (json.JSONDecodeError, AttributeError) as exc:
         raise AgentError(f"the model did not return usable JSON: {exc}", "prompt") from exc
+
+
+def _ask_codex(conversation: list[dict]) -> dict:
+    executable = shutil.which("codex")
+    if executable is None:
+        raise AgentUnavailable(
+            "the codex CLI is not on PATH; install it or set MAPSVC_LLM=openai "
+            "and OPENAI_API_KEY. POST /map works without either backend."
+        )
+
+    transcript = instructions() + "\n\n" + "\n".join(
+        f"{turn['role'].upper()}: {turn['content']}" for turn in conversation
+    )
+    with tempfile.TemporaryDirectory(prefix="mapsvc-codex-") as directory:
+        root = pathlib.Path(directory)
+        schema_path = root / "schema.json"
+        output_path = root / "output.json"
+        schema_path.write_text(json.dumps(schema(), sort_keys=True), encoding="utf-8")
+        command = [
+            executable, "exec", "--ephemeral", "--skip-git-repo-check",
+            "-s", "read-only", "-c", "model_reasoning_effort=low",
+        ]
+        if model := os.environ.get("MAPSVC_CODEX_MODEL"):
+            command.extend(["-m", model])
+        command.extend([
+            "--output-schema", str(schema_path), "-o", str(output_path), "-",
+        ])
+        try:
+            completed = subprocess.run(
+                command, input=transcript, text=True, capture_output=True,
+                timeout=CODEX_TIMEOUT, check=False,
+            )
+        except subprocess.TimeoutExpired as exc:
+            raise AgentError(
+                f"the codex CLI timed out after {CODEX_TIMEOUT}s", "prompt"
+            ) from exc
+        except OSError as exc:
+            raise AgentUnavailable(f"the codex CLI could not be started: {exc}") from exc
+
+        if completed.returncode:
+            detail = (completed.stderr or completed.stdout or "no diagnostic").strip()
+            raise AgentError(
+                f"the codex CLI failed with exit code {completed.returncode}: "
+                f"{detail[:500]}", "prompt",
+            )
+        try:
+            output = output_path.read_text(encoding="utf-8")
+            return _first_json_object(output)
+        except (OSError, json.JSONDecodeError, AttributeError) as exc:
+            raise AgentError(
+                f"the codex CLI did not return usable JSON: {exc}", "prompt"
+            ) from exc
+
+
+def _first_json_object(text: str) -> dict:
+    """Decode one object, tolerating a second object concatenated after it."""
+    value, _ = json.JSONDecoder().raw_decode(text.lstrip())
+    if not isinstance(value, dict):
+        raise json.JSONDecodeError("top-level value is not an object", text, 0)
+    return value
