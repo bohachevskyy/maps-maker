@@ -38,10 +38,43 @@ def test_overture_maps_canonical_levels_onto_its_own_subtypes():
     assert overture.SUBTYPES["admin_2"] == "county"
 
 
-def test_overture_excludes_antimeridian_wrapped_bounding_boxes():
-    """A unit spanning 358 degrees intersects every window on earth."""
+def test_overture_uses_true_circular_extent_for_wrapped_bounding_boxes():
+    """A stored 358-degree box needs its vertices to locate it on the globe."""
     sql = overture._intersects((29.2, 49.2, 32.2, 51.6))
     assert f"bbox.xmax - bbox.xmin < {overture.MAX_BBOX_WIDTH}" in sql
+    assert f"bbox.xmax - bbox.xmin >= {overture.MAX_BBOX_WIDTH}" in sql
+    assert "ST_Points(geometry)" in sql
+    assert "list_transform" in sql
+
+
+def test_overture_world_window_keeps_wrapped_units_without_reading_geometry():
+    sql = overture._intersects((-180, -90, 180, 90))
+    assert "bbox.ymin <= 90" in sql and "bbox.ymax >= -90" in sql
+    assert "geometry" not in sql
+
+
+def test_overture_largest_gap_arc_overlap_with_synthetic_vertices():
+    """Core DuckDB exercises the circular SQL offline, without spatial/S3."""
+    import duckdb
+
+    con = duckdb.connect()
+    con.execute("CREATE TABLE features(id VARCHAR, longitudes DOUBLE[])")
+    con.executemany("INSERT INTO features VALUES (?, ?)", [
+        ("US-AK", [179, -179, -170, -130]),
+        ("RUS", [19, 180, -180, -170]),
+        ("UKR", [22, 40]),
+    ])
+    vertices = "SELECT longitude FROM unnest(longitudes) AS points(longitude)"
+
+    def ids(window):
+        predicate = overture._smallest_arc_intersects(window, vertices)
+        return {row[0] for row in con.execute(
+            f"SELECT id FROM features WHERE {predicate}"
+        ).fetchall()}
+
+    assert "US-AK" not in ids((29.2, 49.2, 32.2, 51.6))
+    assert ids((-180, -90, 180, 90)) == {"US-AK", "RUS", "UKR"}
+    assert "RUS" in ids((-25, 34, 45, 72))
 
 
 def test_overture_tests_intersection_not_corner_containment():

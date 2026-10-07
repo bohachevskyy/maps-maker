@@ -9,32 +9,72 @@ from mapsvc.cartography import Boundaries, CartographyError
 
 LEVELS = ("admin_0", "admin_1")
 
-# A ring spanning more than this has wrapped the antimeridian, and its bounding
-# box says nothing about where it is. Russia and Alaska would otherwise appear
-# on every map on earth.
-MAX_BBOX_WIDTH = 180.0
+FULL_CIRCLE = 360.0
+
+
+def _longitude_arc(longitudes: list[float]) -> tuple[float, float]:
+    """Return the smallest circular arc covering all longitudes.
+
+    The arc is ``(start, width)`` in degrees, with ``start`` normalized to
+    [0, 360).  Its complement is the largest gap between consecutive vertices
+    on the longitude circle.  This makes a feature around +/-180 a small arc
+    instead of a nearly-global planar bounding box.
+    """
+    points = sorted(set(lon % FULL_CIRCLE for lon in longitudes))
+    if len(points) == 1:
+        return points[0], 0.0
+
+    gaps = [points[index + 1] - point
+            for index, point in enumerate(points[:-1])]
+    gaps.append(points[0] + FULL_CIRCLE - points[-1])
+    gap_index = max(range(len(gaps)), key=gaps.__getitem__)
+    start = points[(gap_index + 1) % len(points)]
+    return start, FULL_CIRCLE - gaps[gap_index]
 
 
 def _feature_bbox(geometry) -> tuple | None:
+    """Return ``(longitude arc start, arc width, min lat, max lat)``."""
     rings = (geometry["coordinates"] if geometry["type"] == "Polygon"
              else [r for part in geometry["coordinates"] for r in part])
     xs = [c[0] for ring in rings for c in ring]
     ys = [c[1] for ring in rings for c in ring]
     if not xs:
         return None
-    box = (min(xs), min(ys), max(xs), max(ys))
-    return None if box[2] - box[0] >= MAX_BBOX_WIDTH else box
+    start, width = _longitude_arc(xs)
+    return start, width, min(ys), max(ys)
+
+
+def _arc_segments(start: float, width: float) -> list[tuple[float, float]]:
+    """Split a circular arc into one or two intervals on [0, 360]."""
+    if width >= FULL_CIRCLE:
+        return [(0.0, FULL_CIRCLE)]
+    end = start + width
+    if end < FULL_CIRCLE:
+        return [(start, end)]
+    # Include longitude zero when an arc ends exactly at 360: the two values
+    # name the same meridian and bbox intersection includes touching edges.
+    return [(start, FULL_CIRCLE), (0.0, end - FULL_CIRCLE)]
+
+
+def _arcs_intersect(first: tuple[float, float],
+                    second: tuple[float, float]) -> bool:
+    return any(a_start <= b_end and a_end >= b_start
+               for a_start, a_end in _arc_segments(*first)
+               for b_start, b_end in _arc_segments(*second))
 
 
 def _intersecting(features: list, bbox) -> list:
     min_lon, min_lat, max_lon, max_lat = bbox
+    window_arc = (min_lon % FULL_CIRCLE, max_lon - min_lon)
     kept = []
     for feature in features:
-        box = _feature_bbox(feature["geometry"])
-        if box is None:
+        extent = _feature_bbox(feature["geometry"])
+        if extent is None:
             continue
-        if (box[0] <= max_lon and box[2] >= min_lon
-                and box[1] <= max_lat and box[3] >= min_lat):
+        lon_start, lon_width, feature_min_lat, feature_max_lat = extent
+        if (_arcs_intersect((lon_start, lon_width), window_arc)
+                and feature_min_lat <= max_lat
+                and feature_max_lat >= min_lat):
             kept.append(feature)
     return kept
 

@@ -23,8 +23,9 @@ DIVISION_AREA = (
     "/theme=divisions/type=division_area/*"
 )
 
-# Beyond this a stored bounding box has wrapped the antimeridian and says
-# nothing about where the unit is.
+# Beyond this a stored bounding box may have wrapped the antimeridian. Its
+# ordinary xmin/xmax extent then says nothing about where the unit is, so the
+# query falls back to the smallest circular arc containing its vertices.
 MAX_BBOX_WIDTH = 180
 
 LICENSE = "ODbL 1.0"
@@ -58,24 +59,93 @@ def _connection():
 def _intersects(bbox) -> str:
     """SQL for "this unit's bounding box overlaps the window".
 
-    Overture stores per-row bbox columns, so this prunes whole row groups
-    before any geometry is read -- which is the difference between a few
-    seconds and a few minutes.
+    Overture stores per-row bbox columns, so ordinary units take a cheap
+    bbox-only path. Only boxes broad enough to have wrapped the antimeridian
+    need their geometry vertices inspected.
 
     Testing `bbox.xmin BETWEEN ...` instead is a tempting mistake: it asks
     whether the unit's *corner* falls inside the window, so a box drawn inside
     Ukraine returns no country at all, Ukraine's own corner being outside it.
     """
     min_lon, min_lat, max_lon, max_lat = bbox
-    return (f"bbox.xmin <= {max_lon} AND bbox.xmax >= {min_lon} AND "
-            f"bbox.ymin <= {max_lat} AND bbox.ymax >= {min_lat} AND "
-            # A unit straddling the antimeridian is stored with xmin near -180
-            # and xmax near +180, so its bounding box spans the planet and
-            # intersects every window on Earth. Alaska's Unorganized Borough
-            # (width 358.9 degrees, thanks to the Aleutians) was arriving on a
-            # three-degree map of Kyiv and dragging the viewport out with it.
-            # Such a box carries no location, so it cannot be filtered on.
-            f"bbox.xmax - bbox.xmin < {MAX_BBOX_WIDTH}")
+    latitude = f"bbox.ymin <= {max_lat} AND bbox.ymax >= {min_lat}"
+
+    # Every longitude intersects a whole-world window. Besides being simpler,
+    # this matters to Overture: referring to `geometry` makes DuckDB fetch that
+    # large Parquet column even for a count query.
+    if max_lon - min_lon >= 360:
+        return latitude
+
+    ordinary = (
+        f"bbox.xmax - bbox.xmin < {MAX_BBOX_WIDTH} AND "
+        f"bbox.xmin <= {max_lon} AND bbox.xmax >= {min_lon}"
+    )
+    return f"{latitude} AND (({ordinary}) OR ({_circular_intersects(bbox)}))"
+
+
+def _circular_intersects(bbox) -> str:
+    """SQL overlap test for a bbox whose stored longitude extent has wrapped.
+
+    Overture's bbox has only xmin/xmax, so once it spans nearly 360 degrees the
+    true location cannot be recovered from that struct. For those few rows,
+    flatten the geometry's vertices, normalise their longitudes onto [0, 360),
+    and cut the circle at the largest gap. The complement is the smallest arc
+    containing the unit. Two circular arcs overlap when either one's start lies
+    in the other.
+
+    The width guard is deliberately inside this expression. It preserves the
+    bbox-only fast path for normal units; only antimeridian-wrapped or genuinely
+    very broad units undergo the vertex inspection.
+    """
+    vertices = """SELECT ST_X(point.geom) AS longitude
+        FROM unnest(ST_Dump(ST_Points(geometry))) AS points(point)"""
+    return (f"bbox.xmax - bbox.xmin >= {MAX_BBOX_WIDTH} AND "
+            f"{_smallest_arc_intersects(bbox, vertices)}")
+
+
+def _smallest_arc_intersects(bbox, vertices: str) -> str:
+    """SQL largest-gap overlap, separated so core DuckDB can test it offline.
+
+    ``vertices`` is a query yielding one raw ``longitude`` column. Production
+    supplies geometry vertices; tests can supply a small list without loading
+    DuckDB's separately distributed spatial extension.
+    """
+    min_lon, _min_lat, max_lon, _max_lat = bbox
+    window_start = (min_lon + 180) % 360
+    window_width = max_lon - min_lon
+    return f"""EXISTS (
+        SELECT 1
+        FROM (
+            SELECT CASE
+                       WHEN gap_index = len(longitudes) THEN longitudes[1]
+                       ELSE longitudes[gap_index + 1]
+                   END AS arc_start,
+                   360 - list_max(gaps) AS arc_width
+            FROM (
+                SELECT longitudes, gaps,
+                       list_position(gaps, list_max(gaps)) AS gap_index
+                FROM (
+                    SELECT longitudes,
+                           list_transform(
+                               longitudes,
+                               (longitude, i) -> CASE
+                                   WHEN i = len(longitudes)
+                                       THEN longitudes[1] + 360 - longitude
+                                   ELSE longitudes[i + 1] - longitude
+                               END
+                           ) AS gaps
+                    FROM (
+                        SELECT list_sort(list_distinct(list(
+                                   mod(longitude + 180, 360)
+                               ))) AS longitudes
+                        FROM ({vertices}) AS vertex_longitudes
+                    ) AS vertices
+                ) AS measured
+            ) AS widest_gap
+        ) AS circular_extent
+        WHERE mod({window_start} - arc_start + 360, 360) <= arc_width
+           OR mod(arc_start - {window_start} + 360, 360) <= {window_width}
+    )"""
 
 
 def _within(codes: list) -> str:

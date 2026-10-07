@@ -53,6 +53,19 @@ def test_extent_skips_features_clipped_at_the_antimeridian():
     assert project.extent_of([europe, russia])[2] == 10
 
 
+def test_europe_viewport_ignores_russia_antimeridian_edge():
+    """Russia is drawn in Europe, but its 180E clip edge must not set the fit."""
+    extent = (-25.0, 34.0, 45.0, 72.0)
+    europe = {"type": "Polygon",
+              "coordinates": [[[-24, 36], [40, 36], [40, 71], [-24, 71], [-24, 36]]]}
+    russia = {"type": "Polygon",
+              "coordinates": [[[30, 50], [180, 50], [180, 70], [30, 70], [30, 50]]]}
+    projector = project.make(project.choose(extent), extent)
+
+    europe_bounds = project.viewport_bounds([europe], projector, extent)
+    assert project.viewport_bounds([europe, russia], projector, extent) == europe_bounds
+
+
 def test_extent_falls_back_when_every_feature_is_a_crosser():
     russia = {"type": "Polygon",
               "coordinates": [[[30, 50], [180, 50], [180, 70], [30, 70], [30, 50]]]}
