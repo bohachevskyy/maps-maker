@@ -297,7 +297,6 @@ def layer_from_overpass(data: dict, pairs, window: Window, ql: str) -> dict:
                     + " + ".join(f"{k}={v}" for k, v in pairs)
                     + (f" in {window.name}" if window.name else " in the map window")),
     }
-    filter_text = " + ".join(f"{k}={v}" for k, v in pairs)
 
     if not ways:
         if len(nodes) > MAX_WAYS:
@@ -312,7 +311,7 @@ def layer_from_overpass(data: dict, pairs, window: Window, ql: str) -> dict:
             "kind": "points", "title": what + where, "label": what,
             "size": None, "category": None, "features": features,
             "stats": {"count": len(features)},
-            "summary": f"{len(features):,} OpenStreetMap features tagged {filter_text}",
+            "summary": f"{len(features):,} in OpenStreetMap",
             "encoding": "One dot per OSM node", "excluded": [],
             "provenance": provenance,
         }
@@ -347,7 +346,8 @@ def layer_from_overpass(data: dict, pairs, window: Window, ql: str) -> dict:
 
     category = None
     if railway and kept and speeds / len(kept) >= 0.5:
-        category = {"field": "maxspeed", "label": f"{what} (OSM {filter_text})",
+        # A legend heading is read, not parsed: the tags are in the footnote.
+        category = {"field": "maxspeed", "label": f"{what}, by signalled maximum speed",
                     "ordered": True, "classes": list(SPEED_CLASSES)}
     else:
         for f in features:
@@ -372,7 +372,7 @@ def layer_from_overpass(data: dict, pairs, window: Window, ql: str) -> dict:
         "features": features,
         "stats": {"count": len(features), "total_km": round(route_km),
                   "track_km": round(track_km)},
-        "summary": (f"Lines tagged {filter_text} in OpenStreetMap"
+        "summary": (f"{what} in OpenStreetMap"
                     + (f", {coloured}" if coloured else "")
                     + f" · about {_about(route_km)} km of route"),
         "encoding": (("Colour = OSM maxspeed tag. " if category else "")
