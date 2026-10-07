@@ -21,6 +21,8 @@ first refuses (504 "too busy" was common that night). overpass-api.de answers
 
 import hashlib
 import json
+import math
+import os
 import re
 import time
 import urllib.parse
@@ -33,6 +35,8 @@ ENDPOINTS = (
     "https://overpass.kumi.systems/api/interpreter",
 )
 TIMEOUT_S = 400
+DEFAULT_BUDGET_S = 300
+STATUS_TIMEOUT_S = 2
 MAXSIZE = 512 * 1024 * 1024
 MAX_WAYS = 40_000
 MAX_PAIRS = 4
@@ -147,15 +151,27 @@ def load(overlay_id: str, window: Window) -> dict:
 
 def _post(ql: str) -> bytes:
     body = urllib.parse.urlencode({"data": ql}).encode()
-    errors = []
-    for endpoint in ENDPOINTS:
+    budget = _budget_s()
+    deadline = time.monotonic() + budget
+    endpoints, errors = _ordered_endpoints(deadline)
+    for endpoint in endpoints:
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            break
+        started = time.monotonic()
         try:
-            payload = fetch.post(endpoint, body, timeout=TIMEOUT_S + 30)
+            payload = fetch.post(endpoint, body, timeout=min(TIMEOUT_S, remaining))
         except fetch.FetchError as exc:
-            errors.append(f"{endpoint}: {str(exc)[:160]}")
+            elapsed = time.monotonic() - started
+            outcome = f"status {exc.status}" if exc.status is not None else str(exc)[:120]
+            errors.append(f"{endpoint}: {outcome}, {elapsed:.1f}s")
             continue
+        elapsed = time.monotonic() - started
+        if time.monotonic() >= deadline:
+            errors.append(f"{endpoint}: budget expired, {elapsed:.1f}s")
+            break
         if not payload.lstrip().startswith(b"{"):
-            errors.append(f"{endpoint}: non-JSON answer {payload[:120]!r}")
+            errors.append(f"{endpoint}: non-JSON answer, {elapsed:.1f}s")
             continue
         remark = json.loads(payload).get("remark") or ""
         if "runtime error" in remark:
@@ -163,10 +179,58 @@ def _post(ql: str) -> bytes:
                 raise OverlayError(
                     "that OpenStreetMap filter matches too much data for this "
                     "window; narrow the filter or the area", "overlays.id")
-            errors.append(f"{endpoint}: {remark[:160]}")
+            errors.append(f"{endpoint}: {remark[:120]}, {elapsed:.1f}s")
             continue
         return payload
+    if time.monotonic() >= deadline:
+        raise OverlayError(
+            f"Overpass wall-clock budget of {budget:g}s exhausted; endpoints tried: "
+            + " | ".join(errors))
     raise OverlayError("every Overpass endpoint failed: " + " | ".join(errors))
+
+
+def _budget_s() -> float:
+    raw = os.environ.get("MAPSVC_OVERPASS_BUDGET", str(DEFAULT_BUDGET_S))
+    try:
+        budget = float(raw)
+    except ValueError as exc:
+        raise OverlayError("MAPSVC_OVERPASS_BUDGET must be a positive number") from exc
+    if not math.isfinite(budget) or budget <= 0:
+        raise OverlayError("MAPSVC_OVERPASS_BUDGET must be a positive number")
+    return budget
+
+
+def _ordered_endpoints(deadline: float) -> tuple[list[str], list[str]]:
+    """Put endpoints reporting free slots first; omit explicit zero-slot ones."""
+    available = []
+    unknown = []
+    outcomes = []
+    for endpoint in ENDPOINTS:
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            break
+        started = time.monotonic()
+        status_url = endpoint.rsplit("/", 1)[0] + "/status"
+        try:
+            payload = fetch.get(status_url, timeout=min(STATUS_TIMEOUT_S, remaining))
+        except fetch.FetchError as exc:
+            elapsed = time.monotonic() - started
+            outcome = f"status {exc.status}" if exc.status is not None else str(exc)[:100]
+            outcomes.append(
+                f"{endpoint}: status probe {outcome}, {elapsed:.1f}s")
+            unknown.append(endpoint)
+            continue
+        elapsed = time.monotonic() - started
+        match = re.search(rb"(\d+)\s+slots? available now", payload, re.IGNORECASE)
+        if match and int(match.group(1)) == 0:
+            outcomes.append(f"{endpoint}: no free slots, probe {elapsed:.1f}s")
+        elif match and int(match.group(1)) > 0:
+            available.append(endpoint)
+        elif b"slot available after" in payload.lower():
+            outcomes.append(f"{endpoint}: no free slots, probe {elapsed:.1f}s")
+        else:
+            unknown.append(endpoint)
+    return available + unknown, outcomes
 
 
 # Descriptions for the commonest filters; anything else is described by its

@@ -3,8 +3,10 @@
 Offline: every source is exercised on a small recorded response.
 """
 
+import io
 import json
 import pathlib
+import urllib.error
 
 import pytest
 
@@ -153,6 +155,99 @@ def test_overpass_query_scopes_by_country_area_and_box():
     assert ql.endswith("out tags geom;")
     sub = overpass.query(pairs, overlays.Window(None, ("FR-IDF",), (0, 0, 1, 1)))
     assert 'area["ISO3166-2"="FR-IDF"]' in sub
+
+
+class _HTTPResponse:
+    def __init__(self, payload):
+        self.payload = payload
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *_):
+        pass
+
+    def read(self):
+        return self.payload
+
+
+class _Clock:
+    def __init__(self):
+        self.now = 0.0
+
+    def monotonic(self):
+        return self.now
+
+    def advance(self, seconds):
+        self.now += seconds
+
+
+def _http_error(request, status):
+    return urllib.error.HTTPError(
+        request.full_url, status, "test response", {}, io.BytesIO(b"busy"))
+
+
+def test_overpass_budget_is_shared_by_all_endpoints(monkeypatch):
+    clock = _Clock()
+    calls = []
+
+    def urlopen(request, timeout):
+        calls.append((request.full_url, timeout))
+        if request.data is None:
+            return _HTTPResponse(b"2 slots available now.")
+        clock.advance(5)
+        raise _http_error(request, 504)
+
+    monkeypatch.setenv("MAPSVC_OVERPASS_BUDGET", "5")
+    monkeypatch.setattr(overpass.time, "monotonic", clock.monotonic)
+    monkeypatch.setattr(overpass.fetch.urllib.request, "urlopen", urlopen)
+
+    with pytest.raises(overlays.OverlayError) as caught:
+        overpass._post("ql")
+
+    message = str(caught.value)
+    assert "wall-clock budget of 5s exhausted" in message
+    assert f"{overpass.ENDPOINTS[0]}: status 504, 5.0s" in message
+    posts = [(url, timeout) for url, timeout in calls if url.endswith("interpreter")]
+    assert posts == [(overpass.ENDPOINTS[0], 5.0)]
+
+
+def test_overpass_falls_back_after_504(monkeypatch):
+    calls = []
+
+    def urlopen(request, timeout):
+        calls.append(request)
+        if request.data is None:
+            return _HTTPResponse(b"1 slot available now.")
+        if request.full_url == overpass.ENDPOINTS[0]:
+            raise _http_error(request, 504)
+        return _HTTPResponse(b'{"elements": []}')
+
+    monkeypatch.setattr(overpass.fetch.urllib.request, "urlopen", urlopen)
+
+    assert overpass._post("ql") == b'{"elements": []}'
+    assert [r.full_url for r in calls if r.data is not None] == list(overpass.ENDPOINTS)
+
+
+def test_overpass_health_skips_busy_endpoint_and_sends_user_agent(monkeypatch):
+    calls = []
+
+    def urlopen(request, timeout):
+        calls.append(request)
+        if request.data is None:
+            slots = b"0 slots available now." if "overpass-api.de" in request.full_url \
+                else b"2 slots available now."
+            return _HTTPResponse(slots)
+        return _HTTPResponse(b'{"elements": []}')
+
+    monkeypatch.setattr(overpass.fetch.urllib.request, "urlopen", urlopen)
+
+    assert overpass._post("ql") == b'{"elements": []}'
+    posts = [r for r in calls if r.data is not None]
+    assert [r.full_url for r in posts] == [overpass.ENDPOINTS[1]]
+    assert all(r.get_header("User-agent").startswith("mapsvc/") for r in calls)
+    assert all("github.com/bohachevskyy/maps-maker" in r.get_header("User-agent")
+               for r in calls)
 
 
 def _lgv_layer():
