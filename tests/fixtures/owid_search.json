@@ -1,0 +1,298 @@
+{
+ "population": {
+  "results": [
+   {
+    "availableEntities": [
+     "Bosnia and Herzegovina",
+     "Czechia",
+     "Democratic Republic of Congo"
+    ],
+    "availableTabs": [
+     "Table",
+     "WorldMap",
+     "LineChart",
+     "DiscreteBar"
+    ],
+    "queryParams": "?indicator=Population&Sex=Both+sexes&Age=Total&Projection+scenario=None",
+    "slug": "population-and-demography",
+    "subtitle": "Total population, measured on 1 July of the year shown.",
+    "title": "Population",
+    "type": "explorerView",
+    "variantName": "Population"
+   },
+   {
+    "availableEntities": [
+     "Bosnia and Herzegovina",
+     "Czechia",
+     "Democratic Republic of Congo"
+    ],
+    "availableTabs": [
+     "Table",
+     "WorldMap",
+     "LineChart",
+     "DiscreteBar"
+    ],
+    "slug": "population",
+    "subtitle": "",
+    "title": "Population",
+    "type": "chart",
+    "variantName": "since 10,000 BCE"
+   },
+   {
+    "availableEntities": [
+     "Bosnia and Herzegovina",
+     "Czechia",
+     "Democratic Republic of Congo"
+    ],
+    "availableTabs": [
+     "Table",
+     "WorldMap",
+     "LineChart",
+     "DiscreteBar",
+     "Marimekko"
+    ],
+    "slug": "share-of-population-in-extreme-poverty",
+    "subtitle": "Extreme poverty is defined as living below the International Poverty Line of $3 per day. This data is adjusted for inflation and differences in living costs between countries.",
+    "title": "Share of population living in extreme poverty",
+    "type": "chart",
+    "variantName": ""
+   },
+   {
+    "availableEntities": [
+     "Bosnia and Herzegovina",
+     "Czechia",
+     "Democratic Republic of Congo"
+    ],
+    "availableTabs": [
+     "Table",
+     "WorldMap",
+     "LineChart",
+     "DiscreteBar"
+    ],
+    "slug": "share-of-the-population-with-access-to-electricity",
+    "title": "Share of the population with access to electricity",
+    "type": "chart",
+    "variantName": ""
+   },
+   {
+    "availableEntities": [
+     "Bosnia and Herzegovina",
+     "Czechia",
+     "Democratic Republic of Congo"
+    ],
+    "availableTabs": [
+     "Table",
+     "WorldMap",
+     "LineChart",
+     "DiscreteBar"
+    ],
+    "slug": "access-to-clean-fuels-and-technologies-for-cooking",
+    "subtitle": "Access to clean fuels or technologies such as natural gas, electricity, and clean cookstoves reduces exposure to indoor air pollutants, a leading cause of death in low-income households.",
+    "title": "Share of the population with access to clean fuels for cooking",
+    "type": "chart",
+    "variantName": ""
+   },
+   {
+    "availableEntities": [
+     "Bosnia and Herzegovina",
+     "Czechia",
+     "Democratic Republic of Congo"
+    ],
+    "availableTabs": [
+     "Table",
+     "WorldMap",
+     "LineChart",
+     "DiscreteBar"
+    ],
+    "queryParams": "?Metric=Excess+mortality+%28estimates%29&Interval=Cumulative&Relative+to+population=true",
+    "slug": "covid",
+    "subtitle": "For countries that have not reported all-cause mortality data for a given week, an estimate is shown, with uncertainty interval. If reported data is available, that value only is shown. On the map, only the central estimate is shown.",
+    "title": "Estimated cumulative excess deaths per 100,000 people during COVID-19",
+    "type": "explorerView",
+    "variantName": "Estimated cumulative excess deaths per 100,000 people during COVID-19"
+   },
+   {
+    "availableEntities": [
+     "Bosnia and Herzegovina",
+     "Czechia",
+     "Democratic Republic of Congo"
+    ],
+    "availableTabs": [
+     "Table",
+     "WorldMap",
+     "LineChart",
+     "DiscreteBar"
+    ],
+    "queryParams": "?Indicator=Share+in+poverty&Poverty+line=%243+per+day%3A+International+Poverty+Line&Household+survey+data+type=Show+data+from+both+income+and+consumption+surveys&Show+breaks+between+less+comparable+surveys=false",
+    "slug": "poverty-explorer",
+    "subtitle": "Extreme poverty is defined as living below the International Poverty Line of $3 per day. This data is adjusted for inflation and for differences in living costs between countries.",
+    "title": "Share of population living in extreme poverty",
+    "type": "explorerView",
+    "variantName": "Share of population living in extreme poverty"
+   },
+   {
+    "availableEntities": [
+     "Bosnia and Herzegovina",
+     "Czechia",
+     "Democratic Republic of Congo"
+    ],
+    "availableTabs": [
+     "Table",
+     "WorldMap",
+     "LineChart",
+     "DiscreteBar"
+    ],
+    "slug": "population-with-un-projections",
+    "subtitle": "Future projections are based on the UN's medium scenario.",
+    "title": "Population",
+    "type": "chart",
+    "variantName": "1950-2100, with UN projections"
+   }
+  ]
+ },
+ "share of electricity from renewables": {
+  "results": [
+   {
+    "availableEntities": [
+     "ASEAN (Ember)",
+     "Afghanistan",
+     "Africa"
+    ],
+    "availableTabs": [
+     "Table",
+     "WorldMap",
+     "LineChart",
+     "DiscreteBar",
+     "Dumbbell",
+     "SlopeChart"
+    ],
+    "queryParams": "?frequency=annual&metric=share_of_generation&source=renewables",
+    "slug": "electricity-mix",
+    "subtitle": "Measured as a percentage of total electricity produced in the country or region.",
+    "title": "Share of electricity generated by renewables",
+    "type": "multiDimView"
+   },
+   {
+    "availableEntities": [
+     "Bosnia and Herzegovina",
+     "Czechia",
+     "Democratic Republic of Congo"
+    ],
+    "availableTabs": [
+     "Table",
+     "LineChart",
+     "DiscreteBar"
+    ],
+    "slug": "electricity-fossil-renewables-nuclear-line",
+    "subtitle": "Measured as a percentage of total electricity produced in the country or region. Fossil fuels include coal, oil, and gas. Renewables include solar, wind, hydropower, bioenergy, geothermal, wave, and tidal.",
+    "title": "Share of electricity generation from fossil fuels, renewables and nuclear",
+    "type": "chart",
+    "variantName": ""
+   },
+   {
+    "availableEntities": [
+     "Bosnia and Herzegovina",
+     "Czechia",
+     "Democratic Republic of Congo"
+    ],
+    "availableTabs": [
+     "Table",
+     "ScatterPlot"
+    ],
+    "slug": "co2-per-capita-vs-renewable-electricity",
+    "subtitle": "Carbon dioxide (CO₂) emissions are measured in tonnes per person. Renewables include solar, wind, hydropower, bioenergy, geothermal, wave and tidal.",
+    "title": "CO₂ emissions per capita vs. share of electricity generation from renewables",
+    "type": "chart",
+    "variantName": ""
+   },
+   {
+    "availableEntities": [
+     "ASEAN (Ember)",
+     "Afghanistan",
+     "Africa"
+    ],
+    "availableTabs": [
+     "Table",
+     "WorldMap",
+     "LineChart",
+     "DiscreteBar",
+     "Dumbbell",
+     "SlopeChart"
+    ],
+    "queryParams": "?frequency=annual&metric=share_of_generation&source=other_renewables",
+    "slug": "electricity-mix",
+    "subtitle": "Measured as a percentage of total electricity produced in the country or region.",
+    "title": "Share of electricity generated by other renewables, excluding bioenergy",
+    "type": "multiDimView"
+   },
+   {
+    "availableEntities": [
+     "SSP1 - 1.9",
+     "SSP1 - 2.6",
+     "SSP1 - 3.4"
+    ],
+    "availableTabs": [
+     "Table",
+     "LineChart",
+     "DiscreteBar"
+    ],
+    "queryParams": "?Metric=Secondary+energy&Region=Asia&Sub-metric=Electricity+from+renewables&Rate=Share+of+total",
+    "slug": "ipcc-scenarios",
+    "title": "Share of Asian electricity that comes from renewables, excluding biofuels",
+    "type": "explorerView",
+    "variantName": "Share of Asian electricity that comes from renewables, excluding biofuels"
+   },
+   {
+    "availableEntities": [
+     "SSP1 - 1.9",
+     "SSP1 - 2.6",
+     "SSP1 - 3.4"
+    ],
+    "availableTabs": [
+     "Table",
+     "LineChart",
+     "DiscreteBar"
+    ],
+    "queryParams": "?Metric=Secondary+energy&Region=Global&Sub-metric=Electricity+from+renewables&Rate=Share+of+total",
+    "slug": "ipcc-scenarios",
+    "title": "Share of global electricity that comes from renewables, excluding biofuels",
+    "type": "explorerView",
+    "variantName": "Share of global electricity that comes from renewables, excluding biofuels"
+   },
+   {
+    "availableEntities": [
+     "SSP1 - 1.9",
+     "SSP1 - 2.6",
+     "SSP1 - 3.4"
+    ],
+    "availableTabs": [
+     "Table",
+     "LineChart",
+     "DiscreteBar"
+    ],
+    "queryParams": "?Metric=Secondary+energy&Region=Latin+America&Sub-metric=Electricity+from+renewables&Rate=Share+of+total",
+    "slug": "ipcc-scenarios",
+    "title": "Share of electricity that comes from renewables, excluding biofuels in Latin America",
+    "type": "explorerView",
+    "variantName": "Share of electricity that comes from renewables, excluding biofuels in Latin America"
+   },
+   {
+    "availableEntities": [
+     "SSP1 - 1.9",
+     "SSP1 - 2.6",
+     "SSP1 - 3.4"
+    ],
+    "availableTabs": [
+     "Table",
+     "LineChart",
+     "DiscreteBar"
+    ],
+    "queryParams": "?Metric=Secondary+energy&Region=OECD&Sub-metric=Electricity+from+renewables&Rate=Share+of+total",
+    "slug": "ipcc-scenarios",
+    "title": "Share of electricity that comes from renewables, excluding biofuels in OECD countries",
+    "type": "explorerView",
+    "variantName": "Share of electricity that comes from renewables, excluding biofuels in OECD countries"
+   }
+  ]
+ }
+}

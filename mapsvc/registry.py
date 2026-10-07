@@ -112,3 +112,20 @@ def country_property(level: str) -> str:
 
 def continent_property(level: str) -> str | None:
     return _LEVELS[level]["continent"]
+
+
+def iso3_of(props: dict) -> str | None:
+    """A Natural Earth country's ISO3 join key.
+
+    ADM0_A3 is Natural Earth's own id and differs from ISO 3166-1 for South
+    Sudan (SDS, ISO SSD), Palestine (PSX/PSE), Western Sahara (SAH/ESH) and
+    Aland (ALD/ALA), so joining other sources on it silently drops them.
+    ISO_A3 is right where it exists; where it is -99 (Kosovo, Somaliland,
+    Northern Cyprus) there is no ISO code and ADM0_A3 is the best available.
+    ISO_A3_EH is not used: it gives Australia's code to Australian territories.
+    """
+    iso = str(props.get("ISO_A3") or "")
+    if len(iso) == 3 and iso.isalpha():
+        return iso.upper()
+    code = props.get("ADM0_A3")
+    return str(code).upper() if code else None

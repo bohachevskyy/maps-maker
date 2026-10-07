@@ -25,7 +25,7 @@ def test_values_come_back_keyed_by_iso_with_no_geometry(offline):
                              "GDP_MD": 2715518, "GDP_YEAR": 2019}}])
     values = natural_earth.load("GDP_MD", "admin_0", "europe")
     assert values.values == {"FRA": 2715518}
-    assert values.provenance["key"] == "ADM0_A3"
+    assert values.provenance["key"] == "ISO_A3, else ADM0_A3"
     assert values.provenance["year"] == "2019"
     assert "geometry" not in str(values.values)
 

@@ -26,7 +26,7 @@ LICENSE = CAPABILITIES.license
 ATTRIBUTION = CAPABILITIES.attribution
 
 # The join key each level's rows are addressed by.
-KEY_PROPERTY = {"admin_0": "ADM0_A3", "admin_1": "iso_3166_2"}
+KEY_PROPERTY = {"admin_0": "ISO_A3, else ADM0_A3", "admin_1": "iso_3166_2"}
 
 # Of the 168 properties on each country, these six are the mappable ones.
 def _v(vid, level, unit=None, year_col=None, label=None):
@@ -86,7 +86,8 @@ def load(variable_id: str, level: str, region: str) -> Values:
     years: set = set()
     for feature in features:
         props = feature["properties"]
-        key = props.get(key_property)
+        key = (registry.iso3_of(props) if level == "admin_0"
+               else props.get(key_property))
         if not key:
             continue
         values[str(key).upper()] = props.get(variable_id)

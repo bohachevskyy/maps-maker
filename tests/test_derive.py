@@ -219,3 +219,11 @@ def test_harvest_reports_not_estimated_units_by_reason(monkeypatch, tmp_path):
     assert [r["id"] for r in result.rows] == ["UA-30"]
     assert {d["id"]: d["reason"] for d in result.dropped} == {
         "PL-02": "no_join", "UA-43": "not_estimated"}
+
+
+def test_natural_earth_countries_join_on_iso3_not_adm0_a3():
+    """ADM0_A3 is SDS for South Sudan; every other source says SSD."""
+    from mapsvc import registry
+    assert registry.iso3_of({"ADM0_A3": "SDS", "ISO_A3": "SSD"}) == "SSD"
+    assert registry.iso3_of({"ADM0_A3": "KOS", "ISO_A3": "-99"}) == "KOS"
+    assert registry.iso3_of({"ADM0_A3": "IOA", "ISO_A3": "-99", "ISO_A3_EH": "AUS"}) == "IOA"

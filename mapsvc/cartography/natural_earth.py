@@ -123,9 +123,9 @@ def load(level: str, bbox, detail: str = "simplified",
     units = []
     for feature in features:
         props = feature["properties"]
-        # ISO 3166-2 below country level, ADM0_A3 at country level.
+        # ISO 3166-2 below country level, ISO3 at country level.
         key = (props.get("iso_3166_2") if level == "admin_1"
-               else props.get(id_property))
+               else registry.iso3_of(props))
         units.append({
             "id": props.get(id_property),
             "key": key,
