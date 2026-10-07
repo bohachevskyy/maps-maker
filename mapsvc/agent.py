@@ -471,9 +471,13 @@ one country) so the overlay carries the message.
       within ["DEU"], level admin_1, basemap natural_earth, variable_is_null
       true, overlays [{{source overpass, id "highway=motorway"}}]
   "Atlantic hurricane tracks"
-      bbox [-100.0, 5.0, -10.0, 60.0], level admin_0, basemap natural_earth,
+      no bbox, no within, level admin_0, basemap natural_earth,
       variable_is_null true, overlays [{{source web, id "", search_query
       "atlantic hurricane storm tracks"}}] -- then pick from the candidates.
+
+You cannot see a web dataset's extent before it is fetched, so for web \
+overlays leave bbox and within empty: the map is framed on the data itself. \
+usgs and overpass need a window from you (overpass refuses without one).
 
 A `within` country includes its overseas parts (France's Caribbean and Indian \
 Ocean departments); with an overlay the map frames itself on the units near \

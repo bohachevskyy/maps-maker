@@ -263,6 +263,8 @@ def _extent_for(manifest, result=None):
     if manifest.bbox is not None:
         return manifest.bbox
     result = result or harvest(manifest)
+    if result.provenance.get("overlay_bbox"):
+        return tuple(result.provenance["overlay_bbox"])
     geometries = [row["geometry"] for row in result.rows]
     geometries.extend(item["geometry"] for item in result.dropped if item.get("geometry"))
     if getattr(result, "overlays", None):

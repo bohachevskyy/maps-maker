@@ -292,3 +292,19 @@ def test_within_maps_frame_on_units_near_the_overlay():
     layer = {"kind": "points", "features": [{"lon": 2.5, "lat": 46.5}]}
     assert overlay_render.focus([mainland, overseas], [layer]) == [mainland]
     assert overlay_render.focus([mainland, overseas], []) == [mainland, overseas]
+
+
+def test_a_map_with_overlays_may_omit_the_window():
+    manifest = validate({"level": "admin_0", "overlays": [
+        {"source": "web", "id": TROOPS}]})
+    assert manifest.bbox is None and manifest.within is None
+    with pytest.raises(ManifestError, match="bbox"):
+        validate({"level": "admin_0"})
+
+
+def test_frame_box_pads_a_thin_route_into_a_readable_window():
+    from mapsvc.harvest import frame_box
+
+    west, south, east, north = frame_box((24.0, 53.9, 37.7, 55.8))
+    assert west < 24.0 and east > 37.7
+    assert north - south >= (east - west) * 0.57 / 3 - 1e-6   # cos 55° ≈ 0.57

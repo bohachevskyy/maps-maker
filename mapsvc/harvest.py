@@ -122,10 +122,59 @@ def cache_key(manifest: Manifest) -> str:
 
 
 def harvest(manifest: Manifest) -> HarvestResult:
+    if manifest.overlays and manifest.bbox is None and not manifest.within:
+        return _framed_on_overlays(manifest)
     result = _base(manifest)
     if manifest.overlays:
         _add_overlays(manifest, result)
     return result
+
+
+def _framed_on_overlays(manifest: Manifest) -> HarvestResult:
+    """No window given: fetch the overlays first and frame the map on them.
+
+    The agent cannot see a dataset's extent before it is fetched; asked to
+    guess a window for Minard's army it once started it in Paris. The data
+    knows where it is.
+    """
+    import dataclasses
+
+    from mapsvc import overlay_render
+
+    world = overlays.Window(bbox=None, within=None, extent=WORLD_EXTENT)
+    layers = []
+    for source, overlay_id in manifest.overlays:
+        try:
+            layers.append(overlays.load(source, overlay_id, world))
+        except overlays.OverlayError as exc:
+            raise HarvestError(str(exc), exc.field) from exc
+    box = overlay_render.overlay_extent(layers)
+    box = WORLD_EXTENT if box is None else frame_box(box)
+    result = _base(dataclasses.replace(manifest, bbox=box))
+    result.overlays = layers
+    result.provenance["overlay_bbox"] = list(box)
+    brings_places = any(layer["kind"] == "places" for layer in layers)
+    if box[2] - box[0] <= PLACES_MAX_SPAN and not brings_places:
+        result.places = context_places(box, None)
+    return result
+
+
+def frame_box(box: tuple) -> tuple:
+    """An overlay's extent padded into a window: 8% plus 0.3° each side, and
+    tall enough (a third of its ground width) that a long thin route is not
+    framed as a ribbon."""
+    import math
+
+    west, south, east, north = box
+    dx = (east - west) * 0.08 + 0.3
+    dy = (north - south) * 0.08 + 0.3
+    west, east, south, north = west - dx, east + dx, south - dy, north + dy
+    ground = (east - west) * math.cos(math.radians((south + north) / 2))
+    if north - south < ground / 3:
+        grow = (ground / 3 - (north - south)) / 2
+        south, north = south - grow, north + grow
+    return (round(max(-180.0, west), 2), round(max(-90.0, south), 2),
+            round(min(180.0, east), 2), round(min(90.0, north), 2))
 
 
 def _base(manifest: Manifest) -> HarvestResult:

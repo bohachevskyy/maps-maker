@@ -14,6 +14,7 @@ proportional circles, ratios a choropleth, ratios straddling zero a diverging
 one), and the layout from the shape of the projected map.
 """
 
+import dataclasses
 import math
 import textwrap
 from xml.sax.saxutils import escape, quoteattr
@@ -131,6 +132,10 @@ def _shift(point: tuple[float, float]) -> tuple[float, float]:
 # ---------------------------------------------------------------- render ---
 
 def render(manifest: Manifest, result: HarvestResult) -> str:
+    if manifest.bbox is None and result.provenance.get("overlay_bbox"):
+        # Framed on its overlays (no window was given): the harvest chose it.
+        manifest = dataclasses.replace(
+            manifest, bbox=tuple(result.provenance["overlay_bbox"]))
     rows = sorted(result.rows, key=lambda r: r["id"])
     dropped = sorted(result.dropped, key=lambda r: r["id"])
     show_missing = registry.DEFAULT_MISSING != "exclude"

@@ -107,10 +107,12 @@ def validate(raw: dict) -> Manifest:
 
     within = _within(raw.get("within"))
     bbox = _bbox(raw["bbox"]) if raw.get("bbox") is not None else None
-    if bbox is None and not within:
+    overlays = _overlays(raw.get("overlays"))
+    if bbox is None and not within and not overlays:
         raise ManifestError(
             "give a bbox, a within, or both: a bbox frames a window, within "
-            "scopes it to a country or a sub-national unit", "bbox",
+            "scopes it to a country or a sub-national unit. A map with "
+            "overlays may give neither and be framed on its data.", "bbox",
         )
 
     level = raw["level"]
@@ -178,7 +180,7 @@ def validate(raw: dict) -> Manifest:
         bbox=bbox, within=within, level=level,
         variable_source=variable_source, variable_id=variable_id,
         basemap_source=basemap_source, basemap_detail=basemap_detail,
-        per=per, change=change, overlays=_overlays(raw.get("overlays")),
+        per=per, change=change, overlays=overlays,
     )
 
 
