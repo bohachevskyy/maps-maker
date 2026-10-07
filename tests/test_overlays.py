@@ -431,3 +431,23 @@ def test_frame_box_pads_a_thin_route_into_a_readable_window():
     west, south, east, north = frame_box((24.0, 53.9, 37.7, 55.8))
     assert west < 24.0 and east > 37.7
     assert north - south >= (east - west) * 0.57 / 3 - 1e-6   # cos 55° ≈ 0.57
+
+
+def test_overlay_labels_keep_off_lines_and_bands():
+    """Nimes sat on the Nimes-Montpellier line; Minard's towns on the bands."""
+    from mapsvc import overlay_render as O
+
+    class Frame:
+        map_h = 400
+
+    labels = O.Labels({"pad": 0, "map_w": 400, "map_top": 0}, Frame())
+    labels.ink((100.0, 200.0), (300.0, 200.0), 6.0)
+    assert not labels.fits((150, 195, 190, 205))       # on the band
+    assert not labels.fits((150, 188, 190, 197))       # within its half-width
+    assert labels.fits((150, 180, 190, 190))           # clear of it
+    # A town on the band is labelled on a leader, off the ink.
+    assert labels.callout("Smolensk", 200.0, 200.0, 2.2)
+    line, text = labels.out[0], labels.out[1]
+    assert line.startswith("<line") and "Smolensk" in text
+    box = labels.taken[-1]
+    assert not labels._inked(box)

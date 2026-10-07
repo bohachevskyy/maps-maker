@@ -99,13 +99,20 @@ def test_a_circle_sits_inside_its_unit_even_when_the_unit_is_a_c():
     assert cx < left + (right - left) * 0.25
 
 
-def test_the_size_legend_shows_three_nested_reference_circles(mini_geojson):
+def test_the_size_legend_shows_nested_reference_circles(mini_geojson):
     manifest = build_manifest()
     root = ET.fromstring(render(manifest, build_result(mini_geojson, manifest)))
     refs = [c for c in root.findall(f".//{SVG}circle") if not c.get("data-id")]
-    assert len(refs) == 3
+    assert 2 <= len(refs) <= 3
     bottoms = {round(float(c.get("cy")) + float(c.get("r")), 2) for c in refs}
     assert len(bottoms) == 1, "nested circles share a baseline"
+
+
+def test_size_legend_values_stay_inside_the_data_range():
+    """Ukraine's oblasts run 0.89M-4.06M: 4M/2M/1M, not 2M/500k/50k."""
+    assert R._reference_values(4_059_372, 890_457) == [4e6, 2e6, 1e6]
+    # A range wider than 25x still shows its spread.
+    assert R._reference_values(1.4e9, 1e4) == [1e9, 2e8, 4e7]
 
 
 def test_a_ratio_keeps_the_choropleth():

@@ -45,6 +45,7 @@ SIMPLIFY_PX = 0.7
 TEXT = "#1f2a30"
 MUTED = "#5d6870"
 LABEL_SIZE = 10.0
+LABEL_GAP = 3.0               # px kept between two labels side by side
 HALO = ('paint-order="stroke" stroke="#ffffff" stroke-width="3" '
         'stroke-linejoin="round" stroke-opacity="0.9"')
 CONTEXT_LABELS = 14
@@ -163,7 +164,7 @@ def centre_lon(layers: list) -> float | None:
 def draw(layers: list, places: list, frame, layout: dict) -> Art:
     """Draw every layer, then the labels, then lay out the legend band."""
     art = Art()
-    labels = _Labels(layout, frame)
+    labels = Labels(layout, frame)
     blocks: list = []
     order = {"flow": 0, "lines": 1, "points": 2, "places": 3}
     indexed = sorted(enumerate(layers), key=lambda t: (order.get(t[1]["kind"], 9), t[0]))
@@ -181,7 +182,7 @@ def draw(layers: list, places: list, frame, layout: dict) -> Art:
         if kind == "points":
             body, legend = _points(layer, frame, labels, anchors, layout)
         elif kind == "lines":
-            body, legend = _lines(layer, frame, anchors)
+            body, legend = _lines(layer, frame, anchors, labels)
         elif kind == "flow":
             body, legend = _flow(layer, frame, labels, anchors, deferred, layout)
         elif kind == "places":
@@ -419,7 +420,7 @@ def _line_pixels(coords, frame) -> list[tuple[float, float]]:
     return out
 
 
-def _lines(layer, frame, anchors):
+def _lines(layer, frame, anchors, labels=None):
     category = layer.get("category")
     colours = _palette(category, "lines")
     classes = [c["value"] for c in category["classes"]] if category else [None]
@@ -431,6 +432,9 @@ def _lines(layer, frame, anchors):
         key = f.get("category") if category else None
         paths.setdefault(key, []).append(
             "M" + "L".join(f"{_num(x)},{_num(y)}" for x, y in pts))
+        if labels is not None:
+            for a, b in zip(pts, pts[1:]):
+                labels.ink(a, b, LINE_W / 2 + 1.0)
         anchors.extend(pts[:: max(1, len(pts) // 8)] + [pts[-1]])
     out = []
     # Faintest first, so the class the layer is about is drawn on top.
@@ -512,13 +516,9 @@ def _flow(layer, frame, labels, anchors, deferred, layout):
         for (ax, ay), (bx, by), w, group in segs:
             out.append(f'<line x1="{_num(ax)}" y1="{_num(ay)}" x2="{_num(bx)}" '
                        f'y2="{_num(by)}" stroke-width="{_num(w)}"/>')
-            # The band as obstacles for the notes: boxes along its length.
-            steps = max(1, int(math.hypot(bx - ax, by - ay) / max(w, 4.0)))
-            for k in range(steps + 1):
-                t = k / steps
-                cx, cy = ax + (bx - ax) * t, ay + (by - ay) * t
-                half = w / 2 + 1
-                deferred.append(("block", (cx - half, cy - half, cx + half, cy + half)))
+            # The band is ink no label may sit on: town names and the notes
+            # alike go beside it, on a leader when they cannot.
+            labels.ink((ax, ay), (bx, by), w / 2 + 1.0)
         out.append("</g>")
 
     # The three numbers the story is told with, written beside the flow.
@@ -568,16 +568,19 @@ def _dataset_places(layer, frame, labels):
     for f in layer["features"]:
         x, y = _xy(frame, f["lon"], f["lat"])
         if frame.visible(x, y) and f.get("name"):
-            labels.place(f["name"], x, y, italic=True, bold=bool(f.get("major")))
+            if not labels.place(f["name"], x, y, italic=True, bold=bool(f.get("major"))):
+                labels.callout(f["name"], x, y, 2.2, bold=bool(f.get("major")), italic=True)
     return "".join(out), []
 
 
 # ---------------------------------------------------------------- labels ---
 
-class _Labels:
+class Labels:
     """Greedy, deterministic label placement against everything placed so far."""
 
     OFFSETS = ((1, 0), (-1, 0), (1, -1), (1, 1), (-1, -1), (-1, 1), (0, -1), (0, 1))
+
+    INK_CELL = 24.0
 
     def __init__(self, layout, frame):
         self.left = layout["pad"] + 2
@@ -588,16 +591,60 @@ class _Labels:
         self.taken: list[tuple] = []
         self.out: list[str] = []
         self.context_count = 0
+        # Lines and bands, as segments with a half-width, bucketed on a grid:
+        # an LGV network is ~15,000 segments, and every candidate box is
+        # tested against the few near it.
+        self.ink_cells: dict = {}
+        self.leaders: list[tuple] = []
 
     def block(self, x0, y0, x1, y1):
         self.taken.append((x0, y0, x1, y1))
 
-    def _free(self, box) -> bool:
+    def ink(self, a, b, half):
+        """A stroked segment from a to b, `half` px either side, that labels avoid."""
+        seg = (a[0], a[1], b[0], b[1], half)
+        c = self.INK_CELL
+        for i in range(int((min(a[0], b[0]) - half) // c), int((max(a[0], b[0]) + half) // c) + 1):
+            for j in range(int((min(a[1], b[1]) - half) // c),
+                           int((max(a[1], b[1]) + half) // c) + 1):
+                self.ink_cells.setdefault((i, j), []).append(seg)
+
+    def _inked(self, box) -> bool:
+        c = self.INK_CELL
+        seen = set()
+        for i in range(int(box[0] // c), int(box[2] // c) + 1):
+            for j in range(int(box[1] // c), int(box[3] // c) + 1):
+                for seg in self.ink_cells.get((i, j), ()):
+                    if id(seg) in seen:
+                        continue
+                    seen.add(id(seg))
+                    if _segment_meets_box(*seg, box):
+                        return True
+        return False
+
+    def fits(self, box) -> bool:
+        """Whether a box is on the map and clear of everything placed so far.
+
+        The public half of the placer, for callers that draw their own text
+        (render's feature labels): test with `fits`, then `block` the box.
+        """
+        return self._free(box)
+
+    def _free(self, box, ink: bool = True) -> bool:
+        """Whether a box is on the map and clear of labels, dots, leaders and --
+        unless `ink` is False, for a place's own dot, which may sit on its
+        line -- every line and band. Labels keep LABEL_GAP px apart, so two
+        neighbours' names do not read as one ("Bobr Orscha")."""
         x0, y0, x1, y1 = box
         if x0 < self.left or x1 > self.right or y0 < self.top or y1 > self.bottom:
             return False
-        return not any(x0 < b[2] and x1 > b[0] and y0 < b[3] and y1 > b[1]
-                       for b in self.taken)
+        g = LABEL_GAP
+        if any(x0 - g < b[2] and x1 + g > b[0] and y0 < b[3] and y1 > b[1]
+               for b in self.taken):
+            return False
+        if any(_segment_meets_box(*seg, box) for seg in self.leaders):
+            return False
+        return not (ink and self._inked(box))
 
     def _try(self, text, x, y, gap, size, extra=""):
         w, h = _text_w(text, size), size
@@ -629,21 +676,69 @@ class _Labels:
             ' font-weight="600"' if bold else "")
         return self._try(text, x, y, 4.0, LABEL_SIZE, extra)
 
-    def callout(self, text, x, y, r, bold=False):
-        """A label next to a circle, or further out on a leader line."""
-        extra = ' font-weight="600"' if bold else ""
-        if self._try(text, x, y, r + 3, LABEL_SIZE, extra):
-            return True
-        for reach in (28, 48):
-            for dx, dy in ((1, -1), (-1, -1), (1, 1), (-1, 1)):
-                lx, ly = x + dx * reach, y + dy * reach * 0.7
+    def callout(self, text, x, y, r, bold=False, italic=False):
+        """A label on a short leader from a circle's edge, further out if crowded.
+
+        Always on a leader: a label merely near a dot in a cluster is read as
+        the neighbour's (the two Kamchatka quakes). The leader may not cross
+        a placed label or another leader, and the label clears every line,
+        band and circle, so a displaced label never sits on the ink.
+        """
+        extra = (' font-weight="600"' if bold else "") + (
+            ' font-style="italic"' if italic else "")
+        directions = ((1, 0), (-1, 0), (1, -1), (-1, -1), (1, 1), (-1, 1), (0, -1), (0, 1))
+        for reach in (8.0, 18.0, 30.0, 46.0):
+            for dx, dy in directions:
+                norm = math.hypot(dx, dy)
+                ux, uy = dx / norm, dy / norm
+                sx, sy = x + ux * r, y + uy * r
+                lx, ly = x + ux * (r + reach), y + uy * (r + reach)
+                if self._leader_blocked(sx, sy, lx, ly):
+                    continue
                 before = len(self.out)
-                if self._try(text, lx, ly, 2.0, LABEL_SIZE, extra):
-                    self.out.insert(before, f'<line x1="{_num(x + dx * r * 0.7)}" '
-                                    f'y1="{_num(y + dy * r * 0.7)}" x2="{_num(lx)}" '
-                                    f'y2="{_num(ly)}" stroke="{MUTED}" stroke-width="0.6"/>')
+                if self._try_at(text, lx, ly, dx, dy, LABEL_SIZE, extra):
+                    self.out.insert(before, f'<line x1="{_num(sx)}" y1="{_num(sy)}" '
+                                    f'x2="{_num(lx)}" y2="{_num(ly)}" stroke="{MUTED}" '
+                                    f'stroke-width="0.6"/>')
+                    self.leaders.append((sx, sy, lx, ly, 0.5))
                     return True
         return False
+
+    def _leader_blocked(self, sx, sy, lx, ly) -> bool:
+        if not (self.left <= lx <= self.right and self.top <= ly <= self.bottom):
+            return True
+        # The circle the leader leaves (and anything containing its start) is
+        # not in its way.
+        for b in self.taken:
+            if b[0] - 0.5 <= sx <= b[2] + 0.5 and b[1] - 0.5 <= sy <= b[3] + 0.5:
+                continue
+            if _segment_meets_box(sx, sy, lx, ly, 0.0, b) and _text_box_like(b):
+                return True
+        return any(_segments_cross((sx, sy, lx, ly), seg[:4]) for seg in self.leaders)
+
+    def _try_at(self, text, x, y, dx, dy, size, extra) -> bool:
+        """The text with its near edge on (x, y), on the side dx, dy points to."""
+        w, h = _text_w(text, size), size
+        if dx > 0:
+            tx, anchor, x0 = x + 2, "start", x + 2
+        elif dx < 0:
+            tx, anchor, x0 = x - 2, "end", x - 2 - w
+        else:
+            tx, anchor, x0 = x, "middle", x - w / 2
+        if dy < 0:
+            ty = y - 2 if dx == 0 else y + h * 0.35
+        elif dy > 0:
+            ty = y + h * 0.85 + 2 if dx == 0 else y + h * 0.35
+        else:
+            ty = y + h * 0.35
+        box = (x0, ty - h * 0.85, x0 + w, ty + h * 0.2)
+        if not self._free(box):
+            return False
+        self.taken.append(box)
+        self.out.append(f'<text x="{_num(tx)}" y="{_num(ty)}" font-size="{size:g}" '
+                        f'text-anchor="{anchor}" fill="{TEXT}" {HALO}{extra}>'
+                        f'{escape(text)}</text>')
+        return True
 
     def note(self, text, x, y, colour):
         extra = f' font-weight="700" style="fill:{colour}"'
@@ -669,13 +764,16 @@ class _Labels:
             if self.context_count >= CONTEXT_LABELS:
                 break
             box = (x - 2.5, y - 2.5, x + 2.5, y + 2.5)
-            if not self._free(box):
+            if not self._free(box, ink=False):
                 continue
             bold = served and bold_left > 0
             before = len(self.out)
             self.taken.append(box)
             ok = self.place(name, x, y, bold=bold) if not bold else self._try(
                 name, x, y, 5.0, 11.0, ' font-weight="700"')
+            if not ok and served:
+                # A place on the overlay is worth a leader; one off it is not.
+                ok = self.callout(name, x, y, 3.2 if bold else 2.2, bold=bold)
             if not ok:
                 self.taken.pop()
                 continue
@@ -691,6 +789,47 @@ class _Labels:
 
     def svg(self) -> str:
         return "".join(self.out)
+
+
+def _segment_meets_box(ax, ay, bx, by, half, box) -> bool:
+    """Whether segment a-b, `half` px either side, touches an axis-aligned box.
+
+    Liang-Barsky clipping against the box grown by `half`: square ends rather
+    than round, which errs on the side of keeping a label off the ink.
+    """
+    x0, y0, x1, y1 = box[0] - half, box[1] - half, box[2] + half, box[3] + half
+    t0, t1 = 0.0, 1.0
+    dx, dy = bx - ax, by - ay
+    for p, q in ((-dx, ax - x0), (dx, x1 - ax), (-dy, ay - y0), (dy, y1 - ay)):
+        if p == 0:
+            if q < 0:
+                return False
+            continue
+        t = q / p
+        if p < 0:
+            if t > t1:
+                return False
+            t0 = max(t0, t)
+        else:
+            if t < t0:
+                return False
+            t1 = min(t1, t)
+    return t0 <= t1
+
+
+def _segments_cross(a, b) -> bool:
+    def side(px, py, qx, qy, rx, ry):
+        return (qx - px) * (ry - py) - (qy - py) * (rx - px)
+    d1 = side(b[0], b[1], b[2], b[3], a[0], a[1])
+    d2 = side(b[0], b[1], b[2], b[3], a[2], a[3])
+    d3 = side(a[0], a[1], a[2], a[3], b[0], b[1])
+    d4 = side(a[0], a[1], a[2], a[3], b[2], b[3])
+    return d1 * d2 < 0 and d3 * d4 < 0
+
+
+def _text_box_like(box) -> bool:
+    """Leaders may pass over small circles and dots, not over text."""
+    return (box[3] - box[1]) <= 16 and (box[2] - box[0]) > (box[3] - box[1])
 
 
 # ---------------------------------------------------------------- legend ---

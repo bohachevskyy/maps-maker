@@ -128,6 +128,7 @@ class Frame:
         # sphere, so an inset drawn at this scale is at the same scale.
         self.scale = local(1.0, 0.0)[0] - local(0.0, 0.0)[0]
         self.insets: list = []
+        self.legend_box: tuple | None = None    # a legend floated over the map
 
     def xy(self, lon: float, lat: float) -> tuple[float, float]:
         return self.transform(*self.projector(lon, lat))
@@ -217,7 +218,8 @@ def render(manifest: Manifest, result: HarvestResult) -> str:
         svg, circles = _symbols(rows, frame, encoding)
         body.append(svg)
         units.extend(circles)
-    body.append(_enclaves(rows, frame, encoding))
+    body.append(_enclaves(rows, frame, encoding,
+                          named=len(every_row) > LABEL_MAX_UNITS or has_overlays))
     inset_svg, inset_missing = _draw_insets(insets, frame, encoding, bool(result.context),
                                             land, units)
     body.append(inset_svg)
@@ -235,6 +237,8 @@ def render(manifest: Manifest, result: HarvestResult) -> str:
         legend, legend_band = _legend(encoding, frame, land,
                                       [u for u in units if u],
                                       bool(drawn_missing) or inset_missing)
+        if not has_overlays and len(every_row) <= LABEL_MAX_UNITS:
+            body.append(_feature_labels(rows, insets, frame, encoding, land))
         body.append(legend)
     if art is not None and art.legend_h:
         body.append(art.legend(PAD, frame.bottom + legend_band + 16))
@@ -286,6 +290,8 @@ class Encoding:
         self.swatches = swatches
         self.vmax = vmax
         self.r_max = 0.0
+        self.circles: list = []          # (x, y, r, row) of every drawn circle
+        self.vmin = 0.0
 
     def fill(self, value) -> str:
         if self.mode == "basemap":
@@ -339,7 +345,9 @@ def _encoding(manifest: Manifest, rows: list, provenance: dict) -> Encoding:
         # A count shaded by value paints the largest *places* darkest: a big
         # empty unit outweighs a small crowded one. Circles sized by value do
         # not carry that bias.
-        return Encoding("symbols", label, unit, vmax=max(float(v) for v in values))
+        enc = Encoding("symbols", label, unit, vmax=max(float(v) for v in values))
+        enc.vmin = min(float(v) for v in values)
+        return enc
 
     if level == "ratio" and numeric:
         # Round breaks: log-spaced, either side of zero, a fixed 0-100 scale
@@ -523,6 +531,16 @@ def _anchor(geometry, frame: Frame) -> tuple[float, float] | None:
 
 def _placement(geometry, frame: Frame):
     """(anchor, share of the unit's area inside the window), or None."""
+    piece = _piece(geometry, frame)
+    return None if piece is None else (piece[0], piece[1])
+
+
+def _piece(geometry, frame: Frame):
+    """(anchor, share inside the window, largest visible ring, its holes), or None.
+
+    The ring and holes are in page pixels, for testing whether a label fits
+    inside the unit or where else in it a symbol could go.
+    """
     best, best_area, best_holes = None, 0.0, []
     total = visible = 0.0
     for part in _parts(geometry):
@@ -549,7 +567,7 @@ def _placement(geometry, frame: Frame):
     if not frame.visible(x, y):
         return None
     share = visible / total if total > 0 else 1.0
-    return (x, y), share
+    return (x, y), share, best, best_holes
 
 
 def _marker(item: dict, anchor, fill: str) -> str:
@@ -578,6 +596,8 @@ def _symbols(rows: list, frame: Frame, encoding: Encoding) -> str:
             continue
         placed.append((-float(row["value"]), str(row["id"]), where[0], r, row))
     placed.sort(key=lambda t: (t[0], t[1]))
+    placed = _separate(placed, frame)
+    encoding.circles.extend((x, y, r, row) for _, _, (x, y), r, row in placed)
     # Clipped like the polygons: a circle near the frame is cut by it, as the
     # land under it is, rather than spilling into the margin.
     out = [f'<g clip-path="url(#map-clip)" fill="{colors.SYMBOL_FILL}" fill-opacity="0.72" '
@@ -588,6 +608,74 @@ def _symbols(rows: list, frame: Frame, encoding: Encoding) -> str:
                    f'data-value={quoteattr(_raw_value(row["value"]))}/>')
     out.append("</g>")
     return "".join(out), [(x - r, y - r, x + r, y + r) for _, _, (x, y), r, _ in placed]
+
+
+# Two circles overlapping by more than this share of the smaller radius read
+# as one blob: Kyiv city's 2.95M (r 32 px) and Kyiv oblast's 1.80M (r 25) sat
+# 48 px apart, 9 px deep in each other. The unit with more room moves its
+# circle elsewhere inside itself.
+SEPARATE_OVERLAP = 0.25
+SEPARATE_STEP = 4.0
+
+
+def _separate(placed: list, frame) -> list:
+    """Move a circle off another whose centre it hides, staying inside its unit.
+
+    Only pairs overlapping by more than SEPARATE_OVERLAP of the smaller
+    radius are touched, and a circle moves only to a spot that overlaps less.
+    Of the two, the unit with the larger visible piece moves: it has room,
+    and the other (an enclave, a city) keeps its circle where it is. The new
+    spot is the point inside the unit, on a grid, that overlaps every other
+    circle least, then is nearest the original. Deterministic.
+    """
+    out = list(placed)
+    for i in range(len(out)):
+        for j in range(i):
+            (xi, yi), ri = out[i][2], out[i][3]
+            (xj, yj), rj = out[j][2], out[j][3]
+            if ri + rj - math.hypot(xi - xj, yi - yj) <= SEPARATE_OVERLAP * min(ri, rj):
+                continue
+            pieces = {}
+            for n in (i, j):
+                piece = _piece(out[n][4]["geometry"], frame)
+                pieces[n] = piece
+            areas = {n: (project.planar_area(pieces[n][2]) if pieces[n] else 0.0)
+                     for n in (i, j)}
+            mover = i if (areas[i], -i) > (areas[j], -j) else j
+            piece = pieces[mover]
+            if piece is None:
+                continue
+            spot = _free_spot(out, mover, piece[2], piece[3])
+            if spot is not None:
+                item = out[mover]
+                out[mover] = (item[0], item[1], spot, item[3], item[4])
+    return out
+
+
+def _free_spot(placed: list, mover: int, ring, holes):
+    (x0, y0), r = placed[mover][2], placed[mover][3]
+
+    def depth(x, y):
+        return sum(max(0.0, r + other[3] - math.hypot(x - other[2][0], y - other[2][1]))
+                   for n, other in enumerate(placed) if n != mover)
+
+    ring = project._decimate(ring, 200)
+    holes = [project._decimate(h, 200) for h in holes]
+    xs, ys = [p[0] for p in ring], [p[1] for p in ring]
+    best = (depth(x0, y0), 0.0, x0, y0)
+    step = max(SEPARATE_STEP, (max(xs) - min(xs) + max(ys) - min(ys)) / 80.0)
+    y = min(ys)
+    while y <= max(ys):
+        x = min(xs)
+        while x <= max(xs):
+            # Inside the unit, with at least a third of the radius to spare.
+            if project._signed_distance(x, y, ring, holes) >= r / 3.0:
+                score = (round(depth(x, y), 3), round(math.hypot(x - x0, y - y0), 3), x, y)
+                if score < best:
+                    best = score
+            x += step
+        y += step
+    return None if (best[2], best[3]) == (x0, y0) else (best[2], best[3])
 
 
 # --------------------------------------------------------------- context ---
@@ -1101,7 +1189,7 @@ def _overlaps(a, b) -> bool:
 
 # -------------------------------------------------------------- enclaves ---
 
-def _enclaves(rows: list, frame: Frame, encoding: Encoding) -> str:
+def _enclaves(rows: list, frame: Frame, encoding: Encoding, named: bool = True) -> str:
     """Outline and name units that sit in a hole of another unit.
 
     Kyiv city is an enclave in Kyiv oblast: a few pixels across, with the
@@ -1137,9 +1225,10 @@ def _enclaves(rows: list, frame: Frame, encoding: Encoding) -> str:
             continue
         out.append(f'<path d="{d}" fill="none" stroke="{colors.TEXT}" stroke-width="0.9" '
                    f'class="enclave" data-id={quoteattr(str(row["id"]))}/>')
-        if encoding.mode != "symbols":
+        if encoding.mode != "symbols" or not named:
             # In a choropleth the enclave carries its own colour; the outline
-            # is enough. A circle, though, hides the shape under it.
+            # is enough. A circle, though, hides the shape under it -- unless
+            # the feature labels name every unit anyway.
             continue
         placed = _placement(row["geometry"], frame)
         if placed is None:
@@ -1165,6 +1254,355 @@ def _lonlat_box(ring) -> tuple:
 def _box_within(inner: tuple, outer: tuple, slack: float = 1e-6) -> bool:
     return (inner[0] >= outer[0] - slack and inner[1] >= outer[1] - slack
             and inner[2] <= outer[2] + slack and inner[3] <= outer[3] + slack)
+
+
+# ---------------------------------------------------------------- labels ---
+
+# A map of at most this many units names them; a world map (~240 countries)
+# does not. Measured on gdp_world at 960 px: see _feature_labels.
+LABEL_MAX_UNITS = 60
+NAME_SIZE, VALUE_SIZE = 9.5, 8.5
+LABEL_INK = "#1f2a30"
+LABEL_HALO = ('stroke="#ffffff" stroke-width="2.6" stroke-linejoin="round" '
+              'stroke-opacity="0.85" paint-order="stroke"')
+LEADER = "#5d6870"
+# How far out a callout may go, in page pixels, and in which directions
+# (right first: text reads away from its leader).
+CALLOUT_REACH = (14.0, 26.0, 40.0, 56.0)
+# A callout goes over water, neighbours or the margin -- not over other
+# mapped units, where it would be read as theirs.
+CALLOUT_MAX_COVER = 0.25
+# A unit whose visible area is at least this many times its name-and-value
+# block is big enough to carry its name inside rather than on a leader.
+CALLOUT_ROOMY = 3.0
+CALLOUT_DIRECTIONS = ((1, 0), (-1, 0), (1, -1), (1, 1), (-1, -1), (-1, 1), (0, -1), (0, 1))
+# Words that say what kind of unit it is; dropped from a label when the rest
+# is still unique ("Lviv Oblast" -> "Lviv", but "Kyiv Oblast" stays, because
+# Kyiv city is "Kyiv").
+_KIND_WORDS = ("Oblast", "County", "Province", "Region", "Governorate", "Prefecture",
+               "Voivodeship", "Department", "District", "Raion", "Municipality",
+               "Parish", "Borough", "Census Area", "City and Borough")
+
+
+def _label_names(rows: list) -> dict:
+    full = {str(r["id"]): _short_name(r) for r in rows}
+    stripped = {}
+    for gid, name in full.items():
+        short = name
+        for word in _KIND_WORDS:
+            for form in (f" {word}", f" {word.lower()}"):
+                if short.endswith(form) and len(short) > len(form) + 1:
+                    short = short[: -len(form)]
+        stripped[gid] = short
+    counts: dict = {}
+    for short in stripped.values():
+        counts[short] = counts.get(short, 0) + 1
+    return {gid: (stripped[gid] if counts[stripped[gid]] == 1 else full[gid]) for gid in full}
+
+
+def _code(row) -> str | None:
+    """A subdivision's own short code, from an ISO 3166-2 id: US-WY -> WY."""
+    head, _, tail = str(row["id"]).partition("-")
+    if len(head) == 2 and 2 <= len(tail) <= 3 and tail.isalpha() and tail.isupper():
+        return tail
+    return None
+
+
+def _value_text(value, encoding: Encoding) -> str:
+    """The value as a label line: '$164k', '2.95M', '+205%'. A category is
+    already named by its colour in the legend, so it gets no line."""
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return ""
+    v = float(value)
+    if encoding.mode == "symbols":
+        return _short_count(v)
+    prefix, suffix = _affixes(encoding.unit)
+    scheme = encoding.scheme
+    signed = scheme is not None and scheme.zero_at is not None
+    a = abs(v)
+    if a >= 1000:
+        text = classify.nice_label(classify.round_sig(a, 3))
+    elif a >= 10 or suffix == "%":
+        text = f"{a:.0f}"
+    elif a >= 1:
+        text = f"{a:.1f}"
+    else:
+        text = f"{a:.2g}"
+    sign = "−" if v < 0 and text.strip("0.") else ("+" if signed and v > 0 else "")
+    return f"{sign}{prefix}{text}{suffix}"
+
+
+def _short_count(v: float) -> str:
+    for size, word in ((1e9, "bn"), (1e6, "M"), (1e3, "k")):
+        if v >= size:
+            return f"{v / size:.3g}{word}" if v / size < 100 else f"{v / size:.0f}{word}"
+    return f"{v:,.0f}"
+
+
+class _Block:
+    """A label of one or two lines, centred on x; (w, h) in page pixels."""
+
+    def __init__(self, lines: list):
+        self.lines = [(text, size, weight) for text, size, weight in lines if text]
+        self.w = max(_text_w(text, size) for text, size, _ in self.lines)
+        self.h = sum(size for _, size, _ in self.lines) + 1.5 * (len(self.lines) - 1)
+
+    def box(self, cx: float, top: float) -> tuple:
+        return (cx - self.w / 2, top, cx + self.w / 2, top + self.h)
+
+    def svg(self, cx: float, top: float, gid: str) -> str:
+        out, y = [], top
+        for text, size, weight in self.lines:
+            y += size * 0.86
+            bold = ' font-weight="600"' if weight else ""
+            out.append(f'<text x="{_num(cx)}" y="{_num(y)}" font-size="{size:g}"{bold} '
+                       f'text-anchor="middle" fill="{LABEL_INK}" {LABEL_HALO}>'
+                       f'{escape(text)}</text>')
+            y += size * 0.14 + 1.5
+        return (f'<g class="feature-label" data-id={quoteattr(gid)}>' + "".join(out) + "</g>")
+
+
+def _fits_inside(box: tuple, ring, holes) -> bool:
+    x0, y0, x1, y1 = box
+    xm, ym = (x0 + x1) / 2, (y0 + y1) / 2
+    for x, y in ((x0, y0), (x1, y0), (x0, y1), (x1, y1), (xm, y0), (xm, y1),
+                 (x0, ym), (x1, ym), (xm, ym)):
+        if not project.point_in_ring(x, y, ring) or any(
+                project.point_in_ring(x, y, h) for h in holes):
+            return False
+    return True
+
+
+def _feature_labels(rows: list, insets: list, frame: Frame, encoding: Encoding,
+                    land: list) -> str:
+    """Name every unit, with its value where there is room. Greedy, deterministic.
+
+    Choropleth: inside the unit, at its pole of inaccessibility, when the
+    block fits within the polygon; a two-letter code when only that fits;
+    otherwise a callout on a leader line, put where it covers the least
+    mapped land. Inside labels go first, largest unit first; callouts then
+    go in order of how extreme the value is, so the highest and lowest are
+    the last to be crowded out. Circles: under the circle, else beside it,
+    else on a leader line. Nothing overlaps another label, a circle, a
+    marker, an inset or the legend; what cannot be placed is left unlabelled.
+    """
+    placer = overlay_render.Labels({"pad": PAD, "map_w": MAP_W, "map_top": MAP_TOP}, frame)
+    if frame.legend_box:
+        placer.block(*frame.legend_box)
+    for x, y, r, _ in encoding.circles:
+        placer.block(x - r, y - r, x + r, y + r)
+    names = _label_names(rows + [r for inset in insets for r in inset.rows])
+    out: list[str] = []
+
+    if encoding.mode == "symbols":
+        _circle_labels(encoding, names, placer, frame, land, out)
+    else:
+        _choropleth_labels(rows, insets, frame, encoding, names, placer, land, out)
+    if not out:
+        return ""
+    return f'<g font-family="{FONT}">' + "".join(out) + "</g>"
+
+
+def _choropleth_labels(rows, insets, frame, encoding, names, placer, land, out):
+    units = []          # (row, frame, piece)
+    for row in rows:
+        piece = _piece(row["geometry"], frame)
+        if piece is not None:
+            units.append((row, frame, piece))
+    for inset in insets:
+        for row in inset.rows:
+            piece = _piece(row["geometry"], inset)
+            if piece is not None:
+                units.append((row, inset, piece))
+    # Markers for units too small to see are obstacles too.
+    for row, _, piece in units:
+        if project.planar_area(piece[2]) < MIN_VISIBLE_AREA:
+            (x, y) = piece[0]
+            placer.block(x - MARKER_R, y - MARKER_R, x + MARKER_R, y + MARKER_R)
+    for inset in insets:
+        bx, by, bw, bh = inset.box
+        placer.block(bx, by, bx + bw, by + bh)
+
+    def blocks(row, with_value=True):
+        gid = str(row["id"])
+        value = _value_text(row["value"], encoding) if with_value else ""
+        code = _code(row)
+        yield _Block([(names[gid], NAME_SIZE, True), (value, VALUE_SIZE, False)])
+        if code:
+            yield _Block([(code, NAME_SIZE, True), (value, VALUE_SIZE, False)])
+
+    def callout_block(row):
+        # A callout says which unit it is for: the code where there is one
+        # (RI, DC), the name otherwise.
+        label = _code(row) or names[str(row["id"])]
+        return _Block([(label, NAME_SIZE, True),
+                       (_value_text(row["value"], encoding), VALUE_SIZE, False)])
+
+    leaders: list = []
+    pending = []
+    by_size = sorted(units, key=lambda u: (-project.planar_area(u[2][2]), str(u[0]["id"])))
+    for row, _, piece in by_size:
+        (x, y), _, ring, holes = piece
+        if not _inside_label(blocks(row), x, y, ring, holes, placer, insets, out,
+                             str(row["id"])):
+            pending.append((row, piece))
+
+    def number(row):
+        v = row["value"]
+        return float(v) if isinstance(v, (int, float)) and not isinstance(v, bool) else 0.0
+
+    every = sorted(number(r) for r, _, _ in units)
+
+    def extremeness(item):
+        v = number(item[0])
+        rank = sum(1 for w in every if w < v) / max(1, len(every) - 1)
+        return (-abs(rank - 0.5), str(item[0]["id"]))
+    for row, piece in sorted(pending, key=extremeness):
+        (x, y), _, ring, _ = piece
+        block = callout_block(row)
+        # A unit with room for a label, just not this one, keeps its name
+        # inside; a callout is for units too small to hold one.
+        roomy = project.planar_area(ring) >= CALLOUT_ROOMY * block.w * block.h
+        if roomy and _inside_label(blocks(row, with_value=False), x, y, ring, piece[3],
+                                   placer, insets, out, str(row["id"])):
+            continue
+        if _callout(block, x, y, 2.0, str(row["id"]), placer, frame,
+                    land, out, leaders):
+            continue
+        # No room for name and value, inside or out: the name alone inside,
+        # else the value alone inside, else nothing.
+        fallbacks = list(blocks(row, with_value=False))
+        if _value_text(row["value"], encoding):
+            fallbacks.append(_Block([(_value_text(row["value"], encoding), VALUE_SIZE, False)]))
+        _inside_label(fallbacks, x, y, ring, piece[3], placer, insets, out, str(row["id"]))
+
+
+def _leader_blocked(segment, boxes, leaders) -> bool:
+    """Whether a leader line would cross a placed label or another leader."""
+    sx, sy, ex, ey = segment
+    for box in boxes:
+        if box[0] - 0.5 <= sx <= box[2] + 0.5 and box[1] - 0.5 <= sy <= box[3] + 0.5:
+            continue    # the unit's own circle or marker, which the leader leaves
+        if _segment_hits_box(sx, sy, ex, ey, box):
+            return True
+    return any(_segments_cross(segment, other) for other in leaders)
+
+
+def _segment_hits_box(x0, y0, x1, y1, box) -> bool:
+    bx0, by0, bx1, by1 = box
+    if max(x0, x1) < bx0 or min(x0, x1) > bx1 or max(y0, y1) < by0 or min(y0, y1) > by1:
+        return False
+    for t in (i / 12.0 for i in range(13)):
+        x, y = x0 + (x1 - x0) * t, y0 + (y1 - y0) * t
+        if bx0 <= x <= bx1 and by0 <= y <= by1:
+            return True
+    return False
+
+
+def _segments_cross(a, b) -> bool:
+    def side(px, py, qx, qy, rx, ry):
+        return (qx - px) * (ry - py) - (qy - py) * (rx - px)
+    d1 = side(b[0], b[1], b[2], b[3], a[0], a[1])
+    d2 = side(b[0], b[1], b[2], b[3], a[2], a[3])
+    d3 = side(a[0], a[1], a[2], a[3], b[0], b[1])
+    d4 = side(a[0], a[1], a[2], a[3], b[2], b[3])
+    return (d1 * d2 < 0) and (d3 * d4 < 0)
+
+
+# Where around a unit's pole of inaccessibility an inside label may be
+# centred, as shares of the label's width and height: the pole is the centre
+# of the largest inscribed circle, and a wide label often fits a little off it.
+INSIDE_SHIFTS = ((0, 0), (0, -0.5), (0, 0.5), (-0.25, 0), (0.25, 0),
+                 (-0.25, -0.5), (0.25, -0.5), (-0.25, 0.5), (0.25, 0.5))
+
+
+def _inside_label(blocks, x, y, ring, holes, placer, insets, out, gid) -> bool:
+    """The first block, at the first shift, that fits inside the unit and is clear."""
+    ring = project._decimate(ring, 400)
+    for block in blocks:
+        for sx, sy in INSIDE_SHIFTS:
+            cx, top = x + sx * block.w, y - block.h / 2 + sy * block.h
+            box = block.box(cx, top)
+            # Inside labels may sit on an inset's frame only in their own inset.
+            if _fits_inside(box, ring, holes) and _clear_but_insets(placer, box, insets):
+                placer.block(*box)
+                out.append(block.svg(cx, top, gid))
+                return True
+    return False
+
+
+def _clear_but_insets(placer, box, insets) -> bool:
+    if placer.fits(box):
+        return True
+    # A unit drawn in an inset is labelled inside it: its own frame is not an
+    # obstacle to it.
+    saved = placer.taken
+    frames = {(i.box[0], i.box[1], i.box[0] + i.box[2], i.box[1] + i.box[3]) for i in insets}
+    placer.taken = [b for b in saved if b not in frames]
+    try:
+        return placer.fits(box) and any(
+            f[0] <= box[0] and box[2] <= f[2] and f[1] <= box[1] and box[3] <= f[3]
+            for f in frames)
+    finally:
+        placer.taken = saved
+
+
+def _circle_labels(encoding, names, placer, frame, land, out):
+    leaders: list = []
+    circles = sorted(encoding.circles, key=lambda c: (-c[2], str(c[3]["id"])))
+    for x, y, r, row in circles:
+        gid = str(row["id"])
+        block = _Block([(names.get(gid, _short_name(row)), NAME_SIZE, True),
+                        (_value_text(row["value"], encoding), VALUE_SIZE, False)])
+        spots = [(x, y + r + 2.0),                                  # under
+                 (x + r + 3 + block.w / 2, y - block.h / 2),        # right
+                 (x - r - 3 - block.w / 2, y - block.h / 2),        # left
+                 (x, y - r - 2.0 - block.h)]                        # over
+        for cx, top in spots:
+            box = block.box(cx, top)
+            if placer.fits(box):
+                placer.block(*box)
+                out.append(block.svg(cx, top, gid))
+                break
+        else:
+            _callout(block, x, y, r, gid, placer, frame, land, out, leaders)
+
+
+def _callout(block, x, y, r, gid, placer, frame, land, out, leaders) -> bool:
+    """The block on a leader line from (x, y), where it hides the least land."""
+    best = None
+    for n, reach in enumerate(CALLOUT_REACH):
+        for k, (dx, dy) in enumerate(CALLOUT_DIRECTIONS):
+            norm = math.hypot(dx, dy)
+            ex, ey = x + dx / norm * (r + reach), y + dy / norm * (r + reach)
+            # The block's near edge sits on the leader's end.
+            cx = ex + (block.w / 2 + 1 if dx > 0 else -block.w / 2 - 1 if dx < 0 else 0)
+            top = ey - block.h / 2 if dy == 0 else (ey if dy > 0 else ey - block.h)
+            box = block.box(cx, top)
+            if not placer.fits(box):
+                continue
+            norm = math.hypot(ex - x, ey - y) or 1.0
+            sx, sy = x + (ex - x) / norm * r, y + (ey - y) / norm * r
+            if _leader_blocked((sx, sy, ex, ey), placer.taken, leaders):
+                continue
+            cover = _land_share(frame, land, box[0], box[1], box[2] - box[0], box[3] - box[1])
+            if cover > CALLOUT_MAX_COVER:
+                continue
+            # Nearest first; at one reach, the spot over the least land.
+            score = (cover > 0.1, k)
+            if best is None or score < best[0]:
+                best = (score, cx, top, box, (sx, sy, ex, ey))
+        if best is not None:
+            break
+    if best is None:
+        return False
+    _, cx, top, box, (sx, sy, ex, ey) = best
+    placer.block(*box)
+    leaders.append((sx, sy, ex, ey))
+    out.append(f'<line x1="{_num(sx)}" y1="{_num(sy)}" x2="{_num(ex)}" y2="{_num(ey)}" '
+               f'stroke="{LEADER}" stroke-width="0.6" class="leader"/>')
+    out.append(block.svg(cx, top, gid))
+    return True
 
 
 # ------------------------------------------------------------ background ---
@@ -1219,6 +1657,7 @@ def _legend(encoding: Encoding, frame: Frame, land: list, units: list,
         w, h, draw = _panel(encoding, has_missing)
         spot, hidden, covered = _least_covered(frame, land, units, w, h)
         if hidden == 0 and covered <= 0.02:
+            frame.legend_box = (spot[0], spot[1], spot[0] + w, spot[1] + h)
             return draw(*spot), 0.0
     h, draw = _band(encoding, has_missing)
     return draw(PAD, frame.bottom + 12), h + 12
@@ -1325,7 +1764,7 @@ def _panel(encoding: Encoding, has_missing: bool):
     head_h = _heading_h(encoding)
     min_w = max(20 + _text_w(encoding.label, 12), 20 + _text_w(encoding.unit, 10.5))
     if encoding.mode == "symbols":
-        refs = _reference_values(encoding.vmax)
+        refs = _reference_values(encoding.vmax, encoding.vmin)
         big = encoding.radius(refs[0])
         labels = [_count_label(v) for v in refs]
         w = max(min_w, 20 + 2 * big + 10 + max(_text_w(s, 10.5) for s in labels))
@@ -1370,7 +1809,7 @@ def _band(encoding: Encoding, has_missing: bool):
     """A legend laid out in a row under the map: (height, draw(x, y))."""
     head_h = _heading_h(encoding)
     if encoding.mode == "symbols":
-        refs = _reference_values(encoding.vmax)
+        refs = _reference_values(encoding.vmax, encoding.vmin)
         big = encoding.radius(refs[0])
         labels = [_count_label(v) for v in refs]
         h = head_h + 10 + 2 * big
@@ -1481,13 +1920,21 @@ def _nested_circles(encoding: Encoding, refs, labels, cx: float, base: float) ->
     return out
 
 
-def _reference_values(vmax: float) -> list[float]:
-    """Up to three round values for the size legend, none above vmax."""
+def _reference_values(vmax: float, vmin: float = 0.0) -> list[float]:
+    """Up to three round values for the size legend, inside the data's range.
+
+    Round means 1, 2, 4 or 5 times a power of ten. When the data span more
+    than 25x, the circles are the largest round value, about a quarter of it
+    and about a twenty-fifth, so the legend shows the range. When they do
+    not -- Ukraine's oblasts run 0.89M to 4.06M -- they halve from the top,
+    4M, 2M, 1M, and none is smaller than the smallest unit: a 50,000 circle
+    that no unit approaches only misleads.
+    """
     def nice_below(v: float) -> float:
         if v <= 0:
             return 0.0
         exp = math.floor(math.log10(v))
-        for m in (5, 2, 1):
+        for m in (5, 4, 2, 1):
             candidate = m * 10.0 ** exp
             if candidate <= v * (1 + 1e-9):
                 return candidate
@@ -1495,9 +1942,10 @@ def _reference_values(vmax: float) -> list[float]:
 
     top = nice_below(vmax)
     out = [top]
-    for share in (0.25, 0.04):
+    wide = vmin <= 0 or vmax / vmin > 25
+    for share in ((0.25, 0.04) if wide else (0.5, 0.25)):
         v = nice_below(top * share)
-        if 0 < v < out[-1]:
+        if 0 < v < out[-1] and (wide or v >= vmin * (1 - 1e-9)):
             out.append(v)
     return out
 
