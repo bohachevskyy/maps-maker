@@ -244,13 +244,24 @@ def render(manifest: Manifest, result: HarvestResult) -> str:
         body.append(f'<g font-family="{FONT}">' + "".join(art.labels) + "</g>")
 
     legend_band = 0.0
+    placer = art.placer if art is not None else None
+    labels_svg = ""
     if encoding.mode != "basemap":
+        encoding.missing_label = _missing_label(result, drawn_missing, insets)
         legend, legend_band = _legend(encoding, frame, land,
                                       [u for u in units if u],
                                       bool(drawn_missing) or inset_missing)
-        if not has_overlays and len(every_row) <= LABEL_MAX_UNITS:
-            body.append(_feature_labels(rows, insets, frame, encoding, land))
+        if not has_overlays:
+            placer = _placer(frame, encoding)
+            labels_svg = _feature_labels(rows, insets, drawn_missing, frame, encoding,
+                                         land, placer, len(every_row))
         body.append(legend)
+    if placer is None:
+        placer = _placer(frame, encoding)
+    context_svg, context_credits = _context_labels(result, rows, frame, encoding, manifest,
+                                                   placer, land)
+    body.append(context_svg)
+    body.append(labels_svg)
     if art is not None and art.legend_h:
         body.append(art.legend(PAD, frame.bottom + legend_band + 16))
         legend_band += art.legend_h + 16
@@ -269,7 +280,7 @@ def render(manifest: Manifest, result: HarvestResult) -> str:
 
     footer_top = frame.bottom + legend_band + 14
     footer, footer_h = _footer(manifest, frame, encoding, result, footer_top,
-                               art.footer if art is not None else ())
+                               list(art.footer if art is not None else ()) + context_credits)
     body.append(footer)
     height = int(math.ceil(footer_top + footer_h + 14))
 
@@ -303,6 +314,7 @@ class Encoding:
         self.r_max = 0.0
         self.circles: list = []          # (x, y, r, row) of every drawn circle
         self.vmin = 0.0
+        self.missing_label = "no data"   # what the hatch means, in the legend
 
     def fill(self, value) -> str:
         if self.mode == "basemap":
@@ -1321,30 +1333,53 @@ def _box_within(inner: tuple, outer: tuple, slack: float = 1e-6) -> bool:
 
 # ---------------------------------------------------------------- labels ---
 
-# A map of at most this many units names them; a world map (~240 countries)
-# does not. Measured on gdp_world at 960 px: see _feature_labels.
+# A map of at most this many units names them all; a bigger one (a world
+# map, ~240 countries; EU NUTS 2, 244 regions) names only its extremes.
 LABEL_MAX_UNITS = 60
+# How many of the highest and of the lowest a big map names.
+LABEL_EXTREMES = 2
 NAME_SIZE, VALUE_SIZE = 9.5, 8.5
+# A unit too small for the label at full size tries it this much smaller
+# before it is called out: a short leader is better than a long one.
+SMALL = 0.84
 LABEL_INK = "#1f2a30"
-LABEL_HALO = ('stroke="#ffffff" stroke-width="2.6" stroke-linejoin="round" '
-              'stroke-opacity="0.85" paint-order="stroke"')
+# Every label is haloed, so it reads over any fill, border or leader.
+LABEL_HALO = ('stroke="#ffffff" stroke-width="3" stroke-linejoin="round" '
+              'stroke-opacity="0.9" paint-order="stroke"')
 LEADER = "#5d6870"
-# How far out a callout may go, in page pixels, and in which directions
-# (right first: text reads away from its leader).
-CALLOUT_REACH = (14.0, 26.0, 40.0, 56.0)
-# A callout goes over water, neighbours or the margin -- not over other
-# mapped units, where it would be read as theirs.
+# Where a callout may go, nearest first: distance from the unit (page px)
+# and direction. Straight up and down are left out: a callout reads along
+# its leader, and stacks are columns beside the land.
+CALLOUT_REACH = (8.0, 14.0, 22.0, 32.0, 44.0, 58.0, 74.0, 92.0, 112.0, 136.0,
+                 164.0, 196.0, 232.0, 272.0, 316.0)
+CALLOUT_DIRECTIONS = ((1, 0), (-1, 0), (1, -0.5), (1, 0.5), (-1, -0.5), (-1, 0.5),
+                      (1, -1), (1, 1), (-1, -1), (-1, 1), (0.5, -1), (0.5, 1),
+                      (-0.5, -1), (-0.5, 1))
+# A last-resort callout may cover this much mapped land; a normal one none.
 CALLOUT_MAX_COVER = 0.25
-# A unit whose visible area is at least this many times its name-and-value
-# block is big enough to carry its name inside rather than on a leader.
-CALLOUT_ROOMY = 3.0
-CALLOUT_DIRECTIONS = ((1, 0), (-1, 0), (1, -1), (1, 1), (-1, -1), (-1, 1), (0, -1), (0, 1))
+# Callouts whose units lie within this distance of each other share a stack.
+STACK_NEAR = 64.0
+# A leader longer than this crosses too much of the map to be followed: the
+# unit tries its code inside, and a code callout, before a longer leader.
+LEADER_MAX = 150.0
+# A name on a leader this short beats a code inside the unit.
+LEADER_SHORT = 60.0
+# No leader is ever longer than this: past it a middling unit goes unlabelled.
+LEADER_LIMIT = 170.0
+STACK_GAP = 1.5
+# A stack's column moves out from the land in these steps, and the whole
+# stack up or down by these, until every label is in free space.
+STACK_STEP_X = 6.0
+STACK_STEP_Y = 5.0
+STACK_SHIFT_MAX = 260.0
 # Words that say what kind of unit it is; dropped from a label when the rest
 # is still unique ("Lviv Oblast" -> "Lviv", but "Kyiv Oblast" stays, because
 # Kyiv city is "Kyiv").
 _KIND_WORDS = ("Oblast", "County", "Province", "Region", "Governorate", "Prefecture",
                "Voivodeship", "Department", "District", "Raion", "Municipality",
                "Parish", "Borough", "Census Area", "City and Borough")
+_KIND_PREFIXES = ("Autonomous Republic of ",)
+MISSING_TEXT = "no data"
 
 
 def _label_names(rows: list) -> dict:
@@ -1356,11 +1391,26 @@ def _label_names(rows: list) -> dict:
             for form in (f" {word}", f" {word.lower()}"):
                 if short.endswith(form) and len(short) > len(form) + 1:
                     short = short[: -len(form)]
+        for prefix in _KIND_PREFIXES:
+            if short.startswith(prefix) and len(short) > len(prefix) + 1:
+                short = short[len(prefix):]
         stripped[gid] = short
     counts: dict = {}
     for short in stripped.values():
         counts[short] = counts.get(short, 0) + 1
     return {gid: (stripped[gid] if counts[stripped[gid]] == 1 else full[gid]) for gid in full}
+
+
+def _abbreviation(row) -> str | None:
+    """The short form a crowded label falls back to: a subdivision's code
+    (WY), a country's ISO 3166 alpha-3 (CZE); None when there is none."""
+    code = _code(row)
+    if code:
+        return code
+    gid = str(row["id"])
+    if len(gid) == 3 and gid.isalpha() and gid.isupper():
+        return gid
+    return None
 
 
 def _code(row) -> str | None:
@@ -1422,7 +1472,81 @@ class _Block:
                        f'text-anchor="middle" fill="{LABEL_INK}" {LABEL_HALO}>'
                        f'{escape(text)}</text>')
             y += size * 0.14 + 1.5
-        return (f'<g class="feature-label" data-id={quoteattr(gid)}>' + "".join(out) + "</g>")
+        return (f'<g class="feature-label" data-placement="inside" data-id={quoteattr(gid)}>'
+                + "".join(out) + "</g>")
+
+
+class _Line:
+    """A callout: the name in bold and the value after it, on one line.
+
+    One line, so a stack of them is a compact column a reader runs down; the
+    name is never without its value, nor the value without its name.
+    """
+
+    def __init__(self, name: str, value: str, scale: float = 1.0):
+        self.name, self.value = name, value
+        self.size, self.vsize = NAME_SIZE * scale, VALUE_SIZE * scale
+        # Bold runs a little wider than _text_w's regular estimate.
+        self.w = _text_w(name, self.size) * 1.05 + (
+            3.0 + _text_w(value, self.vsize) if value else 0.0)
+        self.h = self.size + 1.5
+
+    def box(self, x: float, top: float, side: int) -> tuple:
+        """side > 0: the text starts at x; side < 0: it ends there."""
+        return (x, top, x + self.w, top + self.h) if side > 0 else (x - self.w, top, x, top + self.h)
+
+    def svg(self, x: float, top: float, side: int, gid: str,
+            placement: str = "callout") -> str:
+        anchor = "start" if side > 0 else "end"
+        y = top + self.size * 0.86 + 0.5
+        spans = f'<tspan font-weight="600">{escape(self.name)}</tspan>'
+        if self.value:
+            spans += f'<tspan dx="3" font-size="{_num(self.vsize)}">{escape(self.value)}</tspan>'
+        return (f'<g class="feature-label" data-placement="{placement}" '
+                f'data-id={quoteattr(gid)}>'
+                f'<text x="{_num(x)}" y="{_num(y)}" font-size="{_num(self.size)}" '
+                f'text-anchor="{anchor}" fill="{LABEL_INK}" {LABEL_HALO}>{spans}</text></g>')
+
+
+class _Inline:
+    """A one-line label centred inside its unit: Los Angeles is wide, not tall."""
+
+    def __init__(self, line: _Line):
+        self.line, self.w, self.h = line, line.w, line.h
+
+    def box(self, cx: float, top: float) -> tuple:
+        return (cx - self.w / 2, top, cx + self.w / 2, top + self.h)
+
+    def svg(self, cx: float, top: float, gid: str) -> str:
+        return self.line.svg(cx - self.w / 2, top, 1, gid, placement="inside")
+
+
+class _Target:
+    """One unit to be labelled, wherever its label ends up."""
+
+    def __init__(self, gid, x, y, ring, holes, name, value, code, rank,
+                 inset=None, r=0.0):
+        self.gid, self.x, self.y, self.ring, self.holes = gid, x, y, ring, holes
+        self.name, self.value, self.code = name, value, code
+        self.rank = rank            # sort key: smaller is more important
+        self.inset = inset          # the inset frame it is drawn in, if any
+        self.r = r                  # a circle's radius: leaders leave its edge
+        self.area = project.planar_area(ring) if ring else 0.0
+
+    def blocks(self, code: bool = False):
+        """Inside labels, most legible first: the name (or the code) and
+        value on two lines, then on one, then each a size smaller."""
+        name = self.code if code else self.name
+        if not name:
+            return
+        for scale in (1.0, SMALL):
+            yield _Block([(name, NAME_SIZE * scale, True), (self.value, VALUE_SIZE * scale, False)])
+            yield _Inline(_Line(name, self.value, scale))
+
+    def lines(self):
+        yield _Line(self.name, self.value)
+        if self.code:
+            yield _Line(self.code, self.value)
 
 
 def _fits_inside(box: tuple, ring, holes) -> bool:
@@ -1436,42 +1560,174 @@ def _fits_inside(box: tuple, ring, holes) -> bool:
     return True
 
 
-def _feature_labels(rows: list, insets: list, frame: Frame, encoding: Encoding,
-                    land: list) -> str:
-    """Name every unit, with its value where there is room. Greedy, deterministic.
+class _Space:
+    """Where mapped land is, scanline by scanline, for testing label boxes.
 
-    Choropleth: inside the unit, at its pole of inaccessibility, when the
-    block fits within the polygon; a two-letter code when only that fits;
-    otherwise a callout on a leader line, put where it covers the least
-    mapped land. Inside labels go first, largest unit first; callouts then
-    go in order of how extreme the value is, so the highest and lowest are
-    the last to be crowded out. Circles: under the circle, else beside it,
-    else on a leader line. Nothing overlaps another label, a circle, a
-    marker, an inset or the legend; what cannot be placed is left unlabelled.
+    A callout belongs in free space -- sea, neighbouring land, the margin --
+    never over another mapped unit, where it would be read as that unit's.
+    Each outer ring's crossings with a horizontal line give the land
+    intervals on it; edges are bucketed by height so a line meets only the
+    edges near it. Rings are kept apart, so an enclave inside another unit's
+    hole is still land.
     """
+
+    BUCKET = 8.0
+
+    def __init__(self, land: list, frame):
+        self.frame = frame
+        self.edges: dict = {}
+        for n, (_, ring) in enumerate(land):
+            count = len(ring)
+            for i in range(count):
+                (ax, ay), (bx, by) = ring[i], ring[(i + 1) % count]
+                if ay == by:
+                    continue
+                for b in range(int(min(ay, by) // self.BUCKET),
+                               int(max(ay, by) // self.BUCKET) + 1):
+                    self.edges.setdefault(b, []).append((n, ax, ay, bx, by))
+        self.cache: dict = {}
+
+    def intervals(self, y: float) -> list:
+        key = round(y * 2.0) / 2.0
+        hit = self.cache.get(key)
+        if hit is not None:
+            return hit
+        crossings: dict = {}
+        for n, ax, ay, bx, by in self.edges.get(int(key // self.BUCKET), ()):
+            if (ay <= key < by) or (by <= key < ay):
+                crossings.setdefault(n, []).append(ax + (key - ay) * (bx - ax) / (by - ay))
+        spans = []
+        for xs in crossings.values():
+            xs.sort()
+            spans.extend((xs[i], xs[i + 1]) for i in range(0, len(xs) - 1, 2))
+        spans.sort()
+        out: list = []
+        for a, b in spans:           # the union: an enclave is not land twice
+            if out and a <= out[-1][1]:
+                out[-1] = (out[-1][0], max(out[-1][1], b))
+            else:
+                out.append((a, b))
+        self.cache[key] = out
+        return out
+
+    def _rows(self, box):
+        y0, y1 = box[1], box[3]
+        n = max(2, int(math.ceil((y1 - y0) / 2.5)))
+        return [y0 + (y1 - y0) * i / n for i in range(n + 1)]
+
+    def cover(self, box) -> float:
+        """Share of the box over mapped land, by scanline."""
+        x0, x1 = box[0], box[2]
+        width = max(x1 - x0, 1e-6)
+        rows = self._rows(box)
+        total = 0.0
+        for y in rows:
+            for a, b in self.intervals(y):
+                if b > x0 and a < x1:
+                    total += min(b, x1) - max(a, x0)
+        return total / (width * len(rows))
+
+    def free(self, box, pad: float = 1.5) -> bool:
+        x0, x1 = box[0] - pad, box[2] + pad
+        for y in self._rows((x0, box[1] - pad, x1, box[3] + pad)):
+            for a, b in self.intervals(y):
+                if b > x0 and a < x1:
+                    return False
+        if self.frame.outline is not None:
+            return all(self.frame.visible(x, y) for x, y in (
+                (box[0], box[1]), (box[2], box[1]), (box[0], box[3]), (box[2], box[3])))
+        return True
+
+
+def _placer(frame: Frame, encoding: Encoding):
+    """The collision test every label on the page shares, with the legend
+    and the circles already in it."""
     placer = overlay_render.Labels({"pad": PAD, "map_w": MAP_W, "map_top": MAP_TOP}, frame)
     if frame.legend_box:
         placer.block(*frame.legend_box)
     for x, y, r, _ in encoding.circles:
         placer.block(x - r, y - r, x + r, y + r)
-    names = _label_names(rows + [r for inset in insets for r in inset.rows])
+    return placer
+
+
+def _missing_label(result, drawn_missing: list, insets: list) -> str:
+    """What the hatch means, for the legend: the one reason every hatched
+    unit shares when it is specific ("not estimated by Ukrstat since 2014"),
+    else "no data"."""
+    hatched = {str(m["id"]) for m in drawn_missing}
+    hatched |= {str(m["id"]) for inset in insets for m in inset.missing}
+    reasons = {d.get("reason") for d in result.dropped if str(d["id"]) in hatched}
+    meanings = result.provenance.get("drop_reasons") or {}
+    if len(reasons) != 1:
+        return MISSING_TEXT
+    reason = next(iter(reasons))
+    meaning = str(meanings.get(reason) or "")
+    if not meaning or reason in _REASONS or meaning in _REASONS.values():
+        return MISSING_TEXT
+    meaning = meaning.split(" (")[0].strip()
+    return meaning if len(meaning) <= 44 else MISSING_TEXT
+
+
+def _feature_labels(rows: list, insets: list, missing: list, frame: Frame,
+                    encoding: Encoding, land: list, placer, every: int) -> str:
+    """Name the units, each with its value. Greedy, deterministic.
+
+    Name and value always print together, never one without the other:
+
+    1. inside the unit, at its pole of inaccessibility, when the block fits
+       within the polygon -- the full name, else the unit's code (WY);
+    2. otherwise a callout in free space (sea, neighbours, the margin) on a
+       leader line. Callouts for units near each other are stacked in one
+       column, in the order of the units on the ground, the leaders not
+       crossing;
+    3. failing that, the code and value in a callout; then, for the highest
+       and lowest only, a callout allowed over a little mapped land;
+    4. otherwise the unit goes unlabelled, least important first -- never
+       the extremes while there is any spot for them.
+
+    Circles: under the circle, else beside it, else a callout as above.
+    A map with more than LABEL_MAX_UNITS units names only its LABEL_EXTREMES
+    highest and lowest. Hatched units get their name and "no data".
+    Nothing overlaps another label, a circle, a marker, an inset or the legend.
+    """
+    names = _label_names(rows + [r for inset in insets for r in inset.rows]
+                         + missing + [m for inset in insets for m in inset.missing])
+    space = _Space(land, frame)
     out: list[str] = []
+    unlabelled: list[str] = []
+    leaders: list = []
+    extremes_only = every > LABEL_MAX_UNITS
 
     if encoding.mode == "symbols":
-        _circle_labels(encoding, names, placer, frame, land, out)
+        pending = _circle_labels(encoding, names, placer, out)
     else:
-        _choropleth_labels(rows, insets, frame, encoding, names, placer, land, out)
+        pending = _choropleth_labels(rows, insets, frame, encoding, names, placer,
+                                     out, extremes_only)
+    if not extremes_only:
+        pending += _missing_labels(missing, insets, frame, names, placer, out)
+    _callouts(pending, placer, space, frame, out, leaders, unlabelled, insets)
     if not out:
         return ""
-    return f'<g font-family="{FONT}">' + "".join(out) + "</g>"
+    dropped = " ".join(sorted(unlabelled))
+    return (f'<g font-family="{FONT}" class="feature-labels" '
+            f'data-labels-dropped="{len(unlabelled)}" data-unlabelled={quoteattr(dropped)}>'
+            + "".join(out) + "</g>")
 
 
-def _choropleth_labels(rows, insets, frame, encoding, names, placer, land, out):
-    units = []          # (row, frame, piece)
+def _number(value) -> float | None:
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return None
+    return float(value)
+
+
+def _choropleth_labels(rows, insets, frame, encoding, names, placer, out,
+                       extremes_only) -> list:
+    """Inside labels; returns the targets still to be called out."""
+    units = []          # (row, inset or None, piece)
     for row in rows:
         piece = _piece(row["geometry"], frame)
         if piece is not None:
-            units.append((row, frame, piece))
+            units.append((row, None, piece))
     for inset in insets:
         for row in inset.rows:
             piece = _piece(row["geometry"], inset)
@@ -1486,58 +1742,440 @@ def _choropleth_labels(rows, insets, frame, encoding, names, placer, land, out):
         bx, by, bw, bh = inset.box
         placer.block(bx, by, bx + bw, by + bh)
 
-    def blocks(row, with_value=True):
+    # Importance: the highest and lowest first, then by how far from the
+    # median, then the larger unit. What is dropped, if anything, is the
+    # middling and small.
+    valued = sorted(((v, str(row["id"])) for row, _, _ in units
+                     if (v := _number(row["value"])) is not None))
+    order = {gid: i for i, (_, gid) in enumerate(valued)}
+    last = max(1, len(valued) - 1)
+
+    def rank(row, piece):
         gid = str(row["id"])
-        value = _value_text(row["value"], encoding) if with_value else ""
-        code = _code(row)
-        yield _Block([(names[gid], NAME_SIZE, True), (value, VALUE_SIZE, False)])
-        if code:
-            yield _Block([(code, NAME_SIZE, True), (value, VALUE_SIZE, False)])
+        if gid not in order:
+            return (2, 1.0, 0.0, gid)
+        i = order[gid]
+        extreme = i == 0 or i == len(valued) - 1
+        return (0 if extreme else 1, -abs(i / last - 0.5),
+                -project.planar_area(piece[2]), gid)
 
-    def callout_block(row):
-        # A callout says which unit it is for: the code where there is one
-        # (RI, DC), the name otherwise.
-        label = _code(row) or names[str(row["id"])]
-        return _Block([(label, NAME_SIZE, True),
-                       (_value_text(row["value"], encoding), VALUE_SIZE, False)])
+    if extremes_only:
+        keep = {gid for _, gid in valued[:LABEL_EXTREMES]}
+        keep |= {gid for _, gid in valued[-LABEL_EXTREMES:]}
+        # When the extremes sit in insets (Mayotte, Guyane), the main map's
+        # own highest and lowest are named too: Severozapaden, not only
+        # the outermost regions.
+        main = [(v, gid) for v, gid in valued
+                if any(str(r["id"]) == gid and inset is None for r, inset, _ in units)]
+        if main:
+            keep |= {main[0][1], main[-1][1]}
+        units = [u for u in units if str(u[0]["id"]) in keep]
 
-    leaders: list = []
-    pending = []
-    by_size = sorted(units, key=lambda u: (-project.planar_area(u[2][2]), str(u[0]["id"])))
-    for row, _, piece in by_size:
+    targets = []
+    for row, inset, piece in units:
         (x, y), _, ring, holes = piece
-        if not _inside_label(blocks(row), x, y, ring, holes, placer, insets, out,
-                             str(row["id"])):
-            pending.append((row, piece))
+        gid = str(row["id"])
+        targets.append(_Target(gid, x, y, ring, holes, names[gid],
+                               _value_text(row["value"], encoding), _abbreviation(row),
+                               rank(row, piece), inset=inset))
+    pending = []
+    insets_here = list(insets)
+    for t in sorted(targets, key=lambda t: (-t.area, t.gid)):
+        if not _inside_label(t.blocks(), t.x, t.y, t.ring, t.holes, placer, insets_here,
+                             out, t.gid):
+            pending.append(t)
+    return pending
 
-    def number(row):
-        v = row["value"]
-        return float(v) if isinstance(v, (int, float)) and not isinstance(v, bool) else 0.0
 
-    every = sorted(number(r) for r, _, _ in units)
+def _missing_labels(missing, insets, frame, names, placer, out) -> list:
+    """Hatched units: their name and "no data", inside or called out.
 
-    def extremeness(item):
-        v = number(item[0])
-        rank = sum(1 for w in every if w < v) / max(1, len(every) - 1)
-        return (-abs(rank - 0.5), str(item[0]["id"]))
-    for row, piece in sorted(pending, key=extremeness):
-        (x, y), _, ring, _ = piece
-        block = callout_block(row)
-        # A unit with room for a label, just not this one, keeps its name
-        # inside; a callout is for units too small to hold one.
-        roomy = project.planar_area(ring) >= CALLOUT_ROOMY * block.w * block.h
-        if roomy and _inside_label(blocks(row, with_value=False), x, y, ring, piece[3],
-                                   placer, insets, out, str(row["id"])):
+    Their outline is redrawn over the hatch, so two adjacent units with no
+    data (Crimea and Sevastopol) read as two.
+    """
+    pending = []
+    for owner, items in [(None, missing)] + [(i, i.missing) for i in insets]:
+        for item in sorted(items, key=lambda m: str(m["id"])):
+            where = frame if owner is None else owner
+            piece = _piece(item["geometry"], where)
+            if piece is None:
+                continue
+            (x, y), _, ring, holes = piece
+            gid = str(item["id"])
+            parts = _project(item["geometry"], where)
+            d = _d([part[0] for part in parts])
+            if d:
+                out.append(f'<path d="{d}" fill="none" stroke="{colors.TEXT_MUTED}" '
+                           f'stroke-width="0.7" class="missing-outline" '
+                           f'data-outline-of={quoteattr(gid)}/>')
+            t = _Target(gid, x, y, ring, holes, names.get(gid, _short_name(item)),
+                        MISSING_TEXT, None, (3, 0.0, -project.planar_area(ring), gid),
+                        inset=owner)
+            if not _inside_label(t.blocks(), x, y, ring, holes, placer, insets, out, gid):
+                pending.append(t)
+    return pending
+
+
+def _circle_labels(encoding, names, placer, out) -> list:
+    """Under the circle, else beside it; returns the circles left to call out."""
+    pending = []
+    circles = sorted(encoding.circles, key=lambda c: (-c[2], str(c[3]["id"])))
+    for n, (x, y, r, row) in enumerate(circles):
+        gid = str(row["id"])
+        block = _Block([(names.get(gid, _short_name(row)), NAME_SIZE, True),
+                        (_value_text(row["value"], encoding), VALUE_SIZE, False)])
+        spots = [(x, y + r + 2.0),                                  # under
+                 (x + r + 3 + block.w / 2, y - block.h / 2),        # right
+                 (x - r - 3 - block.w / 2, y - block.h / 2),        # left
+                 (x, y - r - 2.0 - block.h)]                        # over
+        for cx, top in spots:
+            box = block.box(cx, top)
+            if placer.fits(box):
+                placer.block(*box)
+                out.append(block.svg(cx, top, gid))
+                break
+        else:
+            # Largest circle first is most important.
+            pending.append(_Target(gid, x, y, None, [], names.get(gid, _short_name(row)),
+                                   _value_text(row["value"], encoding), _code(row),
+                                   (0 if n == 0 else 1, n, 0.0, gid), r=r))
+    return pending
+
+
+# --------------------------------------------------------------- callouts ---
+
+def _callouts(targets, placer, space, frame, out, leaders, unlabelled, insets=()) -> None:
+    """Callouts in free space: stacked where units crowd, single where not.
+
+    In order, each unit not yet labelled tries: its name on a short leader
+    (stacked with its neighbours'); its code inside the unit (WV, HRV); its
+    name on a leader up to LEADER_MAX; its code on one; its name, then its
+    code, on one up to LEADER_LIMIT; a callout over a little mapped land;
+    and, for the highest and lowest only, over as much land as it takes.
+    A hatched unit, being no data, gets no more than LEADER_MAX.
+    """
+    targets = sorted(targets, key=lambda t: t.rank)
+    rest = [t for t in targets if t.inset is not None]
+    # A unit with a code falls back to it inside before a long leader; one
+    # without goes straight to the longer leaders, so a cluster such as the
+    # Bay Area stays one stack in one order.
+    shed = _stack_phase([t for t in targets if t.inset is None],
+                        lambda t: LEADER_SHORT if t.code else LEADER_MAX,
+                        placer, space, frame, out, leaders)
+    later = []
+    for t in shed:
+        if not (t.code and t.ring and _inside_label(
+                t.blocks(code=True), t.x, t.y, t.ring, t.holes, placer, insets, out, t.gid)):
+            later.append(t)
+    rest += _stack_phase(later, lambda t: LEADER_MAX, placer, space, frame, out, leaders)
+
+    for t in sorted(rest, key=lambda t: t.rank):
+        if t.inset is not None:
+            if not (_inside_label(t.blocks(code=True), t.x, t.y, t.ring, t.holes, placer,
+                                  insets, out, t.gid) or _inset_corner(t, placer, out)):
+                unlabelled.append(t.gid)
             continue
-        if _callout(block, x, y, 2.0, str(row["id"]), placer, frame,
-                    land, out, leaders):
+        hatched = t.rank[0] == 3
+        placed = False
+        attempts = [(True, LEADER_MAX)] if t.code else []
+        if not hatched:
+            attempts += [(False, LEADER_LIMIT)] + ([(True, LEADER_LIMIT)] if t.code else [])
+        for use_code, limit in attempts:
+            line = _Line(t.code, t.value) if use_code else _Line(t.name, t.value)
+            spot = _nearest_spot(t, line, placer, space)
+            if spot is not None and not _stack([t], spot[0], placer, space, frame, out,
+                                               leaders, limit, use_code=use_code):
+                placed = True
+                break
+        # The last resort, for the highest and lowest only: a callout over a
+        # little mapped land, then over as much as it takes. A middling unit
+        # goes unlabelled rather than have its name sit on a neighbour.
+        covers = (CALLOUT_MAX_COVER, 1.0) if t.rank[0] == 0 else ()
+        for cover in covers:
+            for line in t.lines():
+                if placed:
+                    break
+                placed = _radial(t, line, cover, placer, space, out, leaders)
+        if not placed:
+            unlabelled.append(t.gid)
+
+
+def _stack_phase(targets, max_leader, placer, space, frame, out, leaders) -> list:
+    """Stack every target that has free space within reach; return the rest."""
+    rest, spots = [], {}
+    for t in targets:
+        spot = _nearest_spot(t, _Line(t.name, t.value), placer, space)
+        if spot is None or spot[1] > max_leader(t):
+            rest.append(t)
+        else:
+            spots[t.gid] = spot
+    for group in _stack_groups([t for t in targets if t.gid in spots], spots):
+        side = spots[group[0].gid][0]
+        # Runs of one group start from one column, so its callouts align.
+        start = (min(t.x + t.r for t in group) + 8.0 if side > 0
+                 else max(t.x - t.r for t in group) - 8.0)
+        for run in _runs(group):
+            # One stack, one form: if the names do not all fit, codes for all.
+            codes = all(t.code for t in run) and len(run) > 1 and bool(_stack(
+                run, side, placer, space, frame, [], [], max_leader, dry=True, start=start))
+            rest.extend(_stack(run, side, placer, space, frame, out, leaders, max_leader,
+                               use_code=codes, start=start))
+    return sorted(rest, key=lambda t: t.rank)
+
+
+def _runs(group) -> list:
+    """A group split where its stacked labels would not touch: each run gets
+    its own column, hugging its own stretch of coast."""
+    members = sorted(group, key=lambda t: (t.y, t.x, t.gid))
+    h = _Line("x", "").h
+    pitch = h + STACK_GAP
+    tops = _stack_tops([t.y - h / 2 for t in members], pitch)
+    runs, run = [], [members[0]]
+    for i in range(1, len(members)):
+        if tops[i] - tops[i - 1] > pitch + 0.01:
+            runs.append(run)
+            run = []
+        run.append(members[i])
+    runs.append(run)
+    return runs
+
+
+def _nearest_spot(t, line, placer, space):
+    """(side, distance) of the nearest box in free space for this label."""
+    for reach in CALLOUT_REACH:
+        for dx, dy in CALLOUT_DIRECTIONS:
+            if dx == 0:
+                continue
+            norm = math.hypot(dx, dy)
+            ex, ey = t.x + dx / norm * (t.r + reach), t.y + dy / norm * (t.r + reach)
+            side = 1 if dx > 0 else -1
+            box = line.box(ex + side * 2.0, ey - line.h / 2, side)
+            if placer.fits(box) and space.free(box):
+                return side, reach
+    return None
+
+
+def _stack_groups(targets, spots) -> list:
+    """Targets on the same side whose units are near each other, as groups.
+
+    Single linkage over STACK_NEAR px, members in their sorted order; groups
+    ordered by their most important member.
+    """
+    parent = list(range(len(targets)))
+
+    def find(i):
+        while parent[i] != i:
+            parent[i] = parent[parent[i]]
+            i = parent[i]
+        return i
+
+    for i, a in enumerate(targets):
+        for j in range(i):
+            b = targets[j]
+            if spots[a.gid][0] == spots[b.gid][0] and \
+                    math.hypot(a.x - b.x, a.y - b.y) <= STACK_NEAR:
+                parent[find(i)] = find(j)
+    groups: dict = {}
+    for i, t in enumerate(targets):
+        groups.setdefault(find(i), []).append(t)
+    return sorted(groups.values(), key=lambda g: min(t.rank for t in g))
+
+
+def _stack_tops(desired: list, pitch: float) -> list:
+    """Label tops as near their desired heights as a column without overlap
+    allows: neighbours that collide merge into a block centred on them."""
+    blocks: list = []
+    for i, d in enumerate(desired):
+        blocks.append([i, 1, d])
+        while len(blocks) > 1:
+            a, b = blocks[-2], blocks[-1]
+            if a[2] + a[1] * pitch <= b[2]:
+                break
+            start, count = a[0], a[1] + b[1]
+            top = sum(desired[j] - (j - start) * pitch
+                      for j in range(start, start + count)) / count
+            blocks[-2:] = [[start, count, top]]
+    return [blk[2] + (j - blk[0]) * pitch for blk in blocks
+            for j in range(blk[0], blk[0] + blk[1])]
+
+
+def _leader_start(t, ex, ey):
+    if t.r <= 0:
+        return t.x, t.y
+    norm = math.hypot(ex - t.x, ey - t.y) or 1.0
+    return t.x + (ex - t.x) / norm * t.r, t.y + (ey - t.y) / norm * t.r
+
+
+def _uncross(members, ends) -> list:
+    """Slot order for the members such that no two leaders cross."""
+    slots = list(range(len(members)))
+    for _ in range(len(members) ** 2 + 1):
+        segs = []
+        for m, s in zip(members, slots):
+            ex, ey = ends[s]
+            sx, sy = _leader_start(m, ex, ey)
+            segs.append((sx, sy, ex, ey))
+        swap = None
+        for i in range(len(segs)):
+            for j in range(i):
+                if _segments_cross(segs[i], segs[j]):
+                    swap = (i, j)
+                    break
+            if swap:
+                break
+        if swap is None:
+            return slots
+        i, j = swap
+        slots[i], slots[j] = slots[j], slots[i]
+    return slots
+
+
+def _stack(group, side, placer, space, frame, out, leaders, max_leader=None,
+           use_code=False, dry=False, start=None) -> list:
+    """Lay a group of callouts out as one column in free space.
+
+    The column starts where the nearest member's label first fits and moves
+    out from the land; at each column the stack, ordered as the units are
+    from north to south, is tried at its natural height and then shifted up
+    and down. The placement with the shortest total leader length wins. A
+    group that fits nowhere sheds its least important member and tries
+    again; the members shed are returned.
+    """
+    members = sorted(group, key=lambda t: (t.y, t.x, t.gid))
+
+    def limit(t):
+        return max_leader(t) if callable(max_leader) else max_leader
+    lines = {t.gid: (_Line(t.code or t.name, t.value) if use_code else _Line(t.name, t.value))
+             for t in members}
+    h = max(line.h for line in lines.values())
+    pitch = h + STACK_GAP
+    base = _stack_tops([t.y - h / 2 for t in members], pitch)
+    if side > 0:
+        start = min(t.x + t.r for t in members) + 8.0 if start is None else start
+        stop = placer.right
+    else:
+        start = max(t.x - t.r for t in members) - 8.0 if start is None else start
+        stop = placer.left
+    shifts = [0.0]
+    k = 1
+    while k * STACK_STEP_Y <= STACK_SHIFT_MAX:
+        shifts += [-k * STACK_STEP_Y, k * STACK_STEP_Y]
+        k += 1
+
+    best = None
+    cx = start
+    while (cx <= stop) if side > 0 else (cx >= stop):
+        reach = sum(abs(cx - t.x) for t in members)
+        if best is not None and reach >= best[0]:
+            break
+        if max_leader is not None and any(abs(cx - t.x) > limit(t) for t in members):
+            break
+        for shift in shifts:
+            tops = [top + shift for top in base]
+            if tops[0] < placer.top or tops[-1] + h > placer.bottom:
+                continue
+            ends = [(cx - side * 1.5, top + h / 2) for top in tops]
+            slots = _uncross(members, ends)
+            boxes, segs, ok = [], [], True
+            for t, s in zip(members, slots):
+                box = lines[t.gid].box(cx, tops[s], side)
+                if not (placer.fits(box) and space.free(box)):
+                    ok = False
+                    break
+                ex, ey = ends[s]
+                sx, sy = _leader_start(t, ex, ey)
+                boxes.append(box)
+                segs.append((sx, sy, ex, ey))
+            if not ok:
+                continue
+            if max_leader is not None and any(
+                    math.hypot(g[2] - g[0], g[3] - g[1]) > limit(t)
+                    for g, t in zip(segs, members)):
+                continue
+            if any(_leader_blocked(seg, placer.taken + boxes, leaders) for seg in segs):
+                continue
+            score = sum(math.hypot(s[2] - s[0], s[3] - s[1]) for s in segs)
+            if best is None or score < best[0] - 1e-9:
+                best = (score, cx, tops, slots, boxes, segs)
+            break       # the smallest shift that works at this column
+        cx += side * STACK_STEP_X
+
+    if best is None:
+        if len(members) == 1:
+            return members
+        weakest = max(members, key=lambda t: t.rank)
+        if dry:
+            return [weakest]
+        shed = _stack([t for t in members if t is not weakest], side, placer, space, frame,
+                      out, leaders, max_leader, use_code, start=start)
+        return shed + [weakest]
+
+    if dry:
+        return []
+    _, cx, tops, slots, boxes, segs = best
+    for t, s, box, seg in zip(members, slots, boxes, segs):
+        placer.block(*box)
+        leaders.append(seg)
+        out.append(_leader_svg(seg, t))
+        out.append(lines[t.gid].svg(cx, tops[s], side, t.gid))
+    return []
+
+
+def _leader_svg(seg, t) -> str:
+    sx, sy, ex, ey = seg
+    dot = ("" if t.r > 0 else
+           f'<circle cx="{_num(sx)}" cy="{_num(sy)}" r="1.3" fill="{LEADER}" '
+           'stroke="#ffffff" stroke-width="0.5" class="leader-end"/>')
+    return (f'<line x1="{_num(sx)}" y1="{_num(sy)}" x2="{_num(ex)}" y2="{_num(ey)}" '
+            f'stroke="{LEADER}" stroke-width="0.6" class="leader"/>' + dot)
+
+
+def _radial(t, line, max_cover, placer, space, out, leaders) -> bool:
+    """A single callout, nearest first, over at most `max_cover` mapped land."""
+    for reach in (r for r in CALLOUT_REACH if r <= LEADER_LIMIT):
+        for dx, dy in CALLOUT_DIRECTIONS:
+            if dx == 0:
+                continue
+            norm = math.hypot(dx, dy)
+            ex, ey = t.x + dx / norm * (t.r + reach), t.y + dy / norm * (t.r + reach)
+            side = 1 if dx > 0 else -1
+            x = ex + side * 1.5
+            box = line.box(x, ey - line.h / 2, side)
+            if not placer.fits(box) or space.cover(box) > max_cover:
+                continue
+            seg = (*_leader_start(t, ex, ey), ex, ey)
+            if _leader_blocked(seg, placer.taken, leaders):
+                continue
+            placer.block(*box)
+            leaders.append(seg)
+            out.append(_leader_svg(seg, t))
+            out.append(line.svg(x, ey - line.h / 2, side, t.gid))
+            return True
+    return False
+
+
+def _inset_corner(t, placer, out) -> bool:
+    """A unit in an inset that cannot hold its label: name and value along
+    the inset's foot, inside its frame (the caption names the inset, not the
+    value)."""
+    bx, by, bw, bh = t.inset.box
+    for line in t.lines():
+        top = by + bh - line.h - 3.0
+        box = line.box(bx + 5.0, top, 1)
+        if box[2] > bx + bw - 3:
             continue
-        # No room for name and value, inside or out: the name alone inside,
-        # else the value alone inside, else nothing.
-        fallbacks = list(blocks(row, with_value=False))
-        if _value_text(row["value"], encoding):
-            fallbacks.append(_Block([(_value_text(row["value"], encoding), VALUE_SIZE, False)]))
-        _inside_label(fallbacks, x, y, ring, piece[3], placer, insets, out, str(row["id"]))
+        frame_box = (bx, by, bx + bw, by + bh)
+        saved = placer.taken
+        placer.taken = [b for b in saved if b != frame_box]
+        try:
+            ok = placer.fits(box)
+        finally:
+            placer.taken = saved
+        if ok:
+            placer.block(*box)
+            out.append(line.svg(bx + 5.0, top, 1, t.gid))
+            return True
+    return False
 
 
 def _leader_blocked(segment, boxes, leaders) -> bool:
@@ -1610,62 +2248,297 @@ def _clear_but_insets(placer, box, insets) -> bool:
         placer.taken = saved
 
 
-def _circle_labels(encoding, names, placer, frame, land, out):
-    leaders: list = []
-    circles = sorted(encoding.circles, key=lambda c: (-c[2], str(c[3]["id"])))
-    for x, y, r, row in circles:
-        gid = str(row["id"])
-        block = _Block([(names.get(gid, _short_name(row)), NAME_SIZE, True),
-                        (_value_text(row["value"], encoding), VALUE_SIZE, False)])
-        spots = [(x, y + r + 2.0),                                  # under
-                 (x + r + 3 + block.w / 2, y - block.h / 2),        # right
-                 (x - r - 3 - block.w / 2, y - block.h / 2),        # left
-                 (x, y - r - 2.0 - block.h)]                        # over
-        for cx, top in spots:
-            box = block.box(cx, top)
-            if placer.fits(box):
-                placer.block(*box)
-                out.append(block.svg(cx, top, gid))
-                break
-        else:
-            _callout(block, x, y, r, gid, placer, frame, land, out, leaders)
+# ---------------------------------------------------------- context names ---
+
+# Names that orient the reader -- seas, neighbouring countries, rivers --
+# set muted and placed after every data label, so they never cover one.
+CONTEXT_INK = "#7b8288"
+SEA_INK = "#5b7d93"
+RIVER_INK = "#4d7ea6"
+CONTEXT_HALO = ('stroke="#ffffff" stroke-width="2.4" stroke-linejoin="round" '
+                'stroke-opacity="0.7" paint-order="stroke"')
+SEA_SIZE, COUNTRY_SIZE, RIVER_SIZE = 10.0, 8.5, 8.5
+# The largest Natural Earth min_label (the zoom a name first appears at)
+# named on a map whose ground span is at least this many degrees.
+SEA_MIN_LABEL = ((100.0, 2.0), (45.0, 4.0), (25.0, 5.0), (0.0, 6.0))
+SEA_LABELS, COUNTRY_LABELS, RIVER_LABELS = 5, 10, 5
+# A sea or country shows less than this much of itself on the page: unnamed.
+CONTEXT_MIN_PX2 = 1500.0
+RIVER_MIN_PX = 70.0
+RIVER_MAJOR = 5
 
 
-def _callout(block, x, y, r, gid, placer, frame, land, out, leaders) -> bool:
-    """The block on a leader line from (x, y), where it hides the least land."""
-    best = None
-    for n, reach in enumerate(CALLOUT_REACH):
-        for k, (dx, dy) in enumerate(CALLOUT_DIRECTIONS):
-            norm = math.hypot(dx, dy)
-            ex, ey = x + dx / norm * (r + reach), y + dy / norm * (r + reach)
-            # The block's near edge sits on the leader's end.
-            cx = ex + (block.w / 2 + 1 if dx > 0 else -block.w / 2 - 1 if dx < 0 else 0)
-            top = ey - block.h / 2 if dy == 0 else (ey if dy > 0 else ey - block.h)
-            box = block.box(cx, top)
-            if not placer.fits(box):
-                continue
-            norm = math.hypot(ex - x, ey - y) or 1.0
-            sx, sy = x + (ex - x) / norm * r, y + (ey - y) / norm * r
-            if _leader_blocked((sx, sy, ex, ey), placer.taken, leaders):
-                continue
-            cover = _land_share(frame, land, box[0], box[1], box[2] - box[0], box[3] - box[1])
-            if cover > CALLOUT_MAX_COVER:
-                continue
-            # Nearest first; at one reach, the spot over the least land.
-            score = (cover > 0.1, k)
-            if best is None or score < best[0]:
-                best = (score, cx, top, box, (sx, sy, ex, ey))
-        if best is not None:
+def _ground_span(frame) -> float:
+    west, south, east, north = frame.extent
+    return max((east - west) * math.cos(math.radians((south + north) / 2.0)), north - south)
+
+
+def _page_rings(geometry, frame) -> list:
+    """Outer rings of a geometry, projected and clipped to the map's page box."""
+    page = (PAD, MAP_TOP, PAD + MAP_W, frame.bottom)
+    rings = []
+    for part in _project(geometry, frame):
+        ring = project.clip_to_extent(part[0], page)
+        if len(ring) >= 3:
+            rings.append(ring)
+    return rings
+
+
+def _spiral(step: float, radius: float):
+    """Offsets around a point, nearest first, in a fixed order."""
+    n = int(radius // step)
+    points = [(i * step, j * step) for i in range(-n, n + 1) for j in range(-n, n + 1)
+              if i * i + j * j <= n * n]
+    points.sort(key=lambda p: (p[0] * p[0] + p[1] * p[1], p[1], p[0]))
+    return points
+
+
+def _context_labels(result, rows, frame, encoding, manifest, placer, land) -> tuple:
+    """Muted names for the seas, neighbouring countries and major rivers.
+
+    Returns the SVG and any footnote credit it needs. Every name goes where
+    no data label, leader, circle, legend or inset is, and seas only over
+    open water.
+    """
+    out: list[str] = []
+    credits: list[str] = []
+    context_land = []
+    for item in result.context:
+        for ring in _page_rings(item["geometry"], frame):
+            xs, ys = [p[0] for p in ring], [p[1] for p in ring]
+            context_land.append(((min(xs), min(ys), max(xs), max(ys)), ring))
+    water = _Space(land + context_land, frame)
+    mapped = _Space(land, frame)
+
+    seas = _sea_labels(result.names, frame, placer, water, out)
+    if seas:
+        credits.append(f"Sea names: {result.provenance.get('names_source') or 'Natural Earth'}.")
+    _country_labels(result, rows, frame, encoding, manifest, placer, mapped, out)
+    _river_labels(result.physical, frame, placer, out)
+    if not out:
+        return "", credits
+    return (f'<g font-family="{FONT}" class="context-labels">' + "".join(out) + "</g>",
+            credits)
+
+
+def _sea_labels(names, frame, placer, water, out) -> int:
+    span = _ground_span(frame)
+    limit = next(m for floor, m in SEA_MIN_LABEL if span >= floor)
+    placed = 0
+    for sea in sorted(names, key=lambda n: (n.get("rank", 9), n["name"])):
+        if placed >= SEA_LABELS:
             break
-    if best is None:
-        return False
-    _, cx, top, box, (sx, sy, ex, ey) = best
-    placer.block(*box)
-    leaders.append((sx, sy, ex, ey))
-    out.append(f'<line x1="{_num(sx)}" y1="{_num(sy)}" x2="{_num(ex)}" y2="{_num(ey)}" '
-               f'stroke="{LEADER}" stroke-width="0.6" class="leader"/>')
-    out.append(block.svg(cx, top, gid))
-    return True
+        if sea.get("kind") != "sea" or float(sea.get("rank", 9)) > limit:
+            continue
+        rings = _page_rings(sea["geometry"], frame)
+        if not rings:
+            continue
+        ring = max(rings, key=project.planar_area)
+        if project.planar_area(ring) < CONTEXT_MIN_PX2:
+            continue
+        name = sea["name"]
+        words = name.split()
+        lines = [name]
+        if len(words) >= 3 or (len(words) == 2 and _text_w(name, SEA_SIZE) > 90):
+            cut = (len(words) + 1) // 2
+            lines = [" ".join(words[:cut]), " ".join(words[cut:])]
+        w = max(_text_w(line, SEA_SIZE) for line in lines) * 1.04
+        h = SEA_SIZE * len(lines) + 2.0 * (len(lines) - 1)
+        thin = project._decimate(ring, 300)
+        px, py = project.pole_of_inaccessibility(thin, 2.0)
+        for dx, dy in _spiral(10.0, 220.0):
+            cx, cy = px + dx, py + dy
+            box = (cx - w / 2, cy - h / 2, cx + w / 2, cy + h / 2)
+            if not all(project.point_in_ring(x, y, thin) for x, y in (
+                    (box[0], box[1]), (box[2], box[1]), (box[0], box[3]),
+                    (box[2], box[3]), (cx, cy))):
+                continue
+            if not (placer.fits(box) and water.free(box, pad=4.0)):
+                continue
+            placer.block(*box)
+            spans = []
+            for i, line in enumerate(lines):
+                y = box[1] + SEA_SIZE * 0.86 + i * (SEA_SIZE + 2.0)
+                spans.append(f'<text x="{_num(cx)}" y="{_num(y)}" font-size="{SEA_SIZE:g}" '
+                             f'font-style="italic" text-anchor="middle" fill="{SEA_INK}" '
+                             f'{CONTEXT_HALO}>{escape(line)}</text>')
+            out.append(f'<g class="context-label" data-kind="sea">' + "".join(spans) + "</g>")
+            placed += 1
+            break
+    return placed
+
+
+def _country_labels(result, rows, frame, encoding, manifest, placer, mapped, out) -> int:
+    """Neighbouring countries on a `within` map, and the countries of a plain
+    country base map under an overlay, in small grey capitals."""
+    candidates = []
+    anchors = []
+    for row in rows[:400]:
+        piece = _piece(row["geometry"], frame)
+        if piece is not None:
+            anchors.append(piece[0])
+    for item in result.context:
+        name = str(item.get("name") or "")
+        rings = _page_rings(item["geometry"], frame)
+        if not name or not rings:
+            continue
+        # The country the mapped units belong to (the USA around California)
+        # is not a neighbour.
+        if any(project.point_in_ring(ax, ay, ring) for ring in rings for ax, ay in anchors[:5]):
+            continue
+        ring = max(rings, key=project.planar_area)
+        label = item.get("label")
+        candidates.append((-project.planar_area(ring), name, ring, label, False))
+    if encoding.mode == "basemap" and manifest.level == "admin_0" and (
+            result.overlays or result.places):
+        for row in rows:
+            rings = _page_rings(row["geometry"], frame)
+            name = _short_name(row) if row.get("name") else ""
+            if rings and name:
+                ring = max(rings, key=project.planar_area)
+                candidates.append((-project.planar_area(ring), name, ring, None, True))
+    candidates.sort(key=lambda c: (c[0], c[1]))
+    placed = 0
+    for neg_area, name, ring, label, own in candidates:
+        if placed >= COUNTRY_LABELS or -neg_area < CONTEXT_MIN_PX2:
+            break
+        text = name.upper()
+        w = _text_w(text, COUNTRY_SIZE) * 1.18 + 2
+        h = COUNTRY_SIZE
+        thin = project._decimate(ring, 300)
+        starts = []
+        if label:
+            lx, ly = frame.xy(project._shortest(label[0] - frame.lon0) + frame.lon0, label[1])
+            if frame.visible(lx, ly) and project.point_in_ring(lx, ly, thin):
+                starts.append((lx, ly))
+        starts.append(project.pole_of_inaccessibility(thin, 2.0))
+        done = False
+        for px, py in starts:
+            for dx, dy in _spiral(8.0, 120.0):
+                cx, cy = px + dx, py + dy
+                box = (cx - w / 2, cy - h / 2, cx + w / 2, cy + h / 2)
+                if not _fits_inside(box, thin, []) or not placer.fits(box):
+                    continue
+                if not own and not mapped.free(box, pad=2.0):
+                    continue
+                placer.block(*box)
+                out.append(f'<g class="context-label" data-kind="country">'
+                           f'<text x="{_num(cx)}" y="{_num(cy + h * 0.35)}" '
+                           f'font-size="{COUNTRY_SIZE:g}" letter-spacing="1" '
+                           f'text-anchor="middle" fill="{CONTEXT_INK}" {CONTEXT_HALO}>'
+                           f'{escape(text)}</text></g>')
+                placed += 1
+                done = True
+                break
+            if done:
+                break
+    return placed
+
+
+def _river_labels(layers, frame, placer, out) -> int:
+    """Major rivers, named along a straight reach of each: those the overlay
+    crosses first, then by Natural Earth's rank, then the longest on the page."""
+    runs: dict = {}
+    ranks: dict = {}
+    for layer in layers or []:
+        if layer.get("class") != "rivers" or layer.get("kind") != "lines":
+            continue
+        for feature in layer.get("features", []):
+            name = str(feature.get("name") or "").strip()
+            if not name:
+                continue
+            ranks[name] = min(ranks.get(name, 9.0), float(feature.get("rank", 9.0)))
+            for run in _physical_line(feature.get("coords") or [], frame):
+                visible = [p for p in run if frame.visible(*p)]
+                if len(visible) >= 2:
+                    runs.setdefault(name, []).append(visible)
+
+    def length(run):
+        return sum(math.hypot(b[0] - a[0], b[1] - a[1]) for a, b in zip(run, run[1:]))
+
+    def served(rs):
+        # A river the overlay crosses (the Niemen at Kowno, the Loire at
+        # Tours) is part of its story; it is named before a longer one.
+        inked = getattr(placer, "_inked", None)
+        return inked is not None and any(inked((x - 4, y - 4, x + 4, y + 4))
+                                         for r in rs for x, y in r[::2])
+
+    ranked = sorted(((not served(rs), math.floor(ranks.get(name, 9.0)),
+                      -sum(length(r) for r in rs), name) for name, rs in runs.items()))
+    placed = 0
+    for unserved, rank, neg_total, name in ranked:
+        total = -neg_total
+        if placed >= RIVER_LABELS:
+            break
+        # Major: Natural Earth shows it by zoom 5, or the overlay crosses a
+        # long reach of it. The Mūša is neither.
+        if total < RIVER_MIN_PX or (rank > RIVER_MAJOR and (unserved or total < 2 * RIVER_MIN_PX)):
+            continue
+        w = _text_w(name, RIVER_SIZE) * 1.02
+        h = RIVER_SIZE
+        spot = None
+        for run in sorted(runs[name], key=lambda r: (-length(r), r[0])):
+            spot = _river_spot(run, w, h, frame, placer)
+            if spot:
+                break
+        if spot is None:
+            continue
+        cx, cy, angle, box = spot
+        placer.block(*box)
+        out.append(f'<g class="context-label" data-kind="river">'
+                   f'<text x="{_num(cx)}" y="{_num(cy + h * 0.35)}" font-size="{RIVER_SIZE:g}" '
+                   f'font-style="italic" text-anchor="middle" fill="{RIVER_INK}" '
+                   f'transform="rotate({_num(angle)} {_num(cx)} {_num(cy)})" '
+                   f'{CONTEXT_HALO}>{escape(name)}</text></g>')
+        placed += 1
+    return placed
+
+
+def _river_spot(run, w, h, frame, placer):
+    """A straight reach of the river at least as long as the name, middle
+    first, with the name set just above it."""
+    n = len(run)
+    candidates = []
+    for i in range(n - 1):
+        j, chord = i + 1, 0.0
+        while j < n:
+            chord = math.hypot(run[j][0] - run[i][0], run[j][1] - run[i][1])
+            if chord >= w + 6:
+                break
+            j += 1
+        if j >= n:
+            break
+        (ax, ay), (bx, by) = run[i], run[j]
+        bend = max((math.sqrt(project._segment_distance_sq(px, py, ax, ay, bx, by))
+                    for px, py in run[i + 1:j]), default=0.0)
+        if bend > 4.0:
+            continue
+        angle = math.degrees(math.atan2(by - ay, bx - ax))
+        if angle > 90:
+            angle -= 180
+        elif angle <= -90:
+            angle += 180
+        if abs(angle) > 65:
+            continue
+        rad = math.radians(angle)
+        # Beside the line, clear of its bends: above it first, then below.
+        nx, ny = math.sin(rad), -math.cos(rad)
+        for k, sign in enumerate((1, -1)):
+            off = sign * (h / 2 + 1.5 + bend)
+            cx = (ax + bx) / 2 + nx * off
+            cy = (ay + by) / 2 + ny * off
+            candidates.append((round(bend), abs(i - n / 2), k, i, cx, cy, angle))
+    candidates.sort()
+    for *_, cx, cy, angle in candidates:
+        rad = math.radians(angle)
+        hw = abs(math.cos(rad)) * w / 2 + abs(math.sin(rad)) * h / 2
+        hh = abs(math.sin(rad)) * w / 2 + abs(math.cos(rad)) * h / 2
+        box = (cx - hw, cy - hh, cx + hw, cy + hh)
+        if not all(frame.visible(x, y) for x, y in ((box[0], box[1]), (box[2], box[3]))):
+            continue
+        if placer.fits(box):
+            return cx, cy, angle, box
+    return None
 
 
 # ------------------------------------------------------------ background ---
@@ -1808,7 +2681,7 @@ def _heading_h(encoding: Encoding) -> float:
 def _entries(encoding: Encoding, has_missing: bool) -> list[tuple[str, str]]:
     entries = list(zip(encoding.swatches, encoding.scheme.labels(*_affixes(encoding.unit))))
     if has_missing:
-        entries.append((f"url(#{colors.HATCH_ID})", "no data"))
+        entries.append((f"url(#{colors.HATCH_ID})", encoding.missing_label))
     return entries
 
 
@@ -1831,6 +2704,8 @@ def _panel(encoding: Encoding, has_missing: bool):
         big = encoding.radius(refs[0])
         labels = [_count_label(v) for v in refs]
         w = max(min_w, 20 + 2 * big + 10 + max(_text_w(s, 10.5) for s in labels))
+        if has_missing:
+            w = max(w, 20 + SWATCH_W + 8 + _text_w(encoding.missing_label, 10.5))
         h = 12 + head_h + 8 + 2 * big + (22 if has_missing else 0) + 10
 
         def draw(x, y):
@@ -1841,7 +2716,7 @@ def _panel(encoding: Encoding, has_missing: bool):
             if has_missing:
                 out.append(_hatch_swatch(x + 10, base + 9))
                 out.append(f'<text x="{_num(x + 10 + SWATCH_W + 8)}" y="{_num(base + 19.5)}" '
-                           f'font-size="10.5" fill="#333333">no data</text>')
+                           f'font-size="10.5" fill="#333333">{escape(encoding.missing_label)}</text>')
             out.append("</g>")
             return "".join(out)
         return w, h, draw
@@ -1886,7 +2761,7 @@ def _band(encoding: Encoding, has_missing: bool):
                 mx = x + 2 * big + 10 + max(_text_w(s, 10.5) for s in labels) + 36
                 out.append(_hatch_swatch(mx, base - SWATCH_H))
                 out.append(f'<text x="{_num(mx + SWATCH_W + 8)}" y="{_num(base - 2.5)}" '
-                           f'font-size="10.5" fill="#333333">no data</text>')
+                           f'font-size="10.5" fill="#333333">{escape(encoding.missing_label)}</text>')
             out.append("</g>")
             return "".join(out)
         return h, draw
@@ -1958,7 +2833,7 @@ def _band(encoding: Encoding, has_missing: bool):
             mx = x + k * cell + 28
             out.append(_hatch_swatch(mx, sy, 30))
             out.append(f'<text x="{_num(mx + 38)}" y="{_num(sy + SWATCH_H - 2.5)}" '
-                       f'font-size="10.5" fill="#333333">no data</text>')
+                       f'font-size="10.5" fill="#333333">{escape(encoding.missing_label)}</text>')
         out.append("</g>")
         return "".join(out)
     return h, draw

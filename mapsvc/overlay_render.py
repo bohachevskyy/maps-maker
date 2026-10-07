@@ -66,6 +66,7 @@ class Art:
         self.subtitle = ""
         self.footer: list[str] = []
         self.ink: list[tuple] = []        # boxes a floating legend must avoid
+        self.placer = None                # the Labels every overlay label went into
 
 
 def _num(v: float) -> str:
@@ -205,6 +206,7 @@ def draw(layers: list, places: list, frame, layout: dict, physical: list = ()) -
 
     art.labels.append(labels.svg())
     blocks.extend(_physical_legend_blocks(physical))
+    art.placer = labels
     _legend(art, blocks, layout)
 
     main = [layer for layer in layers if layer["kind"] not in ("places", "temperature")] or layers

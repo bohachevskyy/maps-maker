@@ -31,7 +31,7 @@ def _label_boxes(root):
         if group.get("class") != "feature-label":
             continue
         texts = group.findall(f"{SVG}text")
-        widths = [R._text_w(t.text, float(t.get("font-size"))) for t in texts]
+        widths = [R._text_w("".join(t.itertext()), float(t.get("font-size"))) for t in texts]
         x = float(texts[0].get("x"))
         top = float(texts[0].get("y")) - float(texts[0].get("font-size")) * 0.86
         bottom = float(texts[-1].get("y")) + 1
@@ -62,9 +62,13 @@ def test_a_small_choropleth_names_its_units_without_overlap():
                         and a[1] < b[3] - 0.5 and b[1] < a[3] - 0.5)
 
 
-def test_a_world_sized_map_gets_no_feature_labels():
-    text = _render(_grid(R.LABEL_MAX_UNITS + 1))
-    assert 'class="feature-label"' not in text
+def test_a_map_too_big_to_name_every_unit_names_only_its_extremes():
+    n = R.LABEL_MAX_UNITS + 1
+    root = ET.fromstring(_render(_grid(n)))
+    labelled = {g.get("data-id") for g in root.iter(f"{SVG}g")
+                if g.get("class") == "feature-label"}
+    k = R.LABEL_EXTREMES
+    assert labelled == {f"U{i:03d}" for i in list(range(k)) + list(range(n - k, n))}
 
 
 def test_labels_are_deterministic():
@@ -122,6 +126,7 @@ class _PageFrame:
     windowed = False
     is_world = False
     lon0 = 0.0
+    outline = None
 
     def xy(self, lon, lat):
         return lon, lat
@@ -143,3 +148,115 @@ def test_separate_moves_the_roomier_unit_off_a_stacked_pair():
     assert 55.0 - math.hypot(x - 50.0, y - 50.0) <= R.SEPARATE_OVERLAP * 25.0
     assert 0 <= x <= 100 and 0 <= y <= 100
     assert not (45 <= x <= 55 and 45 <= y <= 55)
+
+
+def _feature_groups(root):
+    return [g for g in root.iter(f"{SVG}g") if g.get("class") == "feature-label"]
+
+
+def _cluster(n=12, big=40.0, small=0.6):
+    """One big unit and a crowd of tiny ones off its east coast, in the sea:
+    the tiny ones cannot hold a label and must be called out."""
+    rows = [{"id": "BIG", "name": "Mainland", "geometry": _box(0, 0, big, big), "value": 12.5}]
+    for i in range(n):
+        y = 4.0 + i * 1.4
+        rows.append({"id": f"S{i:02d}", "name": f"Islet {i}",
+                     "geometry": _box(big + 1.0, y, big + 1.0 + small, y + small),
+                     "value": 10.0 + i})
+    return rows
+
+
+def test_name_and_value_always_print_together():
+    rows = _cluster()
+    root = ET.fromstring(_render(rows, bbox=(-2, -2, 70, 42)))
+    groups = _feature_groups(root)
+    assert groups
+    values = {r["id"]: R._value_text(r["value"], R.Encoding("choropleth", "x", ""))
+              for r in rows}
+    for g in groups:
+        text = " ".join("".join(t.itertext()) for t in g.findall(f"{SVG}text"))
+        gid = g.get("data-id")
+        assert values[gid] in text, f"{gid} has no value: {text!r}"
+        assert text.strip() != values[gid], f"{gid} is a bare value"
+
+
+def test_crowded_callouts_stack_in_order_with_uncrossed_leaders():
+    root = ET.fromstring(_render(_cluster(), bbox=(-2, -2, 70, 42)))
+    lines = [tuple(float(l.get(k)) for k in ("x1", "y1", "x2", "y2"))
+             for l in root.iter(f"{SVG}line") if l.get("class") == "leader"]
+    assert len(lines) >= 8, "the islets are called out on leaders"
+    for i, a in enumerate(lines):
+        for b in lines[:i]:
+            assert not R._segments_cross(a, b)
+    # A stack is a column: the callouts share an x, and read north to south
+    # in the order of their units.
+    callouts = [g for g in _feature_groups(root) if g.get("data-placement") == "callout"]
+    xs = {g.find(f"{SVG}text").get("x") for g in callouts}
+    assert len(xs) <= 2
+    ids = [g.get("data-id") for g in sorted(
+        callouts, key=lambda g: float(g.find(f"{SVG}text").get("y")))]
+    assert ids == sorted(ids, reverse=True)  # north (page top) is the last islet
+
+
+def test_the_extremes_are_never_the_ones_dropped():
+    rows = _cluster(n=26, small=0.9)
+    root = ET.fromstring(_render(rows, bbox=(-2, -2, 50, 42)))
+    labelled = {g.get("data-id") for g in _feature_groups(root)}
+    assert {"S00", "S25"} <= labelled, "the lowest and the highest"
+    record = root.find(".//*[@data-labels-dropped]")
+    unlabelled = record.get("data-unlabelled").split()
+    assert int(record.get("data-labels-dropped")) == len(unlabelled)
+    assert labelled | set(unlabelled) == {r["id"] for r in rows}
+
+
+def test_a_hatched_unit_is_named_and_the_legend_says_why():
+    rows = _grid(9)
+    missing = rows.pop(4)
+    manifest = build_manifest(bbox=(-1, -1, 13, 13))
+    result = HarvestResult(
+        rows=rows, provenance={"measurement": "ratio",
+                               "drop_reasons": {"not_estimated": "not estimated by X since 2014 "
+                                                                 "(occupied)"}},
+        dropped=[{"id": missing["id"], "name": missing["name"], "reason": "not_estimated",
+                  "geometry": missing["geometry"]}])
+    root = ET.fromstring(render(manifest, result))
+    group = [g for g in _feature_groups(root) if g.get("data-id") == missing["id"]]
+    assert group, "the hatched unit carries a label"
+    text = " ".join("".join(t.itertext()) for t in group[0].findall(f"{SVG}text"))
+    assert "Unit 4" in text and R.MISSING_TEXT in text
+    legend = [t.text for t in root.iter(f"{SVG}text")]
+    assert "not estimated by X since 2014" in legend
+
+
+def test_free_space_sees_land_by_scanline():
+    ring = [(10.0, 10.0), (50.0, 10.0), (50.0, 50.0), (10.0, 50.0)]
+    space = R._Space([((10, 10, 50, 50), ring)], _PageFrame())
+    assert space.cover((20, 20, 40, 30)) == 1.0
+    assert space.cover((60, 20, 80, 30)) == 0.0
+    assert 0.4 < space.cover((30, 20, 70, 30)) < 0.6
+    assert not space.free((49, 20, 70, 30)) and space.free((55, 20, 70, 30))
+    # An enclave in another unit's hole is land too.
+    inner = [(25.0, 25.0), (35.0, 25.0), (35.0, 35.0), (25.0, 35.0)]
+    space = R._Space([((10, 10, 50, 50), ring), ((25, 25, 35, 35), inner)], _PageFrame())
+    assert space.cover((27, 27, 33, 33)) == 1.0
+
+
+def test_a_sea_is_named_over_open_water_only():
+    land = _box(0, 0, 10, 10)
+    sea = {"type": "Polygon", "coordinates": [[[10, -5], [30, -5], [30, 15], [10, 15], [10, -5]]]}
+    manifest = build_manifest(bbox=(-1, -1, 25, 11))
+    result = HarvestResult(rows=[{"id": "A", "name": "Alpha", "geometry": land, "value": 1.0}],
+                           provenance={"measurement": "ratio",
+                                       "names_source": "Natural Earth marine (public domain)"},
+                           dropped=[],
+                           names=[{"kind": "sea", "name": "Test Sea", "class": "sea",
+                                   "rank": 1.0, "geometry": sea}])
+    text = render(manifest, result)
+    root = ET.fromstring(text)
+    seas = [g for g in root.iter(f"{SVG}g") if g.get("data-kind") == "sea"]
+    assert len(seas) == 1
+    t = seas[0].find(f"{SVG}text")
+    land_box = [g for g in root.iter(f"{SVG}path") if g.get("data-id") == "A"][0]
+    xs = [float(p.split(",")[0]) for p in land_box.get("d").lstrip("M").rstrip("Z").split("L")]
+    assert float(t.get("x")) - R._text_w("Test Sea", R.SEA_SIZE) / 2 > max(xs)
+    assert "Sea names: Natural Earth marine (public domain)." in text
