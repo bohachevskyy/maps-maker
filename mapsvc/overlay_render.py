@@ -30,13 +30,16 @@ ORDERED = ("#d0312d", "#f0962c", "#3f78b5", "#9a9a9a", "#6a3d9a")
 # Unordered categories. A two-class flow is Minard's: tan out, black back.
 NOMINAL = ("#1b9e77", "#d95f02", "#7570b3", "#e7298a", "#66a61e", "#e6ab02")
 FLOW = ("#d6b27c", "#25292c", "#7d9fbf", "#b3546b")
+# Text in a band's colour must still read on paper: the tan is darkened.
+NOTE_INK = {"#d6b27c": "#8a6630"}
 # Polygon borders under overlays: the base map is orientation, not message.
 MUTED_BORDER = "#ffffff"
 LINE_W = 1.9
 POINT_R = 2.6                 # a point with no size attribute
 MAG_R0 = 2.0                  # radius of the smallest magnitude drawn
 SQRT_R_MAX = 0.035            # largest sqrt-scaled circle, share of sqrt(area)
-FLOW_W_MAX = 0.075            # widest band, share of map height
+FLOW_W_MAX = 0.075            # widest band, share of map height...
+FLOW_W_MAX_W = 0.027          # ...or of map width, whichever is larger
 FLOW_W_MIN = 1.2
 SIMPLIFY_PX = 0.7
 TEXT = "#1f2a30"
@@ -95,6 +98,23 @@ def _palette(category: dict | None, kind: str) -> dict:
 
 # ------------------------------------------------------------------- draw ---
 
+def centre_lon(layers: list) -> float | None:
+    """A world map's central meridian, derived from where its overlays are.
+
+    Earthquakes ring the Pacific; centred on Greenwich, the ring is cut in
+    two at the map's edges. Only points and lines count; None keeps 0°.
+    """
+    lons = []
+    for layer in layers or []:
+        if layer["kind"] in ("points", "places"):
+            lons.extend(f["lon"] for f in layer["features"])
+        elif layer["kind"] == "lines":
+            lons.extend(f["coords"][0][0] for f in layer["features"] if f["coords"])
+        elif layer["kind"] == "flow":
+            lons.extend(f["lon"] for f in layer["features"])
+    return project.central_meridian(lons)
+
+
 def draw(layers: list, places: list, frame, layout: dict) -> Art:
     """Draw every layer, then the labels, then lay out the legend band."""
     art = Art()
@@ -103,6 +123,9 @@ def draw(layers: list, places: list, frame, layout: dict) -> Art:
     order = {"flow": 0, "lines": 1, "points": 2, "places": 3}
     indexed = sorted(enumerate(layers), key=lambda t: (order.get(t[1]["kind"], 9), t[0]))
     anchors: list[tuple] = []         # pixel points the overlays pass through
+    # Placed after every layer's own labels: numbers written beside a flow
+    # must not sit on the flow, but town names along it come first.
+    deferred: list = []
 
     for index, layer in indexed:
         kind = layer["kind"]
@@ -115,7 +138,7 @@ def draw(layers: list, places: list, frame, layout: dict) -> Art:
         elif kind == "lines":
             body, legend = _lines(layer, frame, anchors)
         elif kind == "flow":
-            body, legend = _flow(layer, frame, labels, anchors, layers)
+            body, legend = _flow(layer, frame, labels, anchors, deferred, layout)
         elif kind == "places":
             body, legend = _dataset_places(layer, frame, labels)
         else:
@@ -123,6 +146,10 @@ def draw(layers: list, places: list, frame, layout: dict) -> Art:
         art.svg.append(head + body + "</g>")
         blocks.extend(legend)
 
+    for obstacle in (d for d in deferred if d[0] == "block"):
+        labels.block(*obstacle[1])
+    for note in (d for d in deferred if d[0] == "note"):
+        labels.note(*note[1])
     if places:
         labels.context(places, anchors)
 
@@ -133,8 +160,9 @@ def draw(layers: list, places: list, frame, layout: dict) -> Art:
     if main:
         art.title = main[0].get("title") or ""
         art.subtitle = " · ".join(s for s in (main[0].get("summary"),) if s)
+    credited: set = set()
     for layer in layers:
-        art.footer.append(_footer_line(layer))
+        art.footer.append(_footer_line(layer, credited))
     if places and labels.context_count:
         art.footer.append("Place labels: Natural Earth populated places 1:10m "
                           "(public domain), largest places near the overlay first.")
@@ -147,12 +175,16 @@ def _stat(value) -> str:
     return str(value)
 
 
-def _footer_line(layer: dict) -> str:
+def _footer_line(layer: dict, credited: set) -> str:
     p = layer.get("provenance") or {}
     credit = p.get("attribution") or p.get("name") or layer.get("source")
     licence = p.get("license") or "licence not stated by source"
-    parts = [f"Overlay: {layer.get('title') or layer.get('label')}. Source: "
-             f"{credit} ({licence})"]
+    if credit in credited:
+        source = "Source: as above"
+    else:
+        source = f"Source: {credit} ({licence})"
+        credited.add(credit)
+    parts = [f"Overlay: {layer.get('title') or layer.get('label')}. {source}"]
     if p.get("vintage"):
         parts.append(p["vintage"])
     if p.get("url"):
@@ -400,13 +432,13 @@ def _facts_block(heading: str, facts: list):
 
 # ------------------------------------------------------------------- flow ---
 
-def _flow(layer, frame, labels, anchors, layers):
+def _flow(layer, frame, labels, anchors, deferred, layout):
     category = layer.get("category")
     colours = _palette(category, "flow")
     classes = [c["value"] for c in category["classes"]] if category else [None]
     sizes = [f["size"] for f in layer["features"] if f.get("size") is not None]
     vmax = max(sizes) if sizes else 1.0
-    w_max = FLOW_W_MAX * frame.map_h
+    w_max = max(FLOW_W_MAX * frame.map_h, FLOW_W_MAX_W * layout["map_w"])
 
     def width(v):
         return max(FLOW_W_MIN, w_max * float(v) / vmax) if vmax > 0 else FLOW_W_MIN
@@ -437,13 +469,20 @@ def _flow(layer, frame, labels, anchors, layers):
         for (ax, ay), (bx, by), w, group in segs:
             out.append(f'<line x1="{_num(ax)}" y1="{_num(ay)}" x2="{_num(bx)}" '
                        f'y2="{_num(by)}" stroke-width="{_num(w)}"/>')
+            # The band as obstacles for the notes: boxes along its length.
+            steps = max(1, int(math.hypot(bx - ax, by - ay) / max(w, 4.0)))
+            for k in range(steps + 1):
+                t = k / steps
+                cx, cy = ax + (bx - ax) * t, ay + (by - ay) * t
+                half = w / 2 + 1
+                deferred.append(("block", (cx - half, cy - half, cx + half, cy + half)))
         out.append("</g>")
 
-    # The three numbers the story is told with, written on the map.
-    notes = layer.get("notes") or []
-    for note in notes:
+    # The three numbers the story is told with, written beside the flow.
+    for note in layer.get("notes") or []:
         x, y = _xy(frame, note["lon"], note["lat"])
-        labels.note(note["text"], x, y, colours.get(note.get("category"), TEXT))
+        colour = colours.get(note.get("category"), TEXT)
+        deferred.append(("note", (note["text"], x, y, NOTE_INK.get(colour, colour))))
 
     legend = [_band_block(layer, width, vmax)]
     if category:
@@ -564,8 +603,11 @@ class _Labels:
         return False
 
     def note(self, text, x, y, colour):
-        extra = f' font-weight="700" fill-opacity="1" style="fill:{colour}"'
-        self._try(text, x, y, 10.0, 11.0, extra)
+        extra = f' font-weight="700" style="fill:{colour}"'
+        for gap in (8.0, 16.0, 26.0, 40.0, 56.0, 72.0):
+            if self._try(text, x, y, gap, 11.0, extra):
+                return True
+        return False
 
     def context(self, places, anchors):
         """Natural Earth places: the ones the overlay serves first, then size."""

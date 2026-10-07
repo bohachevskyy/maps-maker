@@ -33,6 +33,10 @@ _EQUALITY = re.compile(
     rf"^\s*([^<>=±]+?)\s*=\s*({_NUMBER})\s*±\s*({_NUMBER})\s*(%)?\s*$"
 )
 _COMPARISON = re.compile(r"^\s*([^<>=±]+?)\s*([<>])\s*([^<>=±]+?)\s*$")
+# event_near=lon,lat / line_near=lon,lat: an overlay feature passes within a
+# tolerance of a point. LGVs stop 8-12 km short of city centres, hence 20 km.
+_NEAR = re.compile(rf"^\s*(event_near|line_near)\s*=\s*({_NUMBER})\s*,\s*({_NUMBER})\s*$")
+NEAR_KM = {"event_near": 100.0, "line_near": 20.0}
 
 
 def parse_spot(expression: str) -> dict:
@@ -45,6 +49,12 @@ def parse_spot(expression: str) -> dict:
             "expected": float(expected), "tolerance": float(tolerance),
             "percent": bool(percent),
         }
+
+    near = _NEAR.fullmatch(expression)
+    if near:
+        what, lon, lat = near.groups()
+        return {"kind": "near", "what": what, "lon": float(lon), "lat": float(lat),
+                "km": NEAR_KM[what]}
 
     comparison = _COMPARISON.fullmatch(expression)
     if comparison:
@@ -60,11 +70,71 @@ def parse_spot(expression: str) -> dict:
         }
 
     raise ValueError(
-        "supported forms are key=value±tolerance, key>key, key<N, and key>N"
+        "supported forms are key=value±tolerance, key>key, key<N, key>N, "
+        "event_near=lon,lat and line_near=lon,lat"
     )
 
 
-def evaluate_spot(expression: str, values: dict[str, object]) -> dict:
+def _km(a, b) -> float:
+    import math
+
+    la1, la2 = math.radians(a[1]), math.radians(b[1])
+    h = (math.sin((la2 - la1) / 2) ** 2 + math.cos(la1) * math.cos(la2)
+         * math.sin(math.radians(b[0] - a[0]) / 2) ** 2)
+    return 2 * 6371.0088 * math.asin(math.sqrt(min(1.0, h)))
+
+
+def _segment_km(p, a, b) -> float:
+    """Distance from p to segment ab, on a local flat projection around p."""
+    import math
+
+    k = math.cos(math.radians(p[1]))
+    ax, ay = (a[0] - p[0]) * k, a[1] - p[1]
+    bx, by = (b[0] - p[0]) * k, b[1] - p[1]
+    dx, dy = bx - ax, by - ay
+    t = 0.0 if dx == dy == 0 else max(0.0, min(1.0, -(ax * dx + ay * dy) / (dx * dx + dy * dy)))
+    return math.hypot(ax + t * dx, ay + t * dy) * 111.195
+
+
+def _near(parsed: dict, geometry: dict | None) -> tuple[float | None, str | None]:
+    if geometry is None:
+        return None, "no overlay geometry was harvested for this map"
+    target = (parsed["lon"], parsed["lat"])
+    if parsed["what"] == "event_near":
+        points = geometry.get("points") or []
+        if not points:
+            return None, "the map has no overlay points"
+        return min(_km(target, p) for p in points), None
+    lines = geometry.get("lines") or []
+    if not lines:
+        return None, "the map has no overlay lines"
+    best = float("inf")
+    for line in lines:
+        for i in range(len(line) - 1):
+            best = min(best, _segment_km(target, line[i], line[i + 1]))
+    return best, None
+
+
+def overlay_geometry(result) -> dict:
+    """Points and lines of every overlay in a harvest, for the near checks."""
+    points, lines = [], []
+    for layer in getattr(result, "overlays", []) or []:
+        if layer["kind"] in ("points", "places"):
+            points.extend((f["lon"], f["lat"]) for f in layer["features"])
+        elif layer["kind"] == "lines":
+            lines.extend([tuple(c) for c in f["coords"]] for f in layer["features"])
+        elif layer["kind"] == "flow":
+            groups: dict = {}
+            for f in layer["features"]:
+                groups.setdefault(f["group"], []).append(f)
+            for rows in groups.values():
+                rows.sort(key=lambda f: f["order"])
+                lines.append([(f["lon"], f["lat"]) for f in rows])
+    return {"points": points, "lines": lines}
+
+
+def evaluate_spot(expression: str, values: dict[str, object],
+                  geometry: dict | None = None) -> dict:
     """Evaluate one spot check, explaining every case that cannot be checked."""
     result = {"expression": expression}
     try:
@@ -79,6 +149,13 @@ def evaluate_spot(expression: str, values: dict[str, object]) -> dict:
             return float(values[key]), None
         except (TypeError, ValueError):
             return None, f"{key!r} has non-numeric data-value {values[key]!r}"
+
+    if parsed["kind"] == "near":
+        distance, reason = _near(parsed, geometry)
+        if reason:
+            return {**result, "status": "unevaluable", "reason": reason}
+        return {**result, "status": "pass" if distance <= parsed["km"] else "fail",
+                "nearest_km": round(distance, 1), "tolerance_km": parsed["km"]}
 
     if parsed["kind"] == "approx":
         actual, reason = numeric(parsed["key"])
@@ -136,6 +213,19 @@ def _svg_facts(svg: str) -> tuple[set[str], dict[str, str], str]:
         features.add(key)
         if path.get("data-value") is not None:
             values[key] = path.get("data-value")
+    # Overlays state their facts as data-stat-* on their group: count,
+    # total_km, start_survivors... The map's feature count is then the
+    # overlay features, not the base map's polygons.
+    overlay_count = 0
+    for group in root.iter(f"{SVG_NS}g"):
+        if group.get("data-overlay") is None:
+            continue
+        for name, value in group.attrib.items():
+            if name.startswith("data-stat-"):
+                values[name[len("data-stat-"):]] = value
+        overlay_count += int(float(group.get("data-stat-count") or 0))
+    if overlay_count:
+        features = {f"overlay-feature-{i}" for i in range(overlay_count)}
     text = " ".join(node.text or "" for node in root.findall(f".//{SVG_NS}text"))
     return features, values, text
 
@@ -169,10 +259,10 @@ def _point_checks(kind: str, points: list, extent) -> list[dict]:
     return results
 
 
-def _extent_for(manifest):
+def _extent_for(manifest, result=None):
     if manifest.bbox is not None:
         return manifest.bbox
-    result = harvest(manifest)
+    result = result or harvest(manifest)
     geometries = [row["geometry"] for row in result.rows]
     geometries.extend(item["geometry"] for item in result.dropped if item.get("geometry"))
     return project.extent_of(geometries) if geometries else None
@@ -295,12 +385,15 @@ def run_one(spec: dict, destination: pathlib.Path) -> dict:
         svg_path = destination / "map.svg"
         svg_path.write_text(svg, encoding="utf-8")
         features, values, text = _svg_facts(svg)
-        extent = _extent_for(manifest)
+        harvested = harvest(manifest)        # cached by now; draw() just ran it
+        extent = _extent_for(manifest, harvested)
+        geometry = overlay_geometry(harvested) if manifest.overlays else None
         checks = {
             "units": _check_units(spec, features),
             "contains": _point_checks("contains", spec.get("contains", []), extent),
             "excludes": _point_checks("excludes", spec.get("excludes", []), extent),
-            "spots": [evaluate_spot(item, values) for item in spec.get("spot", [])],
+            "spots": [evaluate_spot(item, values, geometry)
+                      for item in spec.get("spot", [])],
             "footnote": _footnote_check(text),
             "truth": _truth_check(HERE / spec["id"] / "truth.csv", features, values),
         }

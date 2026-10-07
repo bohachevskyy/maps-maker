@@ -28,7 +28,7 @@ CAPABILITIES = Capabilities(
     id_help="semicolon-separated key=value pairs from start, end (YYYY-MM-DD, "
             "both required, end exclusive), minmagnitude, maxmagnitude, "
             "mindepth, maxdepth (km), e.g. "
-            "'start=2025-01-01;end=2026-01-01;minmagnitude=6'",
+            "'start=2024-01-01;end=2024-07-01;minmagnitude=5.5'",
 )
 
 KEYS = ("start", "end", "minmagnitude", "maxmagnitude", "mindepth", "maxdepth")

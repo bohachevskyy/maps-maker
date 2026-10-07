@@ -142,7 +142,8 @@ truth = "Minard (1869) as transcribed by Wilkinson, The Grammar of Graphics: tro
 units = [1, 200]
 contains = [[24.0, 54.9], [37.6, 55.8]]
 excludes = [[2.35, 48.85]]
-spot = ["start_survivors=422000±5%", "moscow_survivors=100000±10%", "end_survivors<15000"]
+# turn_ = at the point farthest from the start, which on Minard's data is Moscow.
+spot = ["start_survivors=422000±5%", "turn_survivors=100000±10%", "end_survivors<15000"]
 must = [
   "a flow line whose width is proportional to the number of soldiers",
   "advance and retreat in contrasting colours",

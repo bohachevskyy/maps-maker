@@ -77,9 +77,14 @@ class Frame:
     Europe across the Atlantic.
     """
 
-    def __init__(self, manifest: Manifest, geometries: list):
+    def __init__(self, manifest: Manifest, geometries: list,
+                 centre_lon: float | None = None):
         self.extent = tuple(manifest.bbox or project.extent_of(geometries))
         self.is_world = self.extent == WORLD
+        if self.is_world and centre_lon:
+            # A world map centred where its overlay is: the same globe, the
+            # seam moved. Rings crossing it are split in _project.
+            self.extent = (centre_lon - 180.0, -90.0, centre_lon + 180.0, 90.0)
         self.windowed = manifest.bbox is not None or self.is_world
         self.projection = project.choose(self.extent)
         self.projector = project.make(self.projection, self.extent)
@@ -135,7 +140,7 @@ def render(manifest: Manifest, result: HarvestResult) -> str:
     if not geometries:
         raise RenderError("no features to draw for this region", "region")
 
-    frame = Frame(manifest, geometries)
+    frame = Frame(manifest, geometries, overlay_render.centre_lon(result.overlays))
     p = result.provenance
     encoding = _encoding(manifest, rows, p)
 
@@ -340,6 +345,12 @@ def _parts(geometry) -> list:
 
 def _project(geometry, frame: Frame) -> list:
     """Every ring of every part, in page pixels. Holes survive."""
+    if frame.is_world and frame.lon0 != 0:
+        return [[[frame.xy(lon, lat) for lon, lat in piece]
+                 for ring in part
+                 for piece in project.split_at_seam(project.unwrap_ring(ring, frame.lon0),
+                                                    frame.lon0)]
+                for part in _parts(geometry)]
     return [[[frame.xy(lon, lat) for lon, lat in project.unwrap_ring(ring, frame.lon0)]
              for ring in part]
             for part in _parts(geometry)]
@@ -923,6 +934,10 @@ def _footer(manifest, frame: Frame, encoding: Encoding, result, top: float,
 
 
 def _projection_label(frame: Frame) -> str:
+    if frame.is_world and frame.lon0 != 0:
+        lon = frame.lon0
+        return (f"{_PROJECTION_LABELS.get(frame.projection, frame.projection)}, "
+                f"centred on {abs(lon):.0f}°{'E' if lon > 0 else 'W'}")
     if frame.projection == "laea":
         lat, lon = frame.lat0, frame.lon0
         return ("Lambert azimuthal equal-area, centred "

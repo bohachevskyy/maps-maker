@@ -44,7 +44,7 @@ the pure renderer:
 import functools
 from dataclasses import dataclass
 
-_MODULES = ("usgs", "overpass")
+_MODULES = ("usgs", "overpass", "web")
 
 # A map with more layers than this stops being readable before it stops
 # being drawable.

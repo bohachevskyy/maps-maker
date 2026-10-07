@@ -162,6 +162,51 @@ def unwrap_ring(coords, lon0: float) -> list[tuple[float, float]]:
     return out
 
 
+def split_at_seam(ring, lon0: float) -> list[list[tuple[float, float]]]:
+    """A ring (already unwrapped near lon0) cut where a world map's edges are.
+
+    A world map centred away from 0° -- on the Pacific, say -- has its seam at
+    lon0 ± 180, through land that a Greenwich-centred map never cuts:
+    Greenland and Antarctica at 150°E. Each copy of the ring a whole turn
+    apart is clipped to the visible branch, so the pieces meet at the two
+    edges instead of one of them being drawn across the whole map.
+    """
+    lons = [lon for lon, _ in ring]
+    west, east = lon0 - 180.0, lon0 + 180.0
+    if not lons or (min(lons) >= west - 1e-9 and max(lons) <= east + 1e-9):
+        return [list(ring)]
+    pieces = []
+    for shift in (-360.0, 0.0, 360.0):
+        moved = [(lon + shift, lat) for lon, lat in ring]
+        if max(lon for lon, _ in moved) <= west or min(lon for lon, _ in moved) >= east:
+            continue
+        clipped = clip_to_extent(moved, (west, -90.0, east, 90.0))
+        if len(clipped) >= 3:
+            pieces.append(clipped)
+    return pieces
+
+
+def central_meridian(longitudes, step: float = 30.0, concentration: float = 0.35):
+    """Where a world map of these points should be centred, or None for 0°.
+
+    The circular mean of the longitudes, rounded to `step` degrees, when the
+    points are concentrated enough for a centre to mean anything (mean
+    resultant length above `concentration`). 2025's M6+ earthquakes: mean
+    157.8°E, resultant 0.51, so 150°E -- the Pacific in one piece and the seam
+    in the Atlantic at 30°W.
+    """
+    values = list(longitudes)
+    if not values:
+        return None
+    s = sum(math.sin(math.radians(v)) for v in values)
+    c = sum(math.cos(math.radians(v)) for v in values)
+    if math.hypot(s, c) / len(values) < concentration:
+        return None
+    centre = step * round(math.degrees(math.atan2(s, c)) / step)
+    centre = (centre + 180.0) % 360.0 - 180.0
+    return None if centre == 0 else centre
+
+
 def make(name: str, extent: Extent):
     """Build a projection function parameterised by the map extent."""
     min_lon, min_lat, max_lon, max_lat = extent

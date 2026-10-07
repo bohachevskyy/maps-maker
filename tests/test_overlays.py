@@ -122,3 +122,140 @@ def test_overlay_render_module_does_no_io():
     from tests.test_no_io import _reachable_from
 
     assert "overlay_render" in _reachable_from("render")
+
+
+# -------------------------------------------------------------- overpass ---
+
+from mapsvc.overlays import geo, overpass, web  # noqa: E402
+
+LGV = "railway=rail;highspeed=yes"
+
+
+@pytest.mark.parametrize("bad", [
+    'way["railway"="rail"](area.a);out geom;',   # free QL
+    "railway=rail;railway=tram",                  # repeated key
+    "Railway=Rail",                               # upper case
+    "railway=*",                                  # matches far too much
+    "a=1;b=2;c=3;d=4;e=5",                        # too many pairs
+    "railway",                                    # not key=value
+])
+def test_overpass_rejects_anything_outside_the_grammar(bad):
+    with pytest.raises(ManifestError):
+        validate(_raw(overlays=[{"source": "overpass", "id": bad}]))
+
+
+def test_overpass_query_scopes_by_country_area_and_box():
+    pairs = overpass._pairs(LGV)
+    window = overlays.Window((-5.5, 41.2, 10.0, 51.2), ("FR",), (-5.5, 41.2, 10.0, 51.2))
+    ql = overpass.query(pairs, window)
+    assert 'area["ISO3166-1"="FR"][admin_level=2]->.a;' in ql
+    assert 'way["railway"="rail"]["highspeed"="yes"](area.a)(41.2,-5.5,51.2,10)' in ql
+    assert ql.endswith("out tags geom;")
+    sub = overpass.query(pairs, overlays.Window(None, ("FR-IDF",), (0, 0, 1, 1)))
+    assert 'area["ISO3166-2"="FR-IDF"]' in sub
+
+
+def _lgv_layer():
+    data = json.loads((FIXTURES / "overpass_lgv_lyon.json").read_text())
+    window = overlays.Window(None, ("FRA",), (4.0, 45.0, 6.0, 46.0), "France")
+    return overpass.layer_from_overpass(data, overpass._pairs(LGV), window, "ql")
+
+
+def test_overpass_route_length_merges_parallel_tracks():
+    layer = _lgv_layer()
+    stats = layer["stats"]
+    # 73 kept ways around Lyon: a double-track line, so route ≈ half of track.
+    assert stats["count"] == 73
+    assert 0.45 <= stats["total_km"] / stats["track_km"] <= 0.6
+    assert layer["excluded"][0]["reason"].startswith("service tracks")
+    assert layer["title"] == "High-speed railway lines in France"
+    assert layer["category"]["field"] == "maxspeed"
+    assert layer["provenance"]["license"] == "ODbL 1.0"
+
+
+def test_route_length_counts_a_double_track_once():
+    a = [(0.0, 45.0), (0.1, 45.0)]
+    b = [(0.0, 45.00004), (0.1, 45.00004)]        # 4.4 m away: same route
+    c = [(0.0, 45.01), (0.1, 45.01)]              # 1.1 km away: another route
+    one = geo.line_m(a)
+    assert geo.route_m([a, b]) == pytest.approx(one, rel=0.01)
+    assert geo.route_m([a, c]) == pytest.approx(2 * one, rel=0.01)
+
+
+# ------------------------------------------------------------------- web ---
+
+TROOPS = web._RDATASETS + "HistData/Minard.troops.csv"
+CITIES = web._RDATASETS + "HistData/Minard.cities.csv"
+NAPOLEON = overlays.Window((23.0, 53.3, 38.5, 56.4), None, (23.0, 53.3, 38.5, 56.4))
+
+
+@pytest.mark.parametrize("bad", [
+    "http://example.com/data.csv",
+    "https://user:pw@example.com/data.csv",
+    "https://127.0.0.1/data.csv",
+    "https://10.0.0.8/data.csv",
+    "https://localhost/data.csv",
+    "file:///etc/passwd",
+    "https://example.com/a b.csv",
+])
+def test_web_accepts_only_public_https_urls(bad):
+    with pytest.raises(ManifestError):
+        validate(_raw(overlays=[{"source": "web", "id": bad}]))
+
+
+def test_minard_is_a_flow_with_the_three_numbers():
+    layer = web.layer_from_bytes((FIXTURES / "minard_troops.csv").read_bytes(),
+                                 TROOPS, NAPOLEON)
+    assert layer["kind"] == "flow"
+    assert layer["stats"]["start_survivors"] == 422000
+    assert layer["stats"]["turn_survivors"] == 100000
+    # Groups 1 and 3 return to the Niemen; group 2 merged back mid-route.
+    assert layer["stats"]["end_survivors"] == 10000
+    assert [c["label"] for c in layer["category"]["classes"]] == [
+        "Advance, June–Sept.", "Retreat, Oct.–Dec."]
+    assert "Minard" in layer["provenance"]["attribution"]
+
+
+def test_minard_cities_are_places():
+    layer = web.layer_from_bytes((FIXTURES / "minard_cities.csv").read_bytes(),
+                                 CITIES, NAPOLEON)
+    assert layer["kind"] == "places" and len(layer["features"]) == 20
+    assert {f["name"] for f in layer["features"] if f["major"]} == {
+        "Kowno", "Wilna", "Smolensk", "Moscou"}
+
+
+def test_an_unknown_url_is_read_by_column_names_and_says_licence_unknown():
+    csv_bytes = b"name,latitude,longitude,count\nA,50.1,30.2,10\nB,50.3,30.6,40\n"
+    layer = web.layer_from_bytes(csv_bytes, "https://data.example.org/x.csv",
+                                 overlays.Window(None, None, (29.0, 49.0, 31.0, 51.0)))
+    assert layer["kind"] == "points"
+    assert layer["provenance"]["license"] == overlays.UNKNOWN_LICENSE
+    assert [f["size"] for f in layer["features"]] == [10.0, 40.0]
+
+
+def test_a_file_without_coordinates_is_refused():
+    with pytest.raises(overlays.OverlayError, match="longitude/latitude"):
+        web.layer_from_bytes(b"a,b\n1,2\n", "https://data.example.org/x.csv",
+                             NAPOLEON)
+
+
+def test_catalogue_search_finds_minard():
+    found = [c.id for c in web.search("napoleon 1812 russia army")]
+    assert found[:2] == [TROOPS, CITIES] or set(found[:2]) == {TROOPS, CITIES}
+
+
+def test_flow_and_lines_render(mini_geojson):
+    troops = web.layer_from_bytes((FIXTURES / "minard_troops.csv").read_bytes(),
+                                  TROOPS, NAPOLEON)
+    # Shift the route into the fixture window.
+    for f in troops["features"]:
+        f["lon"] -= 15
+        f["lat"] -= 5
+    for note in troops["notes"]:
+        note["lon"] -= 15
+        note["lat"] -= 5
+    svg = _overlay_map(mini_geojson, [troops])
+    assert 'data-stat-start_survivors="422000"' in svg
+    assert "Band width = soldiers" in svg
+    assert "Retreat, Oct.–Dec." in svg
+    assert svg == _overlay_map(mini_geojson, [troops])

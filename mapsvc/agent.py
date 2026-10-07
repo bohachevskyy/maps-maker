@@ -19,7 +19,7 @@ import shutil
 import subprocess
 import tempfile
 
-from mapsvc import registry, statistics
+from mapsvc import overlays, registry, statistics
 from mapsvc.manifest import Manifest, ManifestError, validate
 from mapsvc.statistics import StatisticsError
 
@@ -152,6 +152,28 @@ def schema() -> dict:
             },
             "required": ["source", "id", "search_query", "per", "change"],
             "additionalProperties": False,
+        },
+        "overlays": {
+            "type": "array",
+            "description": "0 to 3 feature layers drawn above the basemap: "
+                           "points, lines or flows from an overlay source. "
+                           "Empty for none.",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "source": {"type": "string", "enum": list(overlays.sources())},
+                    "id": {"type": "string",
+                           "description": "in the source's own grammar; for a "
+                                          "searchable source, empty on the first "
+                                          "turn or an https URL"},
+                    "search_query": {"type": "string",
+                                     "description": "for a searchable overlay "
+                                                    "source: what dataset to look "
+                                                    "for. Empty otherwise."},
+                },
+                "required": ["source", "id", "search_query"],
+                "additionalProperties": False,
+            },
         },
         # null means a base map: boundaries with nothing painted on them.
         "variable_is_null": {
@@ -405,15 +427,64 @@ itself, never for a "change in ..." chart. Leave both at 0 otherwise.
 
   "population change 2000-2023"   search "population", change {{from 2000, to 2023}}
 
+{_overlay_section()}
+
 REFUSING
 
 Refusal is about what is being measured, never about where or how. Set mappable \
-to false only when no source publishes the requested measure -- rainfall, \
-election results -- or when a search comes back empty. Say so plainly and name \
-what does exist. Never refuse because a place has no official code: name its \
-members in `within`, or draw a `bbox` around it.
+to false only when no source -- statistics or overlay -- publishes the requested \
+data, or when a search comes back empty. Say so plainly and name what does \
+exist. Earthquakes, railways, roads, rivers, power lines and historical routes \
+are mappable as overlays; do not refuse them. Never refuse because a place has \
+no official code: name its members in `within`, or draw a `bbox` around it.
 
 {region_hint}"""
+
+
+def _overlay_section() -> str:
+    blocks = []
+    for c in overlays.all_capabilities():
+        kind = "SEARCHABLE" if c.searchable else "FIXED GRAMMAR"
+        blocks.append(f"  source {c.source!r} -- {kind}; licence {c.license}.\n"
+                      f"    {c.description}.\n    id: {c.id_help}.")
+    listed = "\n".join(blocks)
+    return f"""OVERLAYS: points, lines and flows above the base map
+
+Statistics shade polygons. Some requests are about things that are not \
+polygons at all: earthquakes, railway lines, an army's route. Those go in \
+`overlays`, a list of up to three {{source, id}} layers drawn over a muted base \
+map. How a layer is drawn -- circle sizes, line colours, band widths -- is \
+derived from its data; you only say what to fetch. A map can have overlays \
+and no variable (variable_is_null true), which is the usual case.
+
+{listed}
+
+The window still comes from bbox/within, and the base map still needs a level \
+and basemap: pick a coarse, fast one (natural_earth; admin_0, or admin_1 for \
+one country) so the overlay carries the message.
+
+  "strong earthquakes around Japan since 2011"
+      bbox [128.0, 29.0, 147.0, 46.0], level admin_1, basemap natural_earth,
+      variable_is_null true,
+      overlays [{{source usgs, id "start=2011-01-01;end=2026-01-01;minmagnitude=6"}}]
+  "Germany's motorway network"
+      within ["DEU"], level admin_1, basemap natural_earth, variable_is_null
+      true, overlays [{{source overpass, id "highway=motorway"}}]
+  "Atlantic hurricane tracks"
+      bbox [-100.0, 5.0, -10.0, 60.0], level admin_0, basemap natural_earth,
+      variable_is_null true, overlays [{{source web, id "", search_query
+      "atlantic hurricane storm tracks"}}] -- then pick from the candidates.
+
+A `within` country includes its overseas parts (France's Caribbean and Indian \
+Ocean departments, Norway's Svalbard): when the request means the mainland, \
+add a bbox around it as well. A world map is bbox [-180, -90, 180, 90]. An \
+end date is exclusive: all of 2019 is start=2019-01-01;end=2020-01-01.
+
+For `web`, never invent data and never paste values: either search the curated \
+catalogue (empty id, a search_query) and pick returned URLs, or give an https \
+URL of a CSV/GeoJSON you are confident exists. The service fetches it and \
+rejects it if it does not load or has no coordinates. Leave search_query empty \
+for usgs and overpass."""
 
 
 def describe(prompt: str) -> tuple[Manifest, dict, str]:
@@ -433,6 +504,7 @@ def describe(prompt: str) -> tuple[Manifest, dict, str]:
     conversation: list[dict] = [{"role": "user", "content": prompt.strip()}]
     last_error: ManifestError | None = None
     offered: set[str] | None = None
+    overlays_searched = False
     repairs = 0
 
     for attempt in range(REPAIR_ATTEMPTS + 2):
@@ -449,12 +521,19 @@ def describe(prompt: str) -> tuple[Manifest, dict, str]:
         chosen = (raw.get("variable") or {}).get("id") or ""
         source = (raw.get("variable") or {}).get("source")
 
-        if source and not chosen and query and offered is None:
-            found = _search(source, query)
-            offered = {c.id for c in found}
+        wants_variable = bool(source and not chosen and query and offered is None)
+        overlay_queries = [] if overlays_searched else _overlay_queries(raw)
+        if wants_variable or overlay_queries:
+            parts = []
+            if wants_variable:
+                found = _search(source, query)
+                offered = {c.id for c in found}
+                parts.append(_candidate_prompt(source, query, found))
+            for overlay_source, overlay_query in overlay_queries:
+                parts.append(_overlay_candidates(overlay_source, overlay_query))
+            overlays_searched = overlays_searched or bool(overlay_queries)
             conversation.append({"role": "assistant", "content": json.dumps(answer)})
-            conversation.append({"role": "user", "content": _candidate_prompt(
-                source, query, found)})
+            conversation.append({"role": "user", "content": "\n\n".join(parts)})
             continue
 
         if offered is not None and chosen not in offered:
@@ -477,9 +556,12 @@ def describe(prompt: str) -> tuple[Manifest, dict, str]:
             raw.pop("bbox", None)
         if raw.pop("variable_is_null", False):
             raw["variable"] = None
+        _strip_overlays(raw)
         try:
             _check_per((raw.get("variable") or {}).get("per"))
-            return validate(raw), raw, answer.get("reasoning", "")
+            manifest = validate(raw)
+            _check_overlay_urls(manifest)
+            return manifest, raw, answer.get("reasoning", "")
         except ManifestError as error:
             last_error = error
             # Counted apart from `attempt`: the search turn is not a repair,
@@ -502,6 +584,60 @@ def describe(prompt: str) -> tuple[Manifest, dict, str]:
         f"{last_error}", getattr(last_error, "field", "prompt")
     )
 
+
+
+def _overlay_queries(raw: dict) -> list[tuple[str, str]]:
+    """(source, query) for every searchable overlay the model left unchosen."""
+    out = []
+    for item in raw.get("overlays") or []:
+        source = item.get("source")
+        if (source in overlays.sources() and overlays.capabilities(source).searchable
+                and not item.get("id") and item.get("search_query")):
+            out.append((source, item["search_query"]))
+    return out
+
+
+def _overlay_candidates(source: str, query: str) -> str:
+    try:
+        found = overlays.search(source, query, limit=SEARCH_RESULTS)
+    except overlays.OverlayError:
+        found = []
+    if not found:
+        return (f"The {source} overlay catalogue has nothing for {query!r}. Give an "
+                "https URL of a CSV or GeoJSON you are confident exists, or refuse.")
+    listed = "\n".join(f"  {c.as_prompt_line()}" for c in found)
+    return (f"The {source} overlay catalogue returned these datasets for {query!r}:\n"
+            f"{listed}\n\nReply with the full manifest, one overlay per file you "
+            "want (source web, id = the URL exactly, search_query empty). Use "
+            "several when they belong together, e.g. a route and its towns.")
+
+
+def _strip_overlays(raw: dict) -> None:
+    """Strict mode's always-present search_query goes; an empty list goes too."""
+    items = raw.get("overlays")
+    if not items:
+        raw.pop("overlays", None)
+        return
+    raw["overlays"] = [{"source": item.get("source"), "id": item.get("id")}
+                       for item in items]
+
+
+def _check_overlay_urls(manifest: Manifest) -> None:
+    """A URL the model proposed must load and have a usable shape.
+
+    Fetched here rather than at harvest so a dead or shapeless URL is handed
+    back to the model for repair; the bytes are cached, so harvest pays
+    nothing twice.
+    """
+    from mapsvc.overlays import web
+
+    for i, (source, overlay_id) in enumerate(manifest.overlays):
+        if source != "web":
+            continue
+        try:
+            web.check(overlay_id)
+        except overlays.OverlayError as exc:
+            raise ManifestError(str(exc), f"overlays[{i}].id") from None
 
 
 def _strip_derivations(variable: dict) -> None:
