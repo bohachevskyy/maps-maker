@@ -341,11 +341,14 @@ def _encoding(manifest: Manifest, rows: list, provenance: dict) -> Encoding:
         # not carry that bias.
         return Encoding("symbols", label, unit, vmax=max(float(v) for v in values))
 
-    if level == "ratio" and numeric and classify.substantially_diverging(
-            [float(v) for v in values]):
-        scheme = classify.diverging([float(v) for v in values],
-                                    registry.DEFAULT_METHOD, registry.DEFAULT_K)
-        swatches = colors.diverging("RdBu", scheme.zero_at, scheme.k - scheme.zero_at)
+    if level == "ratio" and numeric:
+        # Round breaks: log-spaced, either side of zero, a fixed 0-100 scale
+        # or rounded natural breaks -- whichever the values call for.
+        scheme = classify.nice([float(v) for v in values], percent=_is_share(unit))
+        if scheme.zero_at is not None:
+            swatches = colors.diverging("RdBu", scheme.zero_at, scheme.k - scheme.zero_at)
+        else:
+            swatches = colors.colors(registry.RAMP_FOR_LEVEL["ratio"], scheme.k)
         return Encoding("choropleth", label, unit, scheme, swatches)
 
     ramp = registry.RAMP_FOR_LEVEL.get(level, "YlGnBu")
@@ -357,6 +360,23 @@ def _encoding(manifest: Manifest, rows: list, provenance: dict) -> Encoding:
         # holds. There is nothing to reconfigure: the map cannot be drawn.
         raise RenderError(str(exc), "variable.id") from exc
     return Encoding("choropleth", label, unit, scheme, swatches)
+
+
+def _is_share(unit: str) -> bool:
+    """A percentage of a whole, which can only run 0-100 ("%", "percent").
+
+    "% change 2000–2023" is a percentage but not a share: it is unbounded.
+    """
+    u = (unit or "").strip().lower()
+    return u in ("%", "percent", "per cent") or u.startswith(("% of", "percent of"))
+
+
+def _affixes(unit: str) -> tuple[str, str]:
+    """What a legend label carries of the unit: '$' before, '%' after."""
+    u = (unit or "").strip().lower()
+    prefix = "$" if ("$" in u or "dollar" in u) else ""
+    suffix = "%" if u.startswith(("%", "percent", "per cent")) else ""
+    return prefix, suffix
 
 
 def _human(text: str) -> str:
@@ -1284,7 +1304,7 @@ def _heading_h(encoding: Encoding) -> float:
 
 
 def _entries(encoding: Encoding, has_missing: bool) -> list[tuple[str, str]]:
-    entries = list(zip(encoding.swatches, encoding.scheme.labels()))
+    entries = list(zip(encoding.swatches, encoding.scheme.labels(*_affixes(encoding.unit))))
     if has_missing:
         entries.append((f"url(#{colors.HATCH_ID})", "no data"))
     return entries
@@ -1403,7 +1423,15 @@ def _band(encoding: Encoding, has_missing: bool):
     # edge it marks -- the conventional classed-choropleth legend.
     k = scheme.k
     cell = min(84.0, (MAP_W - 160) / k)
-    edges = [classify.format_value(b) for b in scheme.breaks]
+    if scheme.scheme == "quantile":
+        edges = [classify.format_value(b) for b in scheme.breaks]
+    else:
+        affixes = _affixes(encoding.unit)
+        edges = [scheme.edge_label(i, *affixes) for i in range(k + 1)]
+        if scheme.open_ends:
+            # The outer edges are the data's extremes, not class limits: the
+            # end classes are open ("< $2k"), so their ends go unwritten.
+            edges[0] = edges[-1] = ""
     h = head_h + 8 + SWATCH_H + 16
 
     def draw(x, y):
@@ -1414,8 +1442,8 @@ def _band(encoding: Encoding, has_missing: bool):
             out.append(f'<rect x="{_num(x + i * cell)}" y="{_num(sy)}" width="{_num(cell)}" '
                        f'height="{SWATCH_H}" fill="{fill}" stroke="#ffffff" stroke-width="0.8"/>')
         for i, label in enumerate(edges):
-            if i and label == edges[i - 1]:
-                continue  # a single-value class: its one value is already written
+            if not label or (i and label == edges[i - 1]):
+                continue  # an open end, or a single-value class already written
             tx = x + i * cell
             anchor = "start" if i == 0 else ("end" if i == k else "middle")
             weight = ' font-weight="600"' if scheme.zero_at == i else ""
@@ -1564,6 +1592,12 @@ def _footer(manifest, frame: Frame, encoding: Encoding, result, top: float,
                   f"proportional to value (largest {_count_label(encoding.vmax)})")
     elif scheme.kind == "categorical":
         method = f"one class per category ({scheme.k} categories)"
+    elif scheme.scheme != "quantile":
+        method = f"{scheme.scheme}, {scheme.k} classes"
+        if scheme.zero_at is not None:
+            method += f" ({scheme.zero_at} below zero, {scheme.k - scheme.zero_at} above)"
+        if scheme.open_ends:
+            method += ", the first and last open-ended"
     else:
         method = f"{registry.DEFAULT_METHOD}, k={scheme.k}"
         if scheme.zero_at is not None:

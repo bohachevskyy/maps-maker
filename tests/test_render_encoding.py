@@ -124,18 +124,42 @@ def _change_rows(values):
                    for i, v in enumerate(values)])
 
 
+def test_a_share_gets_a_0_100_legend_with_percent_labels():
+    values = [4.8, 11.0, 17.0, 26.0, 33.0, 47.0, 56.0, 71.0, 84.0, 99.0]
+    text = render(build_manifest(bbox=(-1, 38, 21, 46)),
+                  HarvestResult(rows=_change_rows(values), provenance=_ratio(unit="%"),
+                                dropped=[]))
+    texts = _texts(ET.fromstring(text))
+    assert "0–20%" in texts and "80–100%" in texts
+    assert "fixed 0–100 scale" in text
+
+
+def test_a_skewed_ratio_gets_round_log_breaks_and_open_ends():
+    values = [1066.0, 1800.0, 3100.0, 6000.0, 9000.0, 14000.0, 26000.0, 42000.0,
+              77000.0, 139592.0]
+    text = render(build_manifest(bbox=(-1, 38, 21, 46)),
+                  HarvestResult(rows=_change_rows(values),
+                                provenance=_ratio(unit="international-$ in 2021 prices"),
+                                dropped=[]))
+    texts = _texts(ET.fromstring(text))
+    # Floating panel ("< $2k") or band under the map ("$2k" on a tick).
+    assert {"< $2k", "≥ $100k"} <= set(texts) or {"$2k", "$100k"} <= set(texts)
+    assert "1,066" not in texts and "139,592" not in texts
+    assert "rounded log breaks" in text
+
+
 def test_values_straddling_zero_get_a_diverging_ramp_centred_on_zero():
     values = [-25.0, -12.0, -6.0, -2.0, 3.0, 8.0, 15.0, 40.0, 90.0, 180.0]
     text = render(build_manifest(bbox=(-1, 38, 21, 46)),
                   HarvestResult(rows=_change_rows(values), provenance=_ratio(), dropped=[]))
     root = ET.fromstring(text)
     fills = {k: p.get("fill") for k, p in _features(root).items()}
-    rdbu = set().union(*(colors.colors("RdBu", k) for k in range(3, 10)))
+    rdbu = set().union(*(colors.colors("RdBu", k) for k in range(3, 12)))
     assert set(fills.values()) <= rdbu
     reds = {f for i, f in enumerate(fills[f"U{i:02d}"] for i in range(10)) if values[i] < 0}
     blues = {f for i, f in enumerate(fills[f"U{i:02d}"] for i in range(10)) if values[i] > 0}
     assert not reds & blues, "decline and growth must never share a colour"
-    assert "diverging at zero" in text
+    assert "either side of zero" in text
     assert "0" in _texts(root), "zero is a labelled class edge"
 
 
