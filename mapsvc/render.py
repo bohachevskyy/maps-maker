@@ -124,6 +124,10 @@ class Frame:
         self.transform = lambda x, y: _shift(local(x, y))
         self.outline = (None if outline is None
                         else [self.transform(x, y) for x, y in outline])
+        # Page pixels per projected unit. Every projection here is on the unit
+        # sphere, so an inset drawn at this scale is at the same scale.
+        self.scale = local(1.0, 0.0)[0] - local(0.0, 0.0)[0]
+        self.insets: list = []
 
     def xy(self, lon: float, lat: float) -> tuple[float, float]:
         return self.transform(*self.projector(lon, lat))
@@ -153,6 +157,10 @@ def render(manifest: Manifest, result: HarvestResult) -> str:
     dropped = sorted(result.dropped, key=lambda r: r["id"])
     show_missing = registry.DEFAULT_MISSING != "exclude"
     drawn_missing = [d for d in dropped if d.get("geometry")] if show_missing else []
+    # Far-flung units (Alaska, the Canaries) go to insets; the main frame is
+    # fitted to the rest. Classification still sees every row.
+    every_row = rows
+    rows, drawn_missing, insets = _split_insets(manifest, rows, drawn_missing)
 
     geometries = [r["geometry"] for r in rows] + [d["geometry"] for d in drawn_missing]
     if not geometries:
@@ -162,7 +170,7 @@ def render(manifest: Manifest, result: HarvestResult) -> str:
               if result.overlays and manifest.bbox is None else geometries)
     frame = Frame(manifest, framed, overlay_render.centre_lon(result.overlays))
     p = result.provenance
-    encoding = _encoding(manifest, rows, p)
+    encoding = _encoding(manifest, every_row, p)
 
     body: list[str] = []
     land: list[tuple] = []          # (bbox, ring) of every drawn outer ring
@@ -209,6 +217,9 @@ def render(manifest: Manifest, result: HarvestResult) -> str:
         body.append(svg)
         units.extend(circles)
     body.append(_enclaves(rows, frame, encoding))
+    inset_svg, inset_missing = _draw_insets(insets, frame, encoding, bool(result.context),
+                                            land, units)
+    body.append(inset_svg)
 
     art = None
     if has_overlays:
@@ -221,7 +232,8 @@ def render(manifest: Manifest, result: HarvestResult) -> str:
     legend_band = 0.0
     if encoding.mode != "basemap":
         legend, legend_band = _legend(encoding, frame, land,
-                                      [u for u in units if u], bool(drawn_missing))
+                                      [u for u in units if u],
+                                      bool(drawn_missing) or inset_missing)
         body.append(legend)
     if art is not None and art.legend_h:
         body.append(art.legend(PAD, frame.bottom + legend_band + 16))
@@ -586,6 +598,396 @@ def _context(context: list, frame: Frame) -> str:
     return "".join(out)
 
 
+# ---------------------------------------------------------------- insets ---
+
+# A group of units goes to an inset when it is not part of the main cluster
+# (no touching bounding boxes), would grow the main frame's projected area by
+# INSET_INFLATION or more, is more than INSET_GAP of the main cluster's ground
+# diagonal away from it, and holds less than INSET_MAX_AREA of its land.
+# Measured growth against the main cluster, in its own projection:
+#   EU NUTS 2: Cyprus 1.17, Madeira 1.26, Azores 1.41, Canaries 1.42,
+#              Guadeloupe 2.59, Guyane 3.18, Reunion 4.84
+#   US states: Puerto Rico 1.38, Hawaii 1.81, Alaska 2.87-2.91
+#   Iceland on a map of European countries: under 1.02.
+# 1.20 keeps Cyprus and Iceland in the main frame, as an atlas page of Europe
+# does, and sends every outermost region and AK/HI/PR to an inset. The margin
+# between Cyprus and Madeira is narrow; it is a measured threshold, not a law.
+INSET_INFLATION = 1.20
+INSET_GAP = 0.05
+INSET_MAX_AREA = 0.25
+INSET_MAX = 12
+INSET_MAX_W, INSET_MAX_H = 0.20, 0.30      # of the map area, per inset
+INSET_MIN_W, INSET_MIN_H = 84.0, 60.0
+# An inset whose land would be smaller than its box at the main scale is
+# enlarged to fill it, up to this factor: Mayotte at the scale of Europe is a
+# speck. The caption states the factor either way.
+INSET_MAX_ZOOM = 4.0
+INSET_RING_SHARE = 0.08
+INSET_PAD, INSET_LABEL_H, INSET_GAP_PX = 6.0, 14.0, 8.0
+# The share of the inset block that may lie over mapped land before the insets
+# move to a band under the map instead.
+INSET_MAX_COVER = 0.04
+KM_PER_DEGREE = 111.32
+
+
+def _split_insets(manifest: Manifest, rows: list, missing: list):
+    """(main rows, main missing, [InsetFrame]) -- far-flung groups set apart.
+
+    Only for maps framed by their units: a bbox is a window the reader asked
+    for, and moving part of it elsewhere would misrepresent it. Units are
+    grouped by touching bounding boxes; the group with the most land is the
+    main cluster, and any other group that is both far from it and small next
+    to it becomes an inset. Nothing here names a place.
+    """
+    items = [("row", r) for r in rows] + [("missing", m) for m in missing]
+    if manifest.bbox is not None or manifest.overlays or len(items) < 2:
+        # An overlay map frames on the units near its features (Réunion is
+        # not on a map of LGVs); boxing the far ones would bring them back.
+        return rows, missing, []
+    reps = []
+    for _, item in items:
+        rings = project.outer_rings(item["geometry"])
+        rings = [r for r in rings if len(r) >= 4]
+        if not rings:
+            reps.append(None)
+            continue
+        ring = max(rings, key=project._ring_area)
+        ring = project.unwrap_ring(ring, 0.0)
+        reps.append((_lonlat_box(ring), ring, _ground_area(ring)))
+
+    # Union-find over bounding boxes that touch (with a quarter-degree slack).
+    parent = list(range(len(items)))
+
+    def find(i):
+        while parent[i] != i:
+            parent[i] = parent[parent[i]]
+            i = parent[i]
+        return i
+    for i in range(len(items)):
+        for j in range(i + 1, len(items)):
+            if reps[i] and reps[j] and _boxes_touch(reps[i][0], reps[j][0], 0.25):
+                a, b = find(i), find(j)
+                if a != b:
+                    parent[max(a, b)] = min(a, b)
+    groups: dict = {}
+    for i in range(len(items)):
+        if reps[i]:
+            groups.setdefault(find(i), []).append(i)
+    if len(groups) < 2:
+        return rows, missing, []
+    area = {g: sum(reps[i][2] for i in members) for g, members in groups.items()}
+    core = max(groups, key=lambda g: (area[g], -g))
+    core_box = _union_box([reps[i][0] for i in groups[core]])
+    diagonal = _ground_distance((core_box[0], core_box[1]), (core_box[2], core_box[3]))
+    core_rings = [(reps[i][0], project._decimate(reps[i][1], 64)) for i in groups[core]]
+
+    # Inflation is measured in the projection the main map would use, on the
+    # core's own extent: Iceland sits inside the box Portugal and Norway
+    # already span, the Canaries do not. Groups that do not inflate it join the
+    # main frame, and the test repeats against the grown frame -- Crete is its
+    # own group, and Cyprus must be judged against a frame that includes it.
+    core_geoms = [items[i][1]["geometry"] for i in groups[core]]
+    core_extent = project.extent_of(core_geoms)
+    projector = project.make(project.choose(core_extent), core_extent)
+    main = list(project.viewport_bounds(core_geoms, projector, core_extent))
+    projected = {g: [projector(lon, lat) for i in members for lon, lat in reps[i][1]]
+                 for g, members in groups.items() if g != core}
+    pending = sorted(g for g in groups if g != core)
+    changed = True
+    while changed:
+        changed = False
+        for g in list(pending):
+            xs = [x for x, _ in projected[g]]
+            ys = [y for _, y in projected[g]]
+            grown = [min(main[0], min(xs)), min(main[1], min(ys)),
+                     max(main[2], max(xs)), max(main[3], max(ys))]
+            before = max((main[2] - main[0]) * (main[3] - main[1]), 1e-12)
+            after = (grown[2] - grown[0]) * (grown[3] - grown[1])
+            if after / before < INSET_INFLATION or area[g] >= INSET_MAX_AREA * area[core]:
+                main = grown
+                pending.remove(g)
+                changed = True
+
+    far = []
+    for g in pending:
+        members = groups[g]
+        gap = min(_gap_to(project._decimate(reps[i][1], 64), reps[i][0], core_rings)
+                  for i in members)
+        if gap > INSET_GAP * diagonal:
+            far.append(members)
+    if not far or len(far) > INSET_MAX:
+        return rows, missing, []
+
+    moved = {i for members in far for i in members}
+    insets = []
+    for members in far:
+        member_items = [items[i] for i in sorted(members)]
+        insets.append(InsetFrame([it for kind, it in member_items if kind == "row"],
+                                 [it for kind, it in member_items if kind == "missing"],
+                                 sum(reps[i][2] for i in members)))
+    insets.sort(key=lambda f: (-f.area, f.label))
+    keep_rows = [it for i, (kind, it) in enumerate(items) if kind == "row" and i not in moved]
+    keep_missing = [it for i, (kind, it) in enumerate(items)
+                    if kind == "missing" and i not in moved]
+    return keep_rows, keep_missing, insets
+
+
+def _ground_area(ring) -> float:
+    lat = sum(p[1] for p in ring) / len(ring)
+    return (project._ring_area(ring) * math.cos(math.radians(lat))
+            * KM_PER_DEGREE * KM_PER_DEGREE)
+
+
+def _ground_distance(a, b) -> float:
+    lat = math.radians((a[1] + b[1]) / 2.0)
+    dx = project._shortest(b[0] - a[0]) * math.cos(lat)
+    dy = b[1] - a[1]
+    return math.hypot(dx, dy) * KM_PER_DEGREE
+
+
+def _boxes_touch(a, b, slack: float) -> bool:
+    return not (a[2] + slack < b[0] or b[2] + slack < a[0]
+                or a[3] + slack < b[1] or b[3] + slack < a[1])
+
+
+def _union_box(boxes) -> tuple:
+    return (min(b[0] for b in boxes), min(b[1] for b in boxes),
+            max(b[2] for b in boxes), max(b[3] for b in boxes))
+
+
+def _box_gap(a, b) -> float:
+    """A lower bound on the ground distance between two lon/lat boxes."""
+    dx = max(0.0, b[0] - a[2], a[0] - b[2])
+    dy = max(0.0, b[1] - a[3], a[1] - b[3])
+    lat = math.radians(max(abs(a[1]), abs(a[3]), abs(b[1]), abs(b[3]), 0.0))
+    return math.hypot(dx * math.cos(min(lat, math.radians(89))), dy) * KM_PER_DEGREE
+
+
+def _gap_to(ring, box, core_rings) -> float:
+    """Shortest vertex-to-vertex ground distance from a ring to the core."""
+    best = float("inf")
+    for core_box, core_ring in sorted(core_rings, key=lambda c: _box_gap(box, c[0])):
+        if _box_gap(box, core_box) >= best:
+            break
+        for a in ring:
+            for b in core_ring:
+                d = _ground_distance(a, b)
+                if d < best:
+                    best = d
+    return best
+
+
+class InsetFrame:
+    """A boxed inset: its own equal-area projection, placed on the map page.
+
+    Drawn at the main map's scale when it fits, so areas stay comparable;
+    shrunk to fit otherwise (Alaska), and the label says by how much. Offers
+    the same interface as Frame, so the drawing helpers take either.
+    """
+
+    windowed = False
+    is_world = False
+
+    def __init__(self, rows: list, missing: list, area: float):
+        self.rows, self.missing, self.area = rows, missing, area
+        named = sorted({_short_name(i) for i in rows + missing})
+        self.label = named[0] if len(named) == 1 else ", ".join(named[:2]) + (
+            "…" if len(named) > 2 else "")
+        self.geometries = [i["geometry"] for i in rows + missing]
+        self.extent = project.extent_of(self.geometries)
+        self.projection = project.choose(self.extent)
+        self.projector = project.make(self.projection, self.extent)
+        self.lon0 = (self.extent[0] + self.extent[2]) / 2.0
+        self.lat0 = (self.extent[1] + self.extent[3]) / 2.0
+        self.bounds = _inset_bounds(self.geometries, self.projector, self.lon0)
+        self.factor = 1.0
+        self.box = (0.0, 0.0, 0.0, 0.0)
+
+    def size(self, scale: float, max_w: float, max_h: float) -> tuple:
+        span_x = max(self.bounds[2] - self.bounds[0], 1e-9) * scale
+        span_y = max(self.bounds[3] - self.bounds[1], 1e-9) * scale
+        room_w, room_h = max_w - 2 * INSET_PAD, max_h - 2 * INSET_PAD - INSET_LABEL_H
+        self.factor = min(1.0, room_w / span_x, room_h / span_y)
+        min_w = max(INSET_MIN_W, _text_w(self.caption, 9.5) + 12)
+        fill_w, fill_h = min_w - 2 * INSET_PAD, INSET_MIN_H - 2 * INSET_PAD - INSET_LABEL_H
+        if self.factor == 1.0 and span_x < fill_w and span_y < fill_h:
+            self.factor = min(INSET_MAX_ZOOM, fill_w / span_x, fill_h / span_y)
+            self.factor = math.floor(self.factor * 10) / 10.0   # a round, stated factor
+        min_w = max(INSET_MIN_W, _text_w(self.caption, 9.5) + 12)
+        self.scale = scale * self.factor
+        w = max(min_w, span_x * self.factor + 2 * INSET_PAD)
+        h = max(INSET_MIN_H, span_y * self.factor + 2 * INSET_PAD + INSET_LABEL_H)
+        return w, h
+
+    def place(self, x: float, y: float, w: float, h: float) -> None:
+        self.box = (x, y, w, h)
+        inner_top = y + INSET_LABEL_H
+        span_x = (self.bounds[2] - self.bounds[0]) * self.scale
+        span_y = (self.bounds[3] - self.bounds[1]) * self.scale
+        self._ox = x + (w - span_x) / 2.0
+        self._oy = inner_top + (h - INSET_LABEL_H - span_y) / 2.0
+
+    def xy(self, lon: float, lat: float) -> tuple:
+        px, py = self.projector(lon, lat)
+        return (self._ox + (px - self.bounds[0]) * self.scale,
+                self._oy + (self.bounds[3] - py) * self.scale)
+
+    def visible(self, x: float, y: float) -> bool:
+        bx, by, bw, bh = self.box
+        return bx <= x <= bx + bw and by <= y <= by + bh
+
+    @property
+    def caption(self) -> str:
+        if abs(self.factor - 1.0) < 0.005:
+            return self.label
+        return f"{self.label} (×{self.factor:.2g})"
+
+    @property
+    def scale_note(self) -> str:
+        if abs(self.factor - 1.0) < 0.005:
+            return f"{self.label} at the main scale"
+        return f"{self.label} at {self.factor:.2g}× the main scale"
+
+
+def _inset_bounds(geometries, projector, lon0: float) -> tuple:
+    """Projected bounds of every ring of at least INSET_RING_SHARE of its unit's largest.
+
+    An inset is about one place, so the Canaries are all seven islands (El
+    Hierro is 13% of Tenerife) -- the main map's largest-ring rule would show
+    one. Outliers filed under the same unit do not stretch the box: Alaska's
+    Aleutians, the Selvagens under Madeira, Saint-Martin (6% of Basse-Terre)
+    under Guadeloupe. They are still drawn where they fall inside it.
+    """
+    xs: list = []
+    ys: list = []
+    for geometry in geometries:
+        rings = [r for r in project.outer_rings(geometry) if len(r) >= 4]
+        if not rings:
+            continue
+        rings = [project.unwrap_ring(r, lon0) for r in rings]
+        largest = max(project._ring_area(r) for r in rings)
+        for ring in rings:
+            if project._ring_area(ring) >= INSET_RING_SHARE * largest:
+                for lon, lat in ring:
+                    x, y = projector(lon, lat)
+                    xs.append(x)
+                    ys.append(y)
+    if not xs:
+        return (0.0, 0.0, 1.0, 1.0)
+    return (min(xs), min(ys), max(xs), max(ys))
+
+
+def _short_name(item: dict) -> str:
+    """A unit's name for a caption: the first of a bilingual pair, trimmed."""
+    name = str(item.get("name") or item["id"]).strip()
+    return name.split("/")[0].strip() or name
+
+
+def _draw_insets(insets: list, frame: Frame, encoding: Encoding, water: bool,
+                 land: list, units: list) -> tuple[str, bool]:
+    """Lay the insets out in a block where they hide the least, and draw them.
+
+    The block is a row (wrapping) of boxes, tried in the legend's candidate
+    spots; the chosen boxes are then added to `land` and `units` so the legend
+    keeps clear of them. Returns the SVG and whether any inset has no-data.
+    """
+    frame.insets = insets
+    if not insets:
+        return "", False
+    max_w, max_h = INSET_MAX_W * MAP_W, INSET_MAX_H * frame.map_h
+    sizes = [inset.size(frame.scale, max_w, max_h) for inset in insets]
+    # Each inset, largest first, goes where it hides no unit and next to no
+    # mapped land -- open sea or neighbouring land, bottom-left first, as on
+    # an atlas page of the US. What fits nowhere goes to a band under the map.
+    occupied = [u for u in units if u]
+    placed: list = []
+    layout: list = [None] * len(insets)
+    for n, (w, h) in enumerate(sizes):
+        spot = _inset_spot(frame, land, occupied, placed, w, h)
+        if spot is not None:
+            x, y = spot
+            layout[n] = (x, y, w, h)
+            placed.append((x, y, x + w, y + h))
+            land.append(((x, y, x + w, y + h), [(x, y), (x + w, y), (x + w, y + h), (x, y + h)]))
+    band = [n for n, item in enumerate(layout) if item is None]
+    if band:
+        x, y, row_h = PAD + LEGEND_INSET, frame.bottom + INSET_GAP_PX, 0.0
+        top = y
+        for n in band:
+            w, h = sizes[n]
+            if x > PAD + LEGEND_INSET and x + w > PAD + MAP_W - LEGEND_INSET:
+                x, y, row_h = PAD + LEGEND_INSET, y + row_h + INSET_GAP_PX, 0.0
+            layout[n] = (x, y, w, h)
+            x += w + INSET_GAP_PX
+            row_h = max(row_h, h)
+        frame.map_h += int(math.ceil(y + row_h - top + 2 * INSET_GAP_PX))
+    out = []
+    has_missing = False
+    background = colors.WATER if water else "#ffffff"
+    for n, (inset, (x0, y0, w, h)) in enumerate(zip(insets, layout)):
+        inset.place(x0, y0, w, h)
+        clip = f"inset-clip-{n}"
+        out.append(f'<g class="inset" data-inset={quoteattr(inset.label)}>'
+                   f'<clipPath id="{clip}"><rect x="{_num(x0)}" y="{_num(y0)}" '
+                   f'width="{_num(w)}" height="{_num(h)}"/></clipPath>'
+                   f'<rect x="{_num(x0)}" y="{_num(y0)}" width="{_num(w)}" height="{_num(h)}" '
+                   f'fill="{background}" stroke="{colors.FRAME}" stroke-width="0.8"/>'
+                   f'<g clip-path="url(#{clip})" stroke-linejoin="round">')
+        markers = []
+        for row in inset.rows:
+            fill = encoding.fill(row["value"])
+            parts = _project(row["geometry"], inset)
+            out.append(_path(row, parts, fill))
+            if encoding.mode == "choropleth" and _visible_area(parts) < MIN_VISIBLE_AREA:
+                anchor = _anchor(row["geometry"], inset)
+                if anchor:
+                    markers.append(_marker(row, anchor, fill))
+        for item in inset.missing:
+            has_missing = True
+            out.append(_path(item, _project(item["geometry"], inset),
+                             f"url(#{colors.HATCH_ID})"))
+        out.extend(markers)
+        if encoding.mode == "symbols":
+            svg, _ = _symbols(inset.rows, inset, encoding)
+            out.append(svg.replace('clip-path="url(#map-clip)"', f'clip-path="url(#{clip})"'))
+        out.append("</g>")
+        out.append(f'<text x="{_num(x0 + 5)}" y="{_num(y0 + 11)}" font-size="9.5" '
+                   f'fill="{colors.TEXT_MUTED}" font-family="{FONT}">'
+                   f'{escape(inset.caption)}</text></g>')
+        units.append((x0, y0, x0 + w, y0 + h))
+        if n in band:
+            ring = [(x0, y0), (x0 + w, y0), (x0 + w, y0 + h), (x0, y0 + h)]
+            land.append(((x0, y0, x0 + w, y0 + h), ring))
+    return "".join(out), has_missing
+
+
+def _inset_spot(frame: Frame, land: list, occupied: list, placed_insets: list,
+                w: float, h: float):
+    """The first spot, bottom-left outward, that hides nothing mapped."""
+    left, right = PAD + LEGEND_INSET, PAD + MAP_W - w - LEGEND_INSET
+    top, bottom = MAP_TOP + LEGEND_INSET, frame.bottom - h - LEGEND_INSET
+    if right < left or bottom < top:
+        return None
+    steps = 16
+    xs = [left + (right - left) * i / steps for i in range(steps + 1)]
+    ys = [bottom - (bottom - top) * i / steps for i in range(steps + 1)]
+    candidates = ([(x, bottom) for x in xs] + [(left, y) for y in ys[1:]]
+                  + [(right, y) for y in ys[1:]] + [(x, top) for x in xs])
+    for x, y in candidates:
+        if any(_overlaps((x - INSET_GAP_PX, y - INSET_GAP_PX, x + w + INSET_GAP_PX,
+                          y + h + INSET_GAP_PX), box) for box in placed_insets):
+            continue   # never on, or touching, another inset
+        if any(_hidden(u, x, y, w, h) for u in occupied):
+            continue   # never hides a unit, a marker or a circle
+        if _land_share(frame, land, x, y, w, h) <= INSET_MAX_COVER:
+            return x, y
+    return None
+
+
+def _overlaps(a, b) -> bool:
+    return a[0] < b[2] and b[0] < a[2] and a[1] < b[3] and b[1] < a[3]
+
+
 # -------------------------------------------------------------- enclaves ---
 
 def _enclaves(rows: list, frame: Frame, encoding: Encoding) -> str:
@@ -624,6 +1026,10 @@ def _enclaves(rows: list, frame: Frame, encoding: Encoding) -> str:
             continue
         out.append(f'<path d="{d}" fill="none" stroke="{colors.TEXT}" stroke-width="0.9" '
                    f'class="enclave" data-id={quoteattr(str(row["id"]))}/>')
+        if encoding.mode != "symbols":
+            # In a choropleth the enclave carries its own colour; the outline
+            # is enough. A circle, though, hides the shape under it.
+            continue
         placed = _placement(row["geometry"], frame)
         if placed is None:
             continue
@@ -631,7 +1037,7 @@ def _enclaves(rows: list, frame: Frame, encoding: Encoding) -> str:
         reach = encoding.radius(float(row["value"])) if (
             encoding.mode == "symbols" and isinstance(row["value"], (int, float))) else 0.0
         reach = max(reach, MARKER_R, max(b[0][2] - b[0][0] for b in _outer_boxes(parts)) / 2)
-        name = str(row.get("name") or row["id"])
+        name = _short_name(row)
         out.append(f'<text x="{_num(x + reach + 4)}" y="{_num(y + 4)}" font-size="11" '
                    f'font-weight="600" fill="{colors.TEXT}" stroke="#ffffff" '
                    'stroke-width="3" stroke-linejoin="round" paint-order="stroke" '
@@ -1150,6 +1556,14 @@ def _lower_first(text: str) -> str:
 
 
 def _projection_label(frame: Frame) -> str:
+    label = _main_projection_label(frame)
+    if getattr(frame, "insets", None):
+        label += ("; insets, each in its own equal-area projection: "
+                  + ", ".join(inset.scale_note for inset in frame.insets))
+    return label
+
+
+def _main_projection_label(frame: Frame) -> str:
     if frame.is_world and frame.lon0 != 0:
         lon = frame.lon0
         return (f"{_PROJECTION_LABELS.get(frame.projection, frame.projection)}, "

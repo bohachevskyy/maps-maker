@@ -377,3 +377,54 @@ def test_an_enclave_is_outlined_named_and_its_host_symbol_kept_off_it():
         return x0 <= float(c.get("cx")) <= x1 and y0 <= float(c.get("cy")) <= y1
     assert on_city(circles["UA-30"])
     assert not on_city(circles["UA-32"]), "the oblast's circle avoids its hole"
+
+
+# ---------------------------------------------------------------- insets ---
+
+def _grid(prefix, lon0, lat0, nx, ny, size=4.0):
+    return [(f"{prefix}{i}{j}", _box(lon0 + i * size, lat0 + j * size,
+                                     lon0 + (i + 1) * size, lat0 + (j + 1) * size), 1.0 + i + j)
+            for i in range(nx) for j in range(ny)]
+
+
+def _within(**kw):
+    from mapsvc.models import Manifest
+    return Manifest(bbox=None, within=("USA",), level="admin_1", variable_source="eia",
+                    variable_id="X", basemap_source="census", **kw)
+
+
+def test_far_flung_units_go_to_insets_and_the_frame_fits_the_rest():
+    """A conterminous block, an 'Alaska' to the north-west and a 'Hawaii' far
+    south-west: both go to boxed insets, captioned, and the footnote says so."""
+    core = _grid("C", -120, 30, 6, 3)                       # 24 x 12 degrees
+    alaska = ("AK", _box(-160, 60, -148, 68), 5.0)            # ~19% of the core, far
+    hawaii = ("HI", _box(-160, 19, -155, 22), 2.0)            # small, far
+    rows = [{"id": i, "name": n, "geometry": g, "value": v}
+            for (i, g, v), n in zip(core + [alaska, hawaii],
+                                    [None] * len(core) + ["Alaska", "Hawaii"])]
+    root = ET.fromstring(render(_within(), HarvestResult(rows=rows, provenance=_ratio(),
+                                                         dropped=[])))
+    insets = [g.get("data-inset") for g in root.iter(f"{SVG}g") if g.get("data-inset")]
+    assert insets == ["Alaska", "Hawaii"]
+    assert "Alaska at" in _footnote(root) and "Hawaii at" in _footnote(root)
+    # Every unit is still drawn: nothing silently vanishes.
+    assert set(_features(root)) == {r["id"] for r in rows}
+
+
+def test_a_nearby_island_stays_in_the_main_frame():
+    """Cyprus-like: separate, but inside the box the core already spans."""
+    core = _grid("C", 0, 40, 6, 4)
+    island = ("CY", _box(20, 41, 22, 42), 3.0)
+    rows = [{"id": i, "geometry": g, "value": v} for i, g, v in core + [island]]
+    root = ET.fromstring(render(_within(), HarvestResult(rows=rows, provenance=_ratio(),
+                                                         dropped=[])))
+    assert not [g for g in root.iter(f"{SVG}g") if g.get("data-inset")]
+
+
+def test_a_bbox_map_never_moves_units_to_insets():
+    core = _grid("C", -120, 30, 6, 3)
+    far = ("HI", _box(-160, 19, -155, 22), 2.0)
+    rows = [{"id": i, "geometry": g, "value": v} for i, g, v in core + [far]]
+    root = ET.fromstring(render(build_manifest(bbox=(-170, 10, -90, 50)),
+                                HarvestResult(rows=rows, provenance=_ratio(), dropped=[])))
+    assert not [g for g in root.iter(f"{SVG}g") if g.get("data-inset")]
