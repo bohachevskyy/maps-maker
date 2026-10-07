@@ -48,8 +48,11 @@ POST /export    either of the above  -> {path, ...}, writes the SVG to disk
 ```
 mapsvc/
   manifest.py    validate(raw) -> Manifest. Runs before any I/O.
-  cartography/   polygons, keyed for joining. natural_earth, overture.
-  statistics/    values, keyed the same way. natural_earth (fixed), owid (searchable).
+  cartography/   polygons, keyed for joining. natural_earth, overture, census
+                 (US states/counties), gisco (NUTS). Each declares KEYS per level.
+  statistics/    values, keyed the same way. Fixed: natural_earth, ukrstat,
+                 census_acs, wikidata. Searchable: owid, eia, eurostat.
+  derive.py      variable.per (divide) and variable.change (percent change).
   harvest.py     the join, plus caching and the granularity guard.
   render.py      SVG. Must not import anything that does I/O.
   agent.py       prompt -> manifest, via OpenAI Structured Outputs.
@@ -97,13 +100,22 @@ evals/           prompts and the manifests they should produce. Costs money.
   `XKX`.
 - **Overture is slow at scale**, and the cost is geometry volume rather than
   unit count. The 800-unit guard does not catch a 21 MB Balkans map.
+- **Join keys are namespaces, not strings.** ISO3, ISO3166_2, FIPS, NUTS.
+  `validate()` refuses a basemap that does not carry the statistics' key.
+  Natural Earth's ADM0_A3 is not ISO3 (South Sudan is SDS, ISO SSD), so
+  countries join on ISO_A3 where it exists.
+- **Sources move under you.** Measured 2026-10: the Census Data API now
+  demands a key (we read the keyless summary files); ukrstat.gov.ua serves an
+  expired certificate (the 2022 table is vendored); OWID's bare
+  `electricity-mix` is total TWh -- the renewables share is that slug plus
+  query parameters, so view ids keep them.
 
 ## Running it
 
 ```bash
 uv sync
 ./run.sh                 # foreground on :8000; re-run to restart
-uv run pytest            # 167 tests, offline, no API key, free
+uv run pytest            # 248 tests, offline, no API key, free
 
 set -a; source .env; set +a
 uv run python -m evals.run --repeat 3   # live model, costs a few cents
