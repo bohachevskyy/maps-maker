@@ -22,10 +22,22 @@ class FetchError(OSError):
 
 
 def get(url: str, timeout: int = TIMEOUT, accept: str | None = None) -> bytes:
+    return _send(url, None, timeout, accept)
+
+
+def post(url: str, body: bytes, timeout: int = TIMEOUT,
+         content_type: str = "application/x-www-form-urlencoded") -> bytes:
+    return _send(url, body, timeout, None, content_type)
+
+
+def _send(url: str, body: bytes | None, timeout: int, accept: str | None,
+          content_type: str | None = None) -> bytes:
     headers = {"User-Agent": USER_AGENT}
     if accept:
         headers["Accept"] = accept
-    request = urllib.request.Request(url, headers=headers)
+    if content_type:
+        headers["Content-Type"] = content_type
+    request = urllib.request.Request(url, data=body, headers=headers)
     try:
         with urllib.request.urlopen(request, timeout=timeout) as response:
             return response.read()

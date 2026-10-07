@@ -160,7 +160,8 @@ def _add_overlays(manifest: Manifest, result: HarvestResult) -> None:
     geometries += [d["geometry"] for d in result.dropped if d.get("geometry")]
     extent = tuple(manifest.bbox or (project.extent_of(geometries) if geometries
                                      else WORLD_EXTENT))
-    window = overlays.Window(bbox=manifest.bbox, within=manifest.within, extent=extent)
+    window = overlays.Window(bbox=manifest.bbox, within=manifest.within, extent=extent,
+                             name=_place_name(manifest.within))
     for source, overlay_id in manifest.overlays:
         try:
             result.overlays.append(overlays.load(source, overlay_id, window))
@@ -173,6 +174,18 @@ def _add_overlays(manifest: Manifest, result: HarvestResult) -> None:
 
 
 WORLD_EXTENT = (-180.0, -90.0, 180.0, 90.0)
+
+
+def _place_name(within: tuple | None) -> str | None:
+    """'France' for within ["FRA"]; None for anything that is not one country."""
+    if not within or len(within) != 1 or "-" in within[0]:
+        return None
+    code = within[0].upper()
+    for feature in load_source("admin_0")["features"]:
+        props = feature["properties"]
+        if code in {str(props.get(k, "")).upper() for k in ("ADM0_A3", "ISO_A3", "ISO_A2_EH")}:
+            return props.get("NAME")
+    return None
 
 
 def context_places(extent: tuple, within: tuple | None) -> list:

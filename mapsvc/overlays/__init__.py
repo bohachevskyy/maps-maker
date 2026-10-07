@@ -44,7 +44,7 @@ the pure renderer:
 import functools
 from dataclasses import dataclass
 
-_MODULES = ("usgs",)
+_MODULES = ("usgs", "overpass")
 
 # A map with more layers than this stops being readable before it stops
 # being drawable.
@@ -75,6 +75,9 @@ class Window:
     bbox: tuple | None
     within: tuple | None
     extent: tuple
+    # A plain name for the place, for titles: "France". None when the window
+    # is not one named country.
+    name: str | None = None
 
 
 class OverlayError(ValueError):
