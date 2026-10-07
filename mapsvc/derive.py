@@ -70,6 +70,11 @@ def _divide(numerator: Values, per: tuple, level: str, year: int | None) -> Valu
                 denominators[wanted] = None
         return denominators[wanted]
 
+    def _latest() -> Values | None:
+        if None not in denominators:
+            denominators[None] = statistics.load(source, variable_id, level, REGION)
+        return denominators[None]
+
     numerator_level = numerator.provenance.get("level")
     out: dict = {}
     missing: dict = dict(numerator.missing)
@@ -81,6 +86,12 @@ def _divide(numerator: Values, per: tuple, level: str, year: int | None) -> Valu
             continue
         den = denominator_for(key)
         divisor = None if den is None else _number(den.values.get(key))
+        if not divisor and year is None and time_series and numerator.years.get(key) is not None:
+            # No divisor from the numerator's own year -- area, for one, is
+            # rarely dated. Outside a `change`, the divisor's latest value is
+            # the honest fallback; the per-year spread in provenance shows it.
+            latest = _latest()
+            divisor = _number(latest.values.get(key)) if latest else None
         if not divisor:
             missing[key] = "no_divisor"
             continue
