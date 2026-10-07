@@ -306,20 +306,24 @@ def test_a_change_names_both_years_and_its_formula():
     assert "(2023 − 2000) / 2000 × 100" in _footnote(root)
 
 
-def test_title_says_latest_data_only_when_the_drawn_years_disagree():
+def test_title_is_concept_place_period_without_filler():
     box = _box(0, 40, 4, 44)
     one = _ratio(variable="median household income", year="2020–2024 (ACS 5-year)",
-                 years_drawn=[2024])
+                 years_drawn=[2024], place="California")
     root = ET.fromstring(render(build_manifest(bbox=(-2, 38, 6, 46)),
                                 HarvestResult(rows=_rows(("A", box, 1.0)),
                                               provenance=one, dropped=[])))
     assert root.get("aria-label") == \
-        "Median household income, 2020–2024 (ACS 5-year)"
-    many = _ratio(variable="share", year="2022–2025", years_drawn=[2022, 2025])
+        "Median household income, California, 2020–2024 (ACS 5-year)"
+    many = _ratio(variable="share", year="2022–2025", years_drawn=[2022, 2024, 2025],
+                  place="Europe", year_mode=2025,
+                  year_exceptions={"2022": ["Ukraine"], "2024": ["Albania", "Iceland"]})
     root = ET.fromstring(render(build_manifest(bbox=(-2, 38, 6, 46)),
                                 HarvestResult(rows=_rows(("A", box, 1.0)),
                                               provenance=many, dropped=[])))
-    assert root.get("aria-label") == "Share, latest data (2022–2025)"
+    assert root.get("aria-label") == "Share, Europe, 2025"
+    assert "latest data" not in " ".join(_texts(root))
+    assert "latest year 2025 (Albania, Iceland 2024; Ukraine 2022)" in " ".join(_texts(root))
 
 
 def test_a_query_string_id_never_reaches_the_page():

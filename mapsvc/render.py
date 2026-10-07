@@ -578,12 +578,14 @@ def _context(context: list, frame: Frame) -> str:
     purposes -- a legend may sit over Belarus -- and carries no data-id, so
     nothing reads it as a mapped unit.
     """
-    if not context or frame.windowed:
+    if not context:
         return ""
-    out = [f'<g clip-path="url(#map-clip)">',
-           f'<rect x="{PAD}" y="{MAP_TOP}" width="{MAP_W}" height="{frame.map_h}" '
-           f'fill="{colors.WATER}"/>',
-           f'<g fill="{colors.CONTEXT_LAND}" stroke="{colors.CONTEXT_BORDER}" '
+    out = [f'<g clip-path="url(#map-clip)">']
+    if not frame.windowed:
+        # A windowed map has its water already.
+        out.append(f'<rect x="{PAD}" y="{MAP_TOP}" width="{MAP_W}" height="{frame.map_h}" '
+                   f'fill="{colors.WATER}"/>')
+    out += [f'<g fill="{colors.CONTEXT_LAND}" stroke="{colors.CONTEXT_BORDER}" '
            'stroke-width="0.5" stroke-linejoin="round" class="context">']
     # Clipped to the page in pixels: most of a neighbour (all of Russia
     # beyond the Urals) is off the page, and its vertices would only add bytes.
@@ -1400,27 +1402,31 @@ def _label(manifest: Manifest, provenance: dict) -> str:
     return _human(label)
 
 
-def _title(manifest: Manifest, provenance: dict) -> str:
-    """'GDP per inhabitant, 2024' -- from the drawn data, never the slug.
-
-    The year is that of the values drawn. When each unit shows its latest
-    observation and they disagree, the title says so rather than implying one
-    vintage; a change names its two years.
-    """
-    if manifest.variable_id is None:
-        return _human(f"{_SCOPE.get(manifest.level, manifest.level)} boundaries")
-    label = _label(manifest, provenance)
+def _period(provenance: dict) -> str | None:
+    """The period of the values drawn: a change's two years, the year most
+    units share, or the source's own vintage label."""
     change = provenance.get("change")
     if change:
-        return f"{label}, {change['from']}–{change['to']}"
+        return f"{change['from']}–{change['to']}"
+    if provenance.get("year_mode") is not None:
+        return str(provenance["year_mode"])
     year = provenance.get("year")
-    if not year:
-        return label
-    drawn = provenance.get("years_drawn")
-    spread = len(drawn) > 1 if drawn is not None else "–" in str(year)
-    if spread:
-        return f"{label}, latest data ({year})"
-    return f"{label}, {year}"
+    return str(year) if year else None
+
+
+def _title(manifest: Manifest, provenance: dict) -> str:
+    """Concept, place, period: 'Present population, Ukraine, 1 January 2022'.
+
+    From the drawn data, never the slug; no "latest data" filler -- when units
+    disagree on the year, the title gives the year most share and the subtitle
+    names the exceptions.
+    """
+    if manifest.variable_id is None:
+        head = _human(f"{_SCOPE.get(manifest.level, manifest.level)} boundaries")
+        place = provenance.get("place")
+        return f"{head}, {place}" if place else head
+    parts = [_label(manifest, provenance), provenance.get("place"), _period(provenance)]
+    return ", ".join(str(part) for part in parts if part)
 
 
 def _subtitle(manifest: Manifest, provenance: dict, encoding: Encoding) -> str:
@@ -1432,7 +1438,20 @@ def _subtitle(manifest: Manifest, provenance: dict, encoding: Encoding) -> str:
     unit = provenance.get("unit")
     if unit == "%":
         unit = "percent"
-    return f"{head} · {unit}" if unit else head
+    period = _period(provenance)
+    if unit and period and unit.endswith(f" {period}"):
+        unit = unit[: -len(period) - 1]     # the title already says when
+    pieces = [head] + ([unit] if unit else [])
+    exceptions = provenance.get("year_exceptions")
+    if exceptions:
+        named = sum(len(v) for v in exceptions.values())
+        if named <= 8:
+            detail = "; ".join(f"{', '.join(names)} {year}"
+                               for year, names in sorted(exceptions.items(), reverse=True))
+        else:
+            detail = f"{named} units earlier, {min(exceptions)}–{max(exceptions)}"
+        pieces.append(f"latest year {provenance['year_mode']} ({detail})")
+    return " · ".join(pieces)
 
 
 def _footer(manifest, frame: Frame, encoding: Encoding, result, top: float,
@@ -1474,7 +1493,8 @@ def _footer(manifest, frame: Frame, encoding: Encoding, result, top: float,
     lines = [
         f"Source: {source}.",
         f"Variable: {variable}.",
-        f"Projection: {_projection_label(frame)}. Classification: {method}. {excluded}.",
+        f"Projection: {_projection_label(frame)}. Classification: {method}. {excluded}."
+        + (f" {_plain_land_note(p)}" if _plain_land_note(p) else ""),
         *extra,
     ]
 
@@ -1546,6 +1566,14 @@ def _exclusions(result) -> str:
     total = len(dropped) + len(result.rows)
     return (f"{len(dropped)} of {total} features excluded, hatched as no data: "
             + "; ".join(parts))
+
+
+def _plain_land_note(p: dict) -> str:
+    names = p.get("plain_land")
+    if not names:
+        return ""
+    return (f"{', '.join(names)} drawn as plain land: no permanent population, "
+            "so no statistics.")
 
 
 def _lower_first(text: str) -> str:

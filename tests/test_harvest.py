@@ -257,3 +257,20 @@ def test_dropped_units_carry_their_name_and_reasons_their_meaning(offline):
     result = H.harvest(build_manifest(bbox=(-1.0, -1.0, 5.0, 3.0)))
     assert result.dropped[0]["name"] == "Beta"
     assert result.provenance["drop_reasons"] == {"no_data": "no value reported by the source"}
+
+
+def test_antarctica_is_plain_land_not_an_exclusion(offline):
+    offline([_at(0, 0, a3="AAA"), _at(1, 0, a3="ATA", NAME="Antarctica", GDP_MD=-99)])
+    result = H.harvest(build_manifest(bbox=(-1.0, -1.0, 5.0, 3.0)))
+    assert result.dropped == []
+    assert result.provenance["plain_land"] == ["Antarctica"]
+    assert [c["id"] for c in result.context] == ["ATA"]
+
+
+def test_the_modal_year_and_its_exceptions_are_named(offline):
+    offline([_at(0, 0, a3="AAA", NAME="Alpha", GDP_YEAR=2019),
+             _at(1, 0, a3="BBB", NAME="Beta", GDP_YEAR=2019),
+             _at(2, 0, a3="CCC", NAME="Gamma", GDP_YEAR=2015)])
+    p = H.harvest(build_manifest(bbox=(-1.0, -1.0, 6.0, 3.0))).provenance
+    assert p["year_mode"] == 2019
+    assert p["year_exceptions"] == {"2015": ["Gamma"]}
