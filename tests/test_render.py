@@ -91,6 +91,25 @@ def test_footnote_states_everything_required(mini_geojson):
     assert "2 of 5 features excluded" in footnote        # dropped count
 
 
+@pytest.mark.parametrize(("provenance", "credit"), [
+    ({"source": "Natural Earth", "license": "public domain"},
+     "Natural Earth (public domain)"),
+    ({"source": "Overture Maps", "license": "ODbL 1.0",
+      "attribution": "© OpenStreetMap contributors, © Overture Maps Foundation"},
+     "Overture Maps (ODbL 1.0; © OpenStreetMap contributors, © Overture Maps Foundation)"),
+    ({"source": "Eurostat GISCO",
+      "attribution": "© EuroGeographics for the administrative boundaries"},
+     "Eurostat GISCO (© EuroGeographics for the administrative boundaries)"),
+    ({"source": "US Census Bureau", "license": "public domain",
+      "attribution": "U.S. Census Bureau, cartographic boundary files"},
+     "U.S. Census Bureau (public domain; U.S. Census Bureau, cartographic boundary files)"),
+])
+def test_boundary_credits_are_explicit(provenance, credit):
+    from mapsvc.render import _boundary_credit
+
+    assert _boundary_credit(provenance) == credit
+
+
 def test_footnote_states_the_classification_of_a_choropleth(mini_geojson):
     text, _, _ = _svg(mini_geojson, variable_id="POP_RANK")
     footnote = " ".join(
@@ -149,6 +168,19 @@ def test_same_manifest_twice_is_byte_identical(mini_geojson):
     first, _, _ = _svg(mini_geojson)
     second, _, _ = _svg(mini_geojson)
     assert first.encode() == second.encode()
+
+
+def test_lightest_positive_diverging_class_contrasts_with_water():
+    """Population growth near zero must not disappear into the ocean tint."""
+    def luminance(hex_colour):
+        channels = [int(hex_colour[i:i + 2], 16) / 255 for i in (1, 3, 5)]
+        linear = [v / 12.92 if v <= 0.04045 else ((v + 0.055) / 1.055) ** 2.4
+                  for v in channels]
+        return 0.2126 * linear[0] + 0.7152 * linear[1] + 0.0722 * linear[2]
+
+    first_growth = colors.diverging("RdBu", 3, 3)[3]
+    lighter, darker = sorted((luminance(first_growth), luminance(colors.WATER)), reverse=True)
+    assert (lighter + 0.05) / (darker + 0.05) >= 1.35
 
 
 def test_empty_region_is_an_error():

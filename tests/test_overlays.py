@@ -94,14 +94,15 @@ def test_usgs_window_becomes_query_box():
 
 # --------------------------------------------------------------- render ---
 
-def _overlay_map(mini_geojson, layers, places=()):
+def _overlay_map(mini_geojson, layers, places=(), physical=()):
     manifest = build_manifest(variable_source=None, variable_id=None,
                               overlays=(("usgs", QUAKES),))
     rows = [{"id": f["properties"]["ADM0_A3"], "geometry": f["geometry"], "value": None}
             for f in mini_geojson["features"]]
     provenance = {"source": "Natural Earth", "scale": "50m", "vintage": "v5.1.1"}
     result = HarvestResult(rows=rows, provenance=provenance, dropped=[],
-                           overlays=list(layers), places=list(places))
+                           overlays=list(layers), places=list(places),
+                           physical=list(physical))
     return render(manifest, result)
 
 
@@ -118,6 +119,33 @@ def test_points_render_sized_coloured_and_credited(mini_geojson):
     assert "Depth of focus" in svg
     # Deterministic, byte for byte.
     assert svg == _overlay_map(mini_geojson, [layer])
+
+
+def test_overlay_only_footer_omits_pipeline_boilerplate_and_urls(mini_geojson):
+    layer = _quake_layer()
+    layer["provenance"]["url"] = "https://example.test/raw-query"
+    svg = _overlay_map(mini_geojson, [layer])
+    assert "Boundaries: Natural Earth (public domain)" in svg
+    assert "Variable: none" not in svg
+    assert "Classification: boundaries only" not in svg
+    assert "https://" not in svg
+
+
+def test_physical_context_is_drawn_and_credited(mini_geojson):
+    river = {"kind": "lines", "class": "rivers",
+             "features": [{"id": "r", "coords": [[0, 40], [5, 45]]}],
+             "provenance": {"name": "Natural Earth rivers",
+                            "publisher": "Natural Earth", "license": "public domain"}}
+    plates = {"kind": "lines", "class": "plate-boundaries",
+              "features": [{"id": "p", "coords": [[10, 40], [15, 45]]}],
+              "provenance": {"name": "PB2002 tectonic plate boundaries",
+                             "publisher": "Bird 2003 / Hugo Ahlenius",
+                             "license": "ODC-By 1.0"}}
+    svg = _overlay_map(mini_geojson, [_quake_layer()], physical=[river, plates])
+    assert 'class="physical-context"' in svg
+    assert 'class="rivers"' in svg and 'class="plate-boundaries"' in svg
+    assert "Natural Earth rivers" in svg and "PB2002 tectonic plate boundaries" in svg
+    assert "Bird 2003 / Hugo Ahlenius" in svg and "ODC-By 1.0" in svg
 
 
 def test_overlay_render_module_does_no_io():

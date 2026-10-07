@@ -20,6 +20,8 @@ class HarvestResult:
                as having no data.
     overlays   feature layers (points, lines, flows) and their provenance.
     places     candidate place labels; the renderer picks which fit.
+    physical   derived hydrography or tectonic context, fetched by harvest and
+               handed to the I/O-free renderer as plain geometry.
     """
 
     rows: list = field(default_factory=list)
@@ -32,6 +34,9 @@ class HarvestResult:
     # window, largest first: [{"name", "lon", "lat", "pop", "capital"}]. Empty
     # unless overlays need orientation and bring no places of their own.
     places: list = field(default_factory=list)
+    # Derived physical context for overlays. Each layer is JSON-serialisable:
+    # {kind: "lines"|"polygons", features: [...], provenance: {...}}.
+    physical: list = field(default_factory=list)
     # [{"id": "POL", "geometry": {...}}]: neighbouring land drawn muted under a
     # `within` map, so Ukraine does not float in a void. Not data; never shaded.
     context: list = field(default_factory=list)

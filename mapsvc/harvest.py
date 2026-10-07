@@ -35,6 +35,26 @@ NO_DATA = {-99, "-99", "", None}
 # keeps serving rows written in the old format.
 CACHE_VERSION = 11
 
+# Physical context is derived from the overlay and its window, never requested
+# in the manifest. These files are fetched here and cached with the other input
+# data; render only receives clipped, JSON-serialisable geometry.
+NATURAL_EARTH_GEOJSON = (
+    "https://raw.githubusercontent.com/nvkelso/natural-earth-vector/master/geojson/{}"
+)
+RIVERS_50M = "ne_50m_rivers_lake_centerlines.geojson"
+LAKES_50M = "ne_50m_lakes.geojson"
+# At a close regional scale Natural Earth's supplementary 10m European rivers
+# supply tributaries omitted from 50m (including the Neman and Berezina on the
+# Minard extent). Selection is still scale- and extent-derived, not map-named.
+RIVERS_10M = "ne_10m_rivers_lake_centerlines.geojson"
+RIVERS_EUROPE_10M = "ne_10m_rivers_europe.geojson"
+PLATES_URL = (
+    "https://raw.githubusercontent.com/fraxen/tectonicplates/master/"
+    "GeoJSON/PB2002_boundaries.json"
+)
+REGIONAL_PHYSICAL_MAX_SPAN = 40.0
+DETAILED_RIVERS_MAX_SPAN = 20.0
+
 
 class HarvestError(ValueError):
     """Data could not be assembled for this manifest."""
@@ -153,6 +173,7 @@ def _framed_on_overlays(manifest: Manifest) -> HarvestResult:
     result = _base(dataclasses.replace(manifest, bbox=box))
     result.overlays = layers
     result.provenance["overlay_bbox"] = list(box)
+    _add_physical_context(manifest, result, box)
     brings_places = any(layer["kind"] == "places" for layer in layers)
     if box[2] - box[0] <= PLACES_MAX_SPAN and not brings_places:
         result.places = context_places(box, None)
@@ -229,6 +250,157 @@ def _add_overlays(manifest: Manifest, result: HarvestResult) -> None:
     small = (extent[2] - extent[0]) <= PLACES_MAX_SPAN
     if small and not brings_places:
         result.places = context_places(extent, manifest.within)
+    _add_physical_context(manifest, result, extent)
+
+
+def _add_physical_context(manifest: Manifest, result: HarvestResult,
+                          extent: tuple) -> None:
+    """Add derived hydrography and tectonics appropriate to overlay semantics.
+
+    Regional overlays under 40 degrees receive Natural Earth rivers and lakes.
+    Any provider declaring a seismic theme receives PB2002 plate boundaries.
+    A failed optional context fetch never prevents the requested map itself.
+    """
+    kinds = []
+    if extent[2] - extent[0] < REGIONAL_PHYSICAL_MAX_SPAN:
+        kinds.append("hydrography")
+    if any(overlays.capabilities(source).theme == "seismic"
+           for source, _ in manifest.overlays):
+        kinds.append("tectonic_plates")
+    for kind in kinds:
+        try:
+            result.physical.extend(load_physical_context(kind, extent))
+        except (OSError, ValueError, json.JSONDecodeError) as exc:
+            result.provenance.setdefault("physical_context_errors", []).append(
+                f"{kind}: {exc}"
+            )
+
+
+def load_physical_context(kind: str, extent: tuple) -> list:
+    """Fetch and clip one derived physical-context family.
+
+    Kept as a public seam so offline tests can replace the loader. Returned
+    features are sorted and contain no source URLs; provenance names the
+    dataset and publisher for the renderer's footnote.
+    """
+    from mapsvc import fetch
+
+    if kind == "tectonic_plates":
+        data = json.loads(fetch.cached(PLATES_URL, "physical", "PB2002_boundaries.json"))
+        return [{
+            "kind": "lines", "class": "plate-boundaries",
+            "features": _line_features(data, extent, "plate"),
+            "provenance": {
+                "name": "PB2002 tectonic plate boundaries",
+                "publisher": "Peter Bird (2003), GeoJSON by Hugo Ahlenius",
+                "license": "ODC-By 1.0",
+            },
+        }]
+    if kind != "hydrography":
+        raise ValueError(f"unknown physical context {kind!r}")
+
+    rivers = _physical_geojson(RIVERS_50M)
+    river_features = _line_features(rivers, extent, "river")
+    if extent[2] - extent[0] < DETAILED_RIVERS_MAX_SPAN:
+        # Natural Earth explicitly publishes these as supplementary rivers for
+        # close-scale European maps. min_zoom <= 6 prevents a dense stream mesh.
+        known = {_feature_name(f).casefold() for f in rivers.get("features", [])
+                 if _feature_name(f)}
+        for filename in (RIVERS_10M, RIVERS_EUROPE_10M):
+            detailed = _physical_geojson(filename)
+            selected = {"features": [f for f in detailed.get("features", [])
+                                      if float((f.get("properties") or {}).get(
+                                          "min_zoom") or 99) <= 6.0
+                                      and _feature_name(f).casefold() not in known]}
+            extra = _line_features(selected, extent, "river-detail")
+            river_features.extend(extra)
+            known.update(f["name"].casefold() for f in extra if f.get("name"))
+    river_features.sort(key=lambda f: (f.get("name") or "", f["id"]))
+    lakes = _physical_geojson(LAKES_50M)
+    return [
+        {
+            "kind": "polygons", "class": "lakes",
+            "features": _polygon_features(lakes, extent, "lake"),
+            "provenance": {
+                "name": "Natural Earth ne_50m_lakes",
+                "publisher": "Natural Earth",
+                "license": "public domain",
+            },
+        },
+        {
+            "kind": "lines", "class": "rivers",
+            "features": river_features,
+            "provenance": {
+                "name": ("Natural Earth ne_50m_rivers_lake_centerlines"
+                         + (" with 10m supplementary rivers"
+                            if extent[2] - extent[0] < DETAILED_RIVERS_MAX_SPAN else "")),
+                "publisher": "Natural Earth",
+                "license": "public domain",
+            },
+        },
+    ]
+
+
+def _physical_geojson(filename: str) -> dict:
+    from mapsvc import fetch
+
+    url = NATURAL_EARTH_GEOJSON.format(filename)
+    return json.loads(fetch.cached(url, "physical", filename))
+
+
+def _feature_name(feature: dict) -> str:
+    props = feature.get("properties") or {}
+    return str(props.get("name_en") or props.get("name") or props.get("label") or "")
+
+
+def _line_features(data: dict, extent: tuple, prefix: str) -> list:
+    found = []
+    for index, feature in enumerate(data.get("features", [])):
+        geometry = feature.get("geometry") or {}
+        lines = ([geometry.get("coordinates") or []]
+                 if geometry.get("type") == "LineString"
+                 else geometry.get("coordinates") or []
+                 if geometry.get("type") == "MultiLineString" else [])
+        name = _feature_name(feature)
+        for part, coords in enumerate(lines):
+            clean = [[round(float(p[0]), 5), round(float(p[1]), 5)]
+                     for p in coords if len(p) >= 2]
+            if len(clean) >= 2 and _points_intersect(clean, extent):
+                found.append({"id": f"{prefix}-{index}-{part}", "name": name,
+                              "coords": clean})
+    found.sort(key=lambda f: (f["name"], f["id"]))
+    return found
+
+
+def _polygon_features(data: dict, extent: tuple, prefix: str) -> list:
+    found = []
+    for index, feature in enumerate(data.get("features", [])):
+        geometry = feature.get("geometry") or {}
+        if geometry.get("type") not in ("Polygon", "MultiPolygon"):
+            continue
+        points = list(_geometry_points(geometry.get("coordinates") or []))
+        if points and _points_intersect(points, extent):
+            found.append({"id": f"{prefix}-{index}", "name": _feature_name(feature),
+                          "geometry": geometry})
+    found.sort(key=lambda f: (f["name"], f["id"]))
+    return found
+
+
+def _geometry_points(value):
+    if (isinstance(value, (list, tuple)) and len(value) >= 2
+            and all(isinstance(v, (int, float)) for v in value[:2])):
+        yield value
+        return
+    if isinstance(value, (list, tuple)):
+        for child in value:
+            yield from _geometry_points(child)
+
+
+def _points_intersect(points, extent: tuple) -> bool:
+    xs = [p[0] for p in points]
+    ys = [p[1] for p in points]
+    return not (max(xs) < extent[0] or min(xs) > extent[2]
+                or max(ys) < extent[1] or min(ys) > extent[3])
 
 
 WORLD_EXTENT = (-180.0, -90.0, 180.0, 90.0)

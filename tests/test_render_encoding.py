@@ -148,7 +148,7 @@ def test_a_lone_negative_outlier_does_not_trigger_a_diverging_ramp():
 
 def test_diverging_colours_meet_at_the_light_centre():
     below, above = colors.diverging("RdBu", 2, 3), colors.colors("RdBu", 6)
-    assert below == ["#ef8a62", "#fddbc7", "#d1e5f0", "#67a9cf", "#2166ac"]
+    assert below == ["#ef8a62", "#fddbc7", "#a6cee3", "#67a9cf", "#2166ac"]
     assert below[1:] == above[2:]
 
 
