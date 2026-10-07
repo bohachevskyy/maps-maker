@@ -134,6 +134,16 @@ def load(level: str, bbox, detail: str = "simplified",
             "geometry": feature["geometry"],
             "properties": props,
         })
+    # The public join key is the id a reader (and the eval) can check, so it
+    # replaces Natural Earth's internal adm1_code (USA-3513 is Wyoming) wherever
+    # it is present and unique. Duplicated or placeholder keys keep the old id.
+    seen: dict = {}
+    for unit in units:
+        seen[unit["key"]] = seen.get(unit["key"], 0) + 1
+    for unit in units:
+        key = unit["key"]
+        if key and seen[key] == 1 and "-99" not in str(key):
+            unit["id"] = key
     units.sort(key=lambda u: str(u["id"]))
 
     return Boundaries(units=units, keys=KEYS[level], provenance={
