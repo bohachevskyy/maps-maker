@@ -127,7 +127,7 @@ evals/           prompts and the manifests they should produce. Costs money.
 ```bash
 uv sync
 ./run.sh                 # foreground on :8000; re-run to restart
-uv run pytest            # 321 tests, offline, no API key, free
+uv run pytest            # 376 tests, offline, no API key, free
 
 set -a; source .env; set +a
 uv run python -m evals.run --repeat 3   # live model, costs a few cents
