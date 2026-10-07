@@ -44,7 +44,7 @@ def test_minus_99_and_zero_land_in_dropped_not_the_value_domain(offline):
     assert {d["id"]: d["reason"] for d in result.dropped} == {"BBB": "no_data", "CCC": "no_data"}
     values = [r["value"] for r in result.rows]
     assert -99 not in values and 0 not in values
-    assert min(values) == 100.0
+    assert min(values) == 100.0 * 1_000_000  # GDP_MD is converted from millions
 
 
 def test_a_sentinel_would_otherwise_be_shaded_as_the_lowest_real_value(offline):
@@ -60,7 +60,7 @@ def test_a_sentinel_would_otherwise_be_shaded_as_the_lowest_real_value(offline):
     offline([feature(f"C{i:02d}", GDP_MD=v)
              for i, v in enumerate([100, 200, 300, 400, 500, -99])])
     result = H.harvest(build_manifest(bbox=HERE))
-    assert min(r["value"] for r in result.rows) == 100.0
+    assert min(r["value"] for r in result.rows) == 100.0 * 1_000_000
 
     polluted = classify.build([100, 200, 300, 400, 500, -99], "count", "quantile", 5)
     clean = classify.build([100, 200, 300, 400, 500], "count", "quantile", 5)

@@ -368,7 +368,10 @@ THE BASEMAP
 Queried live, so a new window takes about ten seconds; afterwards it is cached.
   natural_earth -- admin_0 and admin_1 only, much coarser, but instant. Choose \
 it when the user asks for something fast or rough, or for a window the size of \
-a continent, where Overture is slow enough to be a problem.
+a continent, where Overture is slow enough to be a problem. Its admin_1 is \
+incomplete in disputed areas -- Ukraine has 25 units there, without Crimea and \
+Sevastopol -- so for the sub-national units of one country use overture (or \
+census for the US), which carries every unit.
   census        -- US Census Bureau: US states (admin_1) and counties (admin_2). \
 The only basemap whose counties carry FIPS codes. within: "USA" or states as \
 "US-CA".
@@ -403,7 +406,12 @@ count, because the renderer automatically uses proportional circles for counts. 
 State the inferred denominator in reasoning, for example "normalized per capita \
 because state populations differ greatly."
 
-Prefer a ready-made ratio published by the source over deriving the same ratio. \
+Prefer a ready-made ratio published by a source over deriving the same ratio. \
+When the request itself names a ratio -- "GDP per capita", "share of ...", a \
+rate -- search a searchable source for that exact measure first and use what it \
+publishes; derive with `per` only when no source publishes it. Natural Earth's \
+GDP_MD is a nominal, single-year estimate: never use GDP_MD / POP_EST when OWID \
+offers GDP per capita. \
 For GDP comparisons across countries or regions, prefer purchasing-power \
 standards per inhabitant over nominal currency: for Eurostat regional GDP choose \
 unit=PPS_EU27_2020_HAB, not unit=EUR_HAB. This makes living-standard comparisons \
@@ -760,9 +768,15 @@ def _ask_codex(conversation: list[dict]) -> dict:
 
         if completed.returncode:
             detail = (completed.stderr or completed.stdout or "no diagnostic").strip()
+            # The CLI prints a banner and the whole prompt before failing, so
+            # the first 500 characters never contain the reason. Its ERROR
+            # lines do (a usage limit, an auth failure); fall back to the tail.
+            errors = [line.strip() for line in detail.splitlines()
+                      if line.strip().startswith("ERROR")]
+            reason = "; ".join(dict.fromkeys(errors)) if errors else detail[-500:]
             raise AgentError(
                 f"the codex CLI failed with exit code {completed.returncode}: "
-                f"{detail[:500]}", "prompt",
+                f"{reason[:500]}", "prompt",
             )
         try:
             output = output_path.read_text(encoding="utf-8")

@@ -34,9 +34,16 @@ def _v(vid, level, unit=None, year_col=None, label=None):
                     year_col=year_col)
 
 
+# Natural Earth stores GDP in millions of US$. Like EIA's "thousand" units it is
+# converted at load, so a derived ratio reads "US$ per person" at its true size
+# instead of 0.11 "million USD per person".
+_SCALE = {"GDP_MD": 1_000_000}
+# Placeholders that must survive untouched for harvest to recognise them.
+NO_DATA_MARKERS = (-99, 0)
+
 COUNTRY_VARIABLES = {
     "POP_EST":    _v("POP_EST",    "count",   "people",      "POP_YEAR", "population"),
-    "GDP_MD":     _v("GDP_MD",     "count",   "million USD", "GDP_YEAR", "GDP"),
+    "GDP_MD":     _v("GDP_MD",     "count",   "US$",         "GDP_YEAR", "GDP"),
     "POP_RANK":   _v("POP_RANK",   "ordinal", None, None, "population rank"),
     "INCOME_GRP": _v("INCOME_GRP", "ordinal", None, None, "income group"),
     "ECONOMY":    _v("ECONOMY",    "ordinal", None, None, "economy type"),
@@ -90,7 +97,11 @@ def load(variable_id: str, level: str, region: str) -> Values:
                else props.get(key_property))
         if not key:
             continue
-        values[str(key).upper()] = props.get(variable_id)
+        value = props.get(variable_id)
+        scale = _SCALE.get(variable_id)
+        if scale and isinstance(value, (int, float)) and value not in NO_DATA_MARKERS:
+            value = value * scale
+        values[str(key).upper()] = value
         if meta.year_col and isinstance(props.get(meta.year_col), int):
             keyed_years[str(key).upper()] = props[meta.year_col]
     years = set(keyed_years.values())

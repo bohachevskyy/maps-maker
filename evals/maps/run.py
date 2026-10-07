@@ -276,9 +276,24 @@ def _extent_for(manifest, result=None):
 
 
 def _footnote_check(text: str) -> dict:
-    required = ("Source:", "Projection:", "Classification:", "Variable:",
-                "features excluded")
+    """What CLAUDE.md makes mandatory, by the kind of map, not by exact wording.
+
+    Every map names its boundary source and projection. A map with a variable
+    also states the variable, its classification and how many units were
+    excluded; a map with overlays states each overlay and its exclusions.
+    """
+    has_variable = "Variable:" in text
+    has_overlay = "Overlay:" in text
+    required = ["Projection:"]
     missing = [token for token in required if token not in text]
+    if "Boundaries:" not in text and "Source:" not in text:
+        missing.append("Boundaries:/Source:")
+    if not (has_variable or has_overlay):
+        missing.append("Variable:/Overlay:")
+    if has_variable and "Classification:" not in text:
+        missing.append("Classification:")
+    if "excluded" not in text:
+        missing.append("excluded")
     result = {"status": "pass" if not missing else "fail"}
     if missing:
         result["missing"] = missing
