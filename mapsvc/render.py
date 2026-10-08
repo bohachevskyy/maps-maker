@@ -284,7 +284,8 @@ def render(manifest: Manifest, result: HarvestResult) -> str:
         body.append(art.legend(PAD, frame.bottom + legend_band + 16))
         legend_band += art.legend_h + 16
 
-    title, subtitle = _title(manifest, p), _subtitle(manifest, p, encoding)
+    title = _title(manifest, p)
+    subtitle = _subtitle(manifest, p, encoding, _aggregate_note(every_row, p, encoding))
     if art is not None and manifest.variable_id is None and art.title:
         title, subtitle = _overlay_title(art.title, p.get("place")), art.subtitle
     head = [
@@ -341,6 +342,8 @@ class Encoding:
         self.missing_label = "no data"   # what the hatch means, in the legend
         # (fill, label) keys after the hatch: neutral land drawn but not mapped.
         self.extra_keys: list = []
+        # (left, right) words under a diverging strip: who leads on each side.
+        self.end_captions: tuple | None = None
         self.decimals: int | None = None    # the source's own precision, if it has one
 
     def fill(self, value) -> str:
@@ -427,6 +430,10 @@ def _encoding(manifest: Manifest, rows: list, provenance: dict) -> Encoding:
         enc = Encoding("choropleth", label, unit, scheme, swatches,
                        value_scale=value_scale)
         enc.decimals = _source_decimals(values) if value_scale == 1.0 else None
+        direction = provenance.get("diverging") or {}
+        if center_at is not None and direction.get("negative") and direction.get("positive"):
+            enc.end_captions = (_side_caption(direction, "negative"),
+                                _side_caption(direction, "positive"))
         return enc
 
     ramp = registry.RAMP_FOR_LEVEL.get(level, "YlGnBu")
@@ -438,6 +445,16 @@ def _encoding(manifest: Manifest, rows: list, provenance: dict) -> Encoding:
         # holds. There is nothing to reconfigure: the map cannot be drawn.
         raise RenderError(str(exc), "variable.id") from exc
     return Encoding("choropleth", label, unit, scheme, swatches)
+
+
+def _side_caption(direction: dict, side: str) -> str:
+    """'Harris (D) ahead' / 'Democratic lead': one side of a diverging scale."""
+    lead = str(direction[side])
+    name = direction.get(f"{side}_candidate")
+    if not name:
+        return lead
+    party = lead.split(" ")[0]
+    return f"{name} ({party[0]}) ahead" if party else f"{name} ahead"
 
 
 def _is_share(unit: str) -> bool:
@@ -3201,12 +3218,20 @@ def _band(encoding: Encoding, has_missing: bool):
             # The outer edges are the data's extremes, not class limits: the
             # end classes are open ("< $2k"), so their ends go unwritten.
             edges[0] = edges[-1] = ""
-    h = head_h + 8 + SWATCH_H + 16
+    captions = encoding.end_captions
+    h = head_h + 8 + SWATCH_H + 16 + (14 if captions else 0)
 
     def draw(x, y):
         out = [f'<g font-family="{FONT}">']
         out += _heading(encoding, x, y + 12)
         sy = y + head_h + 8
+        if captions:
+            cy = sy + SWATCH_H + 28
+            out.append(f'<text x="{_num(x)}" y="{_num(cy)}" font-size="10.5" '
+                       f'font-weight="600" fill="#333333">\u2190 {escape(captions[0])}</text>')
+            out.append(f'<text x="{_num(x + k * cell)}" y="{_num(cy)}" font-size="10.5" '
+                       f'font-weight="600" text-anchor="end" fill="#333333">'
+                       f'{escape(captions[1])} \u2192</text>')
         for i, fill in enumerate(encoding.swatches):
             out.append(f'<rect x="{_num(x + i * cell)}" y="{_num(sy)}" width="{_num(cell)}" '
                        f'height="{SWATCH_H}" fill="{fill}" stroke="#ffffff" stroke-width="0.8"/>')
@@ -3363,6 +3388,31 @@ _UNIT_NAMES = {
 }
 
 
+def _aggregate_note(rows: list, provenance: dict, encoding: Encoding) -> str:
+    """The source's own total for the area the map covers: "Canada +5.2%",
+    "Texas statewide 4.1%". Only where the source published one for exactly
+    the units drawn (its key is a prefix of every id) and the quantity is a
+    ratio, which a total can be compared with; nothing is computed here."""
+    aggregates = provenance.get("aggregates") or {}
+    if not aggregates or encoding.mode != "choropleth" or not rows:
+        return ""
+    ids = [str(row["id"]) for row in rows]
+    prefixes = [p for p in aggregates if all(i.startswith(p) for i in ids)]
+    if not prefixes:
+        return ""
+    found = aggregates[max(prefixes, key=len)]
+    value = found.get("value")
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return ""
+    if provenance.get("change"):
+        text = f"{'+' if value > 0 else '−' if value < 0 else ''}{abs(value):.1f}%"
+    elif _is_share(str(provenance.get("unit") or "")):
+        text = f"{value:.1f}%"
+    else:
+        return ""
+    return f"{found['label']} {text}"
+
+
 def _scope_word(manifest: Manifest, provenance: dict) -> str:
     place = str(provenance.get("place") or "")
     if (place, manifest.level) in _UNIT_NAMES:
@@ -3377,7 +3427,8 @@ def _scope_word(manifest: Manifest, provenance: dict) -> str:
 _FOOTNOTE_ONLY = re.compile(r"\bprovisional\b|\bestimated\b", re.I)
 
 
-def _subtitle(manifest: Manifest, provenance: dict, encoding: Encoding) -> str:
+def _subtitle(manifest: Manifest, provenance: dict, encoding: Encoding,
+              aggregate: str = "") -> str:
     if encoding.mode == "basemap":
         return ""
     head = f"By {_scope_word(manifest, provenance)}"
@@ -3389,7 +3440,7 @@ def _subtitle(manifest: Manifest, provenance: dict, encoding: Encoding) -> str:
     period = _period(provenance)
     if unit and period and unit.endswith(f" {period}"):
         unit = unit[: -len(period) - 1]     # the title already says when
-    pieces = [head] + ([unit] if unit else [])
+    pieces = [head] + ([unit] if unit else []) + ([aggregate] if aggregate else [])
     note = provenance.get("statistics_note")
     if note and not _FOOTNOTE_ONLY.search(str(note)):
         pieces.append(str(note))

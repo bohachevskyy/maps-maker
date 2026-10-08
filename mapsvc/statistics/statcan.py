@@ -129,7 +129,17 @@ def load(variable_id: str, level: str, region: str,
         raise StatisticsError(
             f"Statistics Canada returned {len(values)} of 13 provinces/territories",
             "variable.source")
+    # The table's own national row: a figure the map can state without
+    # summing anything itself.
+    national = next((row for row in _rows() if row.get("GEO") == "Canada"), None)
+    aggregates = {}
+    if national is not None:
+        try:
+            aggregates["CA-"] = {"label": "Canada overall", "value": float(national[column])}
+        except (KeyError, ValueError):
+            pass
     return Values(values=values, years={key: chosen for key in values}, provenance={
+        "aggregates": aggregates,
         "source": "Statistics Canada",
         "vintage": "2021 Census of Population, Table 98-10-0001-01",
         "variable": "Census population",

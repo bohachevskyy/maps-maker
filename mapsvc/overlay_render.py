@@ -529,9 +529,12 @@ def _tracks(layer, frame, labels, anchors):
                    f'stroke-width="{width}" stroke-linecap="round" stroke-linejoin="round"'
                    f'{dash} data-class={quoteattr(str(value))}/>')
     # Landfalls first, so no name is written over one.
-    landfall_svg, landfall_n = [], 0
+    landfall_svg, landfall_n, told = [], 0, []
     for f in layer["features"]:
-        for lon, lat, cat, when in f.get("landfalls") or ():
+        for fall in f.get("landfalls") or ():
+            lon, lat, cat, when = fall[:4]
+            wind = fall[4] if len(fall) > 4 else None
+            place = fall[5] if len(fall) > 5 else ""
             x, y = _xy(frame, lon, lat)
             if not frame.visible(x, y):
                 continue
@@ -543,7 +546,16 @@ def _tracks(layer, frame, labels, anchors):
             labels.block(x - 4.5, y - 4.5, x + 4.5, y + 4.5)
             anchors.append((x, y))
             landfall_n += 1
+            if f["peak"] >= MAJOR_STORM and f.get("name"):
+                told.append((-f["peak"], str(when), f["name"], x, y, cat, wind, place))
     out.extend(landfall_svg)
+    # The landfalls of the major hurricanes are the story of a season: each
+    # says who, when, how strong and where (the NHC's own record).
+    for _, when, name, x, y, cat, wind, place in sorted(told):
+        first = f"{name} landfall, {_day(when)}"
+        strength = f"Cat {int(cat)}" + (f", {wind:.0f} kt" if wind else "")
+        second = f"{strength} \u00b7 {place}" if place else strength
+        labels.callout_lines([(first, True), (second, False)], x, y, 4.0)
     # Every named storm, strongest first, majors in bold. A storm tries the
     # place it peaked, then the rest of its track: in the Gulf of Mexico the
     # peak is under six other storms.
@@ -565,10 +577,24 @@ def _tracks(layer, frame, labels, anchors):
     present = {v for v, runs in paths.items() if runs}
     colours = {v: SSHS.get(v, ORDERED[0]) for v in order}
     legend = [_swatch_block(category, colours, present, "line",
-                            dashed=frozenset({"other"}))]
+                            dashed=frozenset({"other"}), columns=2)]
     if landfall_n:
         legend.append(_landfall_block(landfall_n))
     return "".join(out), legend
+
+
+MAJOR_STORM = 3          # Saffir-Simpson category 3: a "major" hurricane
+_MONTHS = ("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct",
+           "Nov", "Dec")
+
+
+def _day(iso: str) -> str:
+    """'2024-07-08' -> '8 Jul'; anything else is shown as given."""
+    try:
+        _, month, day = iso[:10].split("-")
+        return f"{int(day)} {_MONTHS[int(month) - 1]}"
+    except (ValueError, IndexError):
+        return iso
 
 
 def _landfall_block(count: int):
@@ -653,17 +679,26 @@ def _heading(text: str, x: float, y: float) -> str:
             f'fill="{TEXT}">{escape(text)}</text>')
 
 
-def _swatch_block(category, colours, present, mark, dashed=frozenset()):
+def _swatch_block(category, colours, present, mark, dashed=frozenset(), columns=1):
+    """The classes of a category, one under another -- or in `columns` columns
+    filled down, which is how a ladder of storm categories stays short."""
     classes = [c for c in category["classes"] if c["value"] in present]
     heading = category.get("label") or ""
     rows = [(colours.get(c["value"], ORDERED[0]), c["label"], c["value"]) for c in classes]
-    w = max([_text_w(heading, 11.5)] + [30 + _text_w(t, 10) for _, t, _ in rows])
-    h = 18 + 16 * len(rows)
+    per_column = -(-len(rows) // columns) if rows else 1
+    widths = [max([0.0] + [30 + _text_w(t, 10) for _, t, _ in rows[c * per_column:
+                                                                  (c + 1) * per_column]])
+              for c in range(columns)]
+    starts = [sum(widths[:c]) + 26.0 * c for c in range(columns)]
+    offsets = [(starts[i // per_column], i % per_column) for i in range(len(rows))]
+    w = max(_text_w(heading, 11.5), starts[-1] + widths[-1])
+    h = 18 + 16 * per_column
 
-    def draw(x, y):
-        out = [_heading(heading, x, y + 11)] if heading else []
+    def draw(x0, y):
+        out = [_heading(heading, x0, y + 11)] if heading else []
         for i, (colour, text, value) in enumerate(rows):
-            cy = y + 18 + 16 * i + 6
+            cy = y + 18 + 16 * offsets[i][1] + 6
+            x = x0 + offsets[i][0]
             if mark == "dot":
                 out.append(f'<circle cx="{_num(x + 6)}" cy="{_num(cy)}" r="5" '
                            f'fill="{colour}" fill-opacity="0.85"/>')
@@ -1251,6 +1286,50 @@ class Labels:
                                     f'stroke-width="0.6"/>')
                     self.leaders.append((sx, sy, lx, ly, 0.5))
                     return True
+        return False
+
+    def callout_lines(self, lines, x, y, r,
+                      reaches=(10.0, 20.0, 32.0, 46.0, 62.0, 80.0, 100.0, 124.0, 150.0),
+                      size=LABEL_SIZE - 0.5):
+        """A callout of several lines ((text, bold) each) on a leader from a
+        marker's edge: the first line leads, the rest follow it, all beside the
+        leader's end. Placed like `callout`: nearest free spot, leader not
+        crossing a label or another leader."""
+        lead = size * 1.18
+        w = max(_text_w(t, size) for t, _ in lines)
+        h = lead * len(lines)
+        directions = ((1, 0), (-1, 0), (1, -1), (-1, -1), (1, 1), (-1, 1), (0, -1), (0, 1),
+                      (2, -1), (-2, -1), (2, 1), (-2, 1), (1, -2), (-1, -2), (1, 2), (-1, 2))
+        # Clear of every track first; failing that, haloed text may cross a line.
+        for ink in (True, False):
+            for reach in reaches:
+              for dx, dy in directions:
+                  norm = math.hypot(dx, dy)
+                  ux, uy = dx / norm, dy / norm
+                  sx, sy = x + ux * r, y + uy * r
+                  lx, ly = x + ux * (r + reach), y + uy * (r + reach)
+                  if dx > 0:
+                      x0, anchor, tx = lx + 2, "start", lx + 2
+                  elif dx < 0:
+                      x0, anchor, tx = lx - 2 - w, "end", lx - 2
+                  else:
+                      x0, anchor, tx = lx - w / 2, "middle", lx
+                  top = ly - h / 2 if dx != 0 else (ly - h - 1 if dy < 0 else ly + 1)
+                  box = (x0, top, x0 + w, top + h)
+                  if self._leader_blocked(sx, sy, lx, ly) or not self._free(box, ink=ink):
+                      continue
+                  self.taken.append(box)
+                  self.leaders.append((sx, sy, lx, ly, 0.5))
+                  spans = []
+                  for i, (text, bold) in enumerate(lines):
+                      weight = ' font-weight="600"' if bold else ""
+                      spans.append(f'<text x="{_num(tx)}" y="{_num(top + lead * i + size * 0.88)}" '
+                                   f'font-size="{size:g}" text-anchor="{anchor}" fill="{TEXT}" '
+                                   f'{HALO}{weight}>{escape(text)}</text>')
+                  self.out.append(f'<line x1="{_num(sx)}" y1="{_num(sy)}" x2="{_num(lx)}" '
+                                  f'y2="{_num(ly)}" stroke="{MUTED}" stroke-width="0.6"/>'
+                                  + "".join(spans))
+                  return True
         return False
 
     def _leader_blocked(self, sx, sy, lx, ly) -> bool:

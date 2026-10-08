@@ -76,3 +76,7 @@ def _no_context_fetch(monkeypatch):
     monkeypatch.setattr(harvest, "context_countries", lambda: [])
     # Sea names likewise: a test of them installs its own marine areas.
     monkeypatch.setattr(harvest, "marine_areas", lambda: [])
+    # A landfall's region name comes from Natural Earth admin-1; offline tests
+    # install their own.
+    from mapsvc.overlays import web
+    monkeypatch.setattr(web, "_landfall_region", lambda lon, lat: "")

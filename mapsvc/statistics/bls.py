@@ -16,7 +16,7 @@ import os
 import time
 import zipfile
 
-from mapsvc import fetch, xlsx
+from mapsvc import fetch, usfips, xlsx
 from mapsvc.statistics import Capabilities, StatisticsError, Values, Variable
 
 SOURCE = "bls"
@@ -175,6 +175,8 @@ def load(variable_id: str, level: str, region: str,
     column = {"labor_force": "F", "unemployed": "H", "unemployment_rate": "I"}[
         variable_id]
     values = {}
+    force: dict = {}
+    jobless: dict = {}
     for row in rows:
         state, county = row.get("B", "").strip(), row.get("C", "").strip()
         if len(state) != 2 or len(county) != 3 or not (state + county).isdigit():
@@ -184,10 +186,25 @@ def load(variable_id: str, level: str, region: str,
         except ValueError:
             continue
         values[state + county] = value
+        try:
+            force[state] = force.get(state, 0.0) + float(row.get("F", "").replace(",", ""))
+            jobless[state] = jobless.get(state, 0.0) + float(row.get("H", "").replace(",", ""))
+        except ValueError:
+            pass
+    # Each state's own rate, from the same workbook: the counties' unemployed
+    # over their labour force, which is what the state's annual average is.
+    aggregates = {}
+    if variable_id == "unemployment_rate":
+        for state, people in force.items():
+            postal = usfips.STATES.get(state)
+            if people > 0 and postal in usfips.NAMES:
+                aggregates[state] = {"label": f"{usfips.NAMES[postal]} statewide",
+                                     "value": 100.0 * jobless.get(state, 0.0) / people}
     if not values:
         raise StatisticsError(f"BLS LAUS had no county values for {chosen}",
                               "variable.change" if year is not None else "variable.source")
     return Values(values=values, years={key: chosen for key in values}, provenance={
+        "aggregates": aggregates,
         "source": "BLS Local Area Unemployment Statistics",
         "vintage": f"LAUS county {chosen} annual averages{_later_year_note(chosen, year)}",
         "variable": meta.label,

@@ -203,6 +203,15 @@ def _change(first: Values, last: Values, start: int, end: int) -> Values:
         missing.pop(key, None)
 
     prov = dict(last.provenance)
+    # A published national or statewide total, carried through as its own
+    # percent change over the same years.
+    aggregates = {}
+    for prefix, end_total in (last.provenance.get("aggregates") or {}).items():
+        start_total = (first.provenance.get("aggregates") or {}).get(prefix)
+        a, b = _number(start_total and start_total.get("value")), _number(end_total.get("value"))
+        if a and b is not None:
+            aggregates[prefix] = {"label": end_total["label"], "value": (b - a) / a * 100.0}
+    prov["aggregates"] = aggregates
     label = last.provenance.get("variable")
     prov.update({
         "variable": f"change in {_lower_first(label)}",

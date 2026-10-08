@@ -966,6 +966,7 @@ def _build(manifest: Manifest, boundaries=None) -> HarvestResult:
         "change": values.provenance.get("change"),
         "diverging": values.provenance.get("diverging"),
         "index_reference": values.provenance.get("index_reference"),
+        "aggregates": values.provenance.get("aggregates"),
     })
 
     # The measurement level of what is drawn, which render reads instead of

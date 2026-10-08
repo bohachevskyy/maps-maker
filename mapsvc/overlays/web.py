@@ -1061,6 +1061,52 @@ def _sshs_class(code: int | None) -> str:
     return {-1: "td", 0: "ts"}.get(code, f"cat{code}")
 
 
+def _landfall_region(lon: float, lat: float) -> str:
+    """The first-level division a landfall is in ("Texas"; "Quintana Roo,
+    Mexico"), from Natural Earth's admin-1 polygons: the one that holds the
+    point, else the nearest within 40 km (the fix is rounded to 0.1 degree and
+    often sits just off the coast). Empty when that data cannot be had."""
+    try:
+        from mapsvc import project
+        from mapsvc.harvest import load_source
+
+        features = load_source("admin_1")["features"]
+    except Exception:       # a name is a courtesy; the landfall stands without it
+        return ""
+    best, best_km = None, 40.0
+    for feature in features:
+        geometry = feature.get("geometry") or {}
+        polygons = (geometry.get("coordinates") or [] if geometry.get("type") == "MultiPolygon"
+                    else [geometry.get("coordinates") or []])
+        for polygon in polygons:
+            if not polygon:
+                continue
+            ring = polygon[0]
+            xs = [p[0] for p in ring]
+            ys = [p[1] for p in ring]
+            if not (min(xs) - 0.5 <= lon <= max(xs) + 0.5 and min(ys) - 0.5 <= lat <= max(ys) + 0.5):
+                continue
+            if project.point_in_ring(lon, lat, [tuple(p[:2]) for p in ring]):
+                best, best_km = feature, 0.0
+                break
+            near = min(math.hypot((p[0] - lon) * math.cos(math.radians(lat)), p[1] - lat)
+                       for p in ring) * 111.2
+            if near < best_km:
+                best, best_km = feature, near
+        if best_km == 0.0:
+            break
+    if best is None:
+        return ""
+    props = best.get("properties") or {}
+    name, country = props.get("name"), props.get("admin") or ""
+    if not name:
+        return ""
+    if country in ("United States of America", ""):
+        return name
+    # "Quintana Roo, Mexico", but not "Carriacou and Petite Martinique, Grenada".
+    return f"{name}, {country}" if len(name) + len(country) <= 26 else country
+
+
 def _ibtracs_layer(base: dict, text: str, filters: dict, window: Window) -> dict:
     """One line per storm of a season, its category at every position."""
     season = str(filters["season"])
@@ -1083,6 +1129,7 @@ def _ibtracs_layer(base: dict, text: str, filters: dict, window: Window) -> dict
     if not storms:
         raise OverlayError(f"IBTrACS has no storms in season {season}", "overlays.id")
     features, never, provisional = [], 0, 0
+    has_records = "USA_RECORD" in header
     for sid in sorted(storms):
         rows = sorted(storms[sid], key=lambda r: r["ISO_TIME"])
         codes = [_sshs(r) for r in rows]
@@ -1101,9 +1148,17 @@ def _ibtracs_layer(base: dict, text: str, filters: dict, window: Window) -> dict
             # position: 0 where the centre makes landfall. The first position
             # of each run of zeros is the landfall; a hurricane's is marked.
             at_land = r.get("LANDFALL") == "0"
-            if at_land and not over_land and code is not None and code >= 1:
+            if has_records:
+                # NHC's own landfall records (HURDAT2 type "L"): exact fix and
+                # time, and they include a crossing of an island (Beryl over
+                # Carriacou) that the 3-hourly distance-to-land never reads 0.
+                is_landfall = r.get("USA_RECORD") == "L"
+            else:
+                is_landfall = at_land and not over_land
+            if is_landfall and code is not None and code >= 1:
                 landfalls.append([round(lon, 3), round(lat, 3), code,
-                                  r["ISO_TIME"][:10]])
+                                  r["ISO_TIME"][:10],
+                                  _number(r.get("USA_WIND")), ""])
             over_land = at_land
             coords.append([round(lon, 3), round(lat, 3)])
             classes.append(_sshs_class(code))
@@ -1122,6 +1177,9 @@ def _ibtracs_layer(base: dict, text: str, filters: dict, window: Window) -> dict
             "landfall": any(r.get("LANDFALL") == "0" for r in rows),
             "landfalls": landfalls,
         })
+    for f in features:
+        for landfall in f["landfalls"]:
+            landfall[5] = _landfall_region(landfall[0], landfall[1])
     hurricanes = sum(f["peak"] >= 1 for f in features)
     major = sum(f["peak"] >= 3 for f in features)
     excluded = []
@@ -1152,7 +1210,8 @@ def _ibtracs_layer(base: dict, text: str, filters: dict, window: Window) -> dict
             "encoding": ("One line per storm, coloured by its Saffir-Simpson "
                          "category at each three-hourly position (US agency "
                          "1-minute sustained wind); each storm named beside its track, hurricane "
-                         "landfalls marked"),
+                         "landfalls marked (NHC landfall records, UTC dates; those of "
+                         "major hurricanes described)"),
             "excluded": excluded, "noun": "storms"}
 
 

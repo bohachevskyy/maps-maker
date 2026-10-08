@@ -122,7 +122,31 @@ def _series() -> dict[int, dict[str, dict]]:
         party = row.get("party_simplified", "").strip().upper()
         if party in ("REPUBLICAN", "DEMOCRAT"):
             state[party] += votes
+            # The nominee is the party's name with the most votes nationally
+            # (a state ballot may print a stand-in or a write-in alias).
+            tally = state.setdefault("candidates", {}).setdefault(party, {})
+            tally[candidate] = tally.get(candidate, 0.0) + votes
     return years
+
+
+def _surname(candidate: str) -> str:
+    """'TRUMP, DONALD J.' -> 'Trump'; MIT writes surname first."""
+    surname = candidate.split(",")[0].strip()
+    return " ".join(part.capitalize() if part.isupper() else part
+                    for part in surname.split(" "))
+
+
+def nominees(year: int) -> dict:
+    """{"DEMOCRAT": "Harris", "REPUBLICAN": "Trump"}: each party's candidate
+    that year, from the same rows the margin is computed from."""
+    totals: dict = {}
+    for row in _series().get(year, {}).values():
+        for party, tally in (row.get("candidates") or {}).items():
+            for candidate, votes in tally.items():
+                totals.setdefault(party, {})
+                totals[party][candidate] = totals[party].get(candidate, 0.0) + votes
+    return {party: _surname(max(tally, key=lambda c: (tally[c], c)))
+            for party, tally in totals.items() if tally}
 
 
 def load(variable_id: str, level: str, region: str,
@@ -172,5 +196,9 @@ def load(variable_id: str, level: str, region: str,
             "negative": "Democratic lead", "positive": "Republican lead",
             "negative_color": "blue", "positive_color": "red",
         }
+        names = nominees(chosen)
+        if names.get("DEMOCRAT") and names.get("REPUBLICAN"):
+            provenance["diverging"]["negative_candidate"] = names["DEMOCRAT"]
+            provenance["diverging"]["positive_candidate"] = names["REPUBLICAN"]
     return Values(values=values, years={key: chosen for key in values},
                   provenance=provenance)
