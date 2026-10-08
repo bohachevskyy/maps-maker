@@ -12,6 +12,7 @@ page from being saved under an ``.xlsx`` name.
 
 import datetime
 import functools
+import time
 import zipfile
 
 from mapsvc import fetch, xlsx
@@ -36,9 +37,12 @@ CAPABILITIES = Capabilities(
 
 URL = "https://www.bls.gov/lau/laucnty{yy:02d}.xlsx"
 FIRST_YEAR = 1990
-# Measured 2026-10-07: bls.gov returns 403 to a generic product+URL header but
-# accepts the agency-requested descriptive product and email-contact form.
-BLS_USER_AGENT = "maps-maker/1.0 (data integration; contact: maps-maker@example.invalid)"
+# Measured 2026-10-07: bls.gov returns 403 to anonymous-looking clients. Use a
+# descriptive product and durable contact identifier as requested by BLS.
+BLS_USER_AGENT = ("mapsvc/0.1 (statistical map service; contact: "
+                  "https://github.com/bohachevskyy/maps-maker)")
+RETRY_DELAYS = (1.0, 2.0, 4.0)
+RETRYABLE_STATUS = {403, 429, 500, 502, 503, 504}
 
 
 def _v(identifier, label, unit, level):
@@ -75,14 +79,30 @@ def _data(year: int) -> bytes:
         payload = path.read_bytes()
         if _valid_workbook(payload):
             return payload
-    try:
-        payload = fetch.get(URL.format(yy=year % 100),
-                            accept="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                            user_agent=BLS_USER_AGENT)
-    except fetch.FetchError as exc:
-        field = "variable.change" if exc.status == 404 else "variable.source"
-        raise StatisticsError(f"could not fetch BLS LAUS county data for {year}: {exc}",
-                              field) from exc
+    url = URL.format(yy=year % 100)
+    for attempt in range(len(RETRY_DELAYS) + 1):
+        try:
+            payload = fetch.get(
+                url,
+                accept="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                user_agent=BLS_USER_AGENT,
+            )
+            break
+        except fetch.FetchError as exc:
+            if exc.status == 404:
+                raise StatisticsError(
+                    f"could not fetch BLS LAUS county data for {year}: {exc}",
+                    "variable.change") from exc
+            if attempt < len(RETRY_DELAYS) and exc.status in RETRYABLE_STATUS | {None}:
+                time.sleep(RETRY_DELAYS[attempt])
+                continue
+            if exc.status == 403:
+                raise StatisticsError(
+                    f"BLS denied {url} after {attempt + 1} attempts (HTTP 403 Access Denied)",
+                    "variable.source") from exc
+            raise StatisticsError(
+                f"could not fetch BLS LAUS county data for {year} from {url}: {exc}",
+                "variable.source") from exc
     if not _valid_workbook(payload):
         raise StatisticsError(
             f"BLS did not return the {year} LAUS county workbook; response was not cached",

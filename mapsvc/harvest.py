@@ -34,7 +34,7 @@ NO_DATA = {-99, "-99", "", None}
 # Bump when the shape of a cached HarvestResult changes -- new provenance keys,
 # a different join, altered drop reasons. Without it a code change silently
 # keeps serving rows written in the old format.
-CACHE_VERSION = 16
+CACHE_VERSION = 17
 
 # Physical context is derived from the overlay and its window, never requested
 # in the manifest. These files are fetched here and cached with the other input
@@ -798,6 +798,12 @@ def _build(manifest: Manifest) -> HarvestResult:
         "vintage": boundaries.provenance.get("release"),
         "variable": None, "unit": None, "year": None,
     }
+    boundary_note = boundaries.provenance.get("note")
+    if boundary_note:
+        provenance["vintage"] = (
+            f"{provenance['vintage']}; {boundary_note}"
+            if provenance.get("vintage") else boundary_note
+        )
 
     if manifest.variable_id is None:
         # A base map: cartography with nothing painted on it.

@@ -2,7 +2,14 @@
 
 The same files the statistics provider reads, but this module returns only
 geometry and identifiers. Anything thematic is the statistics layer's business.
+
+Natural Earth draws the de facto Western Sahara boundary: most of the territory
+west of the berm is part of its Morocco feature.  Mapsvc instead applies the
+internationally recognised border at 27°40'N.  This is deliberately implemented
+as small GeoJSON clipping primitives rather than introducing a geometry library.
 """
+
+import math
 
 from mapsvc import registry
 from mapsvc.cartography import Boundaries, CartographyError
@@ -11,6 +18,121 @@ LEVELS = ("admin_0", "admin_1")
 KEYS = {"admin_0": ("ISO3",), "admin_1": ("ISO3166_2",)}
 
 FULL_CIRCLE = 360.0
+WESTERN_SAHARA_BORDER = 27 + 40 / 60
+WESTERN_SAHARA_NOTE = "Western Sahara shown as a non-self-governing territory (UN)"
+EARTH_RADIUS_KM = 6371.0088
+
+
+def _clip_ring(ring: list, latitude: float, *, below: bool) -> list:
+    """Clip a closed GeoJSON ring against one side of a latitude line."""
+    if len(ring) < 4:
+        return []
+    points = ring[:-1] if ring[0] == ring[-1] else ring
+    inside = ((lambda point: point[1] <= latitude) if below
+              else (lambda point: point[1] >= latitude))
+
+    clipped = []
+    previous = points[-1]
+    previous_inside = inside(previous)
+    for current in points:
+        current_inside = inside(current)
+        if current_inside != previous_inside:
+            fraction = (latitude - previous[1]) / (current[1] - previous[1])
+            clipped.append([
+                previous[0] + fraction * (current[0] - previous[0]),
+                latitude,
+            ])
+        if current_inside:
+            clipped.append(list(current))
+        previous, previous_inside = current, current_inside
+
+    deduplicated = []
+    for point in clipped:
+        if not deduplicated or point != deduplicated[-1]:
+            deduplicated.append(point)
+    if len(deduplicated) < 3:
+        return []
+    if deduplicated[0] != deduplicated[-1]:
+        deduplicated.append(deduplicated[0])
+    return deduplicated if len(deduplicated) >= 4 else []
+
+
+def _polygons(geometry: dict) -> list:
+    if geometry["type"] == "Polygon":
+        return [geometry["coordinates"]]
+    if geometry["type"] == "MultiPolygon":
+        return geometry["coordinates"]
+    return []
+
+
+def _clip_geometry(geometry: dict, latitude: float, *, below: bool) -> dict:
+    """Return the clipped geometry, always represented as a MultiPolygon."""
+    polygons = []
+    for polygon in _polygons(geometry):
+        if not polygon:
+            continue
+        outer = _clip_ring(polygon[0], latitude, below=below)
+        if not outer:
+            continue
+        holes = [clipped for ring in polygon[1:]
+                 if (clipped := _clip_ring(ring, latitude, below=below))]
+        polygons.append([outer, *holes])
+    return {"type": "MultiPolygon", "coordinates": polygons}
+
+
+def _western_sahara(features: list) -> list:
+    """Move Morocco south of 27°40'N into Western Sahara's geometry."""
+    morocco = next((f for f in features
+                    if f.get("properties", {}).get("ADM0_A3") == "MAR"), None)
+    sahara = next((f for f in features
+                   if (f.get("properties", {}).get("ISO_A3") == "ESH"
+                       or f.get("properties", {}).get("ADM0_A3") == "SAH")), None)
+    if morocco is None or sahara is None:
+        return features
+
+    north = _clip_geometry(morocco["geometry"], WESTERN_SAHARA_BORDER, below=False)
+    south = _clip_geometry(morocco["geometry"], WESTERN_SAHARA_BORDER, below=True)
+    corrected = []
+    for feature in features:
+        if feature is morocco:
+            corrected.append({**feature, "geometry": north})
+        elif feature is sahara:
+            corrected.append({
+                **feature,
+                "geometry": {
+                    "type": "MultiPolygon",
+                    "coordinates": [*_polygons(sahara["geometry"]),
+                                    *south["coordinates"]],
+                },
+            })
+        else:
+            corrected.append(feature)
+    return corrected
+
+
+def _spherical_area_km2(geometry: dict) -> float:
+    """Spherical GeoJSON area, used to verify that the split loses no land."""
+    def ring_area(ring):
+        if len(ring) < 4:
+            return 0.0
+        total = 0.0
+        for first, second in zip(ring, ring[1:]):
+            lon1, lat1 = map(math.radians, first[:2])
+            lon2, lat2 = map(math.radians, second[:2])
+            delta = lon2 - lon1
+            if delta > math.pi:
+                delta -= 2 * math.pi
+            elif delta < -math.pi:
+                delta += 2 * math.pi
+            total += delta * (2 + math.sin(lat1) + math.sin(lat2))
+        return total * EARTH_RADIUS_KM ** 2 / 2
+
+    area = 0.0
+    for polygon in _polygons(geometry):
+        if polygon:
+            area += abs(ring_area(polygon[0]))
+            area -= sum(abs(ring_area(hole)) for hole in polygon[1:])
+    return area
 
 
 def _longitude_arc(longitudes: list[float]) -> tuple[float, float]:
@@ -97,6 +219,8 @@ def _selected(level: str, bbox, within: str | None = None) -> list:
             "Use the overture basemap for finer levels.", "level"
         )
     features = load_source(level)["features"]
+    if level == "admin_0":
+        features = _western_sahara(features)
     if within:
         codes = {c.strip().upper() for c in within}
         features = [f for f in features if _belongs(f, codes, level)]
@@ -151,6 +275,7 @@ def load(level: str, bbox, detail: str = "simplified",
         "license": "public domain",
         "attribution": "Natural Earth",
         "release": registry.SOURCE_VINTAGE,
+        "note": WESTERN_SAHARA_NOTE if level == "admin_0" else None,
         "level": level,
         "detail": detail,
         "scale": f"1:{registry.scale_for(level)}",
