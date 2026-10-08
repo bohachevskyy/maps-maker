@@ -377,7 +377,11 @@ def _encoding(manifest: Manifest, rows: list, provenance: dict) -> Encoding:
         # or rounded natural breaks -- whichever the values call for.
         scheme = classify.nice([float(v) for v in values], percent=_is_share(unit))
         if scheme.zero_at is not None:
-            swatches = colors.diverging("RdBu", scheme.zero_at, scheme.k - scheme.zero_at)
+            direction = provenance.get("diverging") or {}
+            reverse = ((direction.get("negative_color"), direction.get("positive_color"))
+                       == ("blue", "red"))
+            swatches = colors.diverging(
+                "RdBu", scheme.zero_at, scheme.k - scheme.zero_at, reverse=reverse)
         else:
             swatches = colors.colors(registry.RAMP_FOR_LEVEL["ratio"], scheme.k)
         return Encoding("choropleth", label, unit, scheme, swatches)
@@ -2977,7 +2981,13 @@ def _subtitle(manifest: Manifest, provenance: dict, encoding: Encoding) -> str:
     if note:
         pieces.append(str(note))
     if encoding.scheme is not None and encoding.scheme.zero_at is not None:
-        pieces.append("red = decline; blue = growth")
+        direction = provenance.get("diverging") or {}
+        if direction.get("negative") and direction.get("positive"):
+            pieces.append(
+                f"{direction.get('negative_color', 'red')} = {direction['negative']}; "
+                f"{direction.get('positive_color', 'blue')} = {direction['positive']}")
+        else:
+            pieces.append("red = decline; blue = growth")
     exceptions = provenance.get("year_exceptions")
     if exceptions:
         named = sum(len(v) for v in exceptions.values())

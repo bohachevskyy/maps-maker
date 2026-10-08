@@ -52,7 +52,8 @@ import functools
 from dataclasses import dataclass, field
 
 # The registered sources, in the order they are offered.
-_MODULES = ("natural_earth", "owid", "ukrstat", "eia", "census_acs", "eurostat", "wikidata")
+_MODULES = ("natural_earth", "owid", "ukrstat", "eia", "census_acs",
+            "elections", "bls", "statcan", "eurostat", "wikidata")
 
 # Join-key namespaces, and what each one means. Both sides of the join name
 # their keys from this list.

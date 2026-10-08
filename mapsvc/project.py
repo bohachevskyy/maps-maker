@@ -251,11 +251,18 @@ def fit(bounds: tuple[float, float, float, float], width: float, height: float,
 
 
 def _ring_area(ring) -> float:
-    """Unsigned shoelace area in square degrees. Only used to rank rings."""
+    """Approximate geographic area, used only to rank lon/lat rings.
+
+    Shoelace square-degrees exaggerate polar parts: Svalbard looked 27% as
+    large as mainland Norway. Multiplying by cos(mean latitude) supplies the
+    local equal-area correction needed for relative thresholds (13% after the
+    correction), while Newfoundland remains 39% of Labrador.
+    """
     total = 0.0
     for i in range(len(ring) - 1):
         total += ring[i][0] * ring[i + 1][1] - ring[i + 1][0] * ring[i][1]
-    return abs(total) / 2.0
+    mean_lat = sum(point[1] for point in ring) / max(len(ring), 1)
+    return abs(total) / 2.0 * max(0.0, math.cos(math.radians(mean_lat)))
 
 
 def outer_rings(geometry) -> list:
@@ -265,24 +272,64 @@ def outer_rings(geometry) -> list:
     return [part[0] for part in geometry["coordinates"]]
 
 
-def extent_rings(geometries) -> list:
-    """The one ring per feature that is allowed to define the viewport.
+# 20% separates the measured Natural Earth cases after latitude correction:
+# Newfoundland is 39% of Labrador, French Guiana 15.6% of metropolitan France,
+# and Svalbard's largest ring 12.7% of mainland Norway.
+EXTENT_RING_MIN_SHARE = 0.20
+EXTENT_NEAR_SHARE = 0.25
+EXTENT_NEAR_MAX_DEGREES = 5.0
 
-    Applies both filters described in `extent_of`: largest ring only, and
-    nothing that was clipped at the antimeridian.
+
+def _ring_box(ring) -> tuple:
+    xs = [point[0] for point in ring]
+    ys = [point[1] for point in ring]
+    return min(xs), min(ys), max(xs), max(ys)
+
+
+def _box_gap(a: tuple, b: tuple) -> float:
+    """Chebyshev gap between two lon/lat boxes; zero when they overlap."""
+    dx = max(a[0] - b[2], b[0] - a[2], 0.0)
+    dy = max(a[1] - b[3], b[1] - a[3], 0.0)
+    return max(dx, dy)
+
+
+def _extent_candidates(geometry) -> list:
+    """Rings substantial enough, or close enough to the main part, to frame.
+
+    Largest-only framing lost Newfoundland because Labrador is the province's
+    largest polygon. A relative-area rule restores substantial secondary parts;
+    proximity also keeps nearby islands such as Corsica. Distant small parts
+    such as French Guiana, Svalbard and the Azores remain drawable but do not
+    stretch the main viewport.
+    """
+    rings = outer_rings(geometry)
+    if not rings:
+        return []
+    main = max(rings, key=_ring_area)
+    largest = max(_ring_area(main), 1e-12)
+    box = _ring_box(main)
+    span = max(box[2] - box[0], box[3] - box[1], 1.0)
+    near = min(EXTENT_NEAR_MAX_DEGREES, EXTENT_NEAR_SHARE * span)
+    return [ring for ring in rings
+            if (_ring_area(ring) >= EXTENT_RING_MIN_SHARE * largest
+                or _box_gap(_ring_box(ring), box) <= near)]
+
+
+def extent_rings(geometries) -> list:
+    """The rings per feature that are allowed to define the viewport.
+
+    Applies both filters described in `extent_of`: substantial/nearby rings,
+    and nothing that was clipped at the antimeridian.
     """
     kept = []
     for geometry in geometries:
-        rings = outer_rings(geometry)
-        if not rings:
-            continue
-        ring = max(rings, key=_ring_area)
-        lons = [lon for lon, _ in unwrap_ring(ring, 0.0)]
-        if any(abs(lon) >= ANTIMERIDIAN_EPS for lon in lons):
-            continue
-        if max(lons) - min(lons) > 180.0:
-            continue
-        kept.append(ring)
+        for ring in _extent_candidates(geometry):
+            lons = [lon for lon, _ in unwrap_ring(ring, 0.0)]
+            if any(abs(lon) >= ANTIMERIDIAN_EPS for lon in lons):
+                continue
+            if max(lons) - min(lons) > 180.0:
+                continue
+            kept.append(ring)
     return kept
 
 
@@ -318,9 +365,10 @@ def extent_of(geometries) -> Extent:
     Two departures from a naive bbox of every vertex, both needed to get a
     recognisable regional map:
 
-    * Only each feature's *largest* ring counts. Otherwise France reaches the
-      extent to French Guiana, Norway to Bouvet Island, Portugal to the Azores,
-      and a map of Europe becomes a map of the Atlantic.
+    * Substantial rings (at least 20% of the feature's largest) and rings near
+      the main part count. This keeps Newfoundland alongside Labrador and
+      nearby islands, while excluding small distant parts such as French
+      Guiana, Svalbard and the Azores from the main frame.
     * Rings cut at the antimeridian are skipped. Natural Earth files all of
       Russia under CONTINENT='Europe' and clips its ring against the 180th
       meridian, leaving vertices sitting exactly on it; letting that define the
@@ -333,18 +381,18 @@ def extent_of(geometries) -> Extent:
     fallback: list = []
 
     for geometry in geometries:
-        rings = outer_rings(geometry)
+        rings = _extent_candidates(geometry)
         if not rings:
             continue
-        ring = max(rings, key=_ring_area)
-        lons = [lon for lon, _ in unwrap_ring(ring, 0.0)]
-        lats = [lat for _, lat in ring]
-        cut_at_antimeridian = any(abs(lon) >= ANTIMERIDIAN_EPS for lon in lons)
-        if cut_at_antimeridian or max(lons) - min(lons) > 180.0:
-            fallback.append((min(lons), min(lats), max(lons), max(lats)))
-            continue
-        min_lon, max_lon = min(min_lon, min(lons)), max(max_lon, max(lons))
-        min_lat, max_lat = min(min_lat, min(lats)), max(max_lat, max(lats))
+        for ring in rings:
+            lons = [lon for lon, _ in unwrap_ring(ring, 0.0)]
+            lats = [lat for _, lat in ring]
+            cut_at_antimeridian = any(abs(lon) >= ANTIMERIDIAN_EPS for lon in lons)
+            if cut_at_antimeridian or max(lons) - min(lons) > 180.0:
+                fallback.append((min(lons), min(lats), max(lons), max(lats)))
+                continue
+            min_lon, max_lon = min(min_lon, min(lons)), max(max_lon, max(lons))
+            min_lat, max_lat = min(min_lat, min(lats)), max(max_lat, max(lats))
 
     if min_lon == float("inf"):
         # Every feature was a wide crosser (e.g. region="RUS"); use them anyway.

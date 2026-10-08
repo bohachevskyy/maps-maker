@@ -126,6 +126,9 @@ def test_the_prompt_reaches_the_model_with_the_schema_attached(stub):
     assert call["text"]["format"]["strict"] is True
     assert call["text"]["format"]["schema"] == agent.schema()
     assert "nominal" in call["instructions"]
+    assert "Germany (within [\"DEU\"])" in call["instructions"]
+    assert "prefer BLS LAUS" in call["instructions"]
+    assert "nuts_1, nuts_2, nuts_3" in call["instructions"]
 
 
 def test_the_model_is_configurable(monkeypatch, stub):

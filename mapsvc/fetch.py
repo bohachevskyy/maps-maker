@@ -9,7 +9,11 @@ import pathlib
 import urllib.error
 import urllib.request
 
-USER_AGENT = "mapsvc/0.1 (+https://github.com/bohachevskyy/maps-maker)"
+# BLS rejects anonymous-looking clients. Keep a descriptive product name and a
+# durable contact URL on every request; other public agencies benefit from the
+# same courtesy.
+USER_AGENT = ("mapsvc/0.1 (statistical map service; "
+              "contact: https://github.com/bohachevskyy/maps-maker)")
 TIMEOUT = 120
 
 
@@ -21,8 +25,9 @@ class FetchError(OSError):
         self.status = status
 
 
-def get(url: str, timeout: int = TIMEOUT, accept: str | None = None) -> bytes:
-    return _send(url, None, timeout, accept)
+def get(url: str, timeout: int = TIMEOUT, accept: str | None = None,
+        user_agent: str | None = None) -> bytes:
+    return _send(url, None, timeout, accept, user_agent=user_agent)
 
 
 def post(url: str, body: bytes, timeout: int = TIMEOUT,
@@ -31,8 +36,8 @@ def post(url: str, body: bytes, timeout: int = TIMEOUT,
 
 
 def _send(url: str, body: bytes | None, timeout: int, accept: str | None,
-          content_type: str | None = None) -> bytes:
-    headers = {"User-Agent": USER_AGENT}
+          content_type: str | None = None, user_agent: str | None = None) -> bytes:
+    headers = {"User-Agent": user_agent or USER_AGENT}
     if accept:
         headers["Accept"] = accept
     if content_type:

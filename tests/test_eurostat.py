@@ -179,3 +179,48 @@ def test_human_labels_shorten_eurostat_titles_without_losing_the_unit():
     # Brackets that are not an abbreviation of the words before them stay.
     assert eurostat.human_label("Population (persons) by NUTS 3 region", "Number", [])[0] \
         == "Population (persons)"
+
+
+def test_german_nuts3_density_is_supported_and_the_guard_allows_400(monkeypatch):
+    features = [
+        {"type": "Feature", "geometry": _square(5 + i / 100, 47 + i / 1000),
+         "properties": {"NUTS_ID": f"DE{i:03d}", "LEVL_CODE": 3,
+                        "CNTR_CODE": "DE", "NAME_LATN": f"District {i}",
+                        "ISO3_CODE": "DEU", "EU_STAT": "T"}}
+        for i in range(400)
+    ]
+    monkeypatch.setattr(gisco, "_features", lambda level, detail: tuple(features))
+    assert gisco.count("nuts_3", None, ("DEU",)) == 400
+
+    from mapsvc import harvest
+    manifest = validate({
+        "within": ["DEU"], "level": "nuts_3", "basemap": {"source": "gisco"},
+        "variable": {"source": "eurostat", "id": "demo_r_d3dens?freq=A&unit=PER_KM2"},
+    })
+    monkeypatch.setattr(harvest.cartography, "count", lambda *args, **kwargs: 400)
+    harvest._check_granularity(manifest)  # 400 is deliberately below MAX_UNITS=800
+
+
+def test_eurostat_loads_population_density_at_nuts3(monkeypatch):
+    density = "demo_r_d3dens?freq=A&unit=PER_KM2"
+    shape = {"label": "Population density by NUTS 3 region", "dims": [
+        ["freq", "Time frequency", [["A", "Annual"]]],
+        ["unit", "Unit of measure", [["PER_KM2", "Persons per square kilometre"]]],
+    ]}
+    cube = {
+        "label": shape["label"], "updated": "2026-02-25T23:00:00+0100",
+        "id": ["freq", "unit", "geo", "time"], "size": [1, 1, 3, 1],
+        "dimension": {
+            "freq": {"category": {"index": {"A": 0}}},
+            "unit": {"category": {"index": {"PER_KM2": 0}}},
+            "geo": {"category": {"index": {"DE300": 0, "DE600": 1, "DE30": 2}}},
+            "time": {"category": {"index": {"2024": 0}}},
+        },
+        "value": {"0": 4200.0, "1": 2600.0, "2": 999.0},
+    }
+    monkeypatch.setattr(eurostat, "_dimensions", lambda dataset: shape)
+    monkeypatch.setattr(eurostat, "_cube", lambda variable_id, level: cube)
+    values = eurostat.load(density, "nuts_3", "world")
+    assert values.values == {"DE300": 4200.0, "DE600": 2600.0}
+    assert values.provenance["unit"] == "Persons per square kilometre"
+    assert values.provenance["level"] == "ratio"

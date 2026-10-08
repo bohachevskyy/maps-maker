@@ -113,18 +113,35 @@ def _divide(numerator: Values, per: tuple, level: str, year: int | None) -> Valu
         # A dated source: only the years of divisors actually used count. If
         # none of them was dated, there is no year to state.
         den_prov["year"] = None
+    same_count_unit = _same_count_unit(numerator.provenance, den_prov)
+    if same_count_unit:
+        # A count divided by its count universe is a share, conventionally
+        # displayed in percent. Returning 0.05 while labelling it a "rate" was
+        # both surprising and incompatible with published ACS/BLS rates.
+        out = {key: value * 100.0 for key, value in out.items()}
     return Values(values=out, missing=missing, years=years, divisor_years=divisor_years,
                   provenance=_per_provenance(numerator.provenance, den_prov,
-                                             source, variable_id, divisor_years))
+                                             source, variable_id, divisor_years,
+                                             same_count_unit))
+
+
+def _same_count_unit(num: dict, den: dict) -> bool:
+    """Two like counts form a percentage: people/people, households/households."""
+    num_unit = str(num.get("unit") or "").strip().casefold()
+    den_unit = str(den.get("unit") or "").strip().casefold()
+    return (num.get("level") == den.get("level") == "count"
+            and bool(num_unit) and num_unit == den_unit)
 
 
 def _per_provenance(num: dict, den: dict, source: str, variable_id: str,
-                    divisor_years: dict) -> dict:
+                    divisor_years: dict, same_count_unit: bool = False) -> dict:
     den_unit = den.get("unit")
     phrase = _SINGULAR.get(den_unit, den_unit) if den_unit else den.get("variable")
 
     unit = num.get("unit")
-    if unit and unit.endswith(" per year"):
+    if same_count_unit:
+        unit = "%"
+    elif unit and unit.endswith(" per year"):
         # "barrels per person per year", not "barrels per year per person".
         unit = f"{unit[:-len(' per year')]} per {phrase} per year"
     elif unit:
@@ -133,13 +150,18 @@ def _per_provenance(num: dict, den: dict, source: str, variable_id: str,
         unit = f"per {phrase}"
     out = dict(num)
     out.update({
-        "variable": f"{num.get('variable')} per {phrase}",
+        "variable": (f"{num.get('variable')} as a percentage of "
+                     f"{_lower_first(den.get('variable'))}"
+                     if same_count_unit else f"{num.get('variable')} per {phrase}"),
         "unit": unit,
         "level": "ratio",
         "per": {"source": source, "source_name": den.get("source"),
                 "id": variable_id, "phrase": phrase,
                 "variable": den.get("variable"), "unit": den_unit,
-                "year": year_label(divisor_years.values()) or den.get("year")},
+                "year": year_label(divisor_years.values()) or den.get("year"),
+                "formula": ("numerator / denominator × 100 because both are "
+                            f"counts of {den_unit}" if same_count_unit
+                            else "numerator / denominator")},
         # Not every unit's divisor is dated; harvest restates this over the
         # units actually drawn.
     })
