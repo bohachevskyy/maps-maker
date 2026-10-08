@@ -21,6 +21,7 @@ import tempfile
 
 from mapsvc import overlays, registry, statistics
 from mapsvc.manifest import Manifest, ManifestError, validate
+from mapsvc.overlays.overpass import UpstreamUnavailable
 from mapsvc.statistics import StatisticsError
 
 DEFAULT_MODEL = "gpt-5.6-terra"
@@ -652,6 +653,10 @@ def describe(prompt: str) -> tuple[Manifest, dict, str]:
                 raw["basemap"]["source"] = manifest.basemap_source
             _preflight(manifest)
             return manifest, raw, answer.get("reasoning", "")
+        except UpstreamUnavailable:
+            # Availability is not manifest feedback. In particular, never give
+            # an outage to the model as evidence that the request is unmappable.
+            raise
         except ManifestError as error:
             last_error = error
             # Counted apart from `attempt`: the search turn is not a repair,

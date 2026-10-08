@@ -37,6 +37,7 @@ first refuses (504 "too busy" was common that night). overpass-api.de answers
 """
 
 import dataclasses
+import datetime
 import hashlib
 import json
 import math
@@ -48,16 +49,22 @@ import urllib.parse
 from mapsvc import fetch
 from mapsvc.overlays import Capabilities, OverlayError, Window, geo
 
-# Measured 2026-10-07 21:00 local, a dozen queries: overpass-api.de answered
-# 504 to about half, private.coffee and kumi.systems 500 to all; maps.mail.ru
-# answered every query it was offered, 22-32 s.
+# Measured 2026-10-08 with a real, bounded node query and our User-Agent:
+# overpass-api.de 200 in 13.0 s, kumi.systems 500 in 0.6 s, maps.mail.ru timed
+# out, and private.coffee 200 in 0.8 s (although its /status returned 500).
 ENDPOINTS = (
     "https://overpass-api.de/api/interpreter",
+    "https://overpass.private.coffee/api/interpreter",
     "https://overpass.kumi.systems/api/interpreter",
     "https://maps.mail.ru/osm/tools/overpass/api/interpreter",
 )
 TIMEOUT_S = 400
 DEFAULT_BUDGET_S = 300
+RETRY_AFTER_S = 60
+# Cached country-scale queries are expensive enough to reuse for a week. After
+# that, try to refresh them; if Overpass is down the old bytes remain usable,
+# but the map must say so.
+CACHE_FRESH_S = 7 * 24 * 60 * 60
 STATUS_TIMEOUT_S = 2
 MAXSIZE = 512 * 1024 * 1024
 MAX_WAYS = 40_000
@@ -112,6 +119,22 @@ _VALUE = re.compile(r"[a-z0-9_:.\-]+|\*")
 # Letters and digits of any script, spaces, hyphens, apostrophes: no quote or
 # backslash to escape a QL string, no character with a meaning in a regex.
 _TEXT = re.compile(r"[^\W_][\w '’\-]{0,59}")
+# Avoid doing the same multi-endpoint outage wait twice in /describe (preflight,
+# then render), and avoid hammering public endpoints during Retry-After.
+_UNAVAILABLE_UNTIL: dict[str, float] = {}
+
+
+class UpstreamUnavailable(RuntimeError):
+    """No Overpass endpoint could answer a valid query.
+
+    This is deliberately not an OverlayError: a remote outage says nothing
+    about whether the requested feature can be mapped.
+    """
+
+    def __init__(self, message: str, endpoints_tried: tuple[str, ...]):
+        super().__init__(message)
+        self.endpoints_tried = endpoints_tried
+        self.retry_after = RETRY_AFTER_S
 
 
 @dataclasses.dataclass(frozen=True)
@@ -367,16 +390,29 @@ def load(overlay_id: str, window: Window) -> dict:
     digest = hashlib.sha256(ql.encode()).hexdigest()[:16]
     target = fetch.path("overlays", "overpass", f"{digest}.json")
     elapsed = None
-    if target.exists():
+    stale_fallback = False
+    if target.exists() and time.time() - target.stat().st_mtime <= CACHE_FRESH_S:
         payload = target.read_bytes()
+    elif target.exists() and _UNAVAILABLE_UNTIL.get(str(target), 0) > time.monotonic():
+        payload = target.read_bytes()
+        stale_fallback = True
     else:
         started = time.monotonic()
-        payload = _post(ql)
-        elapsed = time.monotonic() - started
-        target.parent.mkdir(parents=True, exist_ok=True)
-        temporary = target.with_name(target.name + ".part")
-        temporary.write_bytes(payload)
-        temporary.replace(target)
+        try:
+            payload = _post(ql)
+        except UpstreamUnavailable:
+            if not target.exists():
+                raise
+            _UNAVAILABLE_UNTIL[str(target)] = time.monotonic() + RETRY_AFTER_S
+            payload = target.read_bytes()
+            stale_fallback = True
+        else:
+            _UNAVAILABLE_UNTIL.pop(str(target), None)
+            elapsed = time.monotonic() - started
+            target.parent.mkdir(parents=True, exist_ok=True)
+            temporary = target.with_name(target.name + ".part")
+            temporary.write_bytes(payload)
+            temporary.replace(target)
     data = json.loads(payload)
     if window.name is None and (name := _area_name(data)):
         window = dataclasses.replace(window, name=name)
@@ -384,9 +420,23 @@ def load(overlay_id: str, window: Window) -> dict:
         layer = layer_from_relations(data, f, window)
     else:
         layer = layer_from_overpass(data, f, window, ql)
+    if stale_fallback:
+        _state_stale_fallback(layer, data, target)
     if elapsed is not None:
         layer["fetch_seconds"] = round(elapsed, 1)
     return layer
+
+
+def _state_stale_fallback(layer: dict, data: dict, target) -> None:
+    """Make use of an old response visible in the rendered footnote."""
+    osm_date = str((data.get("osm3s") or {}).get("timestamp_osm_base") or "")[:10]
+    cache_date = osm_date or datetime.datetime.fromtimestamp(
+        target.stat().st_mtime, datetime.timezone.utc).date().isoformat()
+    provenance = layer["provenance"]
+    detail = str(provenance.get("vintage") or "")
+    notice = (f"OpenStreetMap data as of {cache_date}; "
+              "Overpass was unavailable")
+    provenance["vintage"] = f"{notice}; {detail}" if detail else notice
 
 
 def _area_name(data: dict) -> str | None:
@@ -428,11 +478,15 @@ def _post(ql: str) -> bytes:
             errors.append(f"{endpoint}: {remark[:120]}, {elapsed:.1f}s")
             continue
         return payload
+    tried = tuple(endpoint for endpoint in ENDPOINTS
+                  if any(item.startswith(endpoint + ":") for item in errors))
     if time.monotonic() >= deadline:
-        raise OverlayError(
+        raise UpstreamUnavailable(
             f"Overpass wall-clock budget of {budget:g}s exhausted; endpoints tried: "
-            + " | ".join(errors))
-    raise OverlayError("every Overpass endpoint failed: " + " | ".join(errors))
+            + " | ".join(errors), tried)
+    raise UpstreamUnavailable(
+        "every Overpass endpoint failed; endpoints tried: " + " | ".join(errors),
+        tried)
 
 
 def _budget_s() -> float:

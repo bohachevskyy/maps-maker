@@ -265,6 +265,24 @@ def test_an_overpass_failure_is_fed_to_the_repair_turn(stub, monkeypatch):
     assert "service=highspeed" in followup and "overlays[0].id" in followup
 
 
+def test_an_overpass_outage_is_not_fed_to_the_repair_turn(stub, monkeypatch):
+    broken = {**GOOD, "overlays": [
+        {"source": "overpass", "id": "route=subway;network=東京メトロ",
+         "search_query": ""}
+    ]}
+    client = stub(reply(broken), reply(mappable=False, refusal="nothing available"))
+
+    from mapsvc.overlays import overpass
+    unavailable = overpass.UpstreamUnavailable("all endpoints down",
+                                                overpass.ENDPOINTS)
+    monkeypatch.setattr(overpass, "load",
+                        lambda *args, **kwargs: (_ for _ in ()).throw(unavailable))
+
+    with pytest.raises(overpass.UpstreamUnavailable):
+        agent.describe("Tokyo subway network")
+    assert len(client.responses.calls) == 1
+
+
 def test_a_clipped_within_bbox_is_fed_to_the_repair_turn(stub, monkeypatch):
     broken = {**GOOD, "within": ["USA"]}
     fixed = {key: value for key, value in broken.items() if key != "bbox"}

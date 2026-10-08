@@ -148,6 +148,35 @@ def test_describe_without_an_api_key_is_503_not_422(described):
     assert "OPENAI_API_KEY" in response.json()["error"]
 
 
+def test_describe_overpass_outage_is_503_with_retry_details(described):
+    from mapsvc.overlays import overpass
+    exc = overpass.UpstreamUnavailable("every Overpass endpoint failed",
+                                       overpass.ENDPOINTS[:2])
+    client = described(lambda prompt: (_ for _ in ()).throw(exc))
+
+    response = client.post("/describe", json={"prompt": "Tokyo subway network"})
+    assert response.status_code == 503
+    assert response.headers["retry-after"] == str(overpass.RETRY_AFTER_S)
+    assert response.json()["endpoints_tried"] == list(overpass.ENDPOINTS[:2])
+
+
+def test_map_overpass_outage_is_503_with_retry_details(client, monkeypatch):
+    from mapsvc import api
+    from mapsvc.overlays import overpass
+    exc = overpass.UpstreamUnavailable("every Overpass endpoint failed",
+                                       overpass.ENDPOINTS[:1])
+    monkeypatch.setattr(api, "build_map",
+                        lambda raw: (_ for _ in ()).throw(exc))
+
+    response = client.post("/map", json=copy.deepcopy(RAW))
+    assert response.status_code == 503
+    assert response.headers["retry-after"] == str(overpass.RETRY_AFTER_S)
+    assert response.json() == {
+        "error": "every Overpass endpoint failed", "field": "",
+        "endpoints_tried": list(overpass.ENDPOINTS[:1]),
+    }
+
+
 def test_describe_rejects_malformed_bodies(described):
     client = described(lambda p: None)
     assert client.post("/describe", content=b"{oops",

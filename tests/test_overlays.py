@@ -284,12 +284,13 @@ def test_overpass_budget_is_shared_by_all_endpoints(monkeypatch):
     monkeypatch.setattr(overpass.time, "monotonic", clock.monotonic)
     monkeypatch.setattr(overpass.fetch.urllib.request, "urlopen", urlopen)
 
-    with pytest.raises(overlays.OverlayError) as caught:
+    with pytest.raises(overpass.UpstreamUnavailable) as caught:
         overpass._post("ql")
 
     message = str(caught.value)
     assert "wall-clock budget of 5s exhausted" in message
     assert f"{overpass.ENDPOINTS[0]}: status 504, 5.0s" in message
+    assert caught.value.endpoints_tried == (overpass.ENDPOINTS[0],)
     posts = [(url, timeout) for url, timeout in calls if url.endswith("interpreter")]
     assert posts == [(overpass.ENDPOINTS[0], 5.0)]
 
@@ -330,6 +331,58 @@ def test_overpass_health_skips_busy_endpoint_and_sends_user_agent(monkeypatch):
     assert all(r.get_header("User-agent").startswith("mapsvc/") for r in calls)
     assert all("github.com/bohachevskyy/maps-maker" in r.get_header("User-agent")
                for r in calls)
+
+
+def test_overpass_uses_stale_cache_after_every_endpoint_fails(monkeypatch, tmp_path):
+    from mapsvc import overlay_render
+
+    monkeypatch.setenv("MAPSVC_CACHE", str(tmp_path))
+    monkeypatch.setattr(overpass, "validate_tags", lambda pairs: None)
+    window = overlays.Window(None, ("FRA",), (-5, 41, 10, 52), "France")
+    spec = overpass.parse_filter(LGV)
+    ql = overpass.query(spec, window)
+    digest = overpass.hashlib.sha256(ql.encode()).hexdigest()[:16]
+    target = overpass.fetch.path("overlays", "overpass", f"{digest}.json")
+    target.parent.mkdir(parents=True)
+    target.write_text(json.dumps({
+        "osm3s": {"timestamp_osm_base": "2026-09-30T12:34:56Z"},
+        "elements": [{"type": "way", "id": 1,
+                      "geometry": [{"lon": 1, "lat": 45},
+                                   {"lon": 2, "lat": 46}],
+                      "tags": {"railway": "rail", "highspeed": "yes"}}],
+    }))
+    old = overpass.time.time() - overpass.CACHE_FRESH_S - 1
+    overpass.os.utime(target, (old, old))
+
+    unavailable = overpass.UpstreamUnavailable("all down", overpass.ENDPOINTS)
+    posts = 0
+
+    def post(ql):
+        nonlocal posts
+        posts += 1
+        raise unavailable
+
+    monkeypatch.setattr(overpass, "_post", post)
+
+    layer = overpass.load(LGV, window)
+    second = overpass.load(LGV, window)
+    assert ("OpenStreetMap data as of 2026-09-30; Overpass was unavailable"
+            in layer["provenance"]["vintage"])
+    assert ("OpenStreetMap data as of 2026-09-30; Overpass was unavailable"
+            in overlay_render._footer_line(layer, set()))
+    assert second["provenance"]["vintage"] == layer["provenance"]["vintage"]
+    assert posts == 1, "preflight and render share the Retry-After outage result"
+
+
+def test_overpass_without_a_cache_surfaces_upstream_unavailability(monkeypatch,
+                                                                   tmp_path):
+    monkeypatch.setenv("MAPSVC_CACHE", str(tmp_path))
+    monkeypatch.setattr(overpass, "validate_tags", lambda pairs: None)
+    unavailable = overpass.UpstreamUnavailable("all down", overpass.ENDPOINTS)
+    monkeypatch.setattr(overpass, "_post", lambda ql: (_ for _ in ()).throw(unavailable))
+    window = overlays.Window(None, ("FRA",), (-5, 41, 10, 52), "France")
+    with pytest.raises(overpass.UpstreamUnavailable):
+        overpass.load(LGV, window)
 
 
 def _lgv_layer():

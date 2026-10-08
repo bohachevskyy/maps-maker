@@ -2,6 +2,7 @@
 
     POST /map       body: manifest JSON     ->  200 image/svg+xml
                                                 422 {"error": "...", "field": "..."}
+                                                503 if Overpass is unavailable
 
     POST /describe  body: {"prompt": "..."} ->  200 {"manifest", "svg", "reasoning"}
                                                 422 {"error": "...", "field": "..."}
@@ -28,6 +29,7 @@ from mapsvc.harvest import HarvestError
 from mapsvc.statistics import StatisticsError
 from mapsvc.manifest import Manifest, ManifestError, validate
 from mapsvc.pipeline import build_map, draw
+from mapsvc.overlays.overpass import UpstreamUnavailable
 from mapsvc.render import RenderError
 
 FAILURES = (AgentError, ManifestError, HarvestError, RenderError,
@@ -48,6 +50,8 @@ async def make_map(request: Request) -> Response:
 
     try:
         svg = build_map(raw)
+    except UpstreamUnavailable as exc:
+        return _upstream_unavailable(exc)
     except FAILURES as exc:
         return _rejected(str(exc), exc.field)
 
@@ -73,6 +77,8 @@ async def describe_map(request: Request) -> Response:
     try:
         manifest, raw, reasoning = describe(payload.get("prompt"))
         svg = draw(manifest)
+    except UpstreamUnavailable as exc:
+        return _upstream_unavailable(exc)
     except AgentUnavailable as exc:
         return JSONResponse(status_code=503, content={"error": str(exc), "field": ""})
     except FAILURES as exc:
@@ -107,6 +113,8 @@ async def export_map(request: Request) -> Response:
     try:
         manifest, raw, reasoning = _resolve(payload)
         svg = draw(manifest)
+    except UpstreamUnavailable as exc:
+        return _upstream_unavailable(exc)
     except AgentUnavailable as exc:
         return JSONResponse(status_code=503, content={"error": str(exc), "field": ""})
     except FAILURES as exc:
@@ -136,3 +144,12 @@ def _resolve(payload: dict) -> tuple[Manifest, dict, str | None]:
 
 def _rejected(error: str, field: str) -> JSONResponse:
     return JSONResponse(status_code=422, content={"error": error, "field": field})
+
+
+def _upstream_unavailable(exc: UpstreamUnavailable) -> JSONResponse:
+    return JSONResponse(
+        status_code=503,
+        headers={"Retry-After": str(exc.retry_after)},
+        content={"error": str(exc), "field": "",
+                 "endpoints_tried": list(exc.endpoints_tried)},
+    )
