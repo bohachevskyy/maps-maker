@@ -1,0 +1,5 @@
+- URL/API: https://download.geonames.org/export/dump/cities15000.zip (cities15000.txt, all places with population ≥ 15,000); the 30 largest European rows by the `population` field.
+- Vintage: GeoNames dump of 2026-10-08 (server Last-Modified 2026-10-08); per-row edit dates in `geonames_modified` (2023-09-08 – 2026-08-25).
+- Licence: GeoNames, CC BY 4.0 (credit geonames.org). Basemap: Natural Earth 1:50m (public domain).
+- Rows: 30 — rank, geonameid, name, country (ISO2), lon, lat, population, feature_code, geonames_modified. Definition: GeoNames' population field = city proper (administrative city) for most rows; sections of cities (PPLX, e.g. Pest) excluded. Europe = 45 European states + Russia west of 58°E (Ufa, Perm in; Yekaterinburg out) + Istanbul (straddles the Bosphorus; included). Transcaucasia and Kazakhstan excluded.
+- Caveat: GeoNames is not internally consistent — Stockholm, Copenhagen carry urban-area figures, not the municipality; Moscow is still the 2010-census 10.38 M. Next five: Oslo 1.08 M, Voronezh 1.05 M, Köln 1.02 M, Dublin 1.02 M, Brussels 1.02 M. Without Istanbul, Oslo would be 30th.

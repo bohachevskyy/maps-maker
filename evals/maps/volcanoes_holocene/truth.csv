@@ -1,0 +1,1215 @@
+volcano_number,name,country,lon,lat,elevation_m,primary_type,type_class,last_eruption_year,evidence,region
+210010,West Eifel Volcanic Field,Germany,6.85,50.17,600,Volcanic field,Volcanic field,-8300,Eruption Dated,European Volcanic Regions
+210020,Chaine des Puys,France,2.981,45.786,1464,Lava dome(s),"Cones, domes, maars, fissure vents",-4040,Eruption Dated,European Volcanic Regions
+210030,Olot Volcanic Field,Spain,2.53,42.17,893,Volcanic field,Volcanic field,,Evidence Credible,European Volcanic Regions
+210040,Calatrava Volcanic Field,Spain,-4.02,38.87,1117,Volcanic field,Volcanic field,-3600,Eruption Dated,European Volcanic Regions
+211004,Colli Albani,Italy,12.7251,41.7569,949,Caldera,Caldera,,Evidence Uncertain,European Volcanic Regions
+211010,Campi Flegrei,Italy,14.139,40.827,458,Caldera,Caldera,1538,Eruption Observed,European Volcanic Regions
+211020,Vesuvius,Italy,14.426,40.821,1281,Stratovolcano,Stratovolcano,1944,Eruption Observed,European Volcanic Regions
+211030,Ischia,Italy,13.897,40.73,789,Complex,Complex or compound,1302,Eruption Observed,European Volcanic Regions
+211031,Palinuro,Italy,14.83,39.48,-70,Compound,Complex or compound,-8040,Eruption Dated,European Volcanic Regions
+211040,Stromboli,Italy,15.213,38.789,924,Stratovolcano,Stratovolcano,2026,Eruption Observed,European Volcanic Regions
+211041,Panarea,Italy,15.064,38.638,399,Stratovolcano,Stratovolcano,,Evidence Uncertain,European Volcanic Regions
+211042,Lipari,Italy,14.933,38.49,590,Stratovolcano(es),Stratovolcano,1230,Eruption Dated,European Volcanic Regions
+211050,Vulcano,Italy,14.962,38.404,500,Stratovolcano(es),Stratovolcano,1890,Eruption Observed,European Volcanic Regions
+211060,Etna,Italy,14.999,37.748,3357,Stratovolcano(es),Stratovolcano,2026,Eruption Observed,European Volcanic Regions
+211070,Campi Flegrei del Mar di Sicilia,Italy,12.7,37.1,-8,Volcanic field,Volcanic field,1867,Eruption Observed,European Volcanic Regions
+211071,Pantelleria,Italy,12.02,36.77,836,Shield,Shield,1891,Eruption Observed,European Volcanic Regions
+211080,Marsili,Italy,14.399,39.284,-779,Complex,Complex or compound,-1050,Eruption Dated,European Volcanic Regions
+212020,Methana,Greece,23.3331,37.6186,380,Lava dome(s),"Cones, domes, maars, fissure vents",-258,Eruption Observed,European Volcanic Regions
+212030,Milos,Greece,24.439,36.699,751,Stratovolcano(es),Stratovolcano,140,Eruption Dated,European Volcanic Regions
+212040,Santorini,Greece,25.396,36.404,367,Shield(s),Shield,1950,Eruption Observed,European Volcanic Regions
+212042,Kolumbo,Greece,25.483,36.524,-18,Complex,Complex or compound,1650,Eruption Dated,European Volcanic Regions
+212050,Nisyros,Greece,27.1553,36.5888,698,Stratovolcano,Stratovolcano,1888,Eruption Observed,European Volcanic Regions
+213000,Kula,Turkiye,28.52,38.58,750,Volcanic field,Volcanic field,,Evidence Credible,European Volcanic Regions
+213002,Hasandag-Keciboyduran Volcanic Complex,Turkiye,34.17,38.13,3253,Stratovolcano,Stratovolcano,,Evidence Credible,European Volcanic Regions
+213010,Erciyes Volcanic Complex,Turkiye,35.447,38.531,3864,Stratovolcano,Stratovolcano,-6880,Eruption Dated,European Volcanic Regions
+213011,Karaca Dag,Turkiye,39.83,37.67,1957,Shield,Shield,,Evidence Credible,Arabia-Central Asia Volcanic Regions
+213020,Nemrut Dagi,Turkiye,42.229,38.654,2948,Stratovolcano,Stratovolcano,1650,Eruption Observed,Arabia-Central Asia Volcanic Regions
+213030,Tenduruk Dagi,Turkiye,43.874,39.356,3514,Shield,Shield,1855,Eruption Observed,Arabia-Central Asia Volcanic Regions
+213040,Ararat,Turkiye,44.3,39.7,5165,Stratovolcano,Stratovolcano,1840,Eruption Observed,Arabia-Central Asia Volcanic Regions
+214010,Elbrus,Russia,42.442,43.351,5642,Stratovolcano,Stratovolcano,50,Eruption Dated,Arabia-Central Asia Volcanic Regions
+214020,Kazbek,Georgia,44.5184,42.697,5004,Stratovolcano,Stratovolcano,-750,Eruption Dated,Arabia-Central Asia Volcanic Regions
+214050,Samsari Volcanic Center,Georgia,43.7,41.542,3290,Volcanic field,Volcanic field,,Evidence Uncertain,Arabia-Central Asia Volcanic Regions
+214060,Aragats,Armenia,44.2,40.53,4095,Stratovolcano,Stratovolcano,,Evidence Credible,Arabia-Central Asia Volcanic Regions
+214070,Ghegham Volcanic Ridge,Armenia,45,40.283,3597,Volcanic field,Volcanic field,-1900,Eruption Dated,Arabia-Central Asia Volcanic Regions
+214080,Vaiyots-Sar,Armenia,45.497,39.797,2575,Pyroclastic cone(s),"Cones, domes, maars, fissure vents",-2000,Eruption Dated,Arabia-Central Asia Volcanic Regions
+214090,Porak,Armenia-Azerbaijan,45.74,40.028,3029,Volcanic field,Volcanic field,-778,Eruption Dated,Arabia-Central Asia Volcanic Regions
+214100,Tskhouk-Karckar,Armenia-Azerbaijan,45.992,39.742,3139,Pyroclastic cone(s),"Cones, domes, maars, fissure vents",-3000,Eruption Dated,Arabia-Central Asia Volcanic Regions
+221010,"Tair, Jebel at",Yemen,41.83,15.55,244,Stratovolcano,Stratovolcano,2008,Eruption Observed,Eastern Africa Volcanic Regions
+221020,Zubair Group,Yemen,42.18,15.05,191,Shield,Shield,2013,Eruption Observed,Eastern Africa Volcanic Regions
+221021,Zukur,Yemen,42.75,14.02,624,Shield,Shield,,Evidence Credible,Eastern Africa Volcanic Regions
+221022,Hanish,Yemen,42.73,13.72,422,Shield,Shield,,Evidence Credible,Eastern Africa Volcanic Regions
+221040,Alid,Eritrea,39.92,14.88,904,Stratovolcano,Stratovolcano,,Evidence Credible,Eastern Africa Volcanic Regions
+221041,Dallol,Ethiopia,40.3,14.242,-48,Explosion crater(s),"Cones, domes, maars, fissure vents",2011,Eruption Observed,Eastern Africa Volcanic Regions
+221050,Gada Ale,Ethiopia,40.408,13.975,287,Stratovolcano,Stratovolcano,,Evidence Credible,Eastern Africa Volcanic Regions
+221060,Alu-Dalafilla,Ethiopia,40.553,13.793,578,Fissure vent(s),"Cones, domes, maars, fissure vents",2008,Eruption Observed,Eastern Africa Volcanic Regions
+221071,Bora Ale,Ethiopia,40.6,13.725,668,Stratovolcano,Stratovolcano,,Evidence Credible,Eastern Africa Volcanic Regions
+221080,Erta Ale,Ethiopia,40.666,13.601,585,Shield,Shield,2025,Eruption Observed,Eastern Africa Volcanic Regions
+221090,Ale Bagu,Ethiopia,40.631,13.512,988,Stratovolcano,Stratovolcano,,Evidence Credible,Eastern Africa Volcanic Regions
+221091,Hayli Gubbi,Ethiopia,40.7161,13.5111,493,Shield,Shield,2025,Eruption Observed,Eastern Africa Volcanic Regions
+221100,Dubbi,Eritrea,41.809,13.579,1625,Stratovolcano,Stratovolcano,1861,Eruption Observed,Eastern Africa Volcanic Regions
+221101,Nabro,Eritrea,41.7,13.37,2218,Stratovolcano,Stratovolcano,2012,Eruption Observed,Eastern Africa Volcanic Regions
+221102,Mallahle,Ethiopia-Eritrea,41.65,13.27,1875,Stratovolcano,Stratovolcano,,Evidence Uncertain,Eastern Africa Volcanic Regions
+221103,Sork Ale,Ethiopia-Eritrea,41.725,13.18,1611,Stratovolcano,Stratovolcano,,Evidence Uncertain,Eastern Africa Volcanic Regions
+221104,Asavyo,Ethiopia,41.599,13.098,1338,Shield,Shield,,Evidence Credible,Eastern Africa Volcanic Regions
+221105,Mat Ala,Ethiopia,41.161,13.106,493,Shield,Shield,,Evidence Credible,Eastern Africa Volcanic Regions
+221106,Tat Ali,Ethiopia,41.063,13.284,655,Shield,Shield,,Evidence Credible,Eastern Africa Volcanic Regions
+221107,Borawli,Ethiopia,40.987,13.304,784,Stratovolcano,Stratovolcano,,Evidence Credible,Eastern Africa Volcanic Regions
+221110,Afdera,Ethiopia,40.853,13.088,1250,Stratovolcano,Stratovolcano,,Evidence Uncertain,Eastern Africa Volcanic Regions
+221111,Ma Alalta,Ethiopia,40.185,13.013,1745,Stratovolcano,Stratovolcano,,Evidence Credible,Eastern Africa Volcanic Regions
+221112,Alayta,Ethiopia,40.573,12.888,1496,Shield,Shield,1915,Eruption Observed,Eastern Africa Volcanic Regions
+221113,Dabbahu,Ethiopia,40.48,12.595,1401,Stratovolcano,Stratovolcano,2005,Eruption Observed,Eastern Africa Volcanic Regions
+221114,Dabbayra,Ethiopia,40.07,12.38,1302,Shield,Shield,,Evidence Credible,Eastern Africa Volcanic Regions
+221115,Manda Hararo,Ethiopia,40.82,12.17,600,Shield(s),Shield,2009,Eruption Observed,Eastern Africa Volcanic Regions
+221116,Groppo,Ethiopia,40.242,11.816,852,Volcanic field,Volcanic field,,Evidence Credible,Eastern Africa Volcanic Regions
+221120,Kurub,Ethiopia,41.208,11.88,625,Shield,Shield,,Evidence Credible,Eastern Africa Volcanic Regions
+221122,Manda-Inakir,Ethiopia-Djibouti,42.2,12.38,600,Fissure vent(s),"Cones, domes, maars, fissure vents",1928,Eruption Observed,Eastern Africa Volcanic Regions
+221123,Mousa Alli,Ethiopia-Eritrea-Djibouti,42.404,12.469,1993,Stratovolcano,Stratovolcano,,Evidence Credible,Eastern Africa Volcanic Regions
+221124,Gufa,Eritrea-Djibouti,42.53,12.55,600,Volcanic field,Volcanic field,,Evidence Credible,Eastern Africa Volcanic Regions
+221125,Assab Volcanic Field,Eritrea,42.43,12.95,987,Volcanic field,Volcanic field,,Evidence Credible,Eastern Africa Volcanic Regions
+221126,Ardoukoba,Djibouti,42.47,11.58,298,Fissure vent(s),"Cones, domes, maars, fissure vents",1978,Eruption Observed,Eastern Africa Volcanic Regions
+221127,Manda Gargori,Ethiopia,41.48,11.75,700,Fissure vent(s),"Cones, domes, maars, fissure vents",,Evidence Credible,Eastern Africa Volcanic Regions
+221141,Dama Ali,Ethiopia,41.63,11.28,1068,Shield,Shield,1631,Eruption Observed,Eastern Africa Volcanic Regions
+221150,Gabillema,Ethiopia,41.27,11.08,1459,Stratovolcano,Stratovolcano,,Evidence Credible,Eastern Africa Volcanic Regions
+221151,Yangudi,Ethiopia,41.042,10.58,1383,Complex,Complex or compound,,Evidence Credible,Eastern Africa Volcanic Regions
+221160,Ayelu,Ethiopia,40.702,10.082,2145,Stratovolcano,Stratovolcano,,Evidence Credible,Eastern Africa Volcanic Regions
+221170,Adwa,Ethiopia,40.831,10.063,1670,Stratovolcano,Stratovolcano,,Evidence Credible,Eastern Africa Volcanic Regions
+221171,Hertali,Ethiopia,40.33,9.78,900,Fissure vent,"Cones, domes, maars, fissure vents",,Evidence Credible,Eastern Africa Volcanic Regions
+221172,Liado Hayk,Ethiopia,40.28,9.57,878,Volcanic field,Volcanic field,,Evidence Uncertain,Eastern Africa Volcanic Regions
+221180,Dofen,Ethiopia,40.13,9.35,1151,Shield,Shield,,Evidence Credible,Eastern Africa Volcanic Regions
+221190,Fentale,Ethiopia,39.906,8.985,2007,Stratovolcano,Stratovolcano,1789,Eruption Observed,Eastern Africa Volcanic Regions
+221191,Beru,Ethiopia,39.75,8.95,1100,Volcanic field,Volcanic field,,Evidence Credible,Eastern Africa Volcanic Regions
+221200,Kone,Ethiopia,39.6946,8.8105,1380,Caldera(s),Caldera,1820,Eruption Observed,Eastern Africa Volcanic Regions
+221210,Boset,Ethiopia,39.475,8.558,2447,Stratovolcano(es),Stratovolcano,,Evidence Credible,Eastern Africa Volcanic Regions
+221220,Bishoftu Volcanic Field,Ethiopia,38.98,8.78,1850,Volcanic field,Volcanic field,,Evidence Credible,Eastern Africa Volcanic Regions
+221222,Melkassa,Ethiopia,39.35,8.43,1765,Volcanic field,Volcanic field,,Evidence Credible,Eastern Africa Volcanic Regions
+221230,Gedemsa,Ethiopia,39.172,8.363,1909,Caldera,Caldera,,Evidence Credible,Eastern Africa Volcanic Regions
+221250,Bora-Bericha-Tullu Moye,Ethiopia,39.0812,8.2114,2345,Pyroclastic cone,"Cones, domes, maars, fissure vents",1900,Eruption Observed,Eastern Africa Volcanic Regions
+221252,East Ziway,Ethiopia,38.902,7.874,1889,Fissure vent(s),"Cones, domes, maars, fissure vents",,Evidence Credible,Eastern Africa Volcanic Regions
+221260,Butajiri-Silti Field,Ethiopia,38.35,8.05,2281,Volcanic field,Volcanic field,,Evidence Credible,Eastern Africa Volcanic Regions
+221270,Aluto,Ethiopia,38.78,7.77,2335,Stratovolcano,Stratovolcano,1550,Eruption Dated,Eastern Africa Volcanic Regions
+221280,Shala,Ethiopia,38.5571,7.4569,2075,Caldera,Caldera,,Evidence Credible,Eastern Africa Volcanic Regions
+221290,Corbetti,Ethiopia,38.39,7.193,2289,Caldera,Caldera,-396,Evidence Credible,Eastern Africa Volcanic Regions
+221291,Bilate River Field,Ethiopia,38.1,7.07,1700,Volcanic field,Volcanic field,,Unrest / Holocene,Eastern Africa Volcanic Regions
+221294,Northern Lake Abaya Volcanic Field,Ethiopia,37.97,6.76,1594,Volcanic field,Volcanic field,,Evidence Credible,Eastern Africa Volcanic Regions
+221320,Korath Range,Ethiopia,35.892,5.117,912,Tuff cone(s),"Cones, domes, maars, fissure vents",,Evidence Uncertain,Eastern Africa Volcanic Regions
+221330,Mega Volcanic Field,Ethiopia,38.213,3.971,1500,Volcanic field,Volcanic field,,Evidence Credible,Eastern Africa Volcanic Regions
+222001,Lake Turkana North Island,Kenya,36.0458,4.0631,490,Tuff cone(s),"Cones, domes, maars, fissure vents",,Evidence Credible,Eastern Africa Volcanic Regions
+222010,Lake Turkana Central Island,Kenya,36.0365,3.496,518,Tuff cone(s),"Cones, domes, maars, fissure vents",,Evidence Credible,Eastern Africa Volcanic Regions
+222020,Lake Turkana South Island,Kenya,36.5958,2.6364,800,Stratovolcano,Stratovolcano,1888,Eruption Observed,Eastern Africa Volcanic Regions
+222021,Marsabit,Kenya,37.97,2.32,1707,Shield,Shield,,Evidence Uncertain,Eastern Africa Volcanic Regions
+222030,"Barrier, The",Kenya,36.57,2.32,1032,Shield,Shield,1921,Eruption Observed,Eastern Africa Volcanic Regions
+222040,Namarunu,Kenya,36.43,1.98,817,Shield,Shield,-6550,Eruption Dated,Eastern Africa Volcanic Regions
+222050,Segererua Plateau,Kenya,37.9,1.57,699,Pyroclastic cone(s),"Cones, domes, maars, fissure vents",,Evidence Credible,Eastern Africa Volcanic Regions
+222051,Emuruangogolak,Kenya,36.33,1.5,1285,Shield,Shield,1910,Eruption Dated,Eastern Africa Volcanic Regions
+222052,Silali,Kenya,36.23,1.15,1528,Shield,Shield,-5050,Eruption Dated,Eastern Africa Volcanic Regions
+222053,Paka,Kenya,36.18,0.92,1697,Shield,Shield,-7550,Eruption Dated,Eastern Africa Volcanic Regions
+222054,Korosi,Kenya,36.12,0.77,1446,Shield,Shield,,Evidence Credible,Eastern Africa Volcanic Regions
+222055,Ol Kokwe,Kenya,36.075,0.62,1130,Shield,Shield,,Evidence Credible,Eastern Africa Volcanic Regions
+222056,Nyambeni Hills,Kenya,37.87,0.23,750,Shield,Shield,,Evidence Credible,Eastern Africa Volcanic Regions
+222060,Menengai,Kenya,36.07,-0.2,2278,Shield,Shield,-6050,Eruption Dated,Eastern Africa Volcanic Regions
+222070,Homa Mountain,Kenya,34.5,-0.38,1751,Complex,Complex or compound,,Evidence Credible,Eastern Africa Volcanic Regions
+222071,Elmenteita Badlands,Kenya,36.249,-0.546,2126,Pyroclastic cone(s),"Cones, domes, maars, fissure vents",,Evidence Credible,Eastern Africa Volcanic Regions
+222080,"Eburru, Ol Doinyo",Kenya,36.22,-0.65,2856,Complex,Complex or compound,,Evidence Credible,Eastern Africa Volcanic Regions
+222090,Olkaria,Kenya,36.292,-0.904,2434,Pyroclastic cone(s),"Cones, domes, maars, fissure vents",1770,Eruption Dated,Eastern Africa Volcanic Regions
+222100,Longonot,Kenya,36.446,-0.914,2776,Stratovolcano,Stratovolcano,1863,Eruption Dated,Eastern Africa Volcanic Regions
+222110,Suswa,Kenya,36.357,-1.151,2356,Shield,Shield,,Evidence Credible,Eastern Africa Volcanic Regions
+222120,"Lengai, Ol Doinyo",Tanzania,35.914,-2.764,2962,Stratovolcano,Stratovolcano,2026,Eruption Observed,Eastern Africa Volcanic Regions
+222130,Chyulu Hills,Kenya,37.88,-2.68,2188,Volcanic field,Volcanic field,1855,Eruption Dated,Eastern Africa Volcanic Regions
+222160,Meru,Tanzania,36.75,-3.244,4550,Stratovolcano,Stratovolcano,1910,Eruption Observed,Eastern Africa Volcanic Regions
+222164,Ngozi,Tanzania,33.552,-9.0036,2614,Caldera,Caldera,1450,Eruption Dated,Eastern Africa Volcanic Regions
+222166,Rungwe,Tanzania,33.668,-9.135,2953,Stratovolcano,Stratovolcano,1250,Eruption Dated,Eastern Africa Volcanic Regions
+222170,Kyejo,Tanzania,33.792,-9.229,2176,Stratovolcano,Stratovolcano,1800,Eruption Observed,Eastern Africa Volcanic Regions
+223001,Fort Portal Volcanic Field,Uganda,30.25,0.7,1615,Volcanic field,Volcanic field,-2120,Eruption Dated,Eastern Africa Volcanic Regions
+223002,Ndali-Kasenda Volcanic Field,Uganda,30.275,0.4583,1300,Volcanic field,Volcanic field,,Evidence Uncertain,Eastern Africa Volcanic Regions
+223020,Nyamulagira,DR Congo,29.2,-1.408,3058,Shield,Shield,2026,Eruption Observed,Eastern Africa Volcanic Regions
+223030,Nyiragongo,DR Congo,29.25,-1.52,3470,Stratovolcano,Stratovolcano,2026,Eruption Observed,Eastern Africa Volcanic Regions
+223040,Karisimbi,DR Congo-Rwanda,29.45,-1.506,4490,Stratovolcano,Stratovolcano,-8050,Eruption Dated,Eastern Africa Volcanic Regions
+223045,Mugogo,DR Congo,29.48,-1.3687,2338,Cone,"Cones, domes, maars, fissure vents",1957,Eruption Observed,Eastern Africa Volcanic Regions
+224004,"Basile, Pico",Equatorial Guinea,8.762,3.588,2999,Shield,Shield,1923,Eruption Observed,Northern Africa Volcanic Regions
+224010,Cameroon,Cameroon,9.17,4.203,4095,Stratovolcano,Stratovolcano,2000,Eruption Observed,Northern Africa Volcanic Regions
+224011,Tombel Graben,Cameroon,9.717,4.758,500,Volcanic field,Volcanic field,,Evidence Credible,Northern Africa Volcanic Regions
+224030,Oku Volcanic Field,Cameroon,10.5,6.25,3011,Volcanic field,Volcanic field,,Evidence Uncertain,Northern Africa Volcanic Regions
+225001,Todra Volcanic Field,Niger,8.5,17.68,1780,Volcanic field,Volcanic field,,Evidence Credible,Northern Africa Volcanic Regions
+225004,Tahalra Volcanic Field,Algeria,5,22.67,1467,Volcanic field,Volcanic field,,Evidence Credible,Northern Africa Volcanic Regions
+225005,Atakor Volcanic Field,Algeria,5.83,23.33,2918,Volcanic field,Volcanic field,,Evidence Credible,Northern Africa Volcanic Regions
+225006,Manzaz Volcanic Field,Algeria,5.83,23.92,1672,Volcanic field,Volcanic field,,Evidence Credible,Northern Africa Volcanic Regions
+225009,"Toh, Tarso",Chad,16.33,21.33,2000,Volcanic field,Volcanic field,,Evidence Credible,Northern Africa Volcanic Regions
+225010,"Tousside, Tarso",Chad,16.473,21.0408,3299,Stratovolcano,Stratovolcano,,Evidence Credible,Northern Africa Volcanic Regions
+225020,"Voon, Tarso",Chad,17.28,20.92,3100,Stratovolcano,Stratovolcano,,Unrest / Holocene,Northern Africa Volcanic Regions
+225021,"Koussi, Emi",Chad,18.53,19.8,3415,Shield(pyroclastic),Shield,,Evidence Credible,Northern Africa Volcanic Regions
+225030,"Marra, Jebel",Sudan,24.27,12.95,3042,Volcanic field,Volcanic field,-2000,Eruption Dated,Northern Africa Volcanic Regions
+225040,Kutum Volcanic Field,Sudan,25.85,14.57,1779,Volcanic field,Volcanic field,,Evidence Uncertain,Northern Africa Volcanic Regions
+225050,Meidob Volcanic Field,Sudan,26.47,15.32,2000,Volcanic field,Volcanic field,-2950,Eruption Dated,Northern Africa Volcanic Regions
+225060,Bayuda Volcanic Field,Sudan,32.75,18.33,670,Volcanic field,Volcanic field,850,Eruption Dated,Northern Africa Volcanic Regions
+231001,"Ash Shaam, Harrat",Syria-Jordan-Saudi Arabia,37.583,32.333,1100,Volcanic field,Volcanic field,-2670,Eruption Observed,Arabia-Central Asia Volcanic Regions
+231040,"Lunayyir, Harrat",Saudi Arabia,37.75,25.17,1370,Volcanic field,Volcanic field,1000,Eruption Observed,Arabia-Central Asia Volcanic Regions
+231050,"Ithnayn, Harrat",Saudi Arabia,40.2,26.58,1625,Volcanic field,Volcanic field,,Evidence Credible,Arabia-Central Asia Volcanic Regions
+231060,"Khaybar, Harrat",Saudi Arabia,40,25.5,2093,Volcanic field,Volcanic field,650,Eruption Observed,Arabia-Central Asia Volcanic Regions
+231070,"Rahat, Harrat",Saudi Arabia,39.78,23.08,1744,Volcanic field,Volcanic field,1256,Eruption Observed,Arabia-Central Asia Volcanic Regions
+231071,"Kishb, Harrat",Saudi Arabia,41.38,22.8,1475,Volcanic field,Volcanic field,,Evidence Credible,Arabia-Central Asia Volcanic Regions
+231072,"Birk, Harrat al",Saudi Arabia,41.63,18.37,587,Volcanic field,Volcanic field,,Evidence Credible,Arabia-Central Asia Volcanic Regions
+231080,"Yar, Jabal",Saudi Arabia,42.83,17.05,305,Volcanic field,Volcanic field,1810,Eruption Observed,Arabia-Central Asia Volcanic Regions
+231090,"Arhab, Harra of",Yemen,44.0978,15.6025,3100,Volcanic field,Volcanic field,500,Eruption Observed,Arabia-Central Asia Volcanic Regions
+231110,"Haylan, Jabal",Yemen,45.1,15.4,1550,Volcanic field,Volcanic field,-1200,Eruption Dated,Arabia-Central Asia Volcanic Regions
+231120,"Dhamar, Harras of",Yemen,44.67,14.57,3500,Volcanic field,Volcanic field,,Eruption Observed,Arabia-Central Asia Volcanic Regions
+231160,"Sawad, Harra Es-",Yemen,46.12,13.58,1737,Volcanic field,Volcanic field,1253,Eruption Observed,Arabia-Central Asia Volcanic Regions
+231170,Balhaf-Bir Ali Volcanic Field,Yemen,48.3,14.067,604,Volcanic field,Volcanic field,,Evidence Credible,Arabia-Central Asia Volcanic Regions
+231180,Bir Borhut,Yemen,50.935,15.515,464,Volcanic field,Volcanic field,,Evidence Uncertain,Arabia-Central Asia Volcanic Regions
+232010,Damavand,Iran,52.109,35.951,5670,Stratovolcano,Stratovolcano,-5350,Eruption Dated,Arabia-Central Asia Volcanic Regions
+233001,"Grille, La",Union of the Comoros,43.35,-11.4861,1064,Shield,Shield,,Evidence Credible,Somalian-Antarctic Volcanic Regions
+233005,Mayotte,France,45.17,-12.83,660,Shield,Shield,-2050,Eruption Dated,Somalian-Antarctic Volcanic Regions
+233010,Karthala,Union of the Comoros,43.3639,-11.7658,2350,Shield,Shield,2007,Eruption Observed,Somalian-Antarctic Volcanic Regions
+233020,"Fournaise, Piton de la",France,55.708,-21.244,2632,Shield,Shield,2026,Eruption Observed,Somalian-Antarctic Volcanic Regions
+233040,Fani Maore,France,45.7075,-12.9121,-2500,Cone,"Cones, domes, maars, fissure vents",2019,Eruption Observed,Somalian-Antarctic Volcanic Regions
+234000,Boomerang Seamount,France,77.8221,-37.7216,-650,Caldera,Caldera,1995,Eruption Dated,Somalian-Antarctic Volcanic Regions
+234001,Amsterdam Island,France,77.52,-37.83,881,Stratovolcano,Stratovolcano,,Evidence Credible,Somalian-Antarctic Volcanic Regions
+234002,St. Paul,France,77.53,-38.72,268,Stratovolcano,Stratovolcano,1793,Eruption Observed,Somalian-Antarctic Volcanic Regions
+234010,Heard,Australia,73.513,-53.106,2745,Stratovolcano,Stratovolcano,2026,Eruption Observed,Somalian-Antarctic Volcanic Regions
+234011,McDonald Islands,Australia,72.595,-53.0394,263,Complex,Complex or compound,2005,Eruption Observed,Somalian-Antarctic Volcanic Regions
+234020,Kerguelen Islands,France,69.5,-49.58,1840,Stratovolcano(es),Stratovolcano,,Evidence Uncertain,Somalian-Antarctic Volcanic Regions
+234030,"Est, Ile de l'",France,52.2,-46.43,1090,Stratovolcano,Stratovolcano,,Evidence Uncertain,Somalian-Antarctic Volcanic Regions
+234040,"Possession, Ile de la",France,51.75,-46.42,934,Stratovolcano,Stratovolcano,,Evidence Credible,Somalian-Antarctic Volcanic Regions
+234050,"Cochons, Ile aux",France,50.23,-46.1,775,Stratovolcano,Stratovolcano,,Evidence Credible,Somalian-Antarctic Volcanic Regions
+234060,Prince Edward Island,South Africa,37.95,-46.63,672,Shield,Shield,,Evidence Credible,Somalian-Antarctic Volcanic Regions
+234070,Marion Island,South Africa,37.75,-46.9,1230,Shield(s),Shield,2004,Eruption Observed,Somalian-Antarctic Volcanic Regions
+241020,Auckland Volcanic Field,New Zealand,174.81,-36.89,260,Volcanic field,Volcanic field,1446,Eruption Dated,Tonga-Kermadec Volcanic Regions
+241021,Tuhua/Mayor Island,New Zealand,176.25,-37.28,355,Shield,Shield,-5055,Eruption Dated,Tonga-Kermadec Volcanic Regions
+241030,Taranaki,New Zealand,174.07,-39.3,2518,Stratovolcano,Stratovolcano,1800,Eruption Observed,Tonga-Kermadec Volcanic Regions
+241040,Whakaari/White Island,New Zealand,177.18,-37.52,294,Stratovolcano(es),Stratovolcano,2026,Eruption Observed,Tonga-Kermadec Volcanic Regions
+241050,Okataina,New Zealand,176.5069,-38.1569,1111,Lava dome(s),"Cones, domes, maars, fissure vents",1981,Eruption Observed,Tonga-Kermadec Volcanic Regions
+241070,Taupo,New Zealand,175.893,-38.7811,760,Caldera,Caldera,260,Eruption Dated,Tonga-Kermadec Volcanic Regions
+241080,Tongariro,New Zealand,175.632,-39.157,1978,Stratovolcano(es),Stratovolcano,2012,Eruption Observed,Tonga-Kermadec Volcanic Regions
+241100,Ruapehu,New Zealand,175.57,-39.28,2797,Stratovolcano,Stratovolcano,2007,Eruption Observed,Tonga-Kermadec Volcanic Regions
+241101,Clark,New Zealand,177.839,-36.446,-860,Stratovolcano,Stratovolcano,,Unrest / Holocene,Tonga-Kermadec Volcanic Regions
+241102,Tangaroa,New Zealand,178.028,-36.321,-600,Stratovolcano,Stratovolcano,,Unrest / Holocene,Tonga-Kermadec Volcanic Regions
+241110,Rumble V,New Zealand,178.196,-36.142,-400,Stratovolcano,Stratovolcano,,Unrest / Holocene,Tonga-Kermadec Volcanic Regions
+241120,Rumble IV,New Zealand,178.05,-36.13,-500,Stratovolcano,Stratovolcano,,Unrest / Holocene,Tonga-Kermadec Volcanic Regions
+241130,Rumble III,New Zealand,178.478,-35.745,-220,Stratovolcano,Stratovolcano,2008,Eruption Observed,Tonga-Kermadec Volcanic Regions
+241131,Rumble II West,New Zealand,178.527,-35.353,-1200,Stratovolcano,Stratovolcano,,Unrest / Holocene,Tonga-Kermadec Volcanic Regions
+241140,Healy,New Zealand,178.973,-35.004,-980,Stratovolcano,Stratovolcano,1360,Eruption Dated,Tonga-Kermadec Volcanic Regions
+241150,Brothers,New Zealand,179.0667,-34.875,-1350,Caldera,Caldera,,Unrest / Holocene,Tonga-Kermadec Volcanic Regions
+242001,Wright,New Zealand,-179.18,-31.85,-900,Stratovolcano(es),Stratovolcano,,Unrest / Holocene,Tonga-Kermadec Volcanic Regions
+242005,Havre Seamount,New Zealand,-179.033,-31.08,-897,Stratovolcano,Stratovolcano,2012,Eruption Observed,Tonga-Kermadec Volcanic Regions
+242010,Curtis Island,New Zealand,-178.556,-30.543,47,Stratovolcano,Stratovolcano,,Unrest / Holocene,Tonga-Kermadec Volcanic Regions
+242021,Macauley,New Zealand,-178.475,-30.21,238,Caldera,Caldera,-4360,Eruption Dated,Tonga-Kermadec Volcanic Regions
+242022,Giggenbach,New Zealand,-178.712,-30.036,-65,Stratovolcano,Stratovolcano,,Unrest / Holocene,Tonga-Kermadec Volcanic Regions
+242030,Raoul Island,New Zealand,-177.92,-29.27,516,Stratovolcano,Stratovolcano,2006,Eruption Observed,Tonga-Kermadec Volcanic Regions
+242050,Monowai,New Zealand,-177.188,-25.887,-132,Stratovolcano,Stratovolcano,2014,Eruption Observed,Tonga-Kermadec Volcanic Regions
+243001,Kermadec Arc at 24.8°S,Tonga,-177.02,-24.8,-385,Stratovolcano,Stratovolcano,,Unrest / Holocene,Tonga-Kermadec Volcanic Regions
+243010,Tofua Arc at 21.3°S,Tonga,-175.65,-21.338,-68,Stratovolcano,Stratovolcano,1932,Eruption Observed,Tonga-Kermadec Volcanic Regions
+243011,Tofua Arc at 21.1°S,Tonga,-175.75,-21.15,-65,Stratovolcano,Stratovolcano,,Evidence Credible,Tonga-Kermadec Volcanic Regions
+243030,Tofua Arc at 20.9°S,Tonga,-175.55,-20.852,-296,Stratovolcano,Stratovolcano,2017,Eruption Observed,Tonga-Kermadec Volcanic Regions
+243040,Hunga Tonga-Hunga Ha'apai,Tonga,-175.3841,-20.5532,114,Caldera,Caldera,2022,Eruption Observed,Tonga-Kermadec Volcanic Regions
+243050,Fonuafo'ou,Tonga,-175.42,-20.32,-17,Stratovolcano,Stratovolcano,1936,Eruption Observed,Tonga-Kermadec Volcanic Regions
+243060,Tofua,Tonga,-175.07,-19.75,515,Caldera,Caldera,2026,Eruption Observed,Tonga-Kermadec Volcanic Regions
+243061,Kao,Tonga,-175.016,-19.668,1009,Stratovolcano,Stratovolcano,1847,Eruption Observed,Tonga-Kermadec Volcanic Regions
+243070,Lateiki,Tonga,-174.87,-19.18,43,Stratovolcano,Stratovolcano,2019,Eruption Observed,Tonga-Kermadec Volcanic Regions
+243080,Home Reef,Tonga,-174.775,-18.992,-10,Stratovolcano,Stratovolcano,2026,Eruption Observed,Tonga-Kermadec Volcanic Regions
+243090,Late,Tonga,-174.65,-18.806,540,Stratovolcano,Stratovolcano,1854,Eruption Observed,Tonga-Kermadec Volcanic Regions
+243091,Tofua Arc at 18.3°S,Tonga,-174.365,-18.325,-40,Stratovolcano,Stratovolcano,2019,Eruption Observed,Tonga-Kermadec Volcanic Regions
+243100,Fonualei,Tonga,-174.317,-18.023,188,Stratovolcano,Stratovolcano,1957,Eruption Observed,Tonga-Kermadec Volcanic Regions
+243101,Tafahi,Tonga,-173.747,-15.854,546,Stratovolcano,Stratovolcano,,Evidence Uncertain,Tonga-Kermadec Volcanic Regions
+243102,Curacoa,Tonga,-173.67,-15.62,-33,Complex,Complex or compound,1979,Eruption Observed,Tonga-Kermadec Volcanic Regions
+243110,Niuafo'ou,Tonga,-175.63,-15.6,260,Shield,Shield,1946,Eruption Observed,Tonga-Kermadec Volcanic Regions
+243111,Dugong,Tonga,-175.725,-15.431,-1170,Shield,Shield,,Evidence Uncertain,Tonga-Kermadec Volcanic Regions
+243112,Lobster,Tonga,-176.283,-15.333,-1500,Shield,Shield,,Evidence Uncertain,Tonga-Kermadec Volcanic Regions
+243120,Tafu-Maka,Tonga,-174.23,-15.37,-1400,Fissure vent,"Cones, domes, maars, fissure vents",2008,Eruption Observed,Tonga-Kermadec Volcanic Regions
+243130,West Mata,Tonga,-173.75,-15.1,-1174,Fissure vent(s),"Cones, domes, maars, fissure vents",2009,Eruption Observed,Tonga-Kermadec Volcanic Regions
+243140,Niuatahi,Tonga,-174.0028,-15.3675,-1270,Caldera,Caldera,,Unrest / Holocene,Tonga-Kermadec Volcanic Regions
+244000,Vailuluu,United States,-169.058,-14.215,-592,Shield,Shield,2003,Eruption Observed,Southern Pacific Volcanic Regions
+244001,Tau,United States,-169.454,-14.23,931,Shield,Shield,,Evidence Credible,Southern Pacific Volcanic Regions
+244010,Ofu-Olosega,United States,-169.618,-14.175,639,Shield(s),Shield,1866,Eruption Observed,Southern Pacific Volcanic Regions
+244020,Tutuila,United States,-170.7019,-14.2903,653,Tuff cone(s),"Cones, domes, maars, fissure vents",440,Eruption Dated,Southern Pacific Volcanic Regions
+244021,Malumalu,United States,-169.787,-14.601,-145,Stratovolcano,Stratovolcano,,Evidence Credible,Southern Pacific Volcanic Regions
+244030,Upolu,Samoa,-171.72,-13.935,1100,Shield,Shield,,Evidence Credible,Southern Pacific Volcanic Regions
+244040,Savaii,Samoa,-172.525,-13.612,1858,Shield,Shield,1911,Eruption Observed,Southern Pacific Volcanic Regions
+245010,Taveuni,Fiji,-179.9644,-16.8412,1241,Shield,Shield,1550,Eruption Dated,Southwestern Pacific Volcanic Regions
+245030,Nabukelevu,Fiji,177.9815,-19.1181,791,Lava dome(s),"Cones, domes, maars, fissure vents",1660,Eruption Dated,Southwestern Pacific Volcanic Regions
+250010,St. Andrew Strait,Papua New Guinea,147.35,-2.38,270,Complex,Complex or compound,1957,Eruption Observed,Southwestern Pacific Volcanic Regions
+250030,Titan Ridge,Papua New Guinea,147.78,-3.03,-1300,Fissure vent,"Cones, domes, maars, fissure vents",1972,Eruption Dated,Southwestern Pacific Volcanic Regions
+251001,Blup Blup,Papua New Guinea,144.605,-3.507,402,Stratovolcano,Stratovolcano,,Evidence Credible,Southwestern Pacific Volcanic Regions
+251002,Kadovar,Papua New Guinea,144.588,-3.608,365,Stratovolcano,Stratovolcano,2023,Evidence Credible,Southwestern Pacific Volcanic Regions
+251010,Bam,Papua New Guinea,144.818,-3.613,685,Stratovolcano,Stratovolcano,1960,Eruption Observed,Southwestern Pacific Volcanic Regions
+251020,Manam,Papua New Guinea,145.037,-4.08,1807,Stratovolcano,Stratovolcano,2026,Eruption Observed,Southwestern Pacific Volcanic Regions
+251030,Karkar,Papua New Guinea,145.976,-4.647,1839,Stratovolcano,Stratovolcano,1979,Eruption Observed,Southwestern Pacific Volcanic Regions
+251041,Hankow Reef,Papua New Guinea,146.717,-4.883,-5,Stratovolcano,Stratovolcano,,Evidence Uncertain,Southwestern Pacific Volcanic Regions
+251050,Long Island,Papua New Guinea,147.105,-5.3144,1263,Complex,Complex or compound,1993,Eruption Observed,Southwestern Pacific Volcanic Regions
+251060,Umboi,Papua New Guinea,147.892,-5.592,1335,Complex,Complex or compound,,Evidence Credible,Southwestern Pacific Volcanic Regions
+251070,Ritter Island,Papua New Guinea,148.115,-5.519,75,Stratovolcano,Stratovolcano,2007,Eruption Observed,Southwestern Pacific Volcanic Regions
+251080,Sakar,Papua New Guinea,148.0836,-5.4098,947,Stratovolcano,Stratovolcano,,Evidence Uncertain,Southwestern Pacific Volcanic Regions
+252010,Langila,Papua New Guinea,148.42,-5.525,1330,Complex,Complex or compound,2026,Eruption Observed,Southwestern Pacific Volcanic Regions
+252040,Dakataua,Papua New Guinea,150.0996,-5.0455,408,Caldera,Caldera,1895,Eruption Dated,Southwestern Pacific Volcanic Regions
+252050,Bola,Papua New Guinea,150.038,-5.141,1116,Stratovolcano,Stratovolcano,,Evidence Credible,Southwestern Pacific Volcanic Regions
+252060,Garua Harbour,Papua New Guinea,150.07,-5.3,565,Volcanic field,Volcanic field,,Evidence Uncertain,Southwestern Pacific Volcanic Regions
+252070,Krummel-Garbuna-Welcker,Papua New Guinea,150.027,-5.416,564,Stratovolcano(es),Stratovolcano,2008,Eruption Observed,Southwestern Pacific Volcanic Regions
+252071,Lolo,Papua New Guinea,150.509,-5.466,796,Stratovolcano,Stratovolcano,,Evidence Uncertain,Southwestern Pacific Volcanic Regions
+252080,Witori,Papua New Guinea,150.5161,-5.5745,724,Caldera,Caldera,2012,Eruption Observed,Southwestern Pacific Volcanic Regions
+252090,Sulu Range,Papua New Guinea,150.942,-5.5,610,Stratovolcano(es),Stratovolcano,,Unrest / Holocene,Southwestern Pacific Volcanic Regions
+252100,Hargy,Papua New Guinea,151.1,-5.33,1148,Stratovolcano,Stratovolcano,950,Eruption Dated,Southwestern Pacific Volcanic Regions
+252110,Bamus,Papua New Guinea,151.23,-5.2,2248,Stratovolcano,Stratovolcano,1886,Eruption Observed,Southwestern Pacific Volcanic Regions
+252120,Ulawun,Papua New Guinea,151.33,-5.05,2334,Stratovolcano,Stratovolcano,2025,Eruption Observed,Southwestern Pacific Volcanic Regions
+252130,Lolobau,Papua New Guinea,151.1617,-4.9156,878,Caldera,Caldera,1912,Eruption Observed,Southwestern Pacific Volcanic Regions
+252140,Rabaul,Papua New Guinea,152.1937,-4.2459,688,Caldera,Caldera,2014,Eruption Observed,Southwestern Pacific Volcanic Regions
+252150,Tavui,Papua New Guinea,152.2134,-4.1089,200,Caldera,Caldera,-4946,Eruption Dated,Southwestern Pacific Volcanic Regions
+253010,Lamington,Papua New Guinea,148.15,-8.95,1680,Stratovolcano,Stratovolcano,1956,Eruption Observed,Southwestern Pacific Volcanic Regions
+253011,Hydrographers Range,Papua New Guinea,148.37,-9,1915,Stratovolcano,Stratovolcano,,Evidence Credible,Southwestern Pacific Volcanic Regions
+253021,Managlase Plateau,Papua New Guinea,148.33,-9.08,1342,Volcanic field,Volcanic field,,Evidence Credible,Southwestern Pacific Volcanic Regions
+253030,Victory,Papua New Guinea,149.072,-9.2003,1832,Stratovolcano,Stratovolcano,1935,Eruption Observed,Southwestern Pacific Volcanic Regions
+253040,Sessagara Hills,Papua New Guinea,149.1278,-9.5542,493,Volcanic field,Volcanic field,1944,Eruption Observed,Southwestern Pacific Volcanic Regions
+253041,Goodenough,Papua New Guinea,150.246,-9.358,220,Volcanic field,Volcanic field,,Evidence Credible,Southwestern Pacific Volcanic Regions
+253050,Iamalele,Papua New Guinea,150.5239,-9.5056,194,Lava dome(s),"Cones, domes, maars, fissure vents",,Evidence Credible,Southwestern Pacific Volcanic Regions
+253060,Dawson Strait Group,Papua New Guinea,150.88,-9.62,500,Volcanic field,Volcanic field,1350,Eruption Dated,Southwestern Pacific Volcanic Regions
+255010,Balbi,Papua New Guinea,155.0008,-5.9156,2715,Stratovolcano,Stratovolcano,,Evidence Credible,Southwestern Pacific Volcanic Regions
+255011,Billy Mitchell,Papua New Guinea,155.2254,-6.0898,1544,Caldera,Caldera,1580,Eruption Dated,Southwestern Pacific Volcanic Regions
+255020,Bagana,Papua New Guinea,155.196,-6.137,1855,Lava cone,"Cones, domes, maars, fissure vents",2026,Eruption Observed,Southwestern Pacific Volcanic Regions
+255021,Takuan Group,Papua New Guinea,155.608,-6.442,2210,Compound,Complex or compound,,Evidence Credible,Southwestern Pacific Volcanic Regions
+255030,Loloru,Papua New Guinea,155.62,-6.52,1887,Compound,Complex or compound,-1050,Eruption Dated,Southwestern Pacific Volcanic Regions
+255050,Simbo,Solomon Islands,156.52,-8.292,335,Stratovolcano(es),Stratovolcano,1910,Eruption Dated,Southwestern Pacific Volcanic Regions
+255052,Kana Keoki,Solomon Islands,157.03,-8.75,-700,Stratovolcano,Stratovolcano,,Evidence Credible,Southwestern Pacific Volcanic Regions
+255053,Coleman Seamount,Solomon Islands,157.16,-8.841,-717,Stratovolcano,Stratovolcano,,Evidence Credible,Southwestern Pacific Volcanic Regions
+255060,Kavachi,Solomon Islands,157.979,-8.991,-20,Stratovolcano,Stratovolcano,2014,Eruption Observed,Southwestern Pacific Volcanic Regions
+255061,New Georgia at 8.9°S,Solomon Islands,158.03,-8.92,-240,Stratovolcano,Stratovolcano,,Evidence Credible,Southwestern Pacific Volcanic Regions
+255070,Savo,Solomon Islands,159.8119,-9.1324,455,Stratovolcano,Stratovolcano,1847,Eruption Observed,Southwestern Pacific Volcanic Regions
+256010,Tinakula,Solomon Islands,165.804,-10.386,796,Stratovolcano,Stratovolcano,2024,Eruption Observed,Southwestern Pacific Volcanic Regions
+257001,Motlav,Vanuatu,167.67,-13.67,411,Stratovolcano,Stratovolcano,,Evidence Credible,Southwestern Pacific Volcanic Regions
+257010,Suretamatai,Vanuatu,167.47,-13.8,921,Complex,Complex or compound,1966,Eruption Observed,Southwestern Pacific Volcanic Regions
+257020,Gaua,Vanuatu,167.514,-14.281,729,Stratovolcano,Stratovolcano,2022,Eruption Observed,Southwestern Pacific Volcanic Regions
+257030,Ambae,Vanuatu,167.835,-15.389,1496,Shield,Shield,2026,Eruption Observed,Southwestern Pacific Volcanic Regions
+257040,Ambrym,Vanuatu,168.12,-16.25,1334,Shield(pyroclastic),Shield,2024,Eruption Observed,Southwestern Pacific Volcanic Regions
+257050,Lopevi,Vanuatu,168.346,-16.507,1413,Stratovolcano,Stratovolcano,2007,Eruption Observed,Southwestern Pacific Volcanic Regions
+257060,East Epi,Vanuatu,168.3893,-16.6797,833,Stratovolcano(es),Stratovolcano,2023,Eruption Observed,Southwestern Pacific Volcanic Regions
+257070,Kuwae,Vanuatu,168.5227,-16.8304,-2,Caldera,Caldera,1974,Eruption Observed,Southwestern Pacific Volcanic Regions
+257081,Nguna-Emau,Vanuatu,168.353,-17.4522,589,Stratovolcano(es),Stratovolcano,,Evidence Credible,Southwestern Pacific Volcanic Regions
+257090,Traitor's Head,Vanuatu,169.238,-18.754,817,Stratovolcano,Stratovolcano,1881,Eruption Observed,Southwestern Pacific Volcanic Regions
+257100,Yasur,Vanuatu,169.447,-19.532,361,Stratovolcano,Stratovolcano,2026,Eruption Observed,Southwestern Pacific Volcanic Regions
+258001,Gemini-Oscostar,Vanuatu,170.13,-20.957,-33,Stratovolcano,Stratovolcano,1996,Eruption Observed,Southwestern Pacific Volcanic Regions
+258010,Matthew Island,France - claimed by Vanuatu,171.32,-22.33,177,Stratovolcano,Stratovolcano,1956,Eruption Observed,Southwestern Pacific Volcanic Regions
+258020,Hunter Island,France - claimed by Vanuatu,172.05,-22.4,297,Stratovolcano,Stratovolcano,1903,Eruption Observed,Southwestern Pacific Volcanic Regions
+259010,Newer Volcanics Province,Australia,142.5,-37.77,1011,Volcanic field,Volcanic field,-2900,Eruption Dated,Eastern Australia Volcanic Regions
+259804,McBride Volcanic Province,Australia,144.567,-18.367,1020,Volcanic field,Volcanic field,-5050,Eruption Dated,Eastern Australia Volcanic Regions
+260010,Barren Island,India,93.858,12.278,354,Stratovolcano,Stratovolcano,2026,Eruption Observed,Sunda-Banda Volcanic Regions
+261030,Peuet Sague,Indonesia,96.289,4.903,2785,Complex,Complex or compound,2000,Eruption Observed,Sunda-Banda Volcanic Regions
+261050,"Telong, Bur ni",Indonesia,96.821,4.769,2617,Stratovolcano,Stratovolcano,1937,Eruption Observed,Sunda-Banda Volcanic Regions
+261070,Singkut,Indonesia,98.5127,3.2379,2181,Caldera(s),Caldera,1881,Eruption Observed,Sunda-Banda Volcanic Regions
+261080,Sinabung,Indonesia,98.392,3.17,2460,Stratovolcano,Stratovolcano,2021,Eruption Observed,Sunda-Banda Volcanic Regions
+261120,Sorikmarapi,Indonesia,99.5409,0.6834,2145,Stratovolcano,Stratovolcano,1986,Eruption Observed,Sunda-Banda Volcanic Regions
+261121,Malintang,Indonesia,99.6628,0.4756,1988,Stratovolcano,Stratovolcano,,Evidence Credible,Sunda-Banda Volcanic Regions
+261130,Talakmau,Indonesia,99.984,0.0787,2911,Complex,Complex or compound,,Evidence Credible,Sunda-Banda Volcanic Regions
+261140,Marapi,Indonesia,100.474,-0.38,2885,Complex,Complex or compound,2026,Eruption Observed,Sunda-Banda Volcanic Regions
+261150,Tandikat-Singgalang,Indonesia,100.3192,-0.4311,2879,Stratovolcano(es),Stratovolcano,1924,Eruption Observed,Sunda-Banda Volcanic Regions
+261160,Talang,Indonesia,100.681,-0.979,2575,Stratovolcano,Stratovolcano,2007,Eruption Observed,Sunda-Banda Volcanic Regions
+261170,Kerinci,Indonesia,101.264,-1.697,3800,Stratovolcano,Stratovolcano,2024,Eruption Observed,Sunda-Banda Volcanic Regions
+261180,Sumbing,Indonesia,101.728,-2.414,2507,Stratovolcano,Stratovolcano,1921,Eruption Observed,Sunda-Banda Volcanic Regions
+261220,Kaba,Indonesia,102.6261,-3.5156,1962,Stratovolcano,Stratovolcano,2000,Eruption Observed,Sunda-Banda Volcanic Regions
+261230,Dempo,Indonesia,103.121,-4.016,3142,Stratovolcano(es),Stratovolcano,2025,Eruption Observed,Sunda-Banda Volcanic Regions
+261231,Patah,Indonesia,103.306,-4.257,2836,Stratovolcano?,Stratovolcano,,Unrest / Holocene,Sunda-Banda Volcanic Regions
+261251,Ranau,Indonesia,103.925,-4.871,1854,Caldera,Caldera,,Evidence Uncertain,Sunda-Banda Volcanic Regions
+261270,Suoh,Indonesia,104.27,-5.25,1000,Caldera(s),Caldera,2024,Eruption Observed,Sunda-Banda Volcanic Regions
+262000,Krakatau,Indonesia,105.4233,-6.1009,285,Caldera,Caldera,2024,Eruption Observed,Sunda-Banda Volcanic Regions
+263010,Pulosari,Indonesia,105.978,-6.343,1324,Stratovolcano,Stratovolcano,,Evidence Credible,Sunda-Banda Volcanic Regions
+263020,Karang,Indonesia,106.05,-6.268,1768,Stratovolcano,Stratovolcano,,Evidence Uncertain,Sunda-Banda Volcanic Regions
+263040,Perbakti-Gagak,Indonesia,106.675,-6.75,1726,Stratovolcano(es),Stratovolcano,1939,Eruption Observed,Sunda-Banda Volcanic Regions
+263050,Salak,Indonesia,106.733,-6.716,2218,Stratovolcano,Stratovolcano,1938,Eruption Observed,Sunda-Banda Volcanic Regions
+263060,Gede-Pangrango,Indonesia,106.983,-6.786,3026,Stratovolcano(es),Stratovolcano,1957,Eruption Observed,Sunda-Banda Volcanic Regions
+263070,Patuha,Indonesia,107.4,-7.162,2422,Stratovolcano,Stratovolcano,,Evidence Credible,Sunda-Banda Volcanic Regions
+263090,Tangkuban Parahu,Indonesia,107.6,-6.77,2084,Stratovolcano,Stratovolcano,2019,Eruption Observed,Sunda-Banda Volcanic Regions
+263100,Papandayan,Indonesia,107.7306,-7.3175,2643,Stratovolcano(es),Stratovolcano,2002,Eruption Observed,Sunda-Banda Volcanic Regions
+263130,Guntur,Indonesia,107.841,-7.143,2251,Complex,Complex or compound,1847,Eruption Observed,Sunda-Banda Volcanic Regions
+263131,Tampomas,Indonesia,107.9612,-6.7639,1690,Stratovolcano,Stratovolcano,,Evidence Credible,Sunda-Banda Volcanic Regions
+263140,Galunggung,Indonesia,108.058,-7.25,2168,Stratovolcano,Stratovolcano,1984,Eruption Observed,Sunda-Banda Volcanic Regions
+263150,Talagabodas,Indonesia,108.07,-7.208,2201,Stratovolcano,Stratovolcano,,Unrest / Holocene,Sunda-Banda Volcanic Regions
+263170,Ciremai,Indonesia,108.408,-6.895,3039,Stratovolcano,Stratovolcano,1951,Eruption Observed,Sunda-Banda Volcanic Regions
+263180,Slamet,Indonesia,109.208,-7.242,3428,Stratovolcano,Stratovolcano,2014,Eruption Observed,Sunda-Banda Volcanic Regions
+263200,Dieng Volcanic Complex,Indonesia,109.879,-7.2,2565,Complex,Complex or compound,2025,Eruption Observed,Sunda-Banda Volcanic Regions
+263210,Sundoro,Indonesia,109.997,-7.3014,3149,Stratovolcano,Stratovolcano,1971,Eruption Observed,Sunda-Banda Volcanic Regions
+263220,Sumbing,Indonesia,110.0747,-7.3819,3370,Stratovolcano,Stratovolcano,1730,Eruption Observed,Sunda-Banda Volcanic Regions
+263240,Merbabu,Indonesia,110.44,-7.454,3118,Stratovolcano,Stratovolcano,1797,Eruption Observed,Sunda-Banda Volcanic Regions
+263250,Merapi,Indonesia,110.446,-7.54,2910,Stratovolcano,Stratovolcano,2026,Eruption Observed,Sunda-Banda Volcanic Regions
+263260,Lawu,Indonesia,111.192,-7.625,3265,Stratovolcano,Stratovolcano,,Evidence Uncertain,Sunda-Banda Volcanic Regions
+263280,Kelud,Indonesia,112.314,-7.935,1730,Stratovolcano,Stratovolcano,2014,Eruption Observed,Sunda-Banda Volcanic Regions
+263281,Kawi-Butak,Indonesia,112.45,-7.92,2651,Stratovolcano(es),Stratovolcano,,Evidence Credible,Sunda-Banda Volcanic Regions
+263290,Arjuno-Welirang,Indonesia,112.575,-7.733,3343,Stratovolcano,Stratovolcano,1952,Eruption Observed,Sunda-Banda Volcanic Regions
+263291,Penanggungan,Indonesia,112.62,-7.616,1631,Stratovolcano,Stratovolcano,,Evidence Credible,Sunda-Banda Volcanic Regions
+263300,Semeru,Indonesia,112.922,-8.108,3657,Stratovolcano,Stratovolcano,2026,Eruption Observed,Sunda-Banda Volcanic Regions
+263310,Tengger Caldera,Indonesia,112.95,-7.942,2329,Stratovolcano(es),Stratovolcano,2023,Eruption Observed,Sunda-Banda Volcanic Regions
+263320,Lamongan,Indonesia,113.341,-7.981,1641,Stratovolcano,Stratovolcano,1898,Eruption Observed,Sunda-Banda Volcanic Regions
+263330,Iyang-Argapura,Indonesia,113.57,-7.97,3088,Complex,Complex or compound,,Evidence Credible,Sunda-Banda Volcanic Regions
+263340,Raung,Indonesia,114.056,-8.119,3260,Stratovolcano,Stratovolcano,2025,Eruption Observed,Sunda-Banda Volcanic Regions
+263350,Ijen,Indonesia,114.242,-8.058,2769,Stratovolcano(es),Stratovolcano,1999,Eruption Observed,Sunda-Banda Volcanic Regions
+263351,Baluran,Indonesia,114.37,-7.85,1247,Stratovolcano,Stratovolcano,,Evidence Uncertain,Sunda-Banda Volcanic Regions
+264001,Buyan-Bratan,Indonesia,115.133,-8.283,2244,Caldera,Caldera,,Evidence Credible,Sunda-Banda Volcanic Regions
+264010,Batur,Indonesia,115.3775,-8.2403,1711,Caldera,Caldera,2000,Eruption Observed,Sunda-Banda Volcanic Regions
+264020,Agung,Indonesia,115.508,-8.343,2997,Stratovolcano,Stratovolcano,2022,Eruption Observed,Sunda-Banda Volcanic Regions
+264030,Rinjani,Indonesia,116.47,-8.42,3726,Stratovolcano,Stratovolcano,2016,Eruption Observed,Sunda-Banda Volcanic Regions
+264040,Tambora,Indonesia,118,-8.25,2850,Stratovolcano,Stratovolcano,1967,Eruption Observed,Sunda-Banda Volcanic Regions
+264050,Sangeang Api,Indonesia,119.07,-8.2,1912,Complex,Complex or compound,2022,Eruption Observed,Sunda-Banda Volcanic Regions
+264060,"Sano, Wai",Indonesia,120.0074,-8.7345,1319,Caldera,Caldera,,Evidence Credible,Sunda-Banda Volcanic Regions
+264071,Ranakah,Indonesia,120.5302,-8.637,2288,Lava dome(s),"Cones, domes, maars, fissure vents",1991,Eruption Observed,Sunda-Banda Volcanic Regions
+264080,Inierie,Indonesia,120.95,-8.875,2245,Stratovolcano,Stratovolcano,-8050,Eruption Dated,Sunda-Banda Volcanic Regions
+264090,Inielika,Indonesia,120.98,-8.73,1559,Complex,Complex or compound,2001,Eruption Observed,Sunda-Banda Volcanic Regions
+264100,Ebulobo,Indonesia,121.191,-8.817,2096,Stratovolcano,Stratovolcano,1969,Eruption Observed,Sunda-Banda Volcanic Regions
+264110,Iya,Indonesia,121.641,-8.891,618,Stratovolcano,Stratovolcano,1969,Eruption Observed,Sunda-Banda Volcanic Regions
+264140,Kelimutu,Indonesia,121.82,-8.77,1639,Complex,Complex or compound,1968,Eruption Observed,Sunda-Banda Volcanic Regions
+264150,Paluweh,Indonesia,121.708,-8.32,875,Stratovolcano,Stratovolcano,2013,Eruption Observed,Sunda-Banda Volcanic Regions
+264160,Egon,Indonesia,122.455,-8.676,1661,Stratovolcano,Stratovolcano,2008,Eruption Observed,Sunda-Banda Volcanic Regions
+264180,Lewotobi,Indonesia,122.775,-8.542,1703,Stratovolcano(es),Stratovolcano,2026,Eruption Observed,Sunda-Banda Volcanic Regions
+264220,Iliboleng,Indonesia,123.258,-8.342,1659,Stratovolcano,Stratovolcano,1993,Eruption Observed,Sunda-Banda Volcanic Regions
+264230,Lewotolok,Indonesia,123.508,-8.274,1431,Stratovolcano,Stratovolcano,2026,Eruption Observed,Sunda-Banda Volcanic Regions
+264240,Ililabalekan,Indonesia,123.38,-8.55,1018,Stratovolcano,Stratovolcano,,Unrest / Holocene,Sunda-Banda Volcanic Regions
+264250,Iliwerung,Indonesia,123.573,-8.532,583,Complex,Complex or compound,2021,Eruption Observed,Sunda-Banda Volcanic Regions
+264260,"Tara, Batu",Indonesia,123.585,-7.791,633,Stratovolcano,Stratovolcano,2015,Eruption Observed,Sunda-Banda Volcanic Regions
+264270,Sirung,Indonesia,124.1306,-8.4972,1347,Complex,Complex or compound,2021,Eruption Observed,Sunda-Banda Volcanic Regions
+265040,Wurlali,Indonesia,128.675,-7.125,868,Stratovolcano,Stratovolcano,1892,Eruption Observed,Sunda-Banda Volcanic Regions
+265050,Teon,Indonesia,129.144,-6.976,728,Stratovolcano,Stratovolcano,1904,Eruption Observed,Sunda-Banda Volcanic Regions
+265060,Nila,Indonesia,129.5,-6.73,781,Stratovolcano,Stratovolcano,1968,Eruption Observed,Sunda-Banda Volcanic Regions
+265070,Serua,Indonesia,130.017,-6.312,608,Stratovolcano,Stratovolcano,1921,Eruption Observed,Sunda-Banda Volcanic Regions
+265080,Manuk,Indonesia,130.303,-5.543,257,Stratovolcano,Stratovolcano,,Unrest / Holocene,Sunda-Banda Volcanic Regions
+265090,Banda Api,Indonesia,129.881,-4.523,596,Caldera,Caldera,1988,Eruption Observed,Sunda-Banda Volcanic Regions
+266010,Colo,Indonesia,121.601,-0.162,404,Stratovolcano,Stratovolcano,1983,Eruption Observed,Western Pacific Volcanic Regions
+266020,Ambang,Indonesia,124.42,0.75,1795,Complex,Complex or compound,2005,Eruption Observed,Western Pacific Volcanic Regions
+266030,Soputan,Indonesia,124.737,1.112,1785,Stratovolcano,Stratovolcano,2020,Eruption Observed,Western Pacific Volcanic Regions
+266100,Lokon-Empung,Indonesia,124.7992,1.3644,1580,Stratovolcano(es),Stratovolcano,2015,Eruption Observed,Western Pacific Volcanic Regions
+266110,Mahawu,Indonesia,124.865,1.352,1299,Stratovolcano,Stratovolcano,1977,Eruption Observed,Western Pacific Volcanic Regions
+266120,Klabat,Indonesia,125.031,1.454,1968,Stratovolcano,Stratovolcano,,Unrest / Holocene,Western Pacific Volcanic Regions
+266130,Tangkoko-Duasudara,Indonesia,125.185,1.518,1334,Stratovolcano,Stratovolcano,1880,Eruption Observed,Western Pacific Volcanic Regions
+267010,Ruang,Indonesia,125.3671,2.3058,703,Stratovolcano,Stratovolcano,2024,Eruption Observed,Western Pacific Volcanic Regions
+267020,Karangetang,Indonesia,125.407,2.781,1797,Stratovolcano,Stratovolcano,2023,Eruption Observed,Western Pacific Volcanic Regions
+267030,Banua Wuhu,Indonesia,125.4422,3.1463,-5,Complex,Complex or compound,1919,Eruption Observed,Western Pacific Volcanic Regions
+267040,Awu,Indonesia,125.447,3.689,1318,Stratovolcano,Stratovolcano,2004,Eruption Observed,Western Pacific Volcanic Regions
+268001,Tarakan,Indonesia,127.825,1.832,317,Pyroclastic cone(s),"Cones, domes, maars, fissure vents",,Evidence Credible,Western Pacific Volcanic Regions
+268010,Dukono,Indonesia,127.8783,1.6992,1273,Complex,Complex or compound,2026,Eruption Observed,Western Pacific Volcanic Regions
+268020,Tobaru,Indonesia,127.67,1.63,1035,Stratovolcano,Stratovolcano,,Evidence Credible,Western Pacific Volcanic Regions
+268030,Ibu,Indonesia,127.6324,1.4941,1357,Stratovolcano,Stratovolcano,2026,Eruption Observed,Western Pacific Volcanic Regions
+268040,Gamkonora,Indonesia,127.53,1.38,1635,Stratovolcano,Stratovolcano,2007,Eruption Observed,Western Pacific Volcanic Regions
+268050,Todoko-Ranu,Indonesia,127.4556,1.2389,979,Caldera(s),Caldera,,Evidence Credible,Western Pacific Volcanic Regions
+268051,Jailolo,Indonesia,127.439,1.08,993,Stratovolcano,Stratovolcano,,Evidence Credible,Western Pacific Volcanic Regions
+268052,Hiri,Indonesia,127.317,0.8971,687,Stratovolcano,Stratovolcano,,Evidence Credible,Western Pacific Volcanic Regions
+268060,Gamalama,Indonesia,127.3322,0.81,1714,Stratovolcano(es),Stratovolcano,2018,Eruption Observed,Western Pacific Volcanic Regions
+268061,Kie Matubu,Indonesia,127.4029,0.6623,1713,Stratovolcano,Stratovolcano,1210,Eruption Dated,Western Pacific Volcanic Regions
+268062,Mare,Indonesia,127.4,0.57,308,Stratovolcano,Stratovolcano,,Evidence Credible,Western Pacific Volcanic Regions
+268063,Moti,Indonesia,127.411,0.454,927,Stratovolcano,Stratovolcano,,Evidence Credible,Western Pacific Volcanic Regions
+268070,Kie Besi,Indonesia,127.4,0.32,1357,Stratovolcano,Stratovolcano,1988,Eruption Observed,Western Pacific Volcanic Regions
+271011,Melebingoy,Philippines,124.892,6.113,1824,Stratovolcano,Stratovolcano,1641,Eruption Observed,Western Pacific Volcanic Regions
+271020,Matutum,Philippines,125.0765,6.3604,2262,Stratovolcano,Stratovolcano,1290,Eruption Dated,Western Pacific Volcanic Regions
+271031,Leonard Range,Philippines,126.047,7.382,1080,Stratovolcano,Stratovolcano,80,Eruption Dated,Western Pacific Volcanic Regions
+271040,Makaturing,Philippines,124.317,7.644,1818,Stratovolcano,Stratovolcano,1882,Eruption Observed,Western Pacific Volcanic Regions
+271060,Ragang,Philippines,124.507,7.691,2790,Stratovolcano,Stratovolcano,1916,Eruption Observed,Western Pacific Volcanic Regions
+271070,Musuan,Philippines,125.0697,7.8765,610,Lava dome,"Cones, domes, maars, fissure vents",,Evidence Uncertain,Western Pacific Volcanic Regions
+271080,Camiguin,Philippines,124.673,9.203,1552,Stratovolcano(es),Stratovolcano,1953,Eruption Observed,Western Pacific Volcanic Regions
+272020,Kanlaon,Philippines,123.13,10.4096,2422,Stratovolcano,Stratovolcano,2026,Eruption Observed,Western Pacific Volcanic Regions
+272050,Cabalían,Philippines,125.218,10.285,912,Stratovolcano,Stratovolcano,1820,Eruption Dated,Western Pacific Volcanic Regions
+272080,Biliran,Philippines,124.535,11.523,1301,Compound,Complex or compound,1939,Eruption Observed,Western Pacific Volcanic Regions
+273010,Bulusan,Philippines,124.056,12.769,1535,Stratovolcano(es),Stratovolcano,2025,Eruption Observed,Western Pacific Volcanic Regions
+273030,Mayon,Philippines,123.685,13.257,2462,Stratovolcano,Stratovolcano,2026,Eruption Observed,Western Pacific Volcanic Regions
+273041,Iriga,Philippines,123.451,13.458,1138,Stratovolcano,Stratovolcano,,Evidence Credible,Western Pacific Volcanic Regions
+273042,Isarog,Philippines,123.38,13.658,1966,Stratovolcano,Stratovolcano,-3500,Eruption Dated,Western Pacific Volcanic Regions
+273050,Banahaw,Philippines,121.48,14.07,2158,Complex,Complex or compound,,Evidence Credible,Western Pacific Volcanic Regions
+273060,San Pablo Volcanic Field,Philippines,121.3,14.12,1090,Volcanic field,Volcanic field,1350,Eruption Dated,Western Pacific Volcanic Regions
+273070,Taal,Philippines,120.9975,14.0106,311,Caldera,Caldera,2026,Eruption Observed,Western Pacific Volcanic Regions
+273083,Pinatubo,Philippines,120.35,15.13,1486,Stratovolcano,Stratovolcano,2021,Eruption Observed,Western Pacific Volcanic Regions
+273090,Cagua,Philippines,122.123,18.222,1133,Stratovolcano,Stratovolcano,1860,Eruption Observed,Western Pacific Volcanic Regions
+274010,Camiguin de Babuyanes,Philippines,121.86,18.83,712,Stratovolcano,Stratovolcano,1857,Eruption Observed,Western Pacific Volcanic Regions
+274020,Didicas,Philippines,122.202,19.077,228,Compound,Complex or compound,1978,Eruption Observed,Western Pacific Volcanic Regions
+274030,Babuyan Claro,Philippines,121.95,19.524,1064,Stratovolcano(es),Stratovolcano,1924,Eruption Observed,Western Pacific Volcanic Regions
+274060,Iraya,Philippines,122.01,20.469,1009,Stratovolcano,Stratovolcano,1454,Eruption Observed,Western Pacific Volcanic Regions
+275001,Hainan Volcanic Field,China,110.229,19.905,196,Volcanic field,Volcanic field,1933,Eruption Observed,Eastern Asia Volcanic Regions
+275020,Ly Son Group,Vietnam,109.12,15.38,157,Volcanic field,Volcanic field,,Evidence Credible,Eastern Asia Volcanic Regions
+275060,"Cendres, Ile des",Vietnam,109.014,10.158,-20,Volcanic field,Volcanic field,1923,Eruption Observed,Eastern Asia Volcanic Regions
+275080,Popa,Burma (Myanmar),95.25,20.92,1518,Stratovolcano,Stratovolcano,-6050,Eruption Dated,Eastern Asia Volcanic Regions
+275110,Tengchong,China,98.5,25.23,2865,Volcanic field,Volcanic field,-5750,Eruption Dated,Eastern Asia Volcanic Regions
+281031,Kueishantao,Taiwan,121.953,24.841,361,Stratovolcano,Stratovolcano,1853,Eruption Observed,Western Pacific Volcanic Regions
+281032,Tatun Volcanic Group,Taiwan,121.553,25.178,1120,Lava dome(s),"Cones, domes, maars, fissure vents",648,Eruption Dated,Western Pacific Volcanic Regions
+282010,Submarine Volcano NNE of Iriomotejima,Japan,123.93,24.57,-200,Stratovolcano,Stratovolcano,1924,Eruption Observed,Western Pacific Volcanic Regions
+282020,Io-Torishima,Japan,128.223,27.881,212,Complex,Complex or compound,1968,Eruption Observed,Western Pacific Volcanic Regions
+282021,Yokoatejima,Japan,128.9958,28.7994,495,Stratovolcano(es),Stratovolcano,1835,Eruption Observed,Western Pacific Volcanic Regions
+282022,Akusekijima,Japan,129.594,29.465,555,Stratovolcano(es),Stratovolcano,,Evidence Uncertain,Western Pacific Volcanic Regions
+282030,Suwanosejima,Japan,129.714,29.638,796,Stratovolcano(es),Stratovolcano,2026,Eruption Observed,Western Pacific Volcanic Regions
+282040,Nakanoshima,Japan,129.857,29.859,979,Stratovolcano(es),Stratovolcano,1914,Eruption Observed,Western Pacific Volcanic Regions
+282043,Kuchinoshima,Japan,129.926,29.968,628,Stratovolcano(es),Stratovolcano,1190,Eruption Dated,Western Pacific Volcanic Regions
+282050,Kuchinoerabujima,Japan,130.217,30.443,657,Stratovolcano(es),Stratovolcano,2020,Eruption Observed,Western Pacific Volcanic Regions
+282060,Kikai,Japan,130.305,30.793,704,Caldera,Caldera,2025,Eruption Observed,Western Pacific Volcanic Regions
+282070,Ata,Japan,130.5283,31.18,924,Caldera(s),Caldera,885,Eruption Observed,Western Pacific Volcanic Regions
+282080,Aira,Japan,130.6589,31.5772,1117,Caldera,Caldera,2026,Eruption Observed,Western Pacific Volcanic Regions
+282081,Yonemaru-Sumiyoshiike,Japan,130.592,31.771,40,Maar(s),"Cones, domes, maars, fissure vents",-6200,Eruption Dated,Western Pacific Volcanic Regions
+282090,Kirishimayama,Japan,130.862,31.934,1700,Shield,Shield,2025,Eruption Observed,Western Pacific Volcanic Regions
+282091,Fukue,Japan,128.849,32.657,315,Volcanic field,Volcanic field,-400,Eruption Dated,Western Pacific Volcanic Regions
+282100,Unzendake,Japan,130.299,32.761,1483,Complex,Complex or compound,1996,Eruption Observed,Western Pacific Volcanic Regions
+282110,Asosan,Japan,131.085,32.8849,1592,Caldera,Caldera,2021,Eruption Observed,Western Pacific Volcanic Regions
+282120,Kujusan,Japan,131.249,33.086,1791,Stratovolcano(es),Stratovolcano,1996,Eruption Observed,Western Pacific Volcanic Regions
+282130,Yufu-Tsurumi,Japan,131.39,33.282,,Lava dome(s),"Cones, domes, maars, fissure vents",867,Eruption Observed,Western Pacific Volcanic Regions
+283001,Abu,Japan,131.5167,34.4833,641,Volcanic field,Volcanic field,-6850,Eruption Dated,Western Pacific Volcanic Regions
+283002,Sanbesan,Japan,132.622,35.141,1126,Stratovolcano,Stratovolcano,650,Eruption Dated,Western Pacific Volcanic Regions
+283010,Izu-Tobu,Japan,139.095,34.903,580,Pyroclastic cone(s),"Cones, domes, maars, fissure vents",1989,Eruption Observed,Northwestern Pacific Volcanic Regions
+283020,Hakoneyama,Japan,139.021,35.233,1438,Complex,Complex or compound,2015,Eruption Dated,Northwestern Pacific Volcanic Regions
+283030,Fujisan,Japan,138.728,35.361,3776,Stratovolcano,Stratovolcano,1708,Eruption Observed,Northwestern Pacific Volcanic Regions
+283031,Yokodake,Japan,138.32,36.0875,2480,Stratovolcano(es),Stratovolcano,1200,Eruption Dated,Northwestern Pacific Volcanic Regions
+283040,Ontakesan,Japan,137.4806,35.8931,3067,Complex,Complex or compound,2014,Eruption Observed,Western Pacific Volcanic Regions
+283050,Hakusan,Japan,136.771,36.155,2702,Stratovolcano,Stratovolcano,1659,Eruption Observed,Western Pacific Volcanic Regions
+283060,Norikuradake,Japan,137.554,36.106,3026,Stratovolcano(es),Stratovolcano,-50,Eruption Dated,Western Pacific Volcanic Regions
+283069,Akandanayama,Japan,137.573,36.2,2109,Stratovolcano,Stratovolcano,,Evidence Credible,Western Pacific Volcanic Regions
+283070,Yakedake,Japan,137.587,36.227,2455,Stratovolcano(es),Stratovolcano,1995,Eruption Observed,Western Pacific Volcanic Regions
+283080,Midagahara,Japan,137.59,36.571,2621,Stratovolcano,Stratovolcano,1839,Eruption Observed,Western Pacific Volcanic Regions
+283090,Niigata-Yakeyama,Japan,138.036,36.921,2400,Lava dome,"Cones, domes, maars, fissure vents",1998,Eruption Observed,Northwestern Pacific Volcanic Regions
+283100,Myokosan,Japan,138.114,36.891,2454,Stratovolcano,Stratovolcano,-750,Eruption Dated,Northwestern Pacific Volcanic Regions
+283110,Asamayama,Japan,138.523,36.406,2568,Complex,Complex or compound,2019,Eruption Observed,Northwestern Pacific Volcanic Regions
+283120,Kusatsu-Shiranesan,Japan,138.528,36.618,2165,Stratovolcano(es),Stratovolcano,2018,Eruption Observed,Northwestern Pacific Volcanic Regions
+283121,Shiga,Japan,138.519,36.688,2041,Shield(s),Shield,,Evidence Uncertain,Northwestern Pacific Volcanic Regions
+283122,Harunasan,Japan,138.8508,36.4775,1449,Stratovolcano,Stratovolcano,550,Eruption Dated,Northwestern Pacific Volcanic Regions
+283130,Akagisan,Japan,139.193,36.56,1828,Stratovolcano,Stratovolcano,,Evidence Uncertain,Northwestern Pacific Volcanic Regions
+283131,Hiuchigatake,Japan,139.285,36.955,2356,Stratovolcano,Stratovolcano,1544,Eruption Observed,Northwestern Pacific Volcanic Regions
+283140,Nikko-Shiranesan,Japan,139.376,36.799,2578,Shield,Shield,1952,Eruption Observed,Northwestern Pacific Volcanic Regions
+283141,Nantaisan,Japan,139.4906,36.765,2486,Stratovolcano,Stratovolcano,-9540,Eruption Dated,Northwestern Pacific Volcanic Regions
+283142,Omanago Group,Japan,139.4756,36.8067,2341,Lava dome(s),"Cones, domes, maars, fissure vents",-3050,Eruption Dated,Northwestern Pacific Volcanic Regions
+283143,Takaharayama,Japan,139.777,36.9,1795,Stratovolcano,Stratovolcano,-4570,Eruption Dated,Northwestern Pacific Volcanic Regions
+283150,Nasudake,Japan,139.9631,37.1247,1915,Stratovolcano(es),Stratovolcano,1963,Eruption Observed,Northwestern Pacific Volcanic Regions
+283151,Numazawa,Japan,139.566,37.444,835,Shield,Shield,-3400,Eruption Dated,Northwestern Pacific Volcanic Regions
+283160,Bandaisan,Japan,140.072,37.601,1816,Stratovolcano,Stratovolcano,1888,Eruption Observed,Northwestern Pacific Volcanic Regions
+283170,Adatarayama,Japan,140.281,37.647,1728,Stratovolcano(es),Stratovolcano,1996,Eruption Observed,Northwestern Pacific Volcanic Regions
+283180,Azumayama,Japan,140.244,37.735,1949,Stratovolcano(es),Stratovolcano,1977,Eruption Observed,Northwestern Pacific Volcanic Regions
+283190,Zaozan [Zaosan],Japan,140.4397,38.1439,1841,Complex,Complex or compound,1940,Eruption Observed,Northwestern Pacific Volcanic Regions
+283191,Hijiori,Japan,140.1617,38.5992,552,Caldera,Caldera,,Evidence Credible,Northwestern Pacific Volcanic Regions
+283200,Naruko,Japan,140.734,38.729,470,Caldera,Caldera,837,Eruption Observed,Northwestern Pacific Volcanic Regions
+283210,Kurikomayama,Japan,140.788,38.961,,Stratovolcano,Stratovolcano,1950,Eruption Observed,Northwestern Pacific Volcanic Regions
+283220,Chokaisan,Japan,140.0489,39.0994,2236,Stratovolcano(es),Stratovolcano,1974,Eruption Observed,Northwestern Pacific Volcanic Regions
+283230,Akita-Komagatake,Japan,140.799,39.761,1637,Stratovolcano(es),Stratovolcano,1971,Eruption Observed,Northwestern Pacific Volcanic Regions
+283240,Iwatesan,Japan,141.001,39.853,2038,Complex,Complex or compound,1919,Eruption Observed,Northwestern Pacific Volcanic Regions
+283250,Hachimantai,Japan,140.854,39.958,1613,Stratovolcano,Stratovolcano,-5350,Eruption Dated,Northwestern Pacific Volcanic Regions
+283260,Akita-Yakeyama,Japan,140.757,39.964,1366,Stratovolcano,Stratovolcano,1997,Eruption Observed,Northwestern Pacific Volcanic Regions
+283262,Megata,Japan,139.725,39.95,160,Maar(s),"Cones, domes, maars, fissure vents",-2050,Eruption Dated,Northwestern Pacific Volcanic Regions
+283270,Iwakisan,Japan,140.303,40.656,1624,Stratovolcano,Stratovolcano,1863,Eruption Observed,Northwestern Pacific Volcanic Regions
+283271,Towada,Japan,140.88,40.51,1011,Caldera,Caldera,915,Eruption Observed,Northwestern Pacific Volcanic Regions
+283280,Hakkodasan,Japan,140.877,40.659,1584,Stratovolcano(es),Stratovolcano,1550,Eruption Dated,Northwestern Pacific Volcanic Regions
+283290,Osorezan,Japan,141.12,41.279,878,Stratovolcano,Stratovolcano,1787,Eruption Observed,Northwestern Pacific Volcanic Regions
+284010,Izu-Oshima,Japan,139.394,34.724,758,Stratovolcano,Stratovolcano,1990,Eruption Observed,Northwestern Pacific Volcanic Regions
+284011,Toshima,Japan,139.279,34.52,508,Stratovolcano,Stratovolcano,-4550,Eruption Dated,Northwestern Pacific Volcanic Regions
+284020,Niijima,Japan,139.27,34.397,432,Lava dome(s),"Cones, domes, maars, fissure vents",886,Eruption Observed,Northwestern Pacific Volcanic Regions
+284030,Kozushima,Japan,139.153,34.219,572,Lava dome(s),"Cones, domes, maars, fissure vents",838,Eruption Observed,Northwestern Pacific Volcanic Regions
+284040,Miyakejima,Japan,139.526,34.094,775,Stratovolcano,Stratovolcano,2010,Eruption Observed,Northwestern Pacific Volcanic Regions
+284041,Mikurajima,Japan,139.602,33.874,851,Stratovolcano,Stratovolcano,-4100,Eruption Dated,Northwestern Pacific Volcanic Regions
+284042,Kurose Hole,Japan,139.68,33.4,-114,Caldera,Caldera,,Evidence Uncertain,Northwestern Pacific Volcanic Regions
+284050,Hachijojima,Japan,139.766,33.137,854,Stratovolcano(es),Stratovolcano,1606,Eruption Observed,Northwestern Pacific Volcanic Regions
+284060,Aogashima,Japan,139.759,32.458,423,Stratovolcano,Stratovolcano,1785,Eruption Observed,Northwestern Pacific Volcanic Regions
+284061,Kita-Bayonnaise,Japan,139.85,32.1,-360,Caldera,Caldera,,Evidence Uncertain,Northwestern Pacific Volcanic Regions
+284070,Myojinsho,Japan,139.918,31.888,11,Caldera,Caldera,1970,Eruption Observed,Northwestern Pacific Volcanic Regions
+284080,Sumisujima,Japan,140.051,31.44,136,Caldera,Caldera,1916,Eruption Observed,Northwestern Pacific Volcanic Regions
+284090,Izu-Torishima,Japan,140.303,30.484,394,Stratovolcano,Stratovolcano,2002,Eruption Observed,Northwestern Pacific Volcanic Regions
+284091,Sofugan,Japan,140.342,29.794,99,Stratovolcano,Stratovolcano,,Evidence Uncertain,Northwestern Pacific Volcanic Regions
+284093,Suiyo Seamount,Japan,140.633,28.575,-991,Stratovolcano,Stratovolcano,,Unrest / Holocene,Northwestern Pacific Volcanic Regions
+284094,Mokuyo Seamount,Japan,140.572,28.327,-933,Stratovolcano,Stratovolcano,,Unrest / Holocene,Northwestern Pacific Volcanic Regions
+284095,Doyo Seamount,Japan,140.8,27.68,-590,Stratovolcano,Stratovolcano,,Unrest / Holocene,Northwestern Pacific Volcanic Regions
+284096,Nishinoshima,Japan,140.8797,27.2439,160,Caldera,Caldera,2023,Eruption Observed,Northwestern Pacific Volcanic Regions
+284097,Kaikata Seamount,Japan,140.929,26.667,-165,Stratovolcano,Stratovolcano,,Unrest / Holocene,Northwestern Pacific Volcanic Regions
+284100,Kaitoku Seamount,Japan,141.1017,26.1267,-95,Stratovolcano,Stratovolcano,2023,Eruption Observed,Northwestern Pacific Volcanic Regions
+284110,Funka Asane,Japan,141.2386,25.455,-20,Stratovolcano,Stratovolcano,2022,Eruption Observed,Northwestern Pacific Volcanic Regions
+284120,Ioto,Japan,141.2892,24.7503,172,Caldera,Caldera,2025,Eruption Observed,Northwestern Pacific Volcanic Regions
+284121,Kita-Fukutokutai,Japan,141.417,24.417,-73,Stratovolcano,Stratovolcano,1954,Eruption Observed,Northwestern Pacific Volcanic Regions
+284130,Fukutoku-Oka-no-Ba,Japan,141.481,24.285,-29,Pyroclastic cone,"Cones, domes, maars, fissure vents",2021,Eruption Observed,Northwestern Pacific Volcanic Regions
+284131,Minami-Hiyoshi,Japan,141.935,23.5,-107,Stratovolcano,Stratovolcano,1975,Eruption Observed,Northwestern Pacific Volcanic Regions
+284132,Nikko,Japan,142.326,23.078,-392,Stratovolcano,Stratovolcano,,Unrest / Holocene,Northwestern Pacific Volcanic Regions
+284133,Fukujin,United States,143.47,21.93,-217,Stratovolcano,Stratovolcano,1974,Eruption Observed,Northwestern Pacific Volcanic Regions
+284134,Kasuga 1,United States,143.71,21.765,-598,Stratovolcano,Stratovolcano,1959,Eruption Observed,Northwestern Pacific Volcanic Regions
+284135,Kasuga 2,United States,143.637,21.6,-274,Stratovolcano,Stratovolcano,,Evidence Credible,Northwestern Pacific Volcanic Regions
+284136,NW Eifuku,United States,144.043,21.485,-1535,Stratovolcano,Stratovolcano,,Unrest / Holocene,Northwestern Pacific Volcanic Regions
+284137,Daikoku,United States,144.194,21.324,-323,Stratovolcano,Stratovolcano,,Unrest / Holocene,Northwestern Pacific Volcanic Regions
+284140,Farallon de Pajaros,United States,144.893,20.546,337,Stratovolcano,Stratovolcano,1953,Eruption Observed,Northwestern Pacific Volcanic Regions
+284141,Ahyi,United States,145.03,20.437,-55,Stratovolcano,Stratovolcano,2026,Eruption Dated,Northwestern Pacific Volcanic Regions
+284142,Supply Reef,United States,145.1,20.13,-8,Stratovolcano,Stratovolcano,,Evidence Uncertain,Northwestern Pacific Volcanic Regions
+284143,Maug Islands,United States,145.22,20.02,227,Stratovolcano,Stratovolcano,,Unrest / Holocene,Northwestern Pacific Volcanic Regions
+284150,Asuncion,United States,145.406,19.671,857,Stratovolcano,Stratovolcano,1906,Eruption Observed,Northwestern Pacific Volcanic Regions
+284160,Agrigan,United States,145.67,18.77,965,Stratovolcano,Stratovolcano,1917,Eruption Observed,Northwestern Pacific Volcanic Regions
+284170,Pagan,United States,145.8,18.13,570,Stratovolcano(es),Stratovolcano,2021,Eruption Observed,Northwestern Pacific Volcanic Regions
+284180,Alamagan,United States,145.83,17.6,744,Stratovolcano,Stratovolcano,870,Eruption Dated,Northwestern Pacific Volcanic Regions
+284190,Guguan,United States,145.84,17.3137,232,Stratovolcano,Stratovolcano,1883,Eruption Observed,Northwestern Pacific Volcanic Regions
+284191,Zealandia Bank,United States,145.85,16.88,0,Stratovolcano,Stratovolcano,,Unrest / Holocene,Northwestern Pacific Volcanic Regions
+284192,Sarigan,United States,145.7803,16.6991,494,Stratovolcano,Stratovolcano,,Evidence Credible,Northwestern Pacific Volcanic Regions
+284193,South Sarigan Seamount,United States,145.78,16.58,-184,Stratovolcano,Stratovolcano,2010,Eruption Observed,Northwestern Pacific Volcanic Regions
+284200,Anatahan,United States,145.67,16.35,790,Stratovolcano,Stratovolcano,2008,Eruption Observed,Northwestern Pacific Volcanic Regions
+284201,East Diamante,United States,145.67,15.93,-127,Stratovolcano,Stratovolcano,,Unrest / Holocene,Northwestern Pacific Volcanic Regions
+284202,Ruby,United States,145.572,15.605,-174,Stratovolcano,Stratovolcano,2023,Eruption Observed,Northwestern Pacific Volcanic Regions
+284210,Esmeralda Bank,United States,145.249,14.958,-74,Stratovolcano,Stratovolcano,,Unrest / Holocene,Northwestern Pacific Volcanic Regions
+284211,NW Rota-1,United States,144.775,14.601,-455,Stratovolcano,Stratovolcano,2010,Eruption Observed,Northwestern Pacific Volcanic Regions
+284220,Forecast Seamount,United States,143.92,13.4,-1456,Stratovolcano,Stratovolcano,,Unrest / Holocene,Northwestern Pacific Volcanic Regions
+284230,Seamount X,United States,144.02,13.25,-1230,Stratovolcano,Stratovolcano,,Unrest / Holocene,Northwestern Pacific Volcanic Regions
+284305,Mariana Back-Arc Segment at 15.5°N,United States,144.506,15.406,-4100,Fissure vent,"Cones, domes, maars, fissure vents",2015,Eruption Dated,Northwestern Pacific Volcanic Regions
+285010,Oshima-Oshima,Japan,139.367,41.51,732,Stratovolcano,Stratovolcano,1790,Eruption Observed,Northwestern Pacific Volcanic Regions
+285011,Esan,Japan,141.166,41.805,617,Lava dome(s),"Cones, domes, maars, fissure vents",1874,Eruption Observed,Northwestern Pacific Volcanic Regions
+285020,Hokkaido-Komagatake,Japan,140.677,42.063,1131,Stratovolcano,Stratovolcano,2000,Eruption Observed,Northwestern Pacific Volcanic Regions
+285030,Toya,Japan,140.839,42.544,733,Stratovolcano,Stratovolcano,2001,Eruption Observed,Northwestern Pacific Volcanic Regions
+285031,Niseko,Japan,140.659,42.875,1308,Stratovolcano(es),Stratovolcano,-4900,Eruption Dated,Northwestern Pacific Volcanic Regions
+285032,Yoteizan,Japan,140.8114,42.8267,1898,Stratovolcano,Stratovolcano,-1050,Eruption Dated,Northwestern Pacific Volcanic Regions
+285034,Kuttara,Japan,141.16,42.491,549,Stratovolcano(es),Stratovolcano,1820,Eruption Dated,Northwestern Pacific Volcanic Regions
+285040,Shikotsu,Japan,141.38,42.688,1320,Caldera,Caldera,1981,Eruption Observed,Northwestern Pacific Volcanic Regions
+285041,Rishirizan,Japan,141.242,45.179,1721,Stratovolcano,Stratovolcano,-5830,Eruption Dated,Northwestern Pacific Volcanic Regions
+285050,Tokachidake,Japan,142.686,43.418,2077,Stratovolcano(es),Stratovolcano,2004,Eruption Observed,Northwestern Pacific Volcanic Regions
+285060,Taisetsuzan,Japan,142.854,43.664,2291,Stratovolcano(es),Stratovolcano,1739,Eruption Dated,Northwestern Pacific Volcanic Regions
+285061,Maruyama,Japan,143.031,43.418,1692,Stratovolcano(es),Stratovolcano,1898,Eruption Observed,Northwestern Pacific Volcanic Regions
+285070,Akan,Japan,144.0086,43.3864,1499,Caldera,Caldera,2026,Eruption Observed,Northwestern Pacific Volcanic Regions
+285080,Kussharo,Japan,144.427,43.615,574,Caldera,Caldera,1320,Eruption Dated,Northwestern Pacific Volcanic Regions
+285081,Mashu,Japan,144.561,43.572,857,Caldera,Caldera,1080,Eruption Dated,Northwestern Pacific Volcanic Regions
+285082,Rausudake,Japan,145.122,44.076,1660,Stratovolcano,Stratovolcano,1800,Eruption Dated,Northwestern Pacific Volcanic Regions
+285083,Tenchozan,Japan,145.086,44.044,1046,Crater rows,"Cones, domes, maars, fissure vents",,Eruption Dated,Northwestern Pacific Volcanic Regions
+285090,Shiretoko-Iozan,Japan,145.161,44.133,1562,Stratovolcano,Stratovolcano,1936,Eruption Observed,Northwestern Pacific Volcanic Regions
+290010,Tomariyama [Golovnin],Japan - administered by Russia,145.504,43.844,535,Caldera,Caldera,1848,Eruption Observed,Northwestern Pacific Volcanic Regions
+290020,Raususan [Mendeleev],Japan - administered by Russia,145.733,43.979,882,Stratovolcano,Stratovolcano,1880,Eruption Observed,Northwestern Pacific Volcanic Regions
+290021,Ruruidake [Smirnov],Japan - administered by Russia,146.14,44.4536,1481,Stratovolcano,Stratovolcano,,Evidence Credible,Northwestern Pacific Volcanic Regions
+290030,Chachadake [Tiatia],Japan - administered by Russia,146.2531,44.3536,1772,Stratovolcano,Stratovolcano,1981,Eruption Observed,Northwestern Pacific Volcanic Regions
+290040,Berutarubesan [Berutarube],Japan - administered by Russia,146.932,44.462,1221,Stratovolcano,Stratovolcano,,Evidence Credible,Northwestern Pacific Volcanic Regions
+290050,Etorofu-Atosanupuri [Atosanupuri],Japan - administered by Russia,147.1306,44.8078,1209,Stratovolcano,Stratovolcano,1932,Eruption Observed,Northwestern Pacific Volcanic Regions
+290060,Hitokappu Volcano Group [Bogatyr Ridge],Japan - administered by Russia,147.403,44.857,1610,Stratovolcano,Stratovolcano,,Evidence Credible,Northwestern Pacific Volcanic Regions
+290070,Etorofu-Yakeyama [Grozny Group],Japan - administered by Russia,147.8722,45.0114,1147,Complex,Complex or compound,2013,Eruption Observed,Northwestern Pacific Volcanic Regions
+290072,Odamoisan [Tebenkov],Japan - administered by Russia,147.9169,45.0286,1208,Stratovolcano,Stratovolcano,,Evidence Uncertain,Northwestern Pacific Volcanic Regions
+290080,Sashiusudake [Baransky],Japan - administered by Russia,148.0142,45.1036,1128,Stratovolcano,Stratovolcano,1951,Eruption Observed,Northwestern Pacific Volcanic Regions
+290100,Moyorodake [Medvezhia],Japan - administered by Russia,148.838,45.389,1124,Stratovolcano,Stratovolcano,1999,Eruption Observed,Northwestern Pacific Volcanic Regions
+290111,Ivao Group,Russia,149.6762,45.7593,1426,Pyroclastic cone(s),"Cones, domes, maars, fissure vents",,Evidence Credible,Northwestern Pacific Volcanic Regions
+290120,Kolokol Group,Russia,150.083,46.042,1328,Stratovolcano,Stratovolcano,1973,Eruption Observed,Northwestern Pacific Volcanic Regions
+290130,Kuril Arc at 46.3°N,Russia,150.8526,46.2944,-100,,Type not recorded,,Evidence Uncertain,Northwestern Pacific Volcanic Regions
+290150,Chirpoi,Russia,150.871,46.532,742,Caldera,Caldera,2016,Eruption Observed,Northwestern Pacific Volcanic Regions
+290161,Milna,Russia,151.786,46.815,1504,Stratovolcano,Stratovolcano,1914,Eruption Observed,Northwestern Pacific Volcanic Regions
+290180,Zavaritzki Caldera,Russia,151.9518,46.9178,612,Caldera,Caldera,1957,Eruption Observed,Northwestern Pacific Volcanic Regions
+290190,Prevo Peak,Russia,152.1167,47.0139,1360,Stratovolcano,Stratovolcano,1825,Eruption Observed,Northwestern Pacific Volcanic Regions
+290191,Uratman,Russia,152.25,47.12,678,Stratovolcano,Stratovolcano,,Evidence Credible,Northwestern Pacific Volcanic Regions
+290200,Ketoi,Russia,152.475,47.35,1172,Stratovolcano,Stratovolcano,1960,Eruption Observed,Northwestern Pacific Volcanic Regions
+290210,Ushishur,Russia,152.8139,47.5125,357,Caldera,Caldera,1884,Eruption Observed,Northwestern Pacific Volcanic Regions
+290211,Srednii,Russia,152.893,47.5861,36,Stratovolcano,Stratovolcano,,Evidence Credible,Northwestern Pacific Volcanic Regions
+290220,Rasshua,Russia,153.02,47.77,956,Stratovolcano,Stratovolcano,1957,Eruption Observed,Northwestern Pacific Volcanic Regions
+290240,Sarychev Peak,Russia,153.2,48.092,1496,Stratovolcano,Stratovolcano,2021,Eruption Observed,Northwestern Pacific Volcanic Regions
+290250,Raikoke,Russia,153.25,48.292,551,Stratovolcano,Stratovolcano,2019,Eruption Observed,Northwestern Pacific Volcanic Regions
+290260,Chirinkotan,Russia,153.48,48.98,724,Stratovolcano,Stratovolcano,2022,Eruption Observed,Northwestern Pacific Volcanic Regions
+290270,Ekarma,Russia,153.93,48.958,1170,Stratovolcano,Stratovolcano,2010,Eruption Observed,Northwestern Pacific Volcanic Regions
+290290,Sinarka,Russia,154.182,48.873,911,Stratovolcano,Stratovolcano,1878,Eruption Observed,Northwestern Pacific Volcanic Regions
+290300,Kharimkotan,Russia,154.508,49.12,1145,Stratovolcano,Stratovolcano,1933,Eruption Observed,Northwestern Pacific Volcanic Regions
+290310,Tao-Rusyr Caldera,Russia,154.725,49.34,1272,Stratovolcano,Stratovolcano,1952,Eruption Observed,Northwestern Pacific Volcanic Regions
+290320,Nemo Peak,Russia,154.8126,49.5641,994,Caldera,Caldera,1938,Eruption Observed,Northwestern Pacific Volcanic Regions
+290331,Shirinki,Russia,154.9781,50.1973,693,Stratovolcano,Stratovolcano,,Evidence Credible,Northwestern Pacific Volcanic Regions
+290340,Fuss Peak,Russia,155.246,50.267,1742,Stratovolcano,Stratovolcano,1854,Eruption Observed,Northwestern Pacific Volcanic Regions
+290350,Karpinsky Group,Russia,155.3847,50.1419,1326,Complex,Complex or compound,,Unrest / Holocene,Northwestern Pacific Volcanic Regions
+290360,Chikurachki,Russia,155.461,50.324,1781,Stratovolcano(es),Stratovolcano,2023,Eruption Observed,Northwestern Pacific Volcanic Regions
+290370,Vernadsky Ridge,Russia,155.9867,50.5819,1183,Pyroclastic cone(s),"Cones, domes, maars, fissure vents",,Evidence Credible,Northwestern Pacific Volcanic Regions
+290380,Ebeko,Russia,156.014,50.686,1103,Stratovolcano,Stratovolcano,2024,Eruption Observed,Northwestern Pacific Volcanic Regions
+290390,Alaid,Russia,155.565,50.861,2285,Stratovolcano,Stratovolcano,2022,Eruption Observed,Northwestern Pacific Volcanic Regions
+300010,Kambalny,Russia,156.875,51.306,2116,Stratovolcano,Stratovolcano,2017,Eruption Dated,Northwestern Pacific Volcanic Regions
+300020,Koshelev,Russia,156.753,51.356,1822,Stratovolcano,Stratovolcano,1690,Eruption Observed,Northwestern Pacific Volcanic Regions
+300021,Yavinsky,Russia,156.629,51.533,646,Stratovolcano,Stratovolcano,-4050,Eruption Dated,Northwestern Pacific Volcanic Regions
+300022,Diky Greben,Russia,156.978,51.452,1040,Lava dome(s),"Cones, domes, maars, fissure vents",350,Eruption Dated,Northwestern Pacific Volcanic Regions
+300023,Kurile Lake,Russia,157.12,51.45,81,Caldera,Caldera,-6440,Eruption Dated,Northwestern Pacific Volcanic Regions
+300030,Iliinsky,Russia,157.203,51.498,1555,Stratovolcano,Stratovolcano,1901,Eruption Observed,Northwestern Pacific Volcanic Regions
+300040,Zheltovsky,Russia,157.328,51.577,1926,Stratovolcano,Stratovolcano,1923,Eruption Observed,Northwestern Pacific Volcanic Regions
+300050,Ksudach,Russia,157.5292,51.8042,1007,Stratovolcano,Stratovolcano,1907,Eruption Observed,Northwestern Pacific Volcanic Regions
+300052,Olkoviy-Ozernoy Volcanic Field,Russia,157.53,52.02,681,Volcanic field,Volcanic field,,Evidence Credible,Northwestern Pacific Volcanic Regions
+300053,Khodutka,Russia,157.711,52.062,2039,Stratovolcano(es),Stratovolcano,-300,Eruption Dated,Northwestern Pacific Volcanic Regions
+300058,Asacha,Russia,157.827,52.355,1910,Complex,Complex or compound,,Evidence Credible,Northwestern Pacific Volcanic Regions
+300059,Visokiy,Russia,157.9332,52.435,1227,Stratovolcano,Stratovolcano,,Evidence Credible,Northwestern Pacific Volcanic Regions
+300060,Mutnovsky,Russia,158.196,52.449,2288,Complex,Complex or compound,2000,Eruption Observed,Northwestern Pacific Volcanic Regions
+300070,Gorely,Russia,158.0358,52.5549,1799,Caldera,Caldera,2010,Eruption Observed,Northwestern Pacific Volcanic Regions
+300080,Opala,Russia,157.339,52.543,2439,Caldera,Caldera,1776,Eruption Observed,Northwestern Pacific Volcanic Regions
+300082,Tolmachev Dol,Russia,157.58,52.63,1021,Pyroclastic cone(s),"Cones, domes, maars, fissure vents",300,Eruption Dated,Northwestern Pacific Volcanic Regions
+300083,Vilyuchinsky,Russia,158.28,52.7,2173,Stratovolcano,Stratovolcano,-8050,Eruption Dated,Northwestern Pacific Volcanic Regions
+300084,Barkhatnaya Sopka,Russia,158.24,52.802,874,Volcanic field,Volcanic field,-3550,Eruption Dated,Northwestern Pacific Volcanic Regions
+300090,Koryaksky,Russia,158.712,53.321,3430,Stratovolcano,Stratovolcano,2009,Eruption Observed,Northwestern Pacific Volcanic Regions
+300100,Avachinsky,Russia,158.836,53.256,2717,Stratovolcano,Stratovolcano,2001,Eruption Observed,Northwestern Pacific Volcanic Regions
+300110,Dzenzursky,Russia,158.922,53.637,2285,Compound,Complex or compound,,Evidence Credible,Northwestern Pacific Volcanic Regions
+300120,Zhupanovsky,Russia,159.15,53.589,2899,Compound,Complex or compound,2016,Eruption Observed,Northwestern Pacific Volcanic Regions
+300121,Veer,Russia,158.4478,53.7525,520,Pyroclastic cone(s),"Cones, domes, maars, fissure vents",390,Eruption Dated,Northwestern Pacific Volcanic Regions
+300122,Kostakan,Russia,158.052,53.833,1150,Pyroclastic cone(s),"Cones, domes, maars, fissure vents",1350,Eruption Dated,Northwestern Pacific Volcanic Regions
+300123,Bakening,Russia,158.07,53.905,2278,Stratovolcano,Stratovolcano,-550,Eruption Dated,Northwestern Pacific Volcanic Regions
+300124,Zavaritsky,Russia,158.3851,53.9065,1547,Pyroclastic cone(s),"Cones, domes, maars, fissure vents",-800,Eruption Dated,Northwestern Pacific Volcanic Regions
+300125,Akademia Nauk,Russia,159.45,53.98,1180,Stratovolcano(es),Stratovolcano,1996,Eruption Observed,Northwestern Pacific Volcanic Regions
+300130,Karymsky,Russia,159.443,54.049,1513,Stratovolcano,Stratovolcano,2025,Eruption Observed,Northwestern Pacific Volcanic Regions
+300140,Maly Semyachik,Russia,159.674,54.135,1527,Caldera,Caldera,1952,Eruption Observed,Northwestern Pacific Volcanic Regions
+300150,Bolshoi Semiachik,Russia,160.02,54.32,1720,Stratovolcano(es),Stratovolcano,-4450,Eruption Dated,Northwestern Pacific Volcanic Regions
+300160,Taunshits,Russia,159.804,54.528,2301,Stratovolcano,Stratovolcano,-550,Eruption Dated,Northwestern Pacific Volcanic Regions
+300170,Uzon,Russia,159.9741,54.4885,1617,Caldera(s),Caldera,200,Eruption Dated,Northwestern Pacific Volcanic Regions
+300180,Kikhpinych,Russia,160.251,54.489,1515,Stratovolcano(es),Stratovolcano,1550,Eruption Dated,Northwestern Pacific Volcanic Regions
+300190,Krasheninnikov,Russia,160.27,54.596,1816,Caldera,Caldera,2026,Eruption Dated,Northwestern Pacific Volcanic Regions
+300200,Kronotsky,Russia,160.533,54.753,3482,Stratovolcano,Stratovolcano,-3350,Eruption Dated,Northwestern Pacific Volcanic Regions
+300210,Gamchen,Russia,160.703,54.974,2539,Complex,Complex or compound,-188,Eruption Dated,Northwestern Pacific Volcanic Regions
+300220,Komarov,Russia,160.725,55.033,2065,Stratovolcano,Stratovolcano,950,Eruption Dated,Northwestern Pacific Volcanic Regions
+300221,Vysoky,Russia,160.765,55.064,2129,Stratovolcano,Stratovolcano,-550,Eruption Dated,Northwestern Pacific Volcanic Regions
+300230,Kizimen,Russia,160.32,55.131,2334,Stratovolcano,Stratovolcano,2013,Eruption Observed,Northwestern Pacific Volcanic Regions
+300240,Tolbachik,Russia,160.326,55.832,3611,Shield,Shield,2013,Eruption Observed,Northwestern Pacific Volcanic Regions
+300241,Udina,Russia,160.527,55.758,2886,Stratovolcano(es),Stratovolcano,,Evidence Credible,Northwestern Pacific Volcanic Regions
+300242,Zimina,Russia,160.603,55.862,3057,Stratovolcano(es),Stratovolcano,,Evidence Uncertain,Northwestern Pacific Volcanic Regions
+300250,Bezymianny,Russia,160.595,55.972,2882,Stratovolcano,Stratovolcano,2025,Eruption Observed,Northwestern Pacific Volcanic Regions
+300251,Kamen,Russia,160.593,56.02,4585,Stratovolcano,Stratovolcano,,Evidence Credible,Northwestern Pacific Volcanic Regions
+300260,Klyuchevskoy,Russia,160.642,56.056,4754,Stratovolcano,Stratovolcano,2025,Eruption Observed,Northwestern Pacific Volcanic Regions
+300261,Ushkovsky,Russia,160.509,56.113,3943,Compound,Complex or compound,1890,Eruption Observed,Northwestern Pacific Volcanic Regions
+300270,Sheveluch,Russia,161.36,56.653,3283,Stratovolcano,Stratovolcano,2026,Eruption Observed,Northwestern Pacific Volcanic Regions
+300271,Piip,Russia,167.33,55.42,-300,Stratovolcano,Stratovolcano,-5050,Eruption Dated,North America Volcanic Regions
+300272,Khangar,Russia,157.407,54.761,1967,Stratovolcano,Stratovolcano,1500,Eruption Dated,Northwestern Pacific Volcanic Regions
+300273,Cherpuk Group,Russia,157.47,55.55,1868,Pyroclastic cone(s),"Cones, domes, maars, fissure vents",-4550,Eruption Dated,Northwestern Pacific Volcanic Regions
+300280,Ichinsky,Russia,157.718,55.678,3596,Stratovolcano,Stratovolcano,1740,Eruption Observed,Northwestern Pacific Volcanic Regions
+300360,Bolshoi-Kekuknaysky,Russia,157.917,56.483,1401,Shield(s),Shield,-5310,Eruption Dated,Northwestern Pacific Volcanic Regions
+300450,Alney-Chashakondzha,Russia,159.647,56.656,2570,Stratovolcano,Stratovolcano,1600,Eruption Dated,Northwestern Pacific Volcanic Regions
+300511,Shisheika,Russia,161.09,57.153,355,Lava dome,"Cones, domes, maars, fissure vents",-2240,Eruption Dated,Northwestern Pacific Volcanic Regions
+300512,Terpuk,Russia,159.83,57.2,765,Shield,Shield,-800,Eruption Dated,Northwestern Pacific Volcanic Regions
+300520,Sedanka Lava Field,Russia,160.067,57.317,1399,Volcanic field,Volcanic field,-7050,Eruption Dated,Northwestern Pacific Volcanic Regions
+300550,Gorny Institute,Russia,160.2,57.33,2125,Stratovolcano,Stratovolcano,1250,Eruption Dated,Northwestern Pacific Volcanic Regions
+300551,Kinenin,Russia,160.97,57.35,583,Maar,"Cones, domes, maars, fissure vents",850,Eruption Dated,Northwestern Pacific Volcanic Regions
+300552,Bliznetsy,Russia,161.37,57.35,265,Lava cone,"Cones, domes, maars, fissure vents",-1060,Eruption Dated,Northwestern Pacific Volcanic Regions
+300560,Titila,Russia,160.108,57.406,1523,Shield(s),Shield,-550,Eruption Dated,Northwestern Pacific Volcanic Regions
+300590,Elovsky,Russia,160.53,57.55,1381,Shield(s),Shield,-7550,Eruption Dated,Northwestern Pacific Volcanic Regions
+300650,Nylgimelkin,Russia,160.65,57.97,1764,Shield(s),Shield,-3550,Eruption Dated,Northwestern Pacific Volcanic Regions
+300671,Spokoiny,Russia,160.82,58.13,2171,Stratovolcano,Stratovolcano,-3450,Eruption Dated,Northwestern Pacific Volcanic Regions
+300680,Ostry,Russia,160.82,58.18,2552,Stratovolcano,Stratovolcano,-2050,Eruption Dated,Northwestern Pacific Volcanic Regions
+300700,Severny,Russia,160.87,58.28,1936,Shield,Shield,-1550,Eruption Dated,Northwestern Pacific Volcanic Regions
+302030,Udokan Plateau,Russia,117.77,56.28,2180,Volcanic field,Volcanic field,-220,Eruption Dated,Eastern Asia Volcanic Regions
+302060,Jombolok,Russia,99.021,52.713,2047,Volcanic field,Volcanic field,737,Eruption Dated,Eastern Asia Volcanic Regions
+303010,Taryatu-Chulutu,Mongolia,99.95,48.133,2326,Volcanic field,Volcanic field,-2980,Eruption Dated,Eastern Asia Volcanic Regions
+303015,Khoid Naiman Nuur,Mongolia,101.7982,46.6459,2532,Pyroclastic cone,"Cones, domes, maars, fissure vents",,Evidence Uncertain,Eastern Asia Volcanic Regions
+304030,Ashikule Volcanic Field,China,81.646,35.742,5090,Volcanic field,Volcanic field,1951,Eruption Observed,Eastern Asia Volcanic Regions
+305010,Honggeertu,China,113.111,41.59,1605,Volcanic field,Volcanic field,,Evidence Uncertain,Eastern Asia Volcanic Regions
+305011,Arxan-Chaihe,China,120.8,47.45,1677,Volcanic field,Volcanic field,0,Eruption Dated,Eastern Asia Volcanic Regions
+305020,Keluo Group,China,125.92,49.37,670,Volcanic field,Volcanic field,,Evidence Credible,Eastern Asia Volcanic Regions
+305030,Wudalianchi,China,126.15,48.722,597,Volcanic field,Volcanic field,1776,Eruption Observed,Eastern Asia Volcanic Regions
+305040,Jingpohu,China,128.83,44.08,1000,Volcanic field,Volcanic field,-520,Eruption Dated,Eastern Asia Volcanic Regions
+305050,Longgang Group,China,126.5,42.33,1000,Volcanic field,Volcanic field,350,Eruption Dated,Eastern Asia Volcanic Regions
+305060,Changbaishan,China-North Korea,128.08,41.98,2744,Stratovolcano,Stratovolcano,1903,Eruption Observed,Eastern Asia Volcanic Regions
+306030,Ulleungdo,South Korea,130.87,37.5,984,Stratovolcano,Stratovolcano,-2990,Eruption Dated,Eastern Asia Volcanic Regions
+306040,Halla,South Korea,126.53,33.361,1919,Shield,Shield,1007,Eruption Observed,Eastern Asia Volcanic Regions
+311010,Buldir,United States,175.911,52.35,656,Stratovolcano,Stratovolcano,,Evidence Uncertain,North America Volcanic Regions
+311020,Kiska,United States,177.602,52.103,1220,Stratovolcano,Stratovolcano,1990,Eruption Observed,North America Volcanic Regions
+311030,Segula,United States,178.136,52.015,1160,Stratovolcano,Stratovolcano,,Evidence Credible,North America Volcanic Regions
+311040,Davidof,United States,178.33,51.97,328,Stratovolcano,Stratovolcano,,Evidence Uncertain,North America Volcanic Regions
+311050,Little Sitkin,United States,178.543,51.95,1174,Stratovolcano,Stratovolcano,1830,Eruption Observed,North America Volcanic Regions
+311060,Semisopochnoi,United States,179.58,51.93,1221,Stratovolcano,Stratovolcano,2023,Eruption Observed,North America Volcanic Regions
+311070,Gareloi,United States,-178.794,51.79,1573,Stratovolcano,Stratovolcano,1989,Eruption Observed,North America Volcanic Regions
+311080,Tanaga,United States,-178.146,51.885,1806,Stratovolcano(es),Stratovolcano,1914,Eruption Observed,North America Volcanic Regions
+311090,Takawangha,United States,-178.006,51.873,1449,Stratovolcano,Stratovolcano,1550,Eruption Dated,North America Volcanic Regions
+311100,Bobrof,United States,-177.438,51.91,738,Stratovolcano,Stratovolcano,,Evidence Uncertain,North America Volcanic Regions
+311110,Kanaga,United States,-177.168,51.923,1307,Stratovolcano,Stratovolcano,2023,Eruption Observed,North America Volcanic Regions
+311111,Moffett,United States,-176.747,51.944,1196,Stratovolcano,Stratovolcano,-1600,Eruption Dated,North America Volcanic Regions
+311120,Great Sitkin,United States,-176.13,52.076,1740,Stratovolcano,Stratovolcano,2026,Eruption Observed,North America Volcanic Regions
+311130,Kasatochi,United States,-175.508,52.177,314,Stratovolcano,Stratovolcano,2008,Eruption Observed,North America Volcanic Regions
+311140,Koniuji,United States,-175.13,52.22,273,Stratovolcano,Stratovolcano,-1150,Eruption Dated,North America Volcanic Regions
+311160,Atka Volcanic Complex,United States,-174.139,52.331,1518,Stratovolcano(es),Stratovolcano,2025,Eruption Observed,North America Volcanic Regions
+311180,Seguam,United States,-172.51,52.315,1054,Stratovolcano(es),Stratovolcano,1993,Eruption Observed,North America Volcanic Regions
+311190,Amukta,United States,-171.252,52.5,1066,Stratovolcano,Stratovolcano,1996,Eruption Observed,North America Volcanic Regions
+311200,Chagulak,United States,-171.1383,52.5716,1028,Stratovolcano,Stratovolcano,,Evidence Uncertain,North America Volcanic Regions
+311210,Yunaska,United States,-170.6317,52.6394,550,Shield,Shield,1937,Eruption Observed,North America Volcanic Regions
+311220,Herbert,United States,-170.111,52.742,1280,Stratovolcano,Stratovolcano,,Evidence Credible,North America Volcanic Regions
+311230,Carlisle,United States,-170.054,52.894,1620,Stratovolcano,Stratovolcano,1828,Eruption Observed,North America Volcanic Regions
+311240,Cleveland,United States,-169.944,52.825,1730,Stratovolcano,Stratovolcano,2020,Eruption Observed,North America Volcanic Regions
+311241,Tana,United States,-169.77,52.83,1170,Stratovolcano(es),Stratovolcano,,Evidence Credible,North America Volcanic Regions
+311250,Uliaga,United States,-169.77,53.065,888,Stratovolcano,Stratovolcano,,Evidence Credible,North America Volcanic Regions
+311260,Kagamil,United States,-169.72,52.974,893,Stratovolcano,Stratovolcano,1929,Eruption Observed,North America Volcanic Regions
+311270,Vsevidof,United States,-168.6875,53.1264,2160,Stratovolcano,Stratovolcano,1878,Eruption Observed,North America Volcanic Regions
+311280,Recheschnoi,United States,-168.539,53.157,1984,Stratovolcano,Stratovolcano,,Evidence Credible,North America Volcanic Regions
+311290,Okmok,United States,-168.13,53.43,1073,Shield,Shield,2008,Eruption Observed,North America Volcanic Regions
+311300,Bogoslof,United States,-168.03,53.93,150,Stratovolcano,Stratovolcano,2017,Eruption Observed,North America Volcanic Regions
+311310,Makushin,United States,-166.923,53.891,1800,Stratovolcano,Stratovolcano,1995,Eruption Observed,North America Volcanic Regions
+311320,Akutan,United States,-165.986,54.134,1303,Stratovolcano,Stratovolcano,1992,Eruption Observed,North America Volcanic Regions
+311340,Westdahl,United States,-164.65,54.516,1563,Stratovolcano?,Stratovolcano,1992,Eruption Observed,North America Volcanic Regions
+311350,Fisher,United States,-164.43,54.65,1112,Stratovolcano,Stratovolcano,1830,Eruption Observed,North America Volcanic Regions
+311360,Shishaldin,United States,-163.97,54.756,2857,Stratovolcano,Stratovolcano,2023,Eruption Observed,North America Volcanic Regions
+311380,Roundtop,United States,-163.589,54.8,1871,Stratovolcano,Stratovolcano,-7600,Eruption Dated,North America Volcanic Regions
+311390,Amak,United States,-163.1472,55.4184,547,Stratovolcano,Stratovolcano,1796,Eruption Observed,North America Volcanic Regions
+312010,Frosty,United States,-162.835,55.067,1728,Stratovolcano(es),Stratovolcano,,Evidence Credible,North America Volcanic Regions
+312011,Dutton,United States,-162.276,55.183,1465,Stratovolcano,Stratovolcano,,Evidence Credible,North America Volcanic Regions
+312020,Emmons Lake Volcanic Center,United States,-162.0445,55.3519,1534,Caldera,Caldera,,Evidence Credible,North America Volcanic Regions
+312030,Pavlof,United States,-161.894,55.417,2493,Stratovolcano,Stratovolcano,2022,Eruption Observed,North America Volcanic Regions
+312040,Pavlof Sister,United States,-161.854,55.457,2142,Stratovolcano,Stratovolcano,,Evidence Credible,North America Volcanic Regions
+312050,Dana,United States,-161.214,55.641,1354,Stratovolcano,Stratovolcano,-1890,Eruption Dated,North America Volcanic Regions
+312055,Stepovak Bay Group,United States,-160.017,55.917,1633,Volcanic field,Volcanic field,,Evidence Credible,North America Volcanic Regions
+312060,Kupreanof,United States,-159.797,56.011,1895,Stratovolcano,Stratovolcano,,Evidence Uncertain,North America Volcanic Regions
+312070,Veniaminof,United States,-159.38,56.17,2507,Stratovolcano,Stratovolcano,2021,Eruption Observed,North America Volcanic Regions
+312080,Black Peak,United States,-158.785,56.552,1032,Stratovolcano,Stratovolcano,-1900,Eruption Dated,North America Volcanic Regions
+312090,Aniakchak,United States,-158.17,56.88,1341,Caldera,Caldera,1931,Eruption Observed,North America Volcanic Regions
+312100,Yantarni,United States,-157.185,57.019,1345,Stratovolcano,Stratovolcano,-800,Eruption Dated,North America Volcanic Regions
+312110,Chiginagak,United States,-156.99,57.135,2221,Stratovolcano,Stratovolcano,1998,Eruption Observed,North America Volcanic Regions
+312120,Kialagvik,United States,-156.745,57.203,1677,Stratovolcano,Stratovolcano,,Evidence Credible,North America Volcanic Regions
+312130,Ugashik-Peulik,United States,-156.368,57.751,1474,Stratovolcano,Stratovolcano,1814,Eruption Observed,North America Volcanic Regions
+312131,Ukinrek Maars,United States,-156.5203,57.8344,91,Maar(s),"Cones, domes, maars, fissure vents",1977,Eruption Observed,North America Volcanic Regions
+312132,Alaska Peninsula Arc at 155.4°W,United States,-155.411,57.87,402,Lava dome,"Cones, domes, maars, fissure vents",,Evidence Credible,North America Volcanic Regions
+312140,Martin,United States,-155.361,58.172,1863,Stratovolcano,Stratovolcano,1953,Eruption Dated,North America Volcanic Regions
+312150,Mageik,United States,-155.253,58.195,2165,Stratovolcano,Stratovolcano,-500,Eruption Dated,North America Volcanic Regions
+312160,Trident,United States,-155.1,58.236,1864,Stratovolcano,Stratovolcano,1974,Eruption Observed,North America Volcanic Regions
+312170,Katmai,United States,-154.9533,58.279,2047,Stratovolcano,Stratovolcano,1912,Eruption Observed,North America Volcanic Regions
+312180,Novarupta,United States,-155.1588,58.2655,841,Caldera,Caldera,1912,Eruption Observed,North America Volcanic Regions
+312190,Griggs,United States,-155.092,58.354,2317,Stratovolcano,Stratovolcano,-1790,Eruption Dated,North America Volcanic Regions
+312200,Snowy Mountain,United States,-154.682,58.336,2162,Stratovolcano(es),Stratovolcano,1710,Eruption Dated,North America Volcanic Regions
+312210,Denison,United States,-154.449,58.418,2287,Stratovolcano,Stratovolcano,,Evidence Uncertain,North America Volcanic Regions
+312220,Steller,United States,-154.3895,58.4298,2279,Stratovolcano,Stratovolcano,,Evidence Credible,North America Volcanic Regions
+312230,Kukak,United States,-154.355,58.453,2043,Stratovolcano,Stratovolcano,,Unrest / Holocene,North America Volcanic Regions
+312250,Kaguyak,United States,-154.0245,58.6113,901,Lava dome(s),"Cones, domes, maars, fissure vents",-3850,Eruption Dated,North America Volcanic Regions
+312260,Fourpeaked,United States,-153.672,58.77,2105,Stratovolcano,Stratovolcano,2006,Eruption Observed,North America Volcanic Regions
+312270,Douglas,United States,-153.542,58.855,2140,Stratovolcano,Stratovolcano,,Evidence Credible,North America Volcanic Regions
+313010,Augustine,United States,-153.435,59.3626,1218,Lava dome(s),"Cones, domes, maars, fissure vents",2006,Eruption Observed,North America Volcanic Regions
+313020,Iliamna,United States,-153.09,60.032,3053,Stratovolcano,Stratovolcano,1876,Eruption Observed,North America Volcanic Regions
+313030,Redoubt,United States,-152.742,60.485,3108,Stratovolcano,Stratovolcano,2009,Eruption Observed,North America Volcanic Regions
+313040,Spurr,United States,-152.251,61.299,3374,Stratovolcano,Stratovolcano,1992,Eruption Observed,North America Volcanic Regions
+313050,Hayes,United States,-152.411,61.64,3034,Stratovolcano,Stratovolcano,1200,Eruption Dated,North America Volcanic Regions
+314010,St. Paul Island,United States,-170.213,57.167,203,Shield,Shield,-1280,Eruption Dated,North America Volcanic Regions
+314030,Ingakslugwat Hills,United States,-164.47,61.43,190,Volcanic field,Volcanic field,,Evidence Credible,North America Volcanic Regions
+314040,St. Michael,United States,-162.12,63.45,715,Volcanic field,Volcanic field,,Evidence Credible,North America Volcanic Regions
+314060,Imuruk Lake,United States,-163.45,65.517,610,Volcanic field,Volcanic field,300,Eruption Dated,North America Volcanic Regions
+315001,Buzzard Creek,United States,-148.4327,64.0616,830,Tuff ring(s),"Cones, domes, maars, fissure vents",-1050,Eruption Dated,North America Volcanic Regions
+315020,Wrangell,United States,-144.017,62.006,4278,Shield,Shield,1912,Eruption Observed,North America Volcanic Regions
+315030,Churchill,United States,-141.75,61.38,5005,Stratovolcano,Stratovolcano,847,Eruption Dated,North America Volcanic Regions
+315040,Edgecumbe,United States,-135.75,57.05,970,Volcanic field,Volcanic field,-2080,Eruption Dated,North America Volcanic Regions
+315050,Duncan Canal,United States,-133.1,56.5,15,Volcanic field,Volcanic field,,Evidence Credible,North America Volcanic Regions
+315060,Tlevak Strait-Suemez Island,United States,-133.3,55.25,50,Volcanic field,Volcanic field,,Evidence Credible,North America Volcanic Regions
+315070,Behm Canal-Rudyerd Bay,United States,-131,55.35,500,Volcanic field,Volcanic field,,Evidence Uncertain,North America Volcanic Regions
+320010,Fort Selkirk,Canada,-137.38,62.93,1239,Volcanic field,Volcanic field,,Evidence Uncertain,North America Volcanic Regions
+320020,Alligator Lake,Canada,-135.42,60.42,2217,Volcanic field,Volcanic field,,Evidence Credible,North America Volcanic Regions
+320030,Atlin Volcanic Field,Canada,-133.358,59.708,1880,Pyroclastic cone(s),"Cones, domes, maars, fissure vents",,Evidence Credible,North America Volcanic Regions
+320031,Tuya Volcanic Field,Canada,-130.58,59.37,2123,Volcanic field,Volcanic field,,Evidence Credible,North America Volcanic Regions
+320040,Heart Peaks,Canada,-131.97,58.6,2012,Shield,Shield,,Evidence Uncertain,North America Volcanic Regions
+320050,Level Mountain,Canada,-131.35,58.42,2164,Shield,Shield,,Evidence Uncertain,North America Volcanic Regions
+320060,Edziza,Canada,-130.63,57.72,2786,Stratovolcano,Stratovolcano,950,Eruption Dated,North America Volcanic Regions
+320070,Spectrum Range,Canada,-130.68,57.43,2430,Shield,Shield,,Evidence Credible,North America Volcanic Regions
+320080,Hoodoo Mountain,Canada,-131.28,56.78,1850,Pyroclastic cone(s),"Cones, domes, maars, fissure vents",-7050,Eruption Dated,North America Volcanic Regions
+320090,Iskut-Unuk River Cones,Canada,-130.75,56.567,1880,Pyroclastic cone(s),"Cones, domes, maars, fissure vents",1800,Eruption Dated,North America Volcanic Regions
+320100,Tseax River Cone,Canada,-128.8991,55.1109,612,Pyroclastic cone,"Cones, domes, maars, fissure vents",1690,Eruption Dated,North America Volcanic Regions
+320110,Crow Lagoon,Canada,-130.23,54.7,335,Pyroclastic cone,"Cones, domes, maars, fissure vents",,Evidence Credible,North America Volcanic Regions
+320120,Milbanke Sound Group,Canada,-128.723,52.498,233,Pyroclastic cone(s),"Cones, domes, maars, fissure vents",,Evidence Credible,North America Volcanic Regions
+320140,Nazko,Canada,-123.732,52.928,1238,Pyroclastic cone(s),"Cones, domes, maars, fissure vents",-5220,Eruption Dated,North America Volcanic Regions
+320150,Wells Gray-Clearwater,Canada,-120.1125,52.0306,950,Volcanic field,Volcanic field,1550,Eruption Dated,North America Volcanic Regions
+320160,Silverthrone,Canada,-126.1133,51.5179,2860,Caldera,Caldera,,Evidence Credible,North America Volcanic Regions
+320170,Bridge River Cones,Canada,-123.4,50.8,2500,Volcanic field,Volcanic field,,Evidence Credible,North America Volcanic Regions
+320180,Meager,Canada,-123.5,50.63,2680,Complex,Complex or compound,-410,Eruption Dated,North America Volcanic Regions
+320190,Garibaldi Lake,Canada,-123,49.933,2316,Volcanic field,Volcanic field,,Evidence Credible,North America Volcanic Regions
+320200,Garibaldi,Canada,-123,49.85,2678,Stratovolcano,Stratovolcano,-8060,Eruption Dated,North America Volcanic Regions
+320811,Cayley Volcanic Field,Canada,-123.28,50.12,2375,Volcanic field,Volcanic field,,Evidence Credible,North America Volcanic Regions
+321010,Baker,United States,-121.813,48.777,3285,Stratovolcano(es),Stratovolcano,1880,Eruption Observed,North America Volcanic Regions
+321020,Glacier Peak,United States,-121.113,48.112,3213,Stratovolcano,Stratovolcano,1700,Eruption Dated,North America Volcanic Regions
+321030,Rainier,United States,-121.76,46.853,4392,Stratovolcano,Stratovolcano,1450,Eruption Dated,North America Volcanic Regions
+321040,Adams,United States,-121.49,46.206,3742,Stratovolcano,Stratovolcano,950,Eruption Dated,North America Volcanic Regions
+321050,St. Helens,United States,-122.18,46.2,2549,Stratovolcano,Stratovolcano,2008,Eruption Observed,North America Volcanic Regions
+321060,West Crater,United States,-122.08,45.88,1329,Volcanic field,Volcanic field,-5750,Eruption Dated,North America Volcanic Regions
+321070,Indian Heaven,United States,-121.82,45.93,1806,Volcanic field,Volcanic field,-6250,Eruption Dated,North America Volcanic Regions
+322010,Hood,United States,-121.695,45.374,3426,Stratovolcano,Stratovolcano,1866,Eruption Observed,North America Volcanic Regions
+322020,Jefferson,United States,-121.8,44.674,3199,Stratovolcano,Stratovolcano,950,Eruption Dated,North America Volcanic Regions
+322030,Blue Lake Crater,United States,-121.7686,44.4125,1136,Maar,"Cones, domes, maars, fissure vents",680,Eruption Dated,North America Volcanic Regions
+322040,Sand Mountain Field,United States,-121.93,44.38,1664,Volcanic field,Volcanic field,-950,Eruption Dated,North America Volcanic Regions
+322060,Belknap,United States,-121.8423,44.285,2094,Shield(s),Shield,475,Eruption Dated,North America Volcanic Regions
+322070,Three Sisters,United States,-121.767,44.133,3159,Complex,Complex or compound,439,Eruption Dated,North America Volcanic Regions
+322090,Bachelor,United States,-121.688,43.979,2763,Stratovolcano,Stratovolcano,-5800,Eruption Dated,North America Volcanic Regions
+322100,Davis Lake,United States,-121.82,43.57,2163,Volcanic field,Volcanic field,-2790,Eruption Dated,North America Volcanic Regions
+322110,Newberry,United States,-121.229,43.722,2434,Shield,Shield,690,Eruption Dated,North America Volcanic Regions
+322120,Devils Garden,United States,-120.861,43.512,1698,Volcanic field,Volcanic field,,Evidence Uncertain,North America Volcanic Regions
+322150,Cinnamon Butte,United States,-122.1111,43.2411,1958,Pyroclastic cone(s),"Cones, domes, maars, fissure vents",,Evidence Uncertain,North America Volcanic Regions
+322160,Crater Lake,United States,-122.107,42.942,2487,Caldera,Caldera,-2850,Eruption Dated,North America Volcanic Regions
+322170,Diamond Craters,United States,-118.75,43.1,1435,Volcanic field,Volcanic field,-5610,Eruption Dated,North America Volcanic Regions
+322190,Jordan Craters,United States,-117.46,43.147,1473,Volcanic field,Volcanic field,-1250,Eruption Dated,North America Volcanic Regions
+323010,Shasta,United States,-122.193,41.409,4317,Stratovolcano,Stratovolcano,1250,Eruption Observed,North America Volcanic Regions
+323020,Medicine Lake,United States,-121.554,41.611,2412,Shield,Shield,1060,Eruption Dated,North America Volcanic Regions
+323080,Lassen Volcanic Center,United States,-121.508,40.492,3187,Stratovolcano,Stratovolcano,1917,Eruption Observed,North America Volcanic Regions
+323100,Clear Lake Volcanic Field,United States,-122.77,38.97,1439,Volcanic field,Volcanic field,,Evidence Credible,North America Volcanic Regions
+323110,Mono Lake Volcanic Field,United States,-119.03,38,2121,Volcanic field,Volcanic field,1790,Eruption Dated,North America Volcanic Regions
+323120,Mono-Inyo Craters,United States,-119.029,37.804,2796,Lava dome(s),"Cones, domes, maars, fissure vents",1380,Eruption Dated,North America Volcanic Regions
+323150,Mammoth Mountain,United States,-119.032,37.631,3369,Lava dome(s),"Cones, domes, maars, fissure vents",1260,Eruption Dated,North America Volcanic Regions
+323160,Ubehebe Craters,United States,-117.45,37.02,752,Maar(s),"Cones, domes, maars, fissure vents",-150,Eruption Dated,North America Volcanic Regions
+323200,Salton Buttes,United States,-115.616,33.197,-40,Lava dome(s),"Cones, domes, maars, fissure vents",210,Eruption Dated,Eastern Pacific Volcanic Regions
+324010,Black Butte Crater Lava Field,United States,-114.3542,43.185,1478,Shield,Shield,-8180,Eruption Dated,North America Volcanic Regions
+324020,Craters of the Moon,United States,-113.493,43.371,2005,Volcanic field,Volcanic field,-130,Eruption Dated,North America Volcanic Regions
+324030,Wapi Lava Field,United States,-113.2166,42.8859,1597,Shield,Shield,-300,Eruption Dated,North America Volcanic Regions
+324040,Hell's Half Acre,United States,-112.4503,43.492,1632,Shield,Shield,-3250,Eruption Dated,North America Volcanic Regions
+326010,Soda Lakes,United States,-118.8778,39.525,1251,Maar(s),"Cones, domes, maars, fissure vents",,Evidence Credible,North America Volcanic Regions
+327040,Markagunt Plateau,United States,-112.67,37.58,2840,Volcanic field,Volcanic field,1050,Evidence Credible,North America Volcanic Regions
+327050,Black Rock Desert,United States,-112.5,38.97,1800,Volcanic field,Volcanic field,1290,Eruption Dated,North America Volcanic Regions
+327110,Carrizozo,United States,-105.93,33.78,1731,Pyroclastic cone(s),"Cones, domes, maars, fissure vents",-3250,Eruption Dated,North America Volcanic Regions
+327120,Zuni-Bandera,United States,-108,34.8,2550,Volcanic field,Volcanic field,-1170,Eruption Dated,North America Volcanic Regions
+327812,Red Hill-Quemado,United States,-108.83,34.25,2300,Volcanic field,Volcanic field,-9450,Eruption Dated,North America Volcanic Regions
+328010,Dotsero,United States,-107.0355,39.6613,2230,Maar,"Cones, domes, maars, fissure vents",-2200,Eruption Dated,North America Volcanic Regions
+329010,Uinkaret Field,United States,-113.13,36.38,1555,Volcanic field,Volcanic field,1100,Eruption Dated,North America Volcanic Regions
+329020,San Francisco Volcanic Field,United States,-111.678,35.347,3850,Volcanic field,Volcanic field,1075,Eruption Dated,North America Volcanic Regions
+331005,West Valley Segment,Canada,-128.64,48.78,-2550,Fissure vent,"Cones, domes, maars, fissure vents",,Unrest / Holocene,Eastern Pacific Volcanic Regions
+331010,Endeavour Segment,Canada,-129.1,47.95,-2050,Fissure vent(s),"Cones, domes, maars, fissure vents",-3490,Eruption Dated,Eastern Pacific Volcanic Regions
+331011,Cobb Segment,Canada,-129.33,46.88,-2100,Fissure vent(s),"Cones, domes, maars, fissure vents",-1180,Eruption Dated,Eastern Pacific Volcanic Regions
+331020,CoAxial Segment,Undersea Features,-129.58,46.52,-2400,Fissure vent(s),"Cones, domes, maars, fissure vents",1993,Eruption Observed,Eastern Pacific Volcanic Regions
+331021,Axial Seamount,Undersea Features,-130,45.95,-1410,Fissure vent(s),"Cones, domes, maars, fissure vents",2015,Eruption Observed,Eastern Pacific Volcanic Regions
+331030,Cleft Segment,Undersea Features,-130.3,44.83,-2140,Fissure vent(s),"Cones, domes, maars, fissure vents",1986,Eruption Observed,Eastern Pacific Volcanic Regions
+331031,North Gorda Ridge Segment,United States,-126.78,42.67,-3000,Fissure vent(s),"Cones, domes, maars, fissure vents",1996,Eruption Observed,Eastern Pacific Volcanic Regions
+331032,Jackson Segment,United States,-127.05,42.15,-3100,Fissure vent(s),"Cones, domes, maars, fissure vents",,Unrest / Holocene,Eastern Pacific Volcanic Regions
+331040,Escanaba Segment,United States,-127.5,40.98,-1700,Fissure vent(s),"Cones, domes, maars, fissure vents",-2260,Eruption Dated,Eastern Pacific Volcanic Regions
+331060,East Blanco Depression,Undersea Features,-129.879,44.267,-3000,Fissure vent,"Cones, domes, maars, fissure vents",,Unrest / Holocene,Eastern Pacific Volcanic Regions
+332000,Kamaehuakanaloa,United States,-155.27,18.92,-975,Shield,Shield,1996,Eruption Observed,Eastern Pacific Volcanic Regions
+332010,Kilauea,United States,-155.287,19.421,1222,Shield,Shield,2026,Eruption Observed,Eastern Pacific Volcanic Regions
+332020,Mauna Loa,United States,-155.608,19.475,4170,Shield,Shield,2022,Eruption Observed,Eastern Pacific Volcanic Regions
+332030,Mauna Kea,United States,-155.47,19.82,4205,Shield,Shield,-2460,Eruption Dated,Eastern Pacific Volcanic Regions
+332040,Hualalai,United States,-155.87,19.692,2523,Shield,Shield,1801,Eruption Observed,Eastern Pacific Volcanic Regions
+332060,Haleakala,United States,-156.2537,20.7099,3053,Shield,Shield,1750,Eruption Dated,Eastern Pacific Volcanic Regions
+333010,Teahitia,France,-148.821,-17.564,-1743,Compound,Complex or compound,1985,Eruption Dated,Southern Pacific Volcanic Regions
+333020,Rocard,France,-148.586,-17.662,-2515,Cone,"Cones, domes, maars, fissure vents",1972,Eruption Dated,Southern Pacific Volcanic Regions
+333030,Moua Pihaa,France,-148.525,-18.325,-312,Stratovolcano,Stratovolcano,1970,Eruption Dated,Southern Pacific Volcanic Regions
+333040,Mehetia,France,-148.068,-17.874,389,Stratovolcano,Stratovolcano,,Evidence Credible,Southern Pacific Volcanic Regions
+333050,Adams Seamount,United Kingdom,-129.27,-25.37,-39,Lava dome,"Cones, domes, maars, fissure vents",-50,Eruption Dated,Southern Pacific Volcanic Regions
+333060,Macdonald,France,-140.25,-28.98,-39,Shield,Shield,1989,Eruption Observed,Southern Pacific Volcanic Regions
+334020,Northern EPR at 17°N,Mexico,-105.32,16.55,-2700,Fissure vent(s),"Cones, domes, maars, fissure vents",-50,Eruption Dated,Eastern Pacific Volcanic Regions
+334021,Northern EPR at 16°N,Mexico,-105.43,15.83,-2300,Fissure vent(s),"Cones, domes, maars, fissure vents",-50,Eruption Dated,Eastern Pacific Volcanic Regions
+334040,Northern EPR at 10.7°N,Undersea Features,-103.58,10.73,-2900,Fissure vent(s),"Cones, domes, maars, fissure vents",2003,Eruption Observed,Eastern Pacific Volcanic Regions
+334050,Northern EPR at 9.8°N,Undersea Features,-104.3,9.83,-2500,Fissure vent(s),"Cones, domes, maars, fissure vents",2025,Eruption Observed,Eastern Pacific Volcanic Regions
+334070,Galapagos Rift at 86°W,Ecuador,-86.15,0.792,-2430,Fissure vent(s),"Cones, domes, maars, fissure vents",1996,Eruption Observed,Eastern Pacific Volcanic Regions
+334100,Southern EPR at 8°S,Undersea Features,-107.95,-8.27,-2800,Fissure vent(s),"Cones, domes, maars, fissure vents",1969,Eruption Observed,Southern Pacific Volcanic Regions
+334120,Southern EPR at 17.5°S (Segment K),Undersea Features,-113.206,-17.436,-2566,Fissure vent(s),"Cones, domes, maars, fissure vents",1990,Eruption Observed,Southern Pacific Volcanic Regions
+334130,Southern EPR at 18.2°S (Segment J),Undersea Features,-113.35,-18.175,-2650,Fissure vent(s),"Cones, domes, maars, fissure vents",1890,Eruption Dated,Southern Pacific Volcanic Regions
+334140,Southern EPR at 18.5°S (Segment I),Undersea Features,-113.42,-18.53,-2600,Fissure vent(s),"Cones, domes, maars, fissure vents",1915,Eruption Dated,Southern Pacific Volcanic Regions
+335020,Hollister Ridge,Undersea Features,-139.845,-53.998,-1000,Fissure vent,"Cones, domes, maars, fissure vents",,Evidence Uncertain,Southern Pacific Volcanic Regions
+335030,Udintsev Transform,Undersea Features,-143.373,-56.153,-5700,Fissure vent,"Cones, domes, maars, fissure vents",,Evidence Uncertain,Southern Pacific Volcanic Regions
+341001,Pinacate,Mexico,-113.5,31.85,1183,Volcanic field,Volcanic field,,Evidence Credible,North America Volcanic Regions
+341003,"San Luis, Isla",Mexico,-114.4082,29.9728,183,Tuff cone,"Cones, domes, maars, fissure vents",-1141,Evidence Credible,Eastern Pacific Volcanic Regions
+341004,Jaraguay Volcanic Field,Mexico,-114.5,29.33,960,Volcanic field,Volcanic field,,Evidence Credible,Eastern Pacific Volcanic Regions
+341007,San Borja Volcanic Field,Mexico,-113.75,28.5,1360,Volcanic field,Volcanic field,,Evidence Credible,Eastern Pacific Volcanic Regions
+341011,"Tortuga, Isla",Mexico,-111.881,27.438,224,Shield,Shield,,Evidence Credible,Eastern Pacific Volcanic Regions
+341012,Comondu-La Purisima,Mexico,-111.92,26,780,Volcanic field,Volcanic field,,Evidence Uncertain,Eastern Pacific Volcanic Regions
+341020,Barcena,Mexico,-110.82,19.3,332,Pyroclastic cone(s),"Cones, domes, maars, fissure vents",1953,Eruption Observed,Eastern Pacific Volcanic Regions
+341021,Socorro,Mexico,-110.95,18.78,1050,Shield,Shield,1994,Eruption Observed,Eastern Pacific Volcanic Regions
+341022,Durango Volcanic Field,Mexico,-104.45,24.15,2075,Volcanic field,Volcanic field,,Evidence Credible,North America Volcanic Regions
+341024,Sanganguey,Mexico,-104.73,21.45,2340,Stratovolcano,Stratovolcano,,Evidence Credible,Middle America-Caribbean Volcanic Regions
+341030,Ceboruco,Mexico,-104.508,21.125,2280,Stratovolcano,Stratovolcano,1875,Eruption Observed,Middle America-Caribbean Volcanic Regions
+341031,Mascota Volcanic Field,Mexico,-104.817,20.567,2525,Volcanic field,Volcanic field,,Evidence Credible,Middle America-Caribbean Volcanic Regions
+341040,Colima,Mexico,-103.62,19.514,3850,Stratovolcano(es),Stratovolcano,2019,Eruption Observed,Middle America-Caribbean Volcanic Regions
+341060,Michoacan-Guanajuato,Mexico,-101.75,19.85,3860,Volcanic field,Volcanic field,1952,Eruption Observed,Middle America-Caribbean Volcanic Regions
+341061,Zitacuaro-Valle de Bravo,Mexico,-100.25,19.4,3500,Volcanic field,Volcanic field,-3050,Eruption Dated,Middle America-Caribbean Volcanic Regions
+341062,Jocotitlan,Mexico,-99.7579,19.7383,3911,Stratovolcano,Stratovolcano,1270,Eruption Dated,Middle America-Caribbean Volcanic Regions
+341070,"Toluca, Nevado de",Mexico,-99.758,19.108,4680,Stratovolcano,Stratovolcano,-1350,Eruption Dated,Middle America-Caribbean Volcanic Regions
+341080,Chichinautzin,Mexico,-99.16,19.139,3938,Volcanic field,Volcanic field,399,Eruption Dated,Middle America-Caribbean Volcanic Regions
+341082,Iztaccihuatl,Mexico,-98.642,19.179,5230,Stratovolcano,Stratovolcano,,Evidence Credible,Middle America-Caribbean Volcanic Regions
+341090,Popocatepetl,Mexico,-98.622,19.023,5393,Stratovolcano(es),Stratovolcano,2026,Eruption Observed,Middle America-Caribbean Volcanic Regions
+341091,"Malinche, La",Mexico,-98.032,19.231,4461,Stratovolcano,Stratovolcano,-1170,Eruption Dated,Middle America-Caribbean Volcanic Regions
+341092,Serdan-Oriental Volcanic Field,Mexico,-97.47,19.27,3485,Volcanic field,Volcanic field,-3920,Eruption Dated,Middle America-Caribbean Volcanic Regions
+341093,"Humeros, Los",Mexico,-97.45,19.68,3150,Caldera(s),Caldera,-4470,Eruption Dated,Middle America-Caribbean Volcanic Regions
+341095,Naolinco Volcanic Field,Mexico,-96.91,19.635,2000,Volcanic field,Volcanic field,1145,Eruption Dated,Middle America-Caribbean Volcanic Regions
+341100,"Orizaba, Pico de",Mexico,-97.27,19.03,5564,Stratovolcano,Stratovolcano,1846,Eruption Observed,Middle America-Caribbean Volcanic Regions
+341110,San Martin,Mexico,-95.1989,18.5615,1660,Volcanic field,Volcanic field,1796,Eruption Observed,Middle America-Caribbean Volcanic Regions
+341120,"Chichon, El",Mexico,-93.2297,17.3602,1150,Lava dome(s),"Cones, domes, maars, fissure vents",1982,Eruption Observed,Middle America-Caribbean Volcanic Regions
+341130,Tacana,Mexico-Guatemala,-92.109,15.132,4064,Stratovolcano,Stratovolcano,1986,Eruption Observed,Middle America-Caribbean Volcanic Regions
+342020,Tajumulco,Guatemala,-91.903,15.043,4203,Stratovolcano,Stratovolcano,,Evidence Credible,Middle America-Caribbean Volcanic Regions
+342030,Santa Maria,Guatemala,-91.552,14.757,3745,Stratovolcano,Stratovolcano,2026,Eruption Observed,Middle America-Caribbean Volcanic Regions
+342040,Almolonga,Guatemala,-91.519,14.797,3173,Stratovolcano,Stratovolcano,1818,Eruption Observed,Middle America-Caribbean Volcanic Regions
+342060,Atitlan,Guatemala,-91.186,14.583,3535,Stratovolcano(es),Stratovolcano,1853,Eruption Observed,Middle America-Caribbean Volcanic Regions
+342070,Toliman,Guatemala,-91.189,14.612,3158,Stratovolcano(es),Stratovolcano,,Evidence Credible,Middle America-Caribbean Volcanic Regions
+342080,Acatenango,Guatemala,-90.876,14.501,3976,Stratovolcano(es),Stratovolcano,1972,Eruption Observed,Middle America-Caribbean Volcanic Regions
+342090,Fuego,Guatemala,-90.8806,14.4748,3799,Stratovolcano(es),Stratovolcano,2026,Eruption Observed,Middle America-Caribbean Volcanic Regions
+342100,Agua,Guatemala,-90.743,14.465,3760,Stratovolcano,Stratovolcano,,Evidence Credible,Middle America-Caribbean Volcanic Regions
+342110,Pacaya,Guatemala,-90.601,14.382,2569,Complex,Complex or compound,2021,Eruption Observed,Middle America-Caribbean Volcanic Regions
+342111,Cuilapa-Barbarena,Guatemala,-90.4,14.33,1454,Volcanic field,Volcanic field,,Evidence Credible,Middle America-Caribbean Volcanic Regions
+342120,Tecuamburro,Guatemala,-90.407,14.156,1845,Stratovolcano,Stratovolcano,-960,Eruption Dated,Middle America-Caribbean Volcanic Regions
+342121,Jumaytepeque,Guatemala,-90.271,14.34,1802,Stratovolcano,Stratovolcano,,Evidence Uncertain,Middle America-Caribbean Volcanic Regions
+342130,Moyuta,Guatemala,-90.1,14.03,1662,Stratovolcano,Stratovolcano,,Evidence Credible,Middle America-Caribbean Volcanic Regions
+342140,Flores,Guatemala,-89.992,14.308,1600,Volcanic field,Volcanic field,,Evidence Credible,Middle America-Caribbean Volcanic Regions
+342141,Tahual,Guatemala,-89.9,14.43,1716,Stratovolcano,Stratovolcano,,Evidence Credible,Middle America-Caribbean Volcanic Regions
+342150,"Santiago, Cerro",Guatemala,-89.87,14.33,1192,Volcanic field,Volcanic field,,Evidence Credible,Middle America-Caribbean Volcanic Regions
+342160,Suchitan,Guatemala,-89.78,14.4,2042,Stratovolcano(es),Stratovolcano,,Evidence Credible,Middle America-Caribbean Volcanic Regions
+342170,Chingo,Guatemala-El Salvador,-89.73,14.12,1775,Stratovolcano,Stratovolcano,,Evidence Credible,Middle America-Caribbean Volcanic Regions
+342180,Ixtepeque,Guatemala,-89.68,14.42,1292,Lava dome(s),"Cones, domes, maars, fissure vents",,Evidence Credible,Middle America-Caribbean Volcanic Regions
+343002,"Singuil, Cerro",El Salvador,-89.631,14.054,926,Volcanic field,Volcanic field,,Evidence Credible,Middle America-Caribbean Volcanic Regions
+343010,Apaneca Range,El Salvador,-89.742,13.872,2028,Stratovolcano(es),Stratovolcano,,Evidence Credible,Middle America-Caribbean Volcanic Regions
+343020,Santa Ana,El Salvador,-89.63,13.853,2381,Stratovolcano,Stratovolcano,2005,Eruption Observed,Middle America-Caribbean Volcanic Regions
+343030,Izalco,El Salvador,-89.633,13.813,1950,Stratovolcano,Stratovolcano,1966,Eruption Observed,Middle America-Caribbean Volcanic Regions
+343041,Coatepeque Caldera,El Salvador,-89.55,13.87,746,Caldera,Caldera,,Evidence Credible,Middle America-Caribbean Volcanic Regions
+343050,San Salvador,El Salvador,-89.294,13.734,1893,Stratovolcano,Stratovolcano,1917,Eruption Observed,Middle America-Caribbean Volcanic Regions
+343051,"Cinotepeque, Cerro",El Salvador,-89.25,14.02,665,Volcanic field,Volcanic field,,Evidence Credible,Middle America-Caribbean Volcanic Regions
+343060,Ilopango,El Salvador,-89.053,13.672,450,Caldera,Caldera,1880,Eruption Observed,Middle America-Caribbean Volcanic Regions
+343070,San Vicente,El Salvador,-88.8375,13.5969,2149,Stratovolcano,Stratovolcano,,Evidence Credible,Middle America-Caribbean Volcanic Regions
+343072,Taburete,El Salvador,-88.532,13.435,1172,Stratovolcano,Stratovolcano,,Evidence Uncertain,Middle America-Caribbean Volcanic Regions
+343080,Tecapa,El Salvador,-88.502,13.494,1593,Stratovolcano,Stratovolcano,,Evidence Credible,Middle America-Caribbean Volcanic Regions
+343081,Usulutan,El Salvador,-88.471,13.419,1449,Stratovolcano,Stratovolcano,,Evidence Credible,Middle America-Caribbean Volcanic Regions
+343082,"Tigre, El",El Salvador,-88.43,13.47,1640,Stratovolcano,Stratovolcano,,Evidence Credible,Middle America-Caribbean Volcanic Regions
+343090,Chinameca,El Salvador,-88.33,13.478,1300,Stratovolcano,Stratovolcano,,Evidence Credible,Middle America-Caribbean Volcanic Regions
+343100,San Miguel,El Salvador,-88.269,13.434,2130,Stratovolcano,Stratovolcano,2023,Eruption Observed,Middle America-Caribbean Volcanic Regions
+343101,"Aramuaca, Laguna",El Salvador,-88.105,13.428,181,Maar,"Cones, domes, maars, fissure vents",,Evidence Credible,Middle America-Caribbean Volcanic Regions
+343130,"Tigre, Isla del",Honduras,-87.639,13.274,774,Stratovolcano,Stratovolcano,,Evidence Credible,Middle America-Caribbean Volcanic Regions
+343140,"Zacate Grande, Isla",Honduras,-87.63,13.33,640,Stratovolcano,Stratovolcano,,Evidence Credible,Middle America-Caribbean Volcanic Regions
+343150,"Yojoa, Lago",Honduras,-87.983,14.964,1060,Volcanic field,Volcanic field,-7638,Eruption Dated,Middle America-Caribbean Volcanic Regions
+344010,Cosiguina,Nicaragua,-87.57,12.98,872,Stratovolcano,Stratovolcano,1859,Eruption Observed,Middle America-Caribbean Volcanic Regions
+344020,San Cristobal,Nicaragua,-87.004,12.702,1745,Stratovolcano,Stratovolcano,2024,Eruption Observed,Middle America-Caribbean Volcanic Regions
+344040,Telica,Nicaragua,-86.84,12.606,1036,Stratovolcano(es),Stratovolcano,2025,Eruption Observed,Middle America-Caribbean Volcanic Regions
+344070,"Negro, Cerro",Nicaragua,-86.702,12.506,728,Pyroclastic cone(s),"Cones, domes, maars, fissure vents",1999,Eruption Observed,Middle America-Caribbean Volcanic Regions
+344080,Las Pilas-El Hoyo Complex,Nicaragua,-86.6786,12.4922,1088,Complex,Complex or compound,1954,Eruption Observed,Middle America-Caribbean Volcanic Regions
+344090,Momotombo,Nicaragua,-86.539,12.423,1270,Stratovolcano,Stratovolcano,2016,Eruption Observed,Middle America-Caribbean Volcanic Regions
+344091,Apoyeque,Nicaragua,-86.342,12.242,518,Caldera,Caldera,-50,Eruption Dated,Middle America-Caribbean Volcanic Regions
+344092,Nejapa-Miraflores,Nicaragua,-86.32,12.12,360,Fissure vent(s),"Cones, domes, maars, fissure vents",1060,Eruption Dated,Middle America-Caribbean Volcanic Regions
+344100,Masaya,Nicaragua,-86.1688,11.9844,594,Caldera,Caldera,2026,Eruption Observed,Middle America-Caribbean Volcanic Regions
+344101,Granada,Nicaragua,-85.979,11.9,250,Fissure vent(s),"Cones, domes, maars, fissure vents",,Evidence Credible,Middle America-Caribbean Volcanic Regions
+344110,Mombacho,Nicaragua,-85.968,11.826,1344,Stratovolcano,Stratovolcano,,Unrest / Holocene,Middle America-Caribbean Volcanic Regions
+344111,Zapatera,Nicaragua,-85.82,11.73,629,Shield,Shield,,Evidence Credible,Middle America-Caribbean Volcanic Regions
+344120,Concepcion,Nicaragua,-85.622,11.538,1700,Stratovolcano,Stratovolcano,2024,Eruption Observed,Middle America-Caribbean Volcanic Regions
+345010,Orosi,Costa Rica,-85.473,10.98,1659,Stratovolcano(es),Stratovolcano,,Evidence Uncertain,Middle America-Caribbean Volcanic Regions
+345020,Rincon de la Vieja,Costa Rica,-85.3364,10.8314,1729,Complex,Complex or compound,2024,Eruption Observed,Middle America-Caribbean Volcanic Regions
+345030,Miravalles,Costa Rica,-85.153,10.748,2028,Stratovolcano,Stratovolcano,1946,Eruption Observed,Middle America-Caribbean Volcanic Regions
+345031,Tenorio,Costa Rica,-85.015,10.673,1916,Stratovolcano(es),Stratovolcano,,Evidence Credible,Middle America-Caribbean Volcanic Regions
+345033,Arenal,Costa Rica,-84.703,10.463,1670,Stratovolcano,Stratovolcano,2010,Eruption Observed,Middle America-Caribbean Volcanic Regions
+345034,Platanar,Costa Rica,-84.366,10.3,2267,Stratovolcano(es),Stratovolcano,,Evidence Credible,Middle America-Caribbean Volcanic Regions
+345040,Poas,Costa Rica,-84.233,10.2,2697,Stratovolcano,Stratovolcano,2026,Eruption Observed,Middle America-Caribbean Volcanic Regions
+345050,Barva,Costa Rica,-84.1,10.135,2906,Complex,Complex or compound,-6050,Eruption Dated,Middle America-Caribbean Volcanic Regions
+345060,Irazu,Costa Rica,-83.852,9.979,3436,Stratovolcano,Stratovolcano,1977,Eruption Observed,Middle America-Caribbean Volcanic Regions
+345070,Turrialba,Costa Rica,-83.767,10.025,3340,Stratovolcano,Stratovolcano,2022,Eruption Observed,Middle America-Caribbean Volcanic Regions
+346010,Baru,Panama,-82.543,8.808,3474,Stratovolcano,Stratovolcano,1550,Eruption Observed,Middle America-Caribbean Volcanic Regions
+351011,Romeral,Colombia,-75.363,5.203,3769,Stratovolcano,Stratovolcano,-5390,Eruption Dated,South America Volcanic Regions
+351012,"Bravo, Cerro",Colombia,-75.293,5.091,3985,Stratovolcano,Stratovolcano,1720,Eruption Dated,South America Volcanic Regions
+351020,"Ruiz, Nevado del",Colombia,-75.324,4.892,5279,Stratovolcano,Stratovolcano,2026,Eruption Observed,South America Volcanic Regions
+351021,Santa Isabel,Colombia,-75.365,4.818,4944,Shield,Shield,-850,Eruption Dated,South America Volcanic Regions
+351030,"Tolima, Nevado del",Colombia,-75.33,4.658,5215,Stratovolcano,Stratovolcano,1943,Eruption Observed,South America Volcanic Regions
+351040,Machin,Colombia,-75.389,4.487,2749,Stratovolcano,Stratovolcano,1180,Eruption Dated,South America Volcanic Regions
+351050,"Huila, Nevado del",Colombia,-76.03,2.93,5364,Stratovolcano,Stratovolcano,2012,Eruption Observed,South America Volcanic Regions
+351060,Purace,Colombia,-76.3948,2.3095,4650,Stratovolcano(es),Stratovolcano,2026,Eruption Observed,South America Volcanic Regions
+351061,Sotara,Colombia,-76.592,2.108,4400,Stratovolcano,Stratovolcano,,Evidence Credible,South America Volcanic Regions
+351070,Dona Juana,Colombia,-76.936,1.5,4137,Stratovolcano,Stratovolcano,1906,Eruption Observed,South America Volcanic Regions
+351080,Galeras,Colombia,-77.37,1.22,4276,Complex,Complex or compound,2014,Eruption Observed,South America Volcanic Regions
+351090,Azufral,Colombia,-77.68,1.08,4070,Stratovolcano,Stratovolcano,-930,Eruption Dated,South America Volcanic Regions
+351100,Cumbal,Colombia,-77.87,0.95,4764,Stratovolcano,Stratovolcano,1926,Eruption Observed,South America Volcanic Regions
+351110,Chiles-Cerro Negro,Colombia-Ecuador,-77.938,0.817,4698,Stratovolcano,Stratovolcano,1936,Evidence Uncertain,South America Volcanic Regions
+352001,Soche,Ecuador,-77.58,0.552,3955,Stratovolcano,Stratovolcano,-6650,Eruption Dated,South America Volcanic Regions
+352002,Chachimbiro,Ecuador,-78.287,0.468,4106,Stratovolcano,Stratovolcano,-3740,Eruption Dated,South America Volcanic Regions
+352003,Cuicocha,Ecuador,-78.364,0.308,3246,Caldera,Caldera,650,Eruption Dated,South America Volcanic Regions
+352004,Imbabura,Ecuador,-78.183,0.258,4609,Compound,Complex or compound,-5550,Eruption Dated,South America Volcanic Regions
+352005,Mojanda,Ecuador,-78.27,0.13,4263,Stratovolcano(es),Stratovolcano,,Evidence Uncertain,South America Volcanic Regions
+352006,Cayambe,Ecuador,-77.986,0.029,5790,Compound,Complex or compound,1786,Eruption Observed,South America Volcanic Regions
+352010,Reventador,Ecuador,-77.656,-0.077,3562,Stratovolcano,Stratovolcano,2026,Eruption Observed,South America Volcanic Regions
+352011,Pululahua,Ecuador,-78.49,0.0464,3360,Caldera,Caldera,290,Eruption Dated,South America Volcanic Regions
+352020,Guagua Pichincha,Ecuador,-78.598,-0.171,4784,Stratovolcano,Stratovolcano,2002,Eruption Observed,South America Volcanic Regions
+352021,Atacazo,Ecuador,-78.617,-0.353,4463,Stratovolcano,Stratovolcano,-320,Eruption Dated,South America Volcanic Regions
+352022,Chacana,Ecuador,-78.25,-0.375,4643,Caldera,Caldera,1773,Eruption Observed,South America Volcanic Regions
+352030,Antisana,Ecuador,-78.141,-0.481,5753,Stratovolcano,Stratovolcano,1802,Eruption Observed,South America Volcanic Regions
+352031,Aliso,Ecuador,-78,-0.53,4267,Stratovolcano,Stratovolcano,-2450,Eruption Dated,South America Volcanic Regions
+352040,Sumaco,Ecuador,-77.626,-0.538,3990,Stratovolcano,Stratovolcano,1895,Evidence Uncertain,South America Volcanic Regions
+352041,Iliniza,Ecuador,-78.716,-0.662,5162,Stratovolcano,Stratovolcano,,Evidence Credible,South America Volcanic Regions
+352050,Cotopaxi,Ecuador,-78.436,-0.677,5911,Stratovolcano,Stratovolcano,2023,Eruption Observed,South America Volcanic Regions
+352060,Quilotoa,Ecuador,-78.9044,-0.8592,3914,Caldera,Caldera,1280,Eruption Dated,South America Volcanic Regions
+352071,Chimborazo,Ecuador,-78.817,-1.469,6261,Stratovolcano,Stratovolcano,550,Eruption Dated,South America Volcanic Regions
+352080,Tungurahua,Ecuador,-78.442,-1.467,5023,Stratovolcano,Stratovolcano,2016,Eruption Observed,South America Volcanic Regions
+352081,Licto,Ecuador,-78.614,-1.786,3322,Pyroclastic cone(s),"Cones, domes, maars, fissure vents",,Evidence Uncertain,South America Volcanic Regions
+352090,Sangay,Ecuador,-78.341,-2.005,5286,Stratovolcano,Stratovolcano,2026,Eruption Observed,South America Volcanic Regions
+353010,Fernandina,Ecuador,-91.55,-0.37,1476,Shield,Shield,2024,Eruption Observed,Eastern Pacific Volcanic Regions
+353011,Ecuador,Ecuador,-91.546,-0.02,790,Shield,Shield,1150,Eruption Dated,Eastern Pacific Volcanic Regions
+353020,Wolf,Ecuador,-91.35,0.02,1710,Shield,Shield,2022,Eruption Observed,Eastern Pacific Volcanic Regions
+353030,Darwin,Ecuador,-91.28,-0.18,1330,Shield,Shield,1813,Eruption Dated,Eastern Pacific Volcanic Regions
+353040,Alcedo,Ecuador,-91.12,-0.43,1130,Shield,Shield,1993,Eruption Observed,Eastern Pacific Volcanic Regions
+353050,"Negra, Sierra",Ecuador,-91.17,-0.83,1124,Shield,Shield,2018,Eruption Observed,Eastern Pacific Volcanic Regions
+353060,"Azul, Cerro",Ecuador,-91.408,-0.92,1640,Shield,Shield,2008,Eruption Observed,Eastern Pacific Volcanic Regions
+353070,Pinta,Ecuador,-90.7553,0.5858,729,Shield,Shield,,Eruption Observed,Eastern Pacific Volcanic Regions
+353080,Marchena,Ecuador,-90.47,0.33,343,Shield,Shield,1991,Eruption Observed,Eastern Pacific Volcanic Regions
+353081,Genovesa,Ecuador,-89.958,0.32,64,Shield,Shield,,Evidence Credible,Eastern Pacific Volcanic Regions
+353090,Santiago,Ecuador,-90.77,-0.22,920,Shield,Shield,1906,Eruption Observed,Eastern Pacific Volcanic Regions
+353091,Santa Cruz,Ecuador,-90.33,-0.62,864,Shield,Shield,,Evidence Credible,Eastern Pacific Volcanic Regions
+353120,San Cristobal,Ecuador,-89.4292,-0.8292,707,Shield,Shield,,Evidence Credible,Eastern Pacific Volcanic Regions
+354000,Quimsachata-Oroscocha,Peru,-71.363,-14.131,3848,Lava dome,"Cones, domes, maars, fissure vents",-4450,Eruption Dated,South America Volcanic Regions
+354001,"Auquihuato, Cerro",Peru,-73.1914,-15.0726,5001,Pyroclastic cone,"Cones, domes, maars, fissure vents",,Evidence Uncertain,South America Volcanic Regions
+354003,Coropuna,Peru,-72.65,-15.52,6377,Stratovolcano,Stratovolcano,,Evidence Credible,South America Volcanic Regions
+354004,Andahua-Orcopampa,Peru,-72.33,-15.42,4713,Volcanic field,Volcanic field,1490,Eruption Dated,South America Volcanic Regions
+354005,Huambo,Peru,-72.08,-15.78,4554,Volcanic field,Volcanic field,-700,Eruption Dated,South America Volcanic Regions
+354006,Sabancaya,Peru,-71.857,-15.787,5960,Stratovolcano(es),Stratovolcano,2026,Eruption Observed,South America Volcanic Regions
+354010,"Misti, El",Peru,-71.4056,-16.2991,5793,Stratovolcano,Stratovolcano,1985,Eruption Observed,South America Volcanic Regions
+354020,Ubinas,Peru,-70.8972,-16.345,5608,Stratovolcano,Stratovolcano,2024,Eruption Observed,South America Volcanic Regions
+354030,Huaynaputina,Peru,-70.8542,-16.6144,4679,Stratovolcano,Stratovolcano,1600,Eruption Observed,South America Volcanic Regions
+354031,Ticsani,Peru,-70.5981,-16.7586,5382,Lava dome(s),"Cones, domes, maars, fissure vents",1800,Eruption Dated,South America Volcanic Regions
+354040,Tutupaca,Peru,-70.372,-17.026,5801,Stratovolcano(es),Stratovolcano,1802,Eruption Observed,South America Volcanic Regions
+354050,Yucamane,Peru,-70.196,-17.184,5495,Stratovolcano(es),Stratovolcano,-1320,Eruption Observed,South America Volcanic Regions
+354060,"Casiri, Nevados",Peru,-69.7886,-17.4852,5626,Stratovolcano(es),Stratovolcano,,Evidence Credible,South America Volcanic Regions
+355011,Taapaca,Chile,-69.5,-18.1,5860,Complex,Complex or compound,-320,Eruption Dated,South America Volcanic Regions
+355012,Parinacota,Chile-Bolivia,-69.142,-18.166,6336,Stratovolcano,Stratovolcano,290,Eruption Dated,South America Volcanic Regions
+355020,Guallatiri,Chile,-69.092,-18.42,6071,Stratovolcano,Stratovolcano,1960,Eruption Observed,South America Volcanic Regions
+355030,Isluga,Chile,-68.83,-19.15,5550,Stratovolcano,Stratovolcano,1913,Eruption Observed,South America Volcanic Regions
+355032,Tata Sabaya,Bolivia,-68.53,-19.13,5430,Stratovolcano,Stratovolcano,,Evidence Credible,South America Volcanic Regions
+355040,Irruputuncu,Chile-Bolivia,-68.55,-20.73,5163,Stratovolcano,Stratovolcano,1995,Eruption Observed,South America Volcanic Regions
+355050,Olca-Paruma,Chile-Bolivia,-68.413,-20.939,5705,Stratovolcano(es),Stratovolcano,,Eruption Observed,South America Volcanic Regions
+355090,Putana,Chile,-67.853,-22.557,5884,Stratovolcano,Stratovolcano,1810,Eruption Observed,South America Volcanic Regions
+355091,Sairecabur,Chile-Bolivia,-67.891,-22.719,5961,Stratovolcano(es),Stratovolcano,,Evidence Credible,South America Volcanic Regions
+355092,Licancabur,Chile-Bolivia,-67.88,-22.83,5916,Stratovolcano,Stratovolcano,,Evidence Credible,South America Volcanic Regions
+355093,Guayaques,Chile-Bolivia,-67.566,-22.895,5598,Lava dome(s),"Cones, domes, maars, fissure vents",,Evidence Credible,South America Volcanic Regions
+355094,Purico Complex,Chile,-67.75,-23,5703,Shield(pyroclastic),Shield,,Evidence Credible,South America Volcanic Regions
+355095,Colachi,Chile,-67.645,-23.236,5631,Stratovolcano,Stratovolcano,,Evidence Credible,South America Volcanic Regions
+355096,Acamarachi,Chile,-67.618,-23.292,6023,Stratovolcano,Stratovolcano,,Evidence Credible,South America Volcanic Regions
+355098,Chiliques,Chile,-67.7,-23.58,5778,Stratovolcano,Stratovolcano,,Evidence Uncertain,South America Volcanic Regions
+355100,Lascar,Chile,-67.73,-23.37,5592,Stratovolcano(es),Stratovolcano,2026,Eruption Observed,South America Volcanic Regions
+355101,Cordon de Puntas Negras,Chile,-67.534,-23.743,5852,Stratovolcano(es),Stratovolcano,,Evidence Credible,South America Volcanic Regions
+355102,Miniques,Chile,-67.77,-23.82,5910,Stratovolcano(es),Stratovolcano,,Evidence Uncertain,South America Volcanic Regions
+355103,"Tujle, Cerro",Chile,-67.95,-23.83,3550,Maar,"Cones, domes, maars, fissure vents",,Evidence Credible,South America Volcanic Regions
+355104,Caichinque,Chile,-67.74,-23.949,4458,Stratovolcano(es),Stratovolcano,,Evidence Uncertain,South America Volcanic Regions
+355105,Tilocalar,Chile,-68.13,-23.97,3109,Lava cone(es),"Cones, domes, maars, fissure vents",,Evidence Uncertain,South America Volcanic Regions
+355107,Pular,Chile,-68.054,-24.188,6233,Stratovolcano(es),Stratovolcano,,Evidence Uncertain,South America Volcanic Regions
+355108,"Negrillar, La",Chile,-68.59,-24.319,4220,Pyroclastic cone(s),"Cones, domes, maars, fissure vents",,Evidence Uncertain,South America Volcanic Regions
+355109,Socompa,Chile-Argentina,-68.246,-24.396,6031,Stratovolcano,Stratovolcano,-5250,Eruption Dated,South America Volcanic Regions
+355110,Llullaillaco,Chile-Argentina,-68.53,-24.72,6739,Stratovolcano,Stratovolcano,1877,Eruption Observed,South America Volcanic Regions
+355112,Corrida de Cori Volcanic Field,Chile-Argentina,-68.367,-25.083,5451,Stratovolcano,Stratovolcano,,Evidence Uncertain,South America Volcanic Regions
+355120,Lastarria,Chile-Argentina,-68.507,-25.168,5706,Stratovolcano,Stratovolcano,,Evidence Credible,South America Volcanic Regions
+355121,Cordon del Azufre,Chile-Argentina,-68.521,-25.336,5481,Complex,Complex or compound,,Evidence Credible,South America Volcanic Regions
+355122,"Bayo Gorbea, Cerro",Chile-Argentina,-68.588,-25.414,5413,Complex,Complex or compound,,Evidence Credible,South America Volcanic Regions
+355123,"Nevada, Sierra",Chile-Argentina,-68.58,-26.48,6173,Complex,Complex or compound,,Evidence Credible,South America Volcanic Regions
+355124,Falso Azufre,Chile-Argentina,-68.37,-26.8,5906,Complex,Complex or compound,,Evidence Uncertain,South America Volcanic Regions
+355125,"Incahuasi, Nevado de",Chile-Argentina,-68.296,-27.033,6638,Stratovolcano(es),Stratovolcano,,Evidence Uncertain,South America Volcanic Regions
+355130,"Ojos del Salado, Nevados",Chile-Argentina,-68.541,-27.109,6879,Stratovolcano,Stratovolcano,750,Eruption Dated,South America Volcanic Regions
+355131,"Solo, El",Chile-Argentina,-68.713,-27.105,6205,Stratovolcano,Stratovolcano,,Evidence Credible,South America Volcanic Regions
+355160,Aracar,Argentina,-67.783,-24.29,6095,Stratovolcano,Stratovolcano,,Evidence Credible,South America Volcanic Regions
+355161,Central Andean Arc at 25.1°S,Argentina,-68.266,-25.078,4652,Pyroclastic cone,"Cones, domes, maars, fissure vents",,Evidence Credible,South America Volcanic Regions
+355190,"Condor, El",Argentina,-68.361,-26.632,6373,Stratovolcano,Stratovolcano,,Evidence Credible,South America Volcanic Regions
+355200,Peinado,Argentina,-68.116,-26.623,5741,Stratovolcano,Stratovolcano,,Evidence Credible,South America Volcanic Regions
+355210,"Blanco, Cerro",Argentina,-67.746,-26.7657,4670,Caldera,Caldera,-2300,Eruption Dated,South America Volcanic Regions
+355220,Tipas,Argentina,-68.561,-27.196,6658,Complex,Complex or compound,,Evidence Credible,South America Volcanic Regions
+356011,Rapa Nui,Chile,-109.356,-27.114,501,Shield(s),Shield,,Evidence Credible,Southern Pacific Volcanic Regions
+357010,Tupungatito,Chile-Argentina,-69.797,-33.425,5660,Stratovolcano,Stratovolcano,1987,Eruption Observed,South America Volcanic Regions
+357020,San Jose,Chile-Argentina,-69.895,-33.789,6070,Stratovolcano(es),Stratovolcano,1960,Eruption Observed,South America Volcanic Regions
+357021,Maipo,Chile-Argentina,-69.832,-34.164,5323,Caldera,Caldera,1912,Eruption Observed,South America Volcanic Regions
+357022,Palomo,Chile,-70.295,-34.608,4860,Stratovolcano,Stratovolcano,,Evidence Credible,South America Volcanic Regions
+357023,"Atuel, Caldera del",Argentina,-69.921,-34.592,5189,Caldera,Caldera,,Evidence Credible,South America Volcanic Regions
+357024,Risco Plateado,Argentina,-69.981,-34.917,4999,Stratovolcano,Stratovolcano,,Evidence Uncertain,South America Volcanic Regions
+357030,Tinguiririca,Chile,-70.352,-34.814,4280,Stratovolcano,Stratovolcano,1917,Eruption Observed,South America Volcanic Regions
+357040,Planchon-Peteroa,Chile,-70.568,-35.223,3977,Stratovolcano(es),Stratovolcano,2025,Eruption Observed,South America Volcanic Regions
+357041,Infiernillo,Argentina,-69.9,-35.123,3007,Volcanic field,Volcanic field,-6890,Eruption Dated,South America Volcanic Regions
+357042,Calabozos,Chile,-70.496,-35.558,3508,Caldera,Caldera,,Evidence Credible,South America Volcanic Regions
+357050,Descabezado Grande,Chile,-70.75,-35.58,3953,Stratovolcano(es),Stratovolcano,1933,Eruption Observed,South America Volcanic Regions
+357060,"Azul, Cerro",Chile,-70.761,-35.653,3788,Stratovolcano,Stratovolcano,1967,Eruption Observed,South America Volcanic Regions
+357061,"Maule, Laguna del",Chile,-70.492,-36.058,2162,Caldera,Caldera,-50,Eruption Dated,South America Volcanic Regions
+357062,San Pedro-Pellado,Chile,-70.849,-35.989,3621,Stratovolcano(es),Stratovolcano,,Evidence Credible,South America Volcanic Regions
+357063,"Longavi, Nevado de",Chile,-71.1641,-36.1959,3175,Stratovolcano,Stratovolcano,-4890,Eruption Dated,South America Volcanic Regions
+357064,"Blancas, Lomas",Chile,-71.009,-36.286,2268,Stratovolcano,Stratovolcano,,Evidence Credible,South America Volcanic Regions
+357065,"Resago, Volcan",Chile,-70.9033,-36.4606,1890,Pyroclastic cone,"Cones, domes, maars, fissure vents",,Evidence Credible,South America Volcanic Regions
+357066,Payun Matru,Argentina,-69.241,-36.422,3715,Volcanic field,Volcanic field,-5050,Eruption Dated,South America Volcanic Regions
+357070,"Chillan, Nevados de",Chile,-71.378,-36.868,3180,Stratovolcano,Stratovolcano,2022,Eruption Observed,South America Volcanic Regions
+357072,Tromen Volcanic Plateau,Argentina,-70.033,-37.144,4114,Stratovolcano(es),Stratovolcano,1822,Eruption Observed,South America Volcanic Regions
+357080,Antuco,Chile,-71.349,-37.406,2979,Stratovolcano,Stratovolcano,1869,Eruption Observed,South America Volcanic Regions
+357090,Copahue,Chile-Argentina,-71.183,-37.856,2953,Stratovolcano,Stratovolcano,2024,Eruption Observed,South America Volcanic Regions
+357091,Callaqui,Chile,-71.4464,-37.9276,3099,Stratovolcano,Stratovolcano,1980,Eruption Observed,South America Volcanic Regions
+357093,Tolhuaca,Chile,-71.645,-38.31,2739,Stratovolcano,Stratovolcano,-4000,Evidence Credible,South America Volcanic Regions
+357100,Lonquimay,Chile,-71.586,-38.379,2832,Stratovolcano,Stratovolcano,1990,Eruption Observed,South America Volcanic Regions
+357102,"Blanca, Laguna",Argentina,-70.37,-39.02,1700,Volcanic field,Volcanic field,,Evidence Credible,South America Volcanic Regions
+357110,Llaima,Chile,-71.729,-38.692,3125,Stratovolcano,Stratovolcano,2009,Eruption Observed,South America Volcanic Regions
+357111,Sollipulli,Chile,-71.52,-38.97,2282,Caldera,Caldera,1240,Eruption Dated,South America Volcanic Regions
+357112,Caburgua-Huelemolle,Chile,-71.75,-39.25,1652,Volcanic field,Volcanic field,-5050,Eruption Dated,South America Volcanic Regions
+357120,Villarrica,Chile,-71.93,-39.42,2847,Stratovolcano,Stratovolcano,2025,Eruption Observed,South America Volcanic Regions
+357121,Quetrupillan,Chile,-71.722,-39.496,2360,Stratovolcano,Stratovolcano,255,Eruption Dated,South America Volcanic Regions
+357122,Lanin,Chile-Argentina,-71.502,-39.637,3776,Stratovolcano,Stratovolcano,560,Eruption Dated,South America Volcanic Regions
+357123,Huanquihue Group,Argentina,-71.58,-39.887,2189,Stratovolcano(es),Stratovolcano,1750,Eruption Dated,South America Volcanic Regions
+357130,Mocho-Choshuenco,Chile,-72.027,-39.927,2422,Stratovolcano(es),Stratovolcano,1937,Eruption Observed,South America Volcanic Regions
+357140,Carran-Los Venados,Chile,-72.07,-40.35,1114,Pyroclastic cone(s),"Cones, domes, maars, fissure vents",1979,Eruption Observed,South America Volcanic Regions
+357150,Puyehue-Cordon Caulle,Chile,-72.117,-40.59,2236,Stratovolcano,Stratovolcano,2012,Eruption Observed,South America Volcanic Regions
+357153,Antillanca Volcanic Complex,Chile,-72.15,-40.783,1979,Stratovolcano(es),Stratovolcano,-230,Eruption Dated,South America Volcanic Regions
+357160,Puntiagudo-Cordon Cenizos,Chile,-72.264,-40.969,2493,Stratovolcano,Stratovolcano,1850,Eruption Observed,South America Volcanic Regions
+358010,Osorno,Chile,-72.496,-41.105,2659,Stratovolcano,Stratovolcano,1869,Eruption Observed,South America Volcanic Regions
+358011,Tronador,Chile-Argentina,-71.885,-41.157,3478,Stratovolcano,Stratovolcano,,Evidence Uncertain,South America Volcanic Regions
+358012,Cayutue-La Vigueria,Chile,-72.27,-41.3,506,Volcanic field,Volcanic field,-190,Eruption Dated,South America Volcanic Regions
+358020,Calbuco,Chile,-72.618,-41.33,1974,Stratovolcano,Stratovolcano,2015,Eruption Observed,South America Volcanic Regions
+358022,Yate,Chile,-72.396,-41.755,2187,Stratovolcano,Stratovolcano,1090,Eruption Dated,South America Volcanic Regions
+358023,Hornopiren,Chile,-72.431,-41.874,1572,Stratovolcano,Stratovolcano,340,Eruption Dated,South America Volcanic Regions
+358024,Apagado,Chile,-72.58,-41.88,1210,Pyroclastic cone,"Cones, domes, maars, fissure vents",-590,Eruption Dated,South America Volcanic Regions
+358025,Crater Basalt Volcanic Field,Argentina,-70.194,-42.018,1344,Volcanic field,Volcanic field,,Evidence Credible,South America Volcanic Regions
+358030,Huequi,Chile,-72.578,-42.377,1318,Lava dome(s),"Cones, domes, maars, fissure vents",1920,Eruption Observed,South America Volcanic Regions
+358040,Michinmahuida,Chile,-72.445,-42.799,2452,Stratovolcano,Stratovolcano,1835,Eruption Observed,South America Volcanic Regions
+358041,Chaiten,Chile,-72.6514,-42.8349,1122,Caldera,Caldera,2011,Eruption Observed,South America Volcanic Regions
+358049,Yanteles,Chile,-72.782,-43.469,1790,Stratovolcano(es),Stratovolcano,-6650,Eruption Dated,South America Volcanic Regions
+358050,Corcovado,Chile,-72.794,-43.189,1826,Stratovolcano,Stratovolcano,-4920,Eruption Dated,South America Volcanic Regions
+358052,Melimoyu,Chile,-72.88,-44.08,2400,Stratovolcano,Stratovolcano,200,Eruption Dated,South America Volcanic Regions
+358053,Puyuhuapi,Chile,-72.53,-44.3,524,Pyroclastic cone(s),"Cones, domes, maars, fissure vents",,Evidence Credible,South America Volcanic Regions
+358054,Mentolat,Chile,-73.0767,-44.6931,1603,Stratovolcano,Stratovolcano,1710,Eruption Observed,South America Volcanic Regions
+358055,Cay,Chile,-72.984,-45.059,2090,Stratovolcano,Stratovolcano,,Evidence Uncertain,South America Volcanic Regions
+358056,Maca,Chile,-73.17,-45.1,2960,Stratovolcano,Stratovolcano,1560,Eruption Dated,South America Volcanic Regions
+358057,"Hudson, Cerro",Chile,-72.97,-45.9,1905,Stratovolcano,Stratovolcano,2011,Eruption Observed,South America Volcanic Regions
+358060,Lautaro,Chile,-73.504,-49.019,3542,Stratovolcano,Stratovolcano,1979,Eruption Observed,South America Volcanic Regions
+358062,Aguilera,Chile,-73.75,-50.33,2546,Stratovolcano,Stratovolcano,-1253,Eruption Dated,South America Volcanic Regions
+358063,Reclus,Chile,-73.5802,-50.9395,1403,Pyroclastic cone,"Cones, domes, maars, fissure vents",1908,Eruption Observed,South America Volcanic Regions
+358064,Meullin,Chile,-73.05,-45.22,1080,Volcanic field,Volcanic field,,Evidence Credible,South America Volcanic Regions
+358070,"Burney, Monte",Chile,-73.4,-52.33,1758,Stratovolcano,Stratovolcano,1910,Eruption Observed,South America Volcanic Regions
+358080,Pali-Aike Volcanic Field,Chile-Argentina,-69.698,-52.082,282,Volcanic field,Volcanic field,-5550,Eruption Dated,South America Volcanic Regions
+358090,Fueguino,Chile,-70.262,-54.97,157,Lava dome(s),"Cones, domes, maars, fissure vents",1820,Eruption Observed,South America Volcanic Regions
+360010,Saba,Netherlands,-63.23,17.63,887,Stratovolcano,Stratovolcano,1640,Eruption Observed,Middle America-Caribbean Volcanic Regions
+360020,"Quill, The",Netherlands,-62.96,17.478,601,Stratovolcano,Stratovolcano,250,Eruption Dated,Middle America-Caribbean Volcanic Regions
+360030,Liamuiga,Saint Kitts and Nevis,-62.8,17.37,1156,Stratovolcano,Stratovolcano,160,Eruption Dated,Middle America-Caribbean Volcanic Regions
+360040,Nevis Peak,Saint Kitts and Nevis,-62.58,17.15,985,Stratovolcano,Stratovolcano,,Evidence Uncertain,Middle America-Caribbean Volcanic Regions
+360050,Soufriere Hills,United Kingdom,-62.18,16.72,915,Stratovolcano,Stratovolcano,2013,Eruption Observed,Middle America-Caribbean Volcanic Regions
+360060,Soufriere Guadeloupe,France,-61.664,16.044,1467,Stratovolcano,Stratovolcano,1977,Eruption Observed,Middle America-Caribbean Volcanic Regions
+360080,"Diables, Morne aux",Dominica,-61.43,15.612,861,Lava dome(s),"Cones, domes, maars, fissure vents",,Evidence Credible,Middle America-Caribbean Volcanic Regions
+360090,"Diablotins, Morne",Dominica,-61.397,15.503,1430,Stratovolcano,Stratovolcano,,Evidence Uncertain,Middle America-Caribbean Volcanic Regions
+360100,"Trois Pitons, Morne",Dominica,-61.33,15.37,1387,Complex,Complex or compound,920,Eruption Dated,Middle America-Caribbean Volcanic Regions
+360101,"Watt, Morne",Dominica,-61.305,15.307,1224,Stratovolcano(es),Stratovolcano,1997,Eruption Observed,Middle America-Caribbean Volcanic Regions
+360110,"Plat Pays, Morne",Dominica,-61.341,15.255,940,Stratovolcano,Stratovolcano,1270,Eruption Dated,Middle America-Caribbean Volcanic Regions
+360120,Pelee,France,-61.166,14.809,1372,Stratovolcano,Stratovolcano,1932,Eruption Observed,Middle America-Caribbean Volcanic Regions
+360140,Qualibou,Saint Lucia,-61.05,13.83,777,Caldera,Caldera,1766,Eruption Observed,Middle America-Caribbean Volcanic Regions
+360150,Soufriere St. Vincent,Saint Vincent and the Grenadines,-61.18,13.33,1220,Stratovolcano,Stratovolcano,2021,Eruption Observed,Middle America-Caribbean Volcanic Regions
+360160,Kick 'em Jenny,Grenada,-61.64,12.3,-185,Complex,Complex or compound,2017,Eruption Observed,Middle America-Caribbean Volcanic Regions
+360170,St. Catherine,Grenada,-61.67,12.15,840,Stratovolcano,Stratovolcano,,Evidence Credible,Middle America-Caribbean Volcanic Regions
+370010,Snaefellsjokull,Iceland,-23.783,64.8,1446,Stratovolcano,Stratovolcano,200,Eruption Dated,Atlantic Ocean Volcanic Regions
+370020,Helgrindur,Iceland,-23.283,64.866,986,Volcanic field,Volcanic field,,Evidence Credible,Atlantic Ocean Volcanic Regions
+370030,Ljosufjoll,Iceland,-22.483,64.9,1063,Volcanic field,Volcanic field,960,Eruption Dated,Atlantic Ocean Volcanic Regions
+371020,Reykjanes,Iceland,-22.717,63.817,140,Crater rows,"Cones, domes, maars, fissure vents",2025,Eruption Observed,Atlantic Ocean Volcanic Regions
+371022,Eldey,Iceland,-23,63.733,70,Fissure vent,"Cones, domes, maars, fissure vents",1926,Eruption Observed,Atlantic Ocean Volcanic Regions
+371030,Krysuvik-Trolladyngja,Iceland,-22.067,63.917,360,Crater rows,"Cones, domes, maars, fissure vents",1340,Eruption Observed,Atlantic Ocean Volcanic Regions
+371032,Fagradalsfjall,Iceland,-22.258,63.895,250,Fissure vent,"Cones, domes, maars, fissure vents",2023,Eruption Observed,Atlantic Ocean Volcanic Regions
+371040,Brennisteinsfjoll,Iceland,-21.783,63.933,610,Crater rows,"Cones, domes, maars, fissure vents",1341,Eruption Observed,Atlantic Ocean Volcanic Regions
+371050,Hengill,Iceland,-21.416,64.083,803,Crater rows,"Cones, domes, maars, fissure vents",150,Eruption Dated,Atlantic Ocean Volcanic Regions
+371051,Hromundartindur,Iceland,-21.333,64.083,550,Stratovolcano,Stratovolcano,,Evidence Uncertain,Atlantic Ocean Volcanic Regions
+371060,Grimsnes,Iceland,-20.883,64.05,200,Volcanic field,Volcanic field,-3500,Eruption Dated,Atlantic Ocean Volcanic Regions
+371070,Prestahnukur,Iceland,-20.666,64.583,1385,Fissure vent(s),"Cones, domes, maars, fissure vents",-3350,Eruption Dated,Atlantic Ocean Volcanic Regions
+371080,Oddnyjarhnjukur-Langjokull,Iceland,-19.7,64.85,1100,Fissure vent(s),"Cones, domes, maars, fissure vents",950,Eruption Dated,Atlantic Ocean Volcanic Regions
+371090,Hofsjokull,Iceland,-18.766,64.833,1765,Fissure vent(s),"Cones, domes, maars, fissure vents",,Evidence Credible,Atlantic Ocean Volcanic Regions
+372010,Vestmannaeyjar,Iceland,-20.266,63.416,283,Fissure vent(s),"Cones, domes, maars, fissure vents",1973,Eruption Observed,Atlantic Ocean Volcanic Regions
+372020,Eyjafjallajokull,Iceland,-19.633,63.633,1651,Stratovolcano,Stratovolcano,2010,Eruption Observed,Atlantic Ocean Volcanic Regions
+372030,Katla,Iceland,-19.083,63.633,1490,Fissure vent(s),"Cones, domes, maars, fissure vents",1918,Eruption Observed,Atlantic Ocean Volcanic Regions
+372040,Tindfjallajokull,Iceland,-19.716,63.783,1464,Stratovolcano,Stratovolcano,,Evidence Uncertain,Atlantic Ocean Volcanic Regions
+372050,Torfajokull,Iceland,-19.122,63.892,1280,Stratovolcano,Stratovolcano,1477,Eruption Observed,Atlantic Ocean Volcanic Regions
+372070,Hekla,Iceland,-19.666,63.983,1490,Stratovolcano,Stratovolcano,2000,Eruption Observed,Atlantic Ocean Volcanic Regions
+373010,Grimsvotn,Iceland,-17.316,64.416,1719,Caldera,Caldera,2011,Eruption Observed,Atlantic Ocean Volcanic Regions
+373012,Thordarhyrna,Iceland,-17.617,64.267,1650,Stratovolcano,Stratovolcano,1904,Eruption Observed,Atlantic Ocean Volcanic Regions
+373030,Bardarbunga,Iceland,-17.516,64.633,2000,Stratovolcano,Stratovolcano,2015,Eruption Observed,Atlantic Ocean Volcanic Regions
+373040,Tungnafellsjokull,Iceland,-17.916,64.75,1523,Stratovolcano,Stratovolcano,,Evidence Credible,Atlantic Ocean Volcanic Regions
+373050,Kverkfjoll,Iceland,-16.647,64.653,1930,Stratovolcano,Stratovolcano,1968,Eruption Observed,Atlantic Ocean Volcanic Regions
+373060,Askja,Iceland,-16.783,65.033,1080,Stratovolcano,Stratovolcano,1961,Eruption Observed,Atlantic Ocean Volcanic Regions
+373070,Fremrinamar,Iceland,-16.666,65.416,970,Stratovolcano,Stratovolcano,-1200,Eruption Dated,Atlantic Ocean Volcanic Regions
+373080,Krafla,Iceland,-16.728,65.715,800,Caldera,Caldera,1984,Eruption Observed,Atlantic Ocean Volcanic Regions
+373082,Heidarspordar,Iceland,-16.817,65.583,490,Fissure vent,"Cones, domes, maars, fissure vents",-300,Eruption Dated,Atlantic Ocean Volcanic Regions
+373090,Theistareykir,Iceland,-16.967,65.883,563,Shield,Shield,-900,Eruption Dated,Atlantic Ocean Volcanic Regions
+373100,Tjornes Fracture Zone,Iceland,-17.118,66.309,-75,Fissure vent,"Cones, domes, maars, fissure vents",1868,Eruption Observed,Atlantic Ocean Volcanic Regions
+374010,Oraefajokull,Iceland,-16.65,64,2010,Stratovolcano,Stratovolcano,1728,Eruption Observed,Atlantic Ocean Volcanic Regions
+374020,Esjufjoll,Iceland,-16.583,64.25,1620,Stratovolcano,Stratovolcano,,Unrest / Holocene,Atlantic Ocean Volcanic Regions
+374801,Snaefell,Iceland,-15.56,64.798,1833,Stratovolcano,Stratovolcano,,Evidence Uncertain,Atlantic Ocean Volcanic Regions
+375010,Kolbeinsey Ridge,Iceland,-18.5,66.67,5,Fissure vent,"Cones, domes, maars, fissure vents",1755,Eruption Observed,Atlantic Ocean Volcanic Regions
+376010,Jan Mayen,Norway,-8.155,71.082,2197,Stratovolcano,Stratovolcano,1985,Eruption Observed,Atlantic Ocean Volcanic Regions
+377020,East Gakkel Ridge at 85°E,Undersea Features,85.25,85.608,-3800,Fissure vent,"Cones, domes, maars, fissure vents",1999,Evidence Credible,Atlantic Ocean Volcanic Regions
+381040,Pico Fracture Zone,Undersea Features,-38.08,38.75,-4200,Fissure vent,"Cones, domes, maars, fissure vents",1865,Eruption Observed,Atlantic Ocean Volcanic Regions
+382001,Flores,Portugal,-31.216,39.462,914,Stratovolcano(es),Stratovolcano,-950,Eruption Dated,Atlantic Ocean Volcanic Regions
+382010,Fayal,Portugal,-28.713,38.576,1041,Stratovolcano,Stratovolcano,1958,Eruption Observed,Atlantic Ocean Volcanic Regions
+382020,Pico,Portugal,-28.4,38.47,2351,Stratovolcano,Stratovolcano,1720,Eruption Observed,Atlantic Ocean Volcanic Regions
+382030,Sao Jorge,Portugal,-28.08,38.65,1053,Fissure vent,"Cones, domes, maars, fissure vents",1902,Eruption Observed,Atlantic Ocean Volcanic Regions
+382040,Graciosa,Portugal,-27.97,39.02,402,Stratovolcano,Stratovolcano,-1950,Eruption Dated,Atlantic Ocean Volcanic Regions
+382050,Terceira,Portugal,-27.32,38.73,1023,Stratovolcano(es),Stratovolcano,2000,Eruption Observed,Atlantic Ocean Volcanic Regions
+382070,Don Joao de Castro Bank,Portugal,-26.63,38.23,-13,Shield,Shield,1720,Eruption Observed,Atlantic Ocean Volcanic Regions
+382080,Sete Cidades,Portugal,-25.785,37.865,842,Stratovolcano,Stratovolcano,1880,Eruption Observed,Atlantic Ocean Volcanic Regions
+382081,Picos Fissural Volcanic System,Portugal,-25.67,37.78,350,Fissure vent,"Cones, domes, maars, fissure vents",1652,Eruption Observed,Atlantic Ocean Volcanic Regions
+382090,Agua de Pau,Portugal,-25.47,37.77,947,Stratovolcano,Stratovolcano,1564,Eruption Observed,Atlantic Ocean Volcanic Regions
+382100,Furnas,Portugal,-25.32,37.77,805,Stratovolcano,Stratovolcano,1630,Eruption Observed,Atlantic Ocean Volcanic Regions
+382110,Monaco Bank,Portugal,-25.88,37.6,-197,Fissure vent,"Cones, domes, maars, fissure vents",1911,Eruption Observed,Atlantic Ocean Volcanic Regions
+382120,Madeira,Portugal,-16.97,32.73,1862,Shield,Shield,-4500,Eruption Dated,Northern Africa Volcanic Regions
+383010,La Palma,Spain,-17.83,28.57,2426,Stratovolcano(es),Stratovolcano,2021,Eruption Observed,Northern Africa Volcanic Regions
+383020,Hierro,Spain,-18.03,27.73,1500,Shield,Shield,2012,Eruption Observed,Northern Africa Volcanic Regions
+383030,Tenerife,Spain,-16.641,28.271,3715,Stratovolcano,Stratovolcano,1909,Eruption Observed,Northern Africa Volcanic Regions
+383040,Gran Canaria,Spain,-15.58,28,1950,Fissure vent(s),"Cones, domes, maars, fissure vents",40,Eruption Dated,Northern Africa Volcanic Regions
+383050,Fuerteventura,Spain,-14.02,28.358,529,Fissure vent(s),"Cones, domes, maars, fissure vents",,Evidence Credible,Northern Africa Volcanic Regions
+383060,Lanzarote,Spain,-13.63,29.03,670,Fissure vent(s),"Cones, domes, maars, fissure vents",1824,Eruption Observed,Northern Africa Volcanic Regions
+384010,Fogo,Cabo Verde,-24.35,14.95,2829,Stratovolcano,Stratovolcano,2015,Eruption Observed,Northern Africa Volcanic Regions
+384020,Brava,Cabo Verde,-24.7041,14.8514,956,Stratovolcano,Stratovolcano,,Evidence Credible,Northern Africa Volcanic Regions
+385030,Romanche Fracture Zone,Undersea Features,-19.596,-0.433,-1528,Fissure vent,"Cones, domes, maars, fissure vents",,Evidence Uncertain,Atlantic Ocean Volcanic Regions
+385050,Ascension,United Kingdom,-14.3667,-7.9458,822,Stratovolcano,Stratovolcano,1508,Eruption Dated,Atlantic Ocean Volcanic Regions
+385052,Walvis Ridge at 33°S,Undersea Features,-5.22,-32.958,-1200,Cone,"Cones, domes, maars, fissure vents",2002,Eruption Observed,Atlantic Ocean Volcanic Regions
+386010,Tristan da Cunha,United Kingdom,-12.28,-37.092,2060,Shield,Shield,1962,Eruption Observed,Atlantic Ocean Volcanic Regions
+386011,Nightingale Island,United Kingdom,-12.48,-37.42,365,Stratovolcano,Stratovolcano,2004,Eruption Observed,Atlantic Ocean Volcanic Regions
+386020,Bouvet,Norway,3.351,-54.408,741,Shield,Shield,-50,Eruption Dated,Atlantic Ocean Volcanic Regions
+390010,Buckle Island,Antarctica,163.25,-66.78,1239,Stratovolcano,Stratovolcano,1899,Eruption Observed,Antarctic-Scotia Volcanic Regions
+390011,Young Island,Antarctica,162.47,-66.42,1340,Stratovolcano,Stratovolcano,,Evidence Uncertain,Antarctic-Scotia Volcanic Regions
+390012,Sturge Island,Antarctica,164.83,-67.4,1167,Stratovolcano,Stratovolcano,,Evidence Uncertain,Antarctic-Scotia Volcanic Regions
+390013,"Pleiades, The",Antarctica,165.5,-72.67,3040,Stratovolcano,Stratovolcano,-1050,Eruption Dated,Antarctic-Scotia Volcanic Regions
+390015,Melbourne,Antarctica,164.7,-74.35,2732,Stratovolcano,Stratovolcano,1892,Eruption Dated,Antarctic-Scotia Volcanic Regions
+390016,McMurdo Province at 76.8°S,Antarctica,163,-76.83,-500,Caldera,Caldera,,Evidence Uncertain,Antarctic-Scotia Volcanic Regions
+390017,Morning,Antarctica,163.53,-78.5,2723,Shield,Shield,,Evidence Uncertain,Antarctic-Scotia Volcanic Regions
+390020,Erebus,Antarctica,167.17,-77.53,3794,Stratovolcano,Stratovolcano,2026,Eruption Observed,Antarctic-Scotia Volcanic Regions
+390021,Royal Society Range,Antarctica,163.33,-78.25,3000,Pyroclastic cone(s),"Cones, domes, maars, fissure vents",,Evidence Uncertain,Antarctic-Scotia Volcanic Regions
+390022,Berlin,Antarctica,-136,-76.05,3478,Shield(s),Shield,-8350,Eruption Dated,Antarctic-Scotia Volcanic Regions
+390023,Andrus,Antarctica,-132.33,-75.8,2978,Shield(s),Shield,,Evidence Uncertain,Antarctic-Scotia Volcanic Regions
+390027,Takahe,Antarctica,-112.08,-76.28,3460,Shield,Shield,-5550,Eruption Dated,Antarctic-Scotia Volcanic Regions
+390028,Hudson Mountains,Antarctica,-99.42,-74.33,749,Stratovolcano(es),Stratovolcano,-207,Eruption Dated,Antarctic-Scotia Volcanic Regions
+390030,Deception Island,Antarctica,-60.6367,-62.9567,602,Caldera,Caldera,1970,Eruption Observed,Antarctic-Scotia Volcanic Regions
+390031,Penguin Island,Antarctica,-57.93,-62.1,180,Stratovolcano,Stratovolcano,1905,Eruption Observed,Antarctic-Scotia Volcanic Regions
+390040,Bridgeman Island,Antarctica,-56.713,-62.063,240,Stratovolcano,Stratovolcano,,Evidence Uncertain,Antarctic-Scotia Volcanic Regions
+390041,Paulet,Antarctica,-55.78,-63.579,353,Pyroclastic cone,"Cones, domes, maars, fissure vents",,Evidence Credible,Antarctic-Scotia Volcanic Regions
+390070,Southern Thule,United Kingdom,-27.225,-59.442,1075,Stratovolcano(es),Stratovolcano,1975,Eruption Observed,Antarctic-Scotia Volcanic Regions
+390080,Bristol Island,United Kingdom,-26.533,-59.017,1100,Stratovolcano,Stratovolcano,2016,Eruption Observed,Antarctic-Scotia Volcanic Regions
+390081,Montagu Island,United Kingdom,-26.374,-58.445,1370,Shield,Shield,2007,Eruption Observed,Antarctic-Scotia Volcanic Regions
+390090,Saunders,United Kingdom,-26.483,-57.8,843,Stratovolcano,Stratovolcano,2026,Eruption Observed,Antarctic-Scotia Volcanic Regions
+390100,Candlemas Island,United Kingdom,-26.67,-57.08,550,Stratovolcano,Stratovolcano,1911,Eruption Observed,Antarctic-Scotia Volcanic Regions
+390110,Hodson,United Kingdom,-27.176,-56.712,835,Stratovolcano,Stratovolcano,,Evidence Credible,Antarctic-Scotia Volcanic Regions
+390120,Leskov Island,United Kingdom,-28.14,-56.656,190,Stratovolcano,Stratovolcano,,Unrest / Holocene,Antarctic-Scotia Volcanic Regions
+390130,Zavodovski,United Kingdom,-27.57,-56.3,551,Stratovolcano,Stratovolcano,2016,Eruption Observed,Antarctic-Scotia Volcanic Regions
+390140,Protector Seamounts,United Kingdom,-28.167,-55.912,-55,Volcanic field,Volcanic field,1962,Eruption Observed,Antarctic-Scotia Volcanic Regions
+390829,Mount Haddington Volcanic Field,Antarctica,-57.75,-64.15,1544,Shield,Shield,,Evidence Credible,Antarctic-Scotia Volcanic Regions
+390847,Melville,Antarctica,-57.67,-62.02,549,Stratovolcano,Stratovolcano,,Evidence Uncertain,Antarctic-Scotia Volcanic Regions
