@@ -314,14 +314,18 @@ def _footer_line(layer: dict, credited: set) -> str:
     p = layer.get("provenance") or {}
     credit = p.get("attribution") or p.get("name") or layer.get("source")
     licence = p.get("license") or "licence not stated by source"
-    if credit in credited:
-        source = "Source: as above"
+    again = credit in credited
+    if again:
+        # Same publisher and licence as a layer already credited: say what
+        # this one is, not that its source is "as above".
+        head = f"Also drawn: {layer.get('title') or layer.get('label')}"
+        parts = [head]
     else:
-        source = f"Source: {credit} ({licence})"
         credited.add(credit)
-    parts = [f"Overlay: {layer.get('title') or layer.get('label')}. {source}"]
-    if p.get("vintage"):
-        parts.append(p["vintage"])
+        parts = [f"Overlay: {layer.get('title') or layer.get('label')}. "
+                 f"Source: {credit} ({licence})"]
+        if p.get("vintage"):
+            parts.append(p["vintage"])
     line = "; ".join(parts) + "."
     if layer.get("encoding"):
         line += f" {layer['encoding']}."
@@ -334,7 +338,7 @@ def _footer_line(layer: dict, credited: set) -> str:
         detail = ", ".join(f"{e['count']:,} {e['reason']}" for e in excluded)
         line += f" {drawn:,} {noun} drawn; excluded: {detail}."
     else:
-        line += f" {drawn:,} {noun} drawn; none excluded."
+        line += f" {drawn:,} {noun} drawn" + ("." if again else "; none excluded.")
     return line
 
 

@@ -3481,7 +3481,7 @@ def _footer(manifest, frame: Frame, encoding: Encoding, result, top: float,
     p = result.provenance
 
     scale = p.get("scale") or registry.scale_for(manifest.level)
-    vintage = p.get("vintage") or registry.SOURCE_VINTAGE
+    vintage = _without_idle_notes(p.get("vintage") or registry.SOURCE_VINTAGE, result)
     source = f"{_boundary_credit(p)}, {vintage}, {scale}"
     context_source = p.get("context_source")
     if (context_source and result.context
@@ -3548,6 +3548,21 @@ def _footer(manifest, frame: Frame, encoding: Encoding, result, top: float,
         )
     out.append("</g>")
     return "".join(out), 18 + (len(wrapped) - 1) * FOOTER_LEAD
+
+
+_SAHARA = "Western Sahara shown as a non-self-governing territory (UN)"
+
+
+def _without_idle_notes(vintage: str, result) -> str:
+    """The boundary note about Western Sahara says something only on a map
+    that draws Western Sahara or Morocco; on one of Europe it is noise."""
+    if _SAHARA not in vintage:
+        return vintage
+    ids = {str(item.get("id") or "").upper()
+           for item in list(result.rows) + list(result.dropped) + list(result.context)}
+    if ids & {"ESH", "SAH", "MAR"}:
+        return vintage
+    return "; ".join(part for part in vintage.split("; ") if part != _SAHARA)
 
 
 def _boundary_credit(p: dict) -> str:
@@ -3685,8 +3700,13 @@ def _lower_first(text: str) -> str:
 def _projection_label(frame: Frame) -> str:
     label = _main_projection_label(frame)
     if getattr(frame, "insets", None):
-        label += ("; insets, each in its own equal-area projection: "
-                  + ", ".join(inset.scale_note for inset in frame.insets))
+        # Many insets: the scale of each is on its frame (a "×2.7" in the
+        # caption, a scale bar), and a sentence repeating them is noise.
+        if len(frame.insets) > 3:
+            label += "; insets, each in its own equal-area projection, scale on its frame"
+        else:
+            label += ("; insets, each in its own equal-area projection: "
+                      + ", ".join(inset.scale_note for inset in frame.insets))
     return label
 
 
