@@ -230,7 +230,13 @@ CATALOGUE = (
                             "small": "Cones, domes and maars",
                             "other": "Type not recorded"},
         "category_other": "other",
-        "label": "Holocene volcanoes", "label_top": 0, "noun": "volcanoes",
+        "label": "Holocene volcanoes", "label_top": 15, "noun": "volcanoes",
+        "map_title": "Volcanoes of the Holocene (the last ~11,700 years), world",
+        "note": "Holocene volcanoes are those with eruptions or unrest since the "
+                "last ice age (~11,700 years); the best-documented are named, "
+                "ranked by what each record reports of its consequences",
+        "notability": {"text": "Geological_Summary", "year": "Last_Eruption_Year",
+                       "size": "Elevation"},
         "theme": "seismic", "category_counts": True,
         "license": "Smithsonian terms of use; cite as requested",
         "attribution": "Global Volcanism Program, 2026. Volcanoes of the World "
@@ -483,6 +489,7 @@ def layer_from_bytes(payload: bytes, overlay_id: str, window: Window) -> dict:
     base = {"source": "web", "id": overlay_id, "provenance": provenance,
             **({"theme": entry["theme"]} if entry.get("theme") else {}),
             "title": entry.get("title") or f"Data from {host}",
+            **({"map_title": entry["map_title"]} if entry.get("map_title") else {}),
             "label": entry.get("label") or entry.get("title") or host}
     if entry.get("format") == "ibtracs":
         return _ibtracs_layer(base, text, filters, window)
@@ -714,6 +721,28 @@ def _temperature_layer(base: dict, records: list, roles: dict) -> dict:
             "excluded": excluded}
 
 
+# What a catalogue's own prose says makes a place worth naming on a map that
+# cannot name every one: deaths, destruction, tsunamis, eruptions of record.
+_NOTABLE = re.compile(
+    r"killed|deadl|fatal|deaths|victims|devastat|catastroph|largest|famous|"
+    r"best[- ]known|most active|buried|destroyed|tsunami|evacuat|Pompeii|VEI|"
+    r"climate|Plinian|pyroclastic flows", re.I)
+
+
+def _notability(record, fields) -> float:
+    """How well worth naming one row is, from its own record: how many kinds
+    of consequence its description reports, a recent eruption, and height."""
+    text = str(record.get(fields["text"]) or "")
+    score = float(len({m.lower() for m in _NOTABLE.findall(text)}))
+    year = _number(record.get(fields["year"]))
+    if year is not None and year >= 1900:
+        score += 0.5
+    size = _number(record.get(fields["size"]))
+    if size is not None:
+        score += min(max(size, 0.0), 4000.0) / 4000.0
+    return round(score, 3)
+
+
 def _numeric_share(records, column) -> float:
     values = [r.get(column) for r in records[:500]]
     return sum(_number(v) is not None for v in values) / max(1, len(values))
@@ -746,6 +775,9 @@ def _rows(records, roles, entry=None):
             row["name"] = str(record.get(roles["name"]) or "")
         if roles.get("country"):
             row["country"] = str(record.get(roles["country"]) or "").upper()
+        notability = (entry or {}).get("notability")
+        if notability:
+            row["notable"] = _notability(record, notability)
         rows.append(row)
     return rows, bad
 
@@ -912,7 +944,7 @@ def _points_layer(base, rows, roles, entry, excluded, window):
                 "unit": "", "scale": entry.get("scale") or "sqrt"}
     features = [{"id": f"r{r['i']}", "lon": r["lon"], "lat": r["lat"],
                  "size": r.get("size"), "category": r.get("category"),
-                 "name": r.get("name")} for r in inside]
+                 "name": r.get("name"), "notable": r.get("notable")} for r in inside]
     size_text = (f"circle area ∝ {size['label']}" if size and size["scale"] != "magnitude"
                  else "circle area ∝ 10^(M/2)" if size else
                  f"colour = {category['label'].lower()}" if category else "one dot per row")
@@ -920,7 +952,9 @@ def _points_layer(base, rows, roles, entry, excluded, window):
     return {**base, "kind": "points", "size": size, "category": category,
             "features": features, "stats": {"count": len(features)},
             "summary": f"{len(features):,} {noun} · {size_text}",
-            "encoding": size_text[:1].upper() + size_text[1:], "excluded": excluded,
+            "encoding": (size_text[:1].upper() + size_text[1:]
+                         + (f". {entry['note']}" if entry.get("note") else "")),
+            "excluded": excluded,
             "label_top": entry.get("label_top", 5 if "name" in roles else 0),
             "noun": noun}
 
@@ -1032,11 +1066,20 @@ def _ibtracs_layer(base: dict, text: str, filters: dict, window: Window) -> dict
             continue
         if not any(r.get("USA_AGENCY", "").startswith("hurdat") for r in rows):
             provisional += 1
-        coords, classes, winds = [], [], []
+        coords, classes, winds, landfalls = [], [], [], []
+        over_land = False
         for r, code in zip(rows, codes):
             lon, lat = _number(r.get("LON")), _number(r.get("LAT"))
             if lon is None or lat is None:
                 continue
+            # IBTrACS LANDFALL is the distance to land (km) until the next
+            # position: 0 where the centre makes landfall. The first position
+            # of each run of zeros is the landfall; a hurricane's is marked.
+            at_land = r.get("LANDFALL") == "0"
+            if at_land and not over_land and code is not None and code >= 1:
+                landfalls.append([round(lon, 3), round(lat, 3), code,
+                                  r["ISO_TIME"][:10]])
+            over_land = at_land
             coords.append([round(lon, 3), round(lat, 3)])
             classes.append(_sshs_class(code))
             wind = _number(r.get("USA_WIND"))
@@ -1052,6 +1095,7 @@ def _ibtracs_layer(base: dict, text: str, filters: dict, window: Window) -> dict
             "category": _sshs_class(top), "name": name.title(),
             "peak": top, "peak_wind": winds[peak], "peak_at": coords[peak],
             "landfall": any(r.get("LANDFALL") == "0" for r in rows),
+            "landfalls": landfalls,
         })
     hurricanes = sum(f["peak"] >= 1 for f in features)
     major = sum(f["peak"] >= 3 for f in features)
@@ -1082,7 +1126,8 @@ def _ibtracs_layer(base: dict, text: str, filters: dict, window: Window) -> dict
                         f"{hurricanes} hurricanes, {major} major"),
             "encoding": ("One line per storm, coloured by its Saffir-Simpson "
                          "category at each three-hourly position (US agency "
-                         "1-minute sustained wind); hurricanes named at their peak"),
+                         "1-minute sustained wind); each storm named beside its track, hurricane "
+                         "landfalls marked"),
             "excluded": excluded, "noun": "storms"}
 
 

@@ -285,7 +285,7 @@ def draw(layers: list, places: list, frame, layout: dict, physical: list = ()) -
 
     main = [layer for layer in layers if layer["kind"] not in ("places", "temperature")] or layers
     if main:
-        art.title = main[0].get("title") or ""
+        art.title = main[0].get("map_title") or main[0].get("title") or ""
         art.subtitle = " · ".join(s for s in (main[0].get("summary"),) if s)
     credited: set = set()
     for layer in layers:
@@ -386,10 +386,13 @@ def _points(layer, frame, labels, anchors, layout):
     # Name the largest few: the M8.8 a reader looks for should not need a
     # lookup. Largest first, so they win the space.
     top = layer.get("label_top") or 0
-    named = sorted((t for t in placed if t[4].get("name")),
-                   key=lambda t: (-t[0], t[1]))[:top]
-    for rank, (r, _, x, y, f) in enumerate(named):
-        labels.callout(f["name"], x, y, r, bold=rank < 3)
+    if any(t[4].get("notable") is not None for t in placed):
+        _name_notable(placed, labels, top)
+    else:
+        named = sorted((t for t in placed if t[4].get("name")),
+                       key=lambda t: (-t[0], t[1]))[:top]
+        for rank, (r, _, x, y, f) in enumerate(named):
+            labels.callout(f["name"], x, y, r, bold=rank < 3)
 
     legend = []
     size = layer.get("size")
@@ -403,6 +406,27 @@ def _points(layer, frame, labels, anchors, layout):
             {"value": None, "label": layer.get("label") or "Feature"}]},
             {None: default}, {None}, "dot"))
     return "".join(out), legend
+
+
+NOTABLE_APART = 60.0          # px between two named points of a crowded layer
+
+
+def _name_notable(placed, labels, top) -> None:
+    """Name the points the data itself marks as worth naming (a volcano whose
+    record reports deaths and destruction), the best first, each at least
+    NOTABLE_APART px from the last so the names spread over the map rather
+    than pile up on one arc. A name that finds no room is skipped for the next."""
+    ranked = sorted((t for t in placed if t[4].get("name") and t[4].get("notable") is not None),
+                    key=lambda t: (-t[4]["notable"], t[4]["name"], t[1]))
+    done: list = []
+    for r, _, x, y, f in ranked:
+        if len(done) >= top:
+            break
+        if any(math.hypot(x - ox, y - oy) < NOTABLE_APART for ox, oy in done):
+            continue
+        if labels.callout(f["name"], x, y, r, bold=len(done) < 3,
+                          reaches=(8.0, 18.0, 30.0, 46.0)):
+            done.append((x, y))
 
 
 def _short(v: float) -> str:
@@ -467,7 +491,8 @@ def _tracks(layer, frame, labels, anchors):
 
     Segments of one class are drawn as one path, weakest first, so a
     hurricane's red runs over the blue of its own tropical-storm stages.
-    Hurricanes are named at their peak, strongest first; majors in bold.
+    Every named storm is labelled, strongest first, majors in bold; hurricane
+    landfalls are marked.
     """
     category = layer.get("category") or {"classes": []}
     order = [c["value"] for c in category["classes"]]
@@ -503,16 +528,59 @@ def _tracks(layer, frame, labels, anchors):
         out.append(f'<path d="{d}" fill="none" stroke="{SSHS.get(value, ORDERED[0])}" '
                    f'stroke-width="{width}" stroke-linecap="round" stroke-linejoin="round"'
                    f'{dash} data-class={quoteattr(str(value))}/>')
-    named = sorted((f for f in layer["features"] if f.get("peak", -1) >= 1),
+    # Landfalls first, so no name is written over one.
+    landfall_svg, landfall_n = [], 0
+    for f in layer["features"]:
+        for lon, lat, cat, when in f.get("landfalls") or ():
+            x, y = _xy(frame, lon, lat)
+            if not frame.visible(x, y):
+                continue
+            landfall_svg.append(
+                f'<circle cx="{_num(x)}" cy="{_num(y)}" r="3.4" fill="#ffffff" '
+                f'stroke="{TEXT}" stroke-width="1.3" class="landfall" '
+                f'data-storm={quoteattr(f["name"])} data-date={quoteattr(str(when))} '
+                f'data-category="{int(cat)}"/>')
+            labels.block(x - 4.5, y - 4.5, x + 4.5, y + 4.5)
+            anchors.append((x, y))
+            landfall_n += 1
+    out.extend(landfall_svg)
+    # Every named storm, strongest first, majors in bold. A storm tries the
+    # place it peaked, then the rest of its track: in the Gulf of Mexico the
+    # peak is under six other storms.
+    named = sorted((f for f in layer["features"]
+                    if f.get("name") and f["name"].upper() != "UNNAMED"),
                    key=lambda f: (-f["peak"], -f.get("peak_wind", 0), f["id"]))
     for f in named:
-        x, y = _xy(frame, *f["peak_at"])
-        if frame.visible(x, y):
-            labels.callout(f["name"], x, y, 2.0, bold=f["peak"] >= 3)
+        coords = project.unwrap_ring([tuple(c) for c in f["coords"]], frame.lon0)
+        spots = [tuple(f["peak_at"])]
+        n = len(coords)
+        for k in (1.0, 0.5, 0.75, 0.25, 0.0, 0.62, 0.38, 0.88, 0.12):
+            spots.append(coords[min(n - 1, int(k * (n - 1)))])
+        for lon, lat in spots:
+            x, y = _xy(frame, lon, lat)
+            if frame.visible(x, y) and labels.callout(
+                    f["name"], x, y, 2.0, bold=f["peak"] >= 3,
+                    reaches=(8.0, 18.0, 30.0, 46.0, 64.0, 84.0)):
+                break
     present = {v for v, runs in paths.items() if runs}
     colours = {v: SSHS.get(v, ORDERED[0]) for v in order}
-    return "".join(out), [_swatch_block(category, colours, present, "line",
-                                        dashed=frozenset({"other"}))]
+    legend = [_swatch_block(category, colours, present, "line",
+                            dashed=frozenset({"other"}))]
+    if landfall_n:
+        legend.append(_landfall_block(landfall_n))
+    return "".join(out), legend
+
+
+def _landfall_block(count: int):
+    text = "Hurricane landfall"
+    w, h = 30 + _text_w(text, 10), 18 + 16
+
+    def draw(x, y):
+        return (f'<circle cx="{_num(x + 9)}" cy="{_num(y + 12)}" r="3.4" fill="#ffffff" '
+                f'stroke="{TEXT}" stroke-width="1.3"/>'
+                f'<text x="{_num(x + 28)}" y="{_num(y + 15.5)}" font-size="10" '
+                f'fill="{TEXT}">{escape(text)} ({count})</text>')
+    return w + 30, h, draw
 
 
 def _thin(run):
@@ -1136,7 +1204,8 @@ class Labels:
             ' font-weight="600"' if bold else "")
         return self._try(text, x, y, 4.0, LABEL_SIZE, extra)
 
-    def callout(self, text, x, y, r, bold=False, italic=False):
+    def callout(self, text, x, y, r, bold=False, italic=False,
+                reaches=(8.0, 18.0, 30.0, 46.0)):
         """A label on a short leader from a circle's edge, further out if crowded.
 
         Always on a leader: a label merely near a dot in a cluster is read as
@@ -1147,7 +1216,7 @@ class Labels:
         extra = (' font-weight="600"' if bold else "") + (
             ' font-style="italic"' if italic else "")
         directions = ((1, 0), (-1, 0), (1, -1), (-1, -1), (1, 1), (-1, 1), (0, -1), (0, 1))
-        for reach in (8.0, 18.0, 30.0, 46.0):
+        for reach in reaches:
             for dx, dy in directions:
                 norm = math.hypot(dx, dy)
                 ux, uy = dx / norm, dy / norm

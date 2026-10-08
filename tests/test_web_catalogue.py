@@ -128,7 +128,7 @@ def test_storm_tracks_render_by_category_and_name_hurricanes(mini_geojson):
     svg = _map(mini_geojson, [layer])
     assert f'stroke="{overlay_render.SSHS["cat5"]}"' in svg
     assert "Category 5" in svg and "Saffir-Simpson category" in svg
-    assert ">Milton<" in svg and ">Chris<" not in svg   # only hurricanes named
+    assert ">Milton<" in svg and ">Chris<" in svg       # every named storm
     assert "2 storms drawn" in svg
     assert svg == _map(mini_geojson, [layer])
 
@@ -244,7 +244,7 @@ def test_volcano_types_collapse_to_a_handful_of_ordered_classes():
         "strato", "shield", "caldera", "field", "fissure", "small", "other"]
     assert [f["category"] for f in layer["features"]][:3] == ["strato", "shield", "strato"]
     assert "Venzke" in layer["provenance"]["attribution"]
-    assert layer["label_top"] == 0
+    assert layer["label_top"] == 15      # the notable few, ranked from the record itself
 
 
 def test_points_round_the_globe_centre_on_their_emptiest_seam():
