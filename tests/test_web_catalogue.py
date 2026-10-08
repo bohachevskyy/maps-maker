@@ -258,3 +258,13 @@ def test_points_round_the_globe_centre_on_their_emptiest_seam():
                                            for v in range(-180, 180, 1)]}
     assert overlay_render.centre_lon([even]) is None
 
+
+def test_the_agent_is_shown_the_filters_it_may_use():
+    from mapsvc import agent
+
+    section = agent._overlay_section()
+    assert "#top=N" in section and "European Russia" in section
+    offered = agent._overlay_candidates("web", "volcanoes holocene")
+    assert web._GVP in offered and "Filters after '#'" in offered
+    storms = agent._overlay_candidates("web", "atlantic hurricane tracks")
+    assert "Requires season" in storms
