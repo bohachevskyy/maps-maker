@@ -124,6 +124,17 @@ def describe(variable_id: str) -> Variable:
                     citation="EIA State Energy Data System")
 
 
+def _title_label(description: str) -> str:
+    """The series as a title would say it, not as EIA's code list does:
+    "Distillate fuel oil total consumption" -> "Diesel and heating-oil use".
+    A per-person title otherwise reads "total ... per person"."""
+    text = re.sub(r"\s+total\s+consumption$", " use", description.strip(), flags=re.I)
+    text = re.sub(r"\s+consumption$", " use", text, flags=re.I)
+    if text.casefold().startswith("distillate fuel oil"):
+        text = "Diesel and heating-oil" + text[len("distillate fuel oil"):]
+    return text
+
+
 def _note(description: str) -> str | None:
     """Reader-facing fuel meaning derived from EIA's series description."""
     if "distillate fuel oil" in description.casefold():
@@ -221,7 +232,7 @@ def load(variable_id: str, level: str, region: str, year: int | None = None) -> 
         provenance={
             "source": "EIA SEDS",
             "vintage": f"SEDS release {status}" if status else None,
-            "variable": meta.label,
+            "variable": _title_label(meta.label),
             "unit": meta.unit,
             "note": _note(description),
             "level": meta.level,

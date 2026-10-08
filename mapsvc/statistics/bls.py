@@ -149,6 +149,20 @@ def _rows(year: int) -> tuple[dict, ...]:
     return tuple(rows)
 
 
+def _later_year_note(chosen: int, requested: int | None) -> str:
+    """Why the default is not the newest file: its "annual" figure is an
+    11-month mean (October 2025 was never collected)."""
+    if requested is not None:
+        return ""
+    try:
+        if _partial_year(_data(chosen + 1)):
+            return (f"; the {chosen + 1} file averages only the months collected, "
+                    f"so {chosen} is the latest full year")
+    except StatisticsError:
+        pass
+    return ""
+
+
 def load(variable_id: str, level: str, region: str,
          year: int | None = None) -> Values:
     if level != "admin_2":
@@ -175,7 +189,7 @@ def load(variable_id: str, level: str, region: str,
                               "variable.change" if year is not None else "variable.source")
     return Values(values=values, years={key: chosen for key in values}, provenance={
         "source": "BLS Local Area Unemployment Statistics",
-        "vintage": f"LAUS county {chosen} annual averages",
+        "vintage": f"LAUS county {chosen} annual averages{_later_year_note(chosen, year)}",
         "variable": meta.label,
         "unit": meta.unit,
         "level": meta.level,

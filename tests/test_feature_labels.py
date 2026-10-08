@@ -68,7 +68,28 @@ def test_a_map_too_big_to_name_every_unit_names_only_its_extremes():
     labelled = {g.get("data-id") for g in root.iter(f"{SVG}g")
                 if g.get("class") == "feature-label"}
     k = R.LABEL_EXTREMES
-    assert labelled == {f"U{i:03d}" for i in list(range(k)) + list(range(n - k, n))}
+    extremes = {f"U{i:03d}" for i in list(range(k)) + list(range(n - k, n))}
+    per_side = R.LABEL_PER_SIDE + n // R.LABEL_PER_SIDE_STEP
+    assert extremes <= labelled
+    assert len(labelled) <= 2 * per_side
+    # Whatever else is named is from either end of the ranking, never the middle.
+    assert labelled <= {f"U{i:03d}" for i in list(range(per_side)) + list(range(n - per_side, n))}
+
+
+def test_a_change_map_does_not_name_a_unit_too_small_to_see():
+    """The Vatican's -29% is noise, not the headline; the lowest sizeable unit is."""
+    rows = _grid(R.LABEL_MAX_UNITS + 4, value=lambda i: 10.0 + i, size=4.0)
+    rows[0]["geometry"] = _box(0, 0, 0.05, 0.05)           # the lowest, a speck
+    xs = [p[0] for r in rows for p in r["geometry"]["coordinates"][0]]
+    ys = [p[1] for r in rows for p in r["geometry"]["coordinates"][0]]
+    manifest = build_manifest(bbox=(min(xs) - 1, min(ys) - 1, max(xs) + 1, max(ys) + 1))
+    prov = {"measurement": "ratio", "change": {"from": 2000, "to": 2023}}
+    root = ET.fromstring(render(manifest, HarvestResult(rows=rows, provenance=prov,
+                                                        dropped=[])))
+    labelled = {g.get("data-id") for g in root.iter(f"{SVG}g")
+                if g.get("class") == "feature-label"}
+    assert "U000" not in labelled
+    assert "U001" in labelled
 
 
 def test_labels_are_deterministic():

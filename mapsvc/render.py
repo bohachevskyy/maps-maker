@@ -16,10 +16,11 @@ one), and the layout from the shape of the projected map.
 
 import dataclasses
 import math
+import re
 import textwrap
 from xml.sax.saxutils import escape, quoteattr
 
-from mapsvc import classify, colors, overlay_render, project, registry
+from mapsvc import classify, colors, overlay_render, project, registry, usfips
 from mapsvc.models import HarvestResult, Manifest
 
 CANVAS_W = 960
@@ -268,7 +269,9 @@ def render(manifest: Manifest, result: HarvestResult) -> str:
         if not has_overlays:
             placer = _placer(frame, encoding)
             labels_svg = _feature_labels(rows, insets, drawn_missing, frame, encoding,
-                                         land, placer, len(every_row))
+                                         land, placer, len(every_row),
+                                         bool(p.get("change")),
+                                         lambda: _placer(frame, encoding))
         body.append(legend)
     if placer is None:
         placer = _placer(frame, encoding)
@@ -331,6 +334,7 @@ class Encoding:
         self.circles: list = []          # (x, y, r, row) of every drawn circle
         self.vmin = 0.0
         self.missing_label = "no data"   # what the hatch means, in the legend
+        self.decimals: int | None = None    # the source's own precision, if it has one
 
     def fill(self, value) -> str:
         if self.mode == "basemap":
@@ -413,8 +417,10 @@ def _encoding(manifest: Manifest, rows: list, provenance: dict) -> Encoding:
                 "RdBu", center_at, scheme.k - center_at, reverse=reverse)
         else:
             swatches = colors.colors(registry.RAMP_FOR_LEVEL["ratio"], scheme.k)
-        return Encoding("choropleth", label, unit, scheme, swatches,
-                        value_scale=value_scale)
+        enc = Encoding("choropleth", label, unit, scheme, swatches,
+                       value_scale=value_scale)
+        enc.decimals = _source_decimals(values) if value_scale == 1.0 else None
+        return enc
 
     ramp = registry.RAMP_FOR_LEVEL.get(level, "YlGnBu")
     scheme = classify.build(values, level, registry.DEFAULT_METHOD, registry.DEFAULT_K)
@@ -440,8 +446,37 @@ def _affixes(unit: str) -> tuple[str, str]:
     """What a legend label carries of the unit: '$' before, '%' after."""
     u = (unit or "").strip().lower()
     prefix = "$" if ("$" in u or "dollar" in u) else ""
+    if "percentage point" in u:
+        return prefix, " pp"
     suffix = "%" if u.startswith(("%", "percent", "per cent")) else ""
     return prefix, suffix
+
+
+_MARGIN = re.compile(r"\(\s*([A-Za-z][\w .-]*?)\s+minus\s+([A-Za-z][\w .-]*?)\s*[;)]")
+
+
+def _margin_sides(unit: str) -> tuple[str, str] | None:
+    """('R', 'D') for "percentage points (Republican minus Democratic; ...)":
+    the initials a margin label leads with, positive side first."""
+    found = _MARGIN.search(unit or "")
+    if "percentage point" not in (unit or "").lower() or not found:
+        return None
+    return found.group(1)[0].upper(), found.group(2)[0].upper()
+
+
+def _source_decimals(values) -> int | None:
+    """How many decimals the source itself reports (0, 1 or 2), or None when
+    the values are computed (a ratio, a change) and carry float noise. A label
+    must not claim more precision than that -- or less: Starr County's 9.5%
+    is not '10%'."""
+    floats = [float(v) for v in values
+              if isinstance(v, (int, float)) and not isinstance(v, bool)]
+    if not floats:
+        return None
+    for places in (0, 1, 2):
+        if all(abs(v - round(v, places)) < 1e-9 for v in floats):
+            return places
+    return None
 
 
 def _human(text: str) -> str:
@@ -1389,6 +1424,15 @@ def _box_within(inner: tuple, outer: tuple, slack: float = 1e-6) -> bool:
 LABEL_MAX_UNITS = 60
 # How many of the highest and of the lowest a big map names.
 LABEL_EXTREMES = 2
+# A big map names this many from each end, plus one per LABEL_PER_SIDE_STEP
+# units (238 countries: 4 a side; 400 districts: 5), those beyond the first
+# LABEL_EXTREMES being at least LABEL_MIN_AREA px2 on the page.
+LABEL_PER_SIDE = 3
+LABEL_PER_SIDE_STEP = 150
+LABEL_MIN_AREA = 40.0
+# ...and at least this far (px) from the one before: not five districts of one
+# empty corner.
+LABEL_APART = 45.0
 NAME_SIZE, VALUE_SIZE = 9.5, 8.5
 # A unit too small for the label at full size tries it this much smaller
 # before it is called out: a short leader is better than a long one.
@@ -1412,11 +1456,11 @@ CALLOUT_MAX_COVER = 0.25
 STACK_NEAR = 64.0
 # A leader longer than this crosses too much of the map to be followed: the
 # unit tries its code inside, and a code callout, before a longer leader.
-LEADER_MAX = 150.0
+LEADER_MAX = 90.0
 # A name on a leader this short beats a code inside the unit.
-LEADER_SHORT = 60.0
+LEADER_SHORT = 80.0
 # No leader is ever longer than this: past it a middling unit goes unlabelled.
-LEADER_LIMIT = 170.0
+LEADER_LIMIT = 110.0
 STACK_GAP = 1.5
 # A stack's column moves out from the land in these steps, and the whole
 # stack up or down by these, until every label is in free space.
@@ -1430,12 +1474,23 @@ _KIND_WORDS = ("Oblast", "County", "Province", "Region", "Governorate", "Prefect
                "Voivodeship", "Department", "District", "Raion", "Municipality",
                "Parish", "Borough", "Census Area", "City and Borough")
 _KIND_PREFIXES = ("Autonomous Republic of ",)
+# German district names carry their status after a comma: "München, Kreisfreie
+# Stadt". A label wants the place.
+_KIND_SUFFIXES = (", Kreisfreie Stadt", ", Stadtkreis", ", Landkreis", ", Kreis",
+                  ", Landeshauptstadt", ", Universitätsstadt", ", Stadt", ", Hansestadt",
+                  ", Wissenschaftsstadt", ", Große Kreisstadt", ", Regionalverband")
+# What a reader calls a country, where Natural Earth's name is long.
+_COUNTRY_SHORT = {"United Arab Emirates": "UAE", "United States of America": "United States"}
 MISSING_TEXT = "no data"
+
+
+_CITY_KINDS = ("Kreisfreie Stadt", "Stadtkreis", "Stadt", "Landeshauptstadt",
+               "Hansestadt", "Universitätsstadt", "Wissenschaftsstadt")
 
 
 def _label_names(rows: list) -> dict:
     full = {str(r["id"]): _short_name(r) for r in rows}
-    stripped = {}
+    stripped, kinds = {}, {}
     for gid, name in full.items():
         short = name
         for word in _KIND_WORDS:
@@ -1445,11 +1500,30 @@ def _label_names(rows: list) -> dict:
         for prefix in _KIND_PREFIXES:
             if short.startswith(prefix) and len(short) > len(prefix) + 1:
                 short = short[len(prefix):]
-        stripped[gid] = short
+        for suffix in _KIND_SUFFIXES:
+            if short.endswith(suffix) and len(short) > len(suffix) + 1:
+                short = short[: -len(suffix)]
+                kinds[gid] = suffix[2:]
+        stripped[gid] = _COUNTRY_SHORT.get(short, short)
     counts: dict = {}
     for short in stripped.values():
         counts[short] = counts.get(short, 0) + 1
-    return {gid: (stripped[gid] if counts[stripped[gid]] == 1 else full[gid]) for gid in full}
+    out = {}
+    for gid in full:
+        short = stripped[gid]
+        if counts[short] == 1:
+            out[gid] = short
+            continue
+        # "München, Kreisfreie Stadt" beside "München, Landkreis": the city
+        # keeps the plain name, the district says what it is.
+        cities = [g for g in full if stripped[g] == short and kinds.get(g) in _CITY_KINDS]
+        if len(cities) == 1 and cities[0] == gid:
+            out[gid] = short
+        elif len(cities) == 1 and gid in kinds:
+            out[gid] = f"{short} ({kinds[gid]})"
+        else:
+            out[gid] = full[gid]
+    return out
 
 
 def _abbreviation(row) -> str | None:
@@ -1486,13 +1560,20 @@ def _value_text(value, encoding: Encoding) -> str:
     a = abs(v)
     if a >= 1000:
         text = classify.nice_label(classify.round_sig(a, 3))
-    elif a >= 10 or suffix == "%":
+    elif encoding.decimals is not None:
+        text = f"{a:.{encoding.decimals}f}"          # as many as the source has
+    elif a >= 10 or a == 0:
         text = f"{a:.0f}"
-    elif a >= 1:
+    elif a >= 1 or suffix in ("%", " pp"):
         text = f"{a:.1f}"
     else:
         text = f"{a:.2g}"
-    sign = "−" if v < 0 and text.strip("0.") else ("+" if signed and v > 0 else "")
+    shown = text.strip("0.") != ""
+    sides = _margin_sides(encoding.unit) if signed else None
+    if sides and shown:
+        lead = sides[0] if v > 0 else sides[1]
+        return f"{lead}+{prefix}{text}{suffix}"
+    sign = "−" if v < 0 and shown else ("+" if signed and v > 0 else "")
     return f"{sign}{prefix}{text}{suffix}"
 
 
@@ -1590,9 +1671,16 @@ class _Target:
         name = self.code if code else self.name
         if not name:
             return
+        words = name.split(" ")
         for scale in (1.0, SMALL):
             yield _Block([(name, NAME_SIZE * scale, True), (self.value, VALUE_SIZE * scale, False)])
             yield _Inline(_Line(name, self.value, scale))
+        # A two-word name on two lines ("West" / "Virginia") before a code.
+        if len(words) == 2 and not code:
+            for scale in (1.0, SMALL):
+                yield _Block([(words[0], NAME_SIZE * scale, True),
+                              (words[1], NAME_SIZE * scale, True),
+                              (self.value, VALUE_SIZE * scale, False)])
 
     def lines(self):
         yield _Line(self.name, self.value)
@@ -1719,8 +1807,12 @@ def _missing_label(result, drawn_missing: list, insets: list) -> str:
     return meaning if len(meaning) <= 44 else MISSING_TEXT
 
 
+_TRACE: list = []
+
+
 def _feature_labels(rows: list, insets: list, missing: list, frame: Frame,
-                    encoding: Encoding, land: list, placer, every: int) -> str:
+                    encoding: Encoding, land: list, placer, every: int,
+                    change: bool = False, fresh=None) -> str:
     """Name the units, each with its value. Greedy, deterministic.
 
     Name and value always print together, never one without the other:
@@ -1744,19 +1836,38 @@ def _feature_labels(rows: list, insets: list, missing: list, frame: Frame,
     names = _label_names(rows + [r for inset in insets for r in inset.rows]
                          + missing + [m for inset in insets for m in inset.missing])
     space = _Space(land, frame)
-    out: list[str] = []
-    unlabelled: list[str] = []
-    leaders: list = []
     extremes_only = every > LABEL_MAX_UNITS
 
-    if encoding.mode == "symbols":
-        pending = _circle_labels(encoding, names, placer, out)
+    def attempt(into, codes: bool):
+        out: list[str] = []
+        unlabelled: list[str] = []
+        leaders: list = []
+        if encoding.mode == "symbols":
+            pending = _circle_labels(encoding, names, into, out, codes)
+        else:
+            pending = _choropleth_labels(rows, insets, frame, encoding, names, into,
+                                         out, extremes_only, change, codes)
+        if not extremes_only:
+            pending += _missing_labels(missing, insets, frame, names, into, out)
+        _callouts(pending, into, space, frame, out, leaders, unlabelled, insets, codes)
+        return out, unlabelled
+
+    # One name style per map. Codes (WV, MS, ARE) are the fallback of a
+    # crowded label, and a map that mixes "Maryland" with "RI" reads as
+    # careless: try it with names only, and keep that unless it must drop
+    # units the mixed form could label.
+    if fresh is not None:
+        plain_placer, mixed_placer = fresh(), fresh()
+        plain = attempt(plain_placer, False)
+        mixed = attempt(mixed_placer, True)
+        _TRACE.append((sorted(plain[1]), sorted(mixed[1])))
+        if len(plain[1]) <= len(mixed[1]):
+            (out, unlabelled), chosen = plain, plain_placer
+        else:
+            (out, unlabelled), chosen = mixed, mixed_placer
+        placer.__dict__.update(chosen.__dict__)
     else:
-        pending = _choropleth_labels(rows, insets, frame, encoding, names, placer,
-                                     out, extremes_only)
-    if not extremes_only:
-        pending += _missing_labels(missing, insets, frame, names, placer, out)
-    _callouts(pending, placer, space, frame, out, leaders, unlabelled, insets)
+        out, unlabelled = attempt(placer, True)
     if not out:
         return ""
     dropped = " ".join(sorted(unlabelled))
@@ -1771,8 +1882,60 @@ def _number(value) -> float | None:
     return float(value)
 
 
+def _readers_extremes(units, valued, encoding, change: bool) -> set:
+    """Which units a big map names: the ones a reader goes looking for.
+
+    The highest and lowest first -- but a unit too small to see (the Vatican,
+    the Northern Marianas) is no story on a map of *change*: a percentage of
+    a few thousand people is noise. Then more from either end, down to
+    LABEL_FILLERS_MIN_AREA px2 (a country, not a dot), so a map of 400
+    districts names Frankfurt and Stuttgart and not only Berlin and Munich.
+    """
+    area = {str(row["id"]): project.planar_area(piece[2]) for row, _, piece in units}
+    at = {str(row["id"]): piece[0] for row, _, piece in units}
+    per_side = LABEL_PER_SIDE + len(valued) // LABEL_PER_SIDE_STEP
+    floor = LABEL_MIN_AREA
+    # A skewed ratio (density, income) has its story at the long end: the
+    # other end keeps its extremes and no more. A diverging one (growth and
+    # decline) is told from both.
+    low_n = high_n = per_side
+    scheme = encoding.scheme
+    if scheme is not None and scheme.zero_at is None and len(valued) >= 3:
+        numbers = [v for v, _ in valued]
+        median = numbers[len(numbers) // 2]
+        if numbers[-1] - median > 2.0 * (median - numbers[0]):
+            low_n = LABEL_EXTREMES
+        elif median - numbers[0] > 2.0 * (numbers[-1] - median):
+            high_n = LABEL_EXTREMES
+
+    def side(order, limit):
+        picked = []
+        for _, gid in order:
+            if len(picked) >= limit:
+                break
+            big = area.get(gid, 0.0) >= floor
+            primary = len(picked) < LABEL_EXTREMES
+            apart = primary or all(
+                math.hypot(at[gid][0] - at[o][0], at[gid][1] - at[o][1]) >= LABEL_APART
+                for o in picked if o in at and gid in at)
+            if (big and apart) or (not change and primary):
+                picked.append(gid)
+        return picked
+
+    keep = set(side(valued, low_n)) | set(side(valued[::-1], high_n))
+    # When the extremes sit in insets (Mayotte, Guyane), the main map's own
+    # highest and lowest are named too: Severozapaden, not only the outermost
+    # regions.
+    main = [(v, gid) for v, gid in valued
+            if any(str(r["id"]) == gid and inset is None for r, inset, _ in units)
+            and (not change or area.get(gid, 0.0) >= floor)]
+    if main:
+        keep |= {main[0][1], main[-1][1]}
+    return keep
+
+
 def _choropleth_labels(rows, insets, frame, encoding, names, placer, out,
-                       extremes_only) -> list:
+                       extremes_only, change=False, codes=True) -> list:
     """Inside labels; returns the targets still to be called out."""
     units = []          # (row, inset or None, piece)
     for row in rows:
@@ -1806,20 +1969,14 @@ def _choropleth_labels(rows, insets, frame, encoding, names, placer, out,
         if gid not in order:
             return (2, 1.0, 0.0, gid)
         i = order[gid]
-        extreme = i == 0 or i == len(valued) - 1
+        # On a big map every unit left was chosen on purpose: each may be
+        # called out over a little land, as the extremes may.
+        extreme = i == 0 or i == len(valued) - 1 or extremes_only
         return (0 if extreme else 1, -abs(i / last - 0.5),
                 -project.planar_area(piece[2]), gid)
 
     if extremes_only:
-        keep = {gid for _, gid in valued[:LABEL_EXTREMES]}
-        keep |= {gid for _, gid in valued[-LABEL_EXTREMES:]}
-        # When the extremes sit in insets (Mayotte, Guyane), the main map's
-        # own highest and lowest are named too: Severozapaden, not only
-        # the outermost regions.
-        main = [(v, gid) for v, gid in valued
-                if any(str(r["id"]) == gid and inset is None for r, inset, _ in units)]
-        if main:
-            keep |= {main[0][1], main[-1][1]}
+        keep = _readers_extremes(units, valued, encoding, change)
         units = [u for u in units if str(u[0]["id"]) in keep]
 
     targets = []
@@ -1827,7 +1984,8 @@ def _choropleth_labels(rows, insets, frame, encoding, names, placer, out,
         (x, y), _, ring, holes = piece
         gid = str(row["id"])
         targets.append(_Target(gid, x, y, ring, holes, names[gid],
-                               _value_text(row["value"], encoding), _abbreviation(row),
+                               _value_text(row["value"], encoding),
+                               _abbreviation(row) if codes else None,
                                rank(row, piece), inset=inset))
     pending = []
     insets_here = list(insets)
@@ -1867,7 +2025,7 @@ def _missing_labels(missing, insets, frame, names, placer, out) -> list:
     return pending
 
 
-def _circle_labels(encoding, names, placer, out) -> list:
+def _circle_labels(encoding, names, placer, out, codes=True) -> list:
     """Under the circle, else beside it; returns the circles left to call out."""
     pending = []
     circles = sorted(encoding.circles, key=lambda c: (-c[2], str(c[3]["id"])))
@@ -1888,14 +2046,16 @@ def _circle_labels(encoding, names, placer, out) -> list:
         else:
             # Largest circle first is most important.
             pending.append(_Target(gid, x, y, None, [], names.get(gid, _short_name(row)),
-                                   _value_text(row["value"], encoding), _code(row),
+                                   _value_text(row["value"], encoding),
+                                   _code(row) if codes else None,
                                    (0 if n == 0 else 1, n, 0.0, gid), r=r))
     return pending
 
 
 # --------------------------------------------------------------- callouts ---
 
-def _callouts(targets, placer, space, frame, out, leaders, unlabelled, insets=()) -> None:
+def _callouts(targets, placer, space, frame, out, leaders, unlabelled, insets=(),
+              codes=True) -> None:
     """Callouts in free space: stacked where units crowd, single where not.
 
     In order, each unit not yet labelled tries: its name on a short leader
@@ -1941,7 +2101,10 @@ def _callouts(targets, placer, space, frame, out, leaders, unlabelled, insets=()
         # The last resort, for the highest and lowest only: a callout over a
         # little mapped land, then over as much as it takes. A middling unit
         # goes unlabelled rather than have its name sit on a neighbour.
-        covers = (CALLOUT_MAX_COVER, 1.0) if t.rank[0] == 0 else ()
+        # Without codes to fall back on (one name style), a middling unit may
+        # also be called out over a little land.
+        covers = ((CALLOUT_MAX_COVER, 1.0) if t.rank[0] == 0
+                  else (CALLOUT_MAX_COVER,) if not codes else ())
         for cover in covers:
             for line in t.lines():
                 if placed:
@@ -2636,32 +2799,52 @@ def _text_w(text: str, size: float) -> float:
     return len(text) * size * 0.56
 
 
+def _wrap_words(text: str, size: float, width: float) -> list[str]:
+    """Greedy wrap of `text` into lines no wider than `width`; a " · " that
+    falls in the last 45% of a line is preferred to a plain space as the break."""
+    lines: list[str] = []
+    rest = text.strip()
+    while rest:
+        if _text_w(rest, size) <= width:
+            lines.append(rest)
+            break
+        limit = max(10, int(width / (size * 0.56)))
+        dot = rest.rfind(" · ", 0, limit + 1)
+        space = rest.rfind(" ", 0, limit + 1)
+        if dot >= limit * 0.55:
+            first, rest = rest[:dot], rest[dot + 3:]
+        elif space > 0:
+            first, rest = rest[:space], rest[space + 1:]
+        else:
+            first, rest = rest[:limit], rest[limit:]
+        lines.append(first.rstrip())
+        rest = rest.lstrip()
+    return lines
+
+
 def _subtitle_lines(subtitle: str | None) -> list[tuple[float, float, str]]:
     """(baseline y, font size, text) for the subtitle, never wider than the map.
 
-    One line at 12.5 px if it fits, else one at 11.5, else two lines at 11.5
-    split at the last " · " (or space) that fits -- the second line still ends
-    above MAP_TOP. Hard-truncating would drop exactly the caveats (occupied
-    territories, heating oil) that the subtitle exists to carry.
+    One line at 12.5 px if it fits, else one at 11.5, else two or three lines
+    wrapped at a separator or a space. A sentence is never cut short with an
+    ellipsis: a subtitle exists to carry the caveats ("state popular vote, not
+    electoral votes"), and the caveat is the part that would be lost.
     """
     if not subtitle:
         return []
     for size in (12.5, 11.5):
         if _text_w(subtitle, size) <= MAP_W:
             return [(58, size, subtitle)]
-    size = 11.5
-    limit = int(MAP_W / (size * 0.56))
-    cut = -1
-    for separator in (" · ", " "):
-        cut = subtitle.rfind(separator, 0, limit)
-        if cut > 0:
-            first, rest = subtitle[:cut], subtitle[cut + len(separator):]
-            break
-    if cut <= 0:
-        first, rest = subtitle[:limit], subtitle[limit:]
-    if _text_w(rest, size) > MAP_W:
-        rest = rest[: max(0, limit - 1)].rstrip() + "…"
-    return [(54, size, first), (69, size, rest)]
+    two = _wrap_words(subtitle, 11.5, MAP_W)
+    if len(two) <= 2:
+        return [(54 + 15 * i, 11.5, line) for i, line in enumerate(two)]
+    for size in (11.0, 10.5):
+        lines = _wrap_words(subtitle, size, MAP_W)
+        if len(lines) <= 3:
+            return [(50 + 12.5 * i, size, line) for i, line in enumerate(lines)]
+    # Four lines would run into the map: smallest type, three lines.
+    return [(50 + 12.5 * i, 10.0, line)
+            for i, line in enumerate(_wrap_words(subtitle, 10.0, MAP_W)[:3])]
 
 
 def _legend(encoding: Encoding, frame: Frame, land: list, units: list,
@@ -3001,6 +3184,17 @@ def _period(provenance: dict) -> str | None:
     return str(year) if year else None
 
 
+_US_STATES = frozenset(usfips.NAMES.values())
+
+# Natural Earth's formal names, as a reader would say them in a title.
+_PLACE_ALIASES = {
+    "United States of America": "United States",
+    "Russian Federation": "Russia",
+    "Republic of Korea": "South Korea",
+    "Dem. Rep. Korea": "North Korea",
+}
+
+
 def _title(manifest: Manifest, provenance: dict) -> str:
     """Concept, place, period: 'Present population, Ukraine, 1 January 2022'.
 
@@ -3012,14 +3206,40 @@ def _title(manifest: Manifest, provenance: dict) -> str:
         head = _human(f"{_SCOPE.get(manifest.level, manifest.level)} boundaries")
         place = provenance.get("place")
         return f"{head}, {place}" if place else head
-    parts = [_label(manifest, provenance), provenance.get("place"), _period(provenance)]
+    place = provenance.get("place")
+    parts = [_label(manifest, provenance), _PLACE_ALIASES.get(place, place),
+             _period(provenance)]
     return ", ".join(str(part) for part in parts if part)
+
+
+# What a reader calls the unit, where the place makes it unambiguous.
+_UNIT_NAMES = {
+    ("United States of America", "admin_1"): "state",
+    ("United States", "admin_1"): "state",
+    ("Canada", "admin_1"): "province or territory",
+    ("Ukraine", "admin_1"): "oblast",
+    ("Germany", "admin_1"): "state (Land)",
+}
+
+
+def _scope_word(manifest: Manifest, provenance: dict) -> str:
+    place = str(provenance.get("place") or "")
+    if (place, manifest.level) in _UNIT_NAMES:
+        return _UNIT_NAMES[(place, manifest.level)]
+    if manifest.level == "admin_2" and place in _US_STATES:
+        return "county"
+    return _SCOPE.get(manifest.level, manifest.level)
+
+
+# Source caveats about a count of values ("180 values provisional or estimated")
+# belong to the footnote: in the subtitle they crowd out what the map shows.
+_FOOTNOTE_ONLY = re.compile(r"\bprovisional\b|\bestimated\b", re.I)
 
 
 def _subtitle(manifest: Manifest, provenance: dict, encoding: Encoding) -> str:
     if encoding.mode == "basemap":
         return ""
-    head = f"By {_SCOPE.get(manifest.level, manifest.level)}"
+    head = f"By {_scope_word(manifest, provenance)}"
     if encoding.mode == "symbols":
         head += "; circle area is proportional to the value"
     unit = provenance.get("unit")
@@ -3030,7 +3250,7 @@ def _subtitle(manifest: Manifest, provenance: dict, encoding: Encoding) -> str:
         unit = unit[: -len(period) - 1]     # the title already says when
     pieces = [head] + ([unit] if unit else [])
     note = provenance.get("statistics_note")
-    if note:
+    if note and not _FOOTNOTE_ONLY.search(str(note)):
         pieces.append(str(note))
     if encoding.scheme is not None and encoding.scheme.zero_at is not None:
         direction = provenance.get("diverging") or {}
@@ -3046,9 +3266,14 @@ def _subtitle(manifest: Manifest, provenance: dict, encoding: Encoding) -> str:
         if named <= 8:
             detail = "; ".join(f"{', '.join(names)} {year}"
                                for year, names in sorted(exceptions.items(), reverse=True))
+            pieces.append(f"latest year {provenance['year_mode']} ({detail})")
         else:
-            detail = f"{named} units earlier, {min(exceptions)}–{max(exceptions)}"
-        pieces.append(f"latest year {provenance['year_mode']} ({detail})")
+            noun = _SCOPE.get(manifest.level, "unit")
+            noun = "countries" if noun == "country" else f"{noun}s"
+            span = (min(exceptions) if min(exceptions) == max(exceptions)
+                    else f"{min(exceptions)}–{max(exceptions)}")
+            pieces.append(f"latest year available per {_SCOPE.get(manifest.level, 'unit')}: "
+                          f"{provenance['year_mode']}, except {named} {noun} ({span})")
     return " · ".join(pieces)
 
 
@@ -3101,8 +3326,8 @@ def _footer(manifest, frame: Frame, encoding: Encoding, result, top: float,
             f"Projection: {_projection_label(frame)}. Classification: {method}. {excluded}."
             + (f" {_plain_land_note(p)}" if _plain_land_note(p) else ""),
         ])
-    lines.extend(_physical_credit(layer) for layer in result.physical)
-    lines.extend(extra)
+    lines.extend(_physical_credits(result.physical))
+    lines.extend(_merge_label_credits(extra))
 
     # Attribution can make a line longer than the canvas. There is no text
     # measurement in a bare SVG, so wrap on a character budget tuned to the
@@ -3144,13 +3369,35 @@ def _boundary_credit(p: dict) -> str:
     return source
 
 
-def _physical_credit(layer: dict) -> str:
-    p = layer.get("provenance") or {}
-    name = p.get("name") or layer.get("class") or "Physical context"
-    publisher = p.get("publisher")
-    licence = p.get("license")
-    details = ", ".join(str(x) for x in (publisher, licence) if x)
-    return f"Physical context: {name}" + (f" ({details})." if details else ".")
+def _physical_credits(layers) -> list[str]:
+    """One "Physical context" line for all the layers that share a publisher
+    and licence (lakes and rivers from one Natural Earth release), one more
+    for each that does not."""
+    groups: dict = {}
+    for layer in layers:
+        p = layer.get("provenance") or {}
+        name = str(p.get("name") or layer.get("class") or "physical context")
+        details = ", ".join(str(x) for x in (p.get("publisher"), p.get("license")) if x)
+        names = groups.setdefault(details, [])
+        if name not in names:
+            names.append(name)
+    out = []
+    for details, names in groups.items():
+        # "Natural Earth ne_50m_lakes", "Natural Earth ne_50m_rivers": the
+        # publisher is said once.
+        head = names[0].split(" ")[0] if len(names) > 1 else ""
+        if head and all(n.startswith(head + " ") for n in names):
+            names = [names[0]] + [n[len(head) + 1:] for n in names[1:]]
+        out.append("Physical context: " + "; ".join(names)
+                   + (f" ({details})." if details else "."))
+    return out
+
+
+def _merge_label_credits(extra) -> list[str]:
+    """"Place labels: ..." and "Sea names: ..." are one paragraph, not two."""
+    labels = [e for e in extra if str(e).startswith(("Place labels:", "Sea names:"))]
+    rest = [e for e in extra if e not in labels]
+    return rest + ([" ".join(labels)] if labels else [])
 
 
 def _variable_line(manifest: Manifest, p: dict) -> str:
@@ -3176,10 +3423,16 @@ def _variable_line(manifest: Manifest, p: dict) -> str:
         # Boundaries and numbers came from different providers, possibly under
         # different licences. Credit the data as well as the map.
         credit = p.get("statistics_attribution") or p["statistics_source"]
+        licence = p.get("statistics_license")
+        if licence and str(licence).casefold() not in credit.casefold():
+            credit += f" ({licence})"
         vintage = p.get("statistics_vintage")
         if vintage and vintage != p.get("year"):
             credit += f"; {vintage}"
         variable += f" [{credit}]"
+    note = p.get("statistics_note")
+    if note and _FOOTNOTE_ONLY.search(str(note)):
+        variable += f"; {note}"
     return variable
 
 
