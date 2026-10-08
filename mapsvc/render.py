@@ -297,7 +297,11 @@ def render(manifest: Manifest, result: HarvestResult) -> str:
 
     footer_top = frame.bottom + legend_band + 14
     footer, footer_h = _footer(manifest, frame, encoding, result, footer_top,
-                               list(art.footer if art is not None else ()) + context_credits)
+                               list(art.footer if art is not None else ()) + context_credits,
+                               tiny_missing=sum(
+                                   1 for d in drawn_missing
+                                   if _visible_area(_project(d["geometry"], frame))
+                                   < MIN_VISIBLE_AREA))
     body.append(footer)
     height = int(math.ceil(footer_top + footer_h + 14))
 
@@ -1480,7 +1484,8 @@ _KIND_SUFFIXES = (", Kreisfreie Stadt", ", Stadtkreis", ", Landkreis", ", Kreis"
                   ", Landeshauptstadt", ", Universitätsstadt", ", Stadt", ", Hansestadt",
                   ", Wissenschaftsstadt", ", Große Kreisstadt", ", Regionalverband")
 # What a reader calls a country, where Natural Earth's name is long.
-_COUNTRY_SHORT = {"United Arab Emirates": "UAE", "United States of America": "United States"}
+_COUNTRY_SHORT = {"United Arab Emirates": "UAE", "United States of America": "United States",
+                  "Prince Edward Island": "P.E.I."}
 MISSING_TEXT = "no data"
 
 
@@ -3278,7 +3283,7 @@ def _subtitle(manifest: Manifest, provenance: dict, encoding: Encoding) -> str:
 
 
 def _footer(manifest, frame: Frame, encoding: Encoding, result, top: float,
-            extra: tuple | list = ()):
+            extra: tuple | list = (), tiny_missing: int = 0):
     """The mandatory footnote. Every rendered map states its own provenance."""
     p = result.provenance
 
@@ -3314,7 +3319,7 @@ def _footer(manifest, frame: Frame, encoding: Encoding, result, top: float,
             method += f" ({scheme.k} distinct value{plural})"
 
     variable = _variable_line(manifest, p)
-    excluded = _exclusions(result)
+    excluded = _exclusions(result, tiny_missing)
 
     overlay_only = manifest.variable_id is None and bool(result.overlays)
     lines = [f"Boundaries: {source}."]
@@ -3436,7 +3441,7 @@ def _variable_line(manifest: Manifest, p: dict) -> str:
     return variable
 
 
-def _exclusions(result) -> str:
+def _exclusions(result, tiny: int = 0) -> str:
     """How many units are hatched, and why, in words -- naming them when few."""
     dropped = result.dropped
     if not dropped:
@@ -3453,8 +3458,12 @@ def _exclusions(result) -> str:
             part += f" — {', '.join(names)}"
         parts.append(part)
     total = len(dropped) + len(result.rows)
-    return (f"{len(dropped)} of {total} features excluded, hatched as no data: "
+    text = (f"{len(dropped)} of {total} features excluded, hatched as no data: "
             + "; ".join(parts))
+    if tiny:
+        text += (f" ({tiny} of them too small to show the hatching at this scale)"
+                 if tiny != len(dropped) else " (all too small to show the hatching at this scale)")
+    return text
 
 
 def _plain_land_note(p: dict) -> str:
