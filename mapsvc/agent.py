@@ -446,8 +446,9 @@ REFUSING
 Refusal is about what is being measured, never about where or how. Set mappable \
 to false only when no source -- statistics or overlay -- publishes the requested \
 data, or when a search comes back empty. Say so plainly and name what does \
-exist. Earthquakes, railways, roads, rivers, power lines and historical routes \
-are mappable as overlays; do not refuse them. Never refuse because a place has \
+exist. Earthquakes, railways, roads, rivers, power lines, historical routes, \
+named metro and railway lines, and every town or village of a region are \
+mappable as overlays; do not refuse them. Never refuse because a place has \
 no official code: name its members in `within`, or draw a `bbox` around it.
 
 {region_hint}"""
@@ -486,6 +487,46 @@ one country) so the overlay carries the message.
       no bbox, no within, level admin_0, basemap natural_earth,
       variable_is_null true, overlays [{{source web, id "", search_query
       "atlantic hurricane storm tracks"}}] -- then pick from the candidates.
+
+OPENSTREETMAP (overpass) has three shapes of request, chosen by the tags:
+
+  Infrastructure as track or road, with no line identity -- every railway, \
+motorway, power line, river: way tags, e.g. "railway=rail;usage=main", \
+"waterway=river".
+  Named lines -- a metro or tram network line by line, a named railway, a \
+long-distance train: OSM route relations, `route=` plus a network or a name. \
+Each relation becomes one line with its own name and official colour, its \
+directions and variants merged; the legend lists the lines and interchange \
+stations are marked. Use this, not railway=subway (which is anonymous track), \
+whenever the request is about lines or a named route. route=subway / tram / \
+light_rail / bus are services; route=railway is the physical named line \
+(e.g. a historic trunk railway), route=train a passenger service over it. \
+Narrow a city's network with network=<the network's name as OSM tags it, in \
+the local script>, alternatives joined with |; a single named route with \
+name~<part of its name> (matched in any language, case-insensitive).
+  Settlements -- towns, villages, "every place" in a region: place nodes, \
+"place=city|town|village|hamlet" (omit classes the request excludes). They \
+are complete in OSM where no statistical source lists them; do not refuse. \
+Symbol size and labels are derived from the place class.
+
+  "Paris Métro lines"
+      bbox [2.2, 48.78, 2.47, 48.92], level admin_1, basemap natural_earth,
+      variable_is_null true,
+      overlays [{{source overpass, id "route=subway;network=Métro de Paris"}}]
+  "the Glacier Express route"
+      within ["CHE"], level admin_1, basemap natural_earth, variable_is_null
+      true, overlays [{{source overpass, id "route=train;name~Glacier Express"}}]
+  "every town and village in Lviv oblast"
+      within ["UA-46"], level admin_2, basemap overture, variable_is_null true,
+      overlays [{{source overpass, id "place=city|town|village|hamlet"}}]
+      -- `within` an ISO 3166-2 code scopes OSM to that unit's own boundary, \
+and admin_2 under it draws its districts as context.
+
+For a city, frame the bbox on the city itself (its core and the network's \
+ends), not the whole metropolitan region with its neighbouring cities. For a \
+long named route, give `within` the countries it runs through and no bbox: \
+the route is fetched whole and the map frames itself on it, where a bbox you \
+guess cuts it off at the edges.
 
 You cannot see a web dataset's extent before it is fetched, so for web \
 overlays leave bbox and within empty: the map is framed on the data itself. \
