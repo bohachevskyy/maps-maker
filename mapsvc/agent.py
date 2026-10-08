@@ -165,7 +165,8 @@ def schema() -> dict:
                     "id": {"type": "string",
                            "description": "in the source's own grammar; for a "
                                           "searchable source, empty on the first "
-                                          "turn or an https URL"},
+                                          "turn or an https URL, with any "
+                                          "filters after '#'"},
                     "search_query": {"type": "string",
                                      "description": "for a searchable overlay "
                                                     "source: what dataset to look "
@@ -507,7 +508,27 @@ For `web`, never invent data and never paste values: either search the curated \
 catalogue (empty id, a search_query) and pick returned URLs, or give an https \
 URL of a CSV/GeoJSON you are confident exists. The service fetches it and \
 rejects it if it does not load or has no coordinates. Leave search_query empty \
-for usgs and overpass."""
+for usgs and overpass.
+
+Web filters say WHICH rows to show, after a '#' on the URL: a year or season \
+the catalogue entry offers (`#season=1998`), or `#top=N` for "the N largest / \
+biggest / most populous" of a sized dataset. Use only filters the candidate \
+lists, and always give the ones it marks required. Search the catalogue for the \
+thing itself (hurricanes, volcanoes, cities), not for a year or a ranking.
+
+A ranked point layer is ranked inside the map's scope: points outside the bbox, \
+or in countries not named in `within`, do not compete. So a ranking over a \
+region needs that region's window, unlike other web layers: `within` with its \
+countries, as for any named region. A ranking over a continent means the \
+geographic continent: for Europe that includes European Russia, so add RUS to \
+the European list and a bbox whose east edge is the Urals, \
+[-25.0, 34.0, 60.0, 72.0], which keeps Moscow and drops Siberia; leave out \
+TUR and the Caucasus, whose largest cities are in Asia.
+
+  "the 10 biggest cities of Italy"
+      within ["ITA"], level admin_1, basemap natural_earth, variable_is_null
+      true, overlays [{{source web, id "", search_query "largest cities by
+      population"}}] -- then the city dataset's URL + "#top=10"."""
 
 
 def describe(prompt: str) -> tuple[Manifest, dict, str]:
@@ -636,7 +657,8 @@ def _overlay_candidates(source: str, query: str) -> str:
     listed = "\n".join(f"  {c.as_prompt_line()}" for c in found)
     return (f"The {source} overlay catalogue returned these datasets for {query!r}:\n"
             f"{listed}\n\nReply with the full manifest, one overlay per file you "
-            "want (source web, id = the URL exactly, search_query empty). Use "
+            "want (source web, id = the URL exactly, plus any filters after '#' "
+            "as listed -- required ones always -- search_query empty). Use "
             "several when they belong together, e.g. a route and its towns.")
 
 

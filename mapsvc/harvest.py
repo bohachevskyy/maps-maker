@@ -290,14 +290,17 @@ def _add_physical_context(manifest: Manifest, result: HarvestResult,
     """Add derived hydrography and tectonics appropriate to overlay semantics.
 
     Regional overlays under 40 degrees receive Natural Earth rivers and lakes.
-    Any provider declaring a seismic theme receives PB2002 plate boundaries.
+    Any provider or layer declaring a seismic theme receives PB2002 plate
+    boundaries.
     A failed optional context fetch never prevents the requested map itself.
     """
     kinds = []
     if extent[2] - extent[0] < REGIONAL_PHYSICAL_MAX_SPAN:
         kinds.append("hydrography")
-    if any(overlays.capabilities(source).theme == "seismic"
-           for source, _ in manifest.overlays):
+    # A source declares its theme, or a catalogue layer does (volcanoes).
+    if (any(overlays.capabilities(source).theme == "seismic"
+            for source, _ in manifest.overlays)
+            or any(layer.get("theme") == "seismic" for layer in result.overlays)):
         kinds.append("tectonic_plates")
     for kind in kinds:
         try:
