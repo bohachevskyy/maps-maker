@@ -180,3 +180,177 @@ must = [
   "percentage scale 0-100 stated",
 ]
 reference = ["https://ourworldindata.org/grapher/share-electricity-renewables"]
+
+# ======================================================================
+# Set 2 (2026-10-07): new sources, new geometry kinds, former refusals.
+# Spot values marked (verify) are from memory and must be checked against
+# truth.csv by the reference builder; a FAIL means fix the spec, not the data.
+# ======================================================================
+
+[[map]]
+id = "us_election_2024"
+prompt = "2024 US presidential election: margin of victory by state"
+truth = "MIT Election Data + Science Lab, U.S. President 1976-2024 (CC0); margin = Republican % minus Democratic % of the total vote, percentage points"
+units = [51, 51]
+contains = [[-77.0, 38.9], [-149.9, 61.2], [-157.9, 21.3]]
+spot = ["US-WY>40", "US-DC<-80", "US-PA>0", "US-PA<5", "US-VT<-25"]   # (verify)
+must = [
+  "50 states plus DC; Alaska and Hawaii as insets",
+  "diverging scale centred on a 0-point margin, red = Republican lead, blue = Democratic lead",
+  "the sign convention is stated in the legend",
+  "the source says which candidates/parties were compared and that this is popular vote, not electoral votes",
+]
+reference = ["https://electionlab.mit.edu/data"]
+
+[[map]]
+id = "germany_density_nuts3"
+prompt = "Population density by German district"
+truth = "Eurostat demo_r_d3dens (persons per km2) at NUTS 3, latest year; GISCO NUTS 2024 boundaries"
+units = [395, 405]
+contains = [[13.4, 52.52], [11.58, 48.14], [9.99, 53.55], [13.74, 51.05]]
+excludes = [[16.37, 48.21]]
+spot = ["DE300>3000", "DE300>DE600"]   # Berlin, Hamburg (verify)
+must = [
+  "about 400 Kreise and kreisfreie Städte, joined on NUTS 3 code",
+  "log-like classes: density spans from ~35 to ~4,000 per km2",
+  "Länder borders drawn heavier than district borders",
+  "© EuroGeographics credited",
+]
+reference = ["https://ec.europa.eu/eurostat/web/regions"]
+
+[[map]]
+id = "texas_county_unemployment"
+prompt = "Unemployment rate by county in Texas"
+truth = "BLS Local Area Unemployment Statistics, county annual averages, latest full year; FIPS keyed"
+units = [254, 254]
+contains = [[-95.37, 29.76], [-106.49, 31.76], [-101.83, 35.22], [-97.5, 25.9]]
+excludes = [[-97.52, 35.47], [-93.75, 32.52]]
+spot = ["48201<10", "48201>2"]   # Harris County (verify)
+must = [
+  "exactly the 254 Texas counties, joined on 5-digit FIPS",
+  "rate in percent, not seasonally adjusted annual average, year stated",
+  "small counties stay legible (no label clutter across 254 units)",
+]
+reference = ["https://www.bls.gov/lau/"]
+
+[[map]]
+id = "atlantic_hurricanes_2024"
+prompt = "Tracks of every Atlantic hurricane and tropical storm in 2024"
+truth = "NOAA IBTrACS v04 (public domain), NA basin, season 2024, named storms"
+units = [15, 25]
+contains = [[-82.6, 27.2], [-77.3, 18.1], [-40.0, 30.0]]
+spot = ["count=18±25%", "line_near=-82.6,27.2", "line_near=-83.9,29.9", "line_near=-77.3,18.1"]   # Milton, Helene, Beryl (verify)
+must = [
+  "one line per storm, coloured or weighted by Saffir-Simpson category along the track",
+  "the major landfalling storms named (Beryl, Helene, Milton)",
+  "North Atlantic framed: Caribbean, Gulf of Mexico, US East Coast",
+  "NOAA credited",
+]
+reference = ["https://www.ncei.noaa.gov/products/international-best-track-archive"]
+
+[[map]]
+id = "tokyo_subway"
+prompt = "Tokyo subway network"
+truth = "OpenStreetMap route=subway relations (Tokyo Metro, Toei) with their colour tags"
+units = [9, 20]
+contains = [[139.767, 35.681], [139.700, 35.690], [139.711, 35.730], [139.796, 35.714]]
+excludes = [[139.638, 35.444]]
+spot = ["count=13±30%", "line_near=139.767,35.681", "line_near=139.700,35.690"]
+must = [
+  "each line drawn in its official colour (OSM colour tag) with a legend naming the lines",
+  "city-scale framing of central Tokyo; wards as muted context",
+  "major interchange stations labelled (Tokyo, Shinjuku, Shibuya, Ikebukuro, Ueno)",
+  "OpenStreetMap ODbL credited",
+]
+reference = ["https://www.tokyometro.jp/en/subwaymap/"]
+
+[[map]]
+id = "volcanoes_holocene"
+prompt = "Every volcano active in the last 10,000 years"
+truth = "Smithsonian Global Volcanism Program, Holocene volcano list (VOTW)"
+units = [1100, 1400]
+spot = ["count=1250±15%", "event_near=-155.29,19.42", "event_near=14.99,37.75"]   # Kilauea, Etna
+must = [
+  "points coloured by volcano type (stratovolcano, shield, caldera...), a handful of classes",
+  "world projection; the Ring of Fire reads clearly",
+  "Smithsonian GVP credited with its citation",
+]
+reference = ["https://volcano.si.edu/"]
+
+[[map]]
+id = "trans_siberian"
+prompt = "Route of the Trans-Siberian Railway"
+truth = "OpenStreetMap route relation for the Trans-Siberian main line, Moscow Yaroslavsky to Vladivostok"
+units = [1, 5000]
+contains = [[37.66, 55.78], [131.88, 43.11]]
+excludes = [[116.4, 39.9]]
+spot = ["total_km=9289±15%", "line_near=82.92,55.03", "line_near=104.28,52.29"]   # Novosibirsk, Irkutsk
+must = [
+  "one continuous route from Moscow to Vladivostok, not the whole Russian rail network",
+  "major stops labelled (Moscow, Yekaterinburg, Novosibirsk, Irkutsk, Khabarovsk, Vladivostok)",
+  "projection suits a wide east-west band (conic), not Mercator",
+  "OpenStreetMap ODbL credited",
+]
+reference = ["https://en.wikipedia.org/wiki/Trans-Siberian_Railway"]
+
+[[map]]
+id = "africa_internet"
+prompt = "Share of people using the internet across Africa"
+truth = "OWID share-of-individuals-using-the-internet (ITU), latest year per country"
+units = [50, 58]
+contains = [[31.24, 30.04], [3.38, 6.52], [18.42, -33.92], [-23.51, 14.93], [57.50, -20.16]]
+excludes = [[-3.70, 40.42], [46.7, 24.7]]
+spot = ["MAR>NER", "SYC>50", "NER<40"]   # (verify)
+must = [
+  "all African countries including island states (Cape Verde, Mauritius, Seychelles, Comoros, São Tomé)",
+  "0-100% scale",
+  "equal-area projection for Africa",
+]
+reference = ["https://ourworldindata.org/grapher/share-of-individuals-using-the-internet"]
+
+[[map]]
+id = "canada_population_change"
+prompt = "Population change by Canadian province and territory, 2016 to 2021"
+truth = "Statistics Canada, Census of Population 2021 (population and dwelling counts), percent change 2016-2021"
+units = [13, 13]
+contains = [[-75.70, 45.42], [-123.12, 49.28], [-68.52, 63.75], [-52.71, 47.56]]
+spot = ["CA-NL<0", "CA-YT>10", "CA-YT>CA-ON", "CA-ON>5"]   # (verify)
+must = [
+  "10 provinces and 3 territories, keyed by ISO 3166-2 (CA-ON...)",
+  "diverging scale centred on 0% (Newfoundland and Labrador declined)",
+  "a conic projection suited to Canada; the Arctic islands not stretched",
+  "Statistics Canada credited (Open Government Licence - Canada)",
+]
+reference = ["https://www12.statcan.gc.ca/census-recensement/2021/"]
+
+[[map]]
+id = "europe_largest_cities"
+prompt = "Europe's 30 largest cities by population"
+truth = "GeoNames cities15000 (CC BY 4.0), city-proper population; Europe = the continent incl. European Russia; Istanbul accepted either way"
+units = [28, 32]
+contains = [[37.62, 55.75], [-0.13, 51.51], [13.40, 52.52], [-3.70, 40.42], [30.52, 50.45]]
+spot = ["event_near=37.62,55.75", "event_near=-0.13,51.51", "event_near=13.40,52.52"]
+must = [
+  "proportional circles (area ∝ population), all 30 labelled with name and population",
+  "the definition used (city proper vs metro area) stated",
+  "conic or azimuthal Europe projection",
+  "source credited with licence",
+]
+reference = ["https://www.geonames.org/"]
+
+[[map]]
+id = "volyn_settlements"
+prompt = "All towns and villages of Volyn oblast"
+truth = "KATOTTH, Ukraine's codifier of administrative-territorial units (Ministry of Communities and Territories Development), settlements in UA-07; cross-checked with OpenStreetMap place=city/town/village/hamlet"
+units = [950, 1200]
+contains = [[25.33, 50.75], [24.72, 51.21], [24.32, 50.85], [23.95, 51.55]]
+excludes = [[26.25, 50.62], [24.03, 49.84]]
+spot = ["count=1080±12%", "event_near=25.33,50.75", "event_near=24.72,51.21"]   # Lutsk, Kovel (verify count)
+must = [
+  "every settlement as a point inside Volyn oblast only (none from Rivne or Lviv oblasts)",
+  "settlement type distinguished: cities > urban-type settlements > villages (size/symbol)",
+  "cities and towns labelled; villages unlabelled or sparingly labelled without clutter",
+  "the 4 raions (Lutsk, Kovel, Volodymyr, Kamin-Kashyrskyi) drawn as context",
+  "source credited",
+]
+reference = ["https://www.minregion.gov.ua/"]
