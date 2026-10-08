@@ -224,7 +224,7 @@ prompt = "Unemployment rate by county in Texas"
 truth = "BLS Local Area Unemployment Statistics, county annual averages, latest full year; FIPS keyed"
 units = [254, 254]
 contains = [[-95.37, 29.76], [-106.49, 31.76], [-101.83, 35.22], [-97.5, 25.9]]
-excludes = [[-97.52, 35.47], [-93.75, 32.52]]
+excludes = [[-104.99, 39.74], [-92.29, 34.75]]          # Denver, Little Rock (OKC and Shreveport sit inside the Texas bbox)
 spot = ["48201<10", "48201>2"]   # Harris County (verify)
 must = [
   "exactly the 254 Texas counties, joined on 5-digit FIPS",
@@ -299,7 +299,7 @@ prompt = "Share of people using the internet across Africa"
 truth = "OWID share-of-individuals-using-the-internet (ITU), latest year per country"
 units = [50, 58]
 contains = [[31.24, 30.04], [3.38, 6.52], [18.42, -33.92], [-23.51, 14.93], [57.50, -20.16]]
-excludes = [[-3.70, 40.42], [46.7, 24.7]]
+excludes = [[-3.70, 40.42], [28.98, 41.01]]            # Madrid, Istanbul (Riyadh sits inside a frame reaching Mauritius)
 spot = ["MAR>NER", "SYC>50", "NER<40"]   # (verify)
 must = [
   "all African countries including island states (Cape Verde, Mauritius, Seychelles, Comoros, São Tomé)",
