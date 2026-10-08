@@ -27,7 +27,7 @@ from xml.sax.saxutils import escape, quoteattr
 from mapsvc import colors, project
 
 # Ordered categories (depth classes, speed classes): strong to faint.
-ORDERED = ("#d0312d", "#f0962c", "#3f78b5", "#9a9a9a", "#6a3d9a")
+ORDERED = ("#d0312d", "#f0962c", "#4a3f9c", "#9a9a9a", "#6a3d9a")
 # Unordered categories. A two-class flow is Minard's: tan out, black back.
 NOMINAL = ("#1b9e77", "#d95f02", "#7570b3", "#e7298a", "#66a61e", "#e6ab02",
            "#8c8c8c")
@@ -59,9 +59,17 @@ LABEL_SIZE = 10.0
 LABEL_GAP = 3.0               # px kept between two labels side by side
 HALO = ('paint-order="stroke" stroke="#ffffff" stroke-width="3" '
         'stroke-linejoin="round" stroke-opacity="0.9"')
-CONTEXT_LABELS = 14
+CONTEXT_LABELS = 16
 CONTEXT_BOLD = 7
 SERVED_PX = 9.0
+SERVED_KM = 16.0
+# A city of this size within this far of a line is one it serves: a line
+# stops short of a big city, at a station on its edge.
+NEAR_KM = 42.0
+NEAR_POPULATION = 150_000
+# A served place is set in bold from this population: the cities of a network
+# form two ranks by size, not a cut at the n-th of them.
+BOLD_POPULATION = 400_000
 
 
 class Art:
@@ -747,6 +755,7 @@ def _lines(layer, frame, anchors, labels=None):
             for a, b in zip(pts, pts[1:]):
                 labels.ink(a, b, LINE_W / 2 + 1.0)
         anchors.extend(pts[:: max(1, len(pts) // 8)] + [pts[-1]])
+
     out = []
     # Faintest first, so the class the layer is about is drawn on top.
     for value in reversed(classes):
@@ -1411,6 +1420,15 @@ class Labels:
                 return True
         return False
 
+    def _served_px(self, lon: float, lat: float, km: float = None) -> float:
+        """How close a line must pass to count as serving a place: SERVED_PX,
+        or SERVED_KM of ground where that is more -- a high-speed line stops
+        8-12 km short of the city it serves."""
+        x0, y0 = _xy(self.frame, lon, lat)
+        x1, y1 = _xy(self.frame, lon + 0.1, lat)
+        per_km = math.hypot(x1 - x0, y1 - y0) / (0.1 * 111.2 * math.cos(math.radians(lat)))
+        return max(SERVED_PX, (SERVED_KM if km is None else km) * per_km)
+
     def context(self, places, anchors):
         """Natural Earth places: the ones the overlay serves first, then size."""
         candidates = []
@@ -1418,27 +1436,35 @@ class Labels:
             x, y = _xy(self.frame, p["lon"], p["lat"])
             if not self.frame.visible(x, y):
                 continue
-            served = any(abs(ax - x) <= SERVED_PX and abs(ay - y) <= SERVED_PX
-                         and math.hypot(ax - x, ay - y) <= SERVED_PX for ax, ay in anchors)
+            reach = self._served_px(p["lon"], p["lat"])
+            served = any(abs(ax - x) <= reach and abs(ay - y) <= reach
+                         and math.hypot(ax - x, ay - y) <= reach for ax, ay in anchors)
+            if not served and p["pop"] >= NEAR_POPULATION:
+                near = self._served_px(p["lon"], p["lat"], NEAR_KM)
+                served = any(abs(ax - x) <= near and abs(ay - y) <= near
+                             and math.hypot(ax - x, ay - y) <= near for ax, ay in anchors)
             candidates.append((not served, -p["pop"], p["name"], x, y, served))
         candidates.sort()
+        biggest = max((-c[1] for c in candidates if c[5]), default=0)
+        bold_from = min(BOLD_POPULATION, 0.5 * biggest)
         self.dots = [(x, y) for _, _, _, x, y, _ in candidates][:CONTEXT_LABELS * 3]
         dots, texts = [], []
         bold_left = CONTEXT_BOLD
-        for _, _, name, x, y, served in candidates:
+        for _, neg_pop, name, x, y, served in candidates:
             if self.context_count >= CONTEXT_LABELS:
                 break
             box = (x - 2.5, y - 2.5, x + 2.5, y + 2.5)
             if not self._free(box, ink=False):
                 continue
-            bold = served and bold_left > 0
+            bold = served and bold_left > 0 and -neg_pop >= bold_from
             before = len(self.out)
             self.taken.append(box)
             ok = self.place(name, x, y, bold=bold) if not bold else self._try(
                 name, x, y, 5.0, 11.0, ' font-weight="700"')
             if not ok and served:
                 # A place on the overlay is worth a leader; one off it is not.
-                ok = self.callout(name, x, y, 3.2 if bold else 2.2, bold=bold)
+                ok = self.callout(name, x, y, 3.2 if bold else 2.2, bold=bold,
+                                  reaches=(8.0, 18.0, 30.0, 46.0, 64.0, 84.0))
             if not ok:
                 self.taken.pop()
                 continue
