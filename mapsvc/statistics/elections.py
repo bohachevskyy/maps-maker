@@ -1,10 +1,12 @@
 """MIT Election Data + Science Lab presidential returns, by US state.
 
 The Harvard Dataverse DOI resolves to a versioned dataset, but its data-file
-API URL is stable for this released CSV.  Rows are candidate results; the
-denominator is ``totalvotes`` for the whole state popular vote, not the sum of
-the two major parties.  Party rows are summed before shares are calculated so
-the parser remains correct if a party has more than one ballot line.
+API URL is stable for this released CSV.  Rows are candidate results; shares
+use all valid candidate votes, including third parties and write-ins.  MIT's
+``totalvotes`` also includes under/over/void/spoiled ballots in eight states,
+so it is not a valid-vote denominator there. Party rows are summed before
+shares are calculated so the parser remains correct if a party has more than
+one ballot line.
 
 The download is checked for the exact CSV header before it is cached.  Harvard
 occasionally sends an HTML interstitial on an error, and treating that as an
@@ -31,7 +33,7 @@ CAPABILITIES = Capabilities(
     description=(
         "MIT Election Data + Science Lab U.S. presidential popular-vote "
         "returns, 1976–2024, for the 50 states and DC (admin_1). Offers "
-        "Republican and Democratic shares of total votes and Republican "
+        "Republican and Democratic shares of valid votes and Republican "
         "minus Democratic margin in percentage points."
     ),
 )
@@ -40,6 +42,7 @@ DATA = "https://dataverse.harvard.edu/api/access/datafile/13887042"
 FILENAME = "1976-2024-president.csv"
 EXPECTED = {"year", "state_po", "candidate", "party_simplified",
             "candidatevotes", "totalvotes"}
+NONVOTES = {"UNDERVOTES", "OVERVOTES", "VOID", "SPOILED"}
 
 
 def _v(identifier: str, label: str, unit: str) -> Variable:
@@ -51,10 +54,10 @@ def _v(identifier: str, label: str, unit: str) -> Variable:
 VARIABLES = {"admin_1": {
     "republican_share": _v(
         "republican_share", "Republican share of presidential popular vote",
-        "% of total popular vote"),
+        "% of valid popular vote"),
     "democratic_share": _v(
         "democratic_share", "Democratic share of presidential popular vote",
-        "% of total popular vote"),
+        "% of valid popular vote"),
     "republican_minus_democratic_margin": _v(
         "republican_minus_democratic_margin",
         "Presidential popular-vote margin",
@@ -106,15 +109,16 @@ def _series() -> dict[int, dict[str, dict]]:
         try:
             year = int(row["year"])
             votes = float(row["candidatevotes"])
-            total = float(row["totalvotes"])
         except (KeyError, TypeError, ValueError):
             continue
         postal = row.get("state_po", "").strip().upper()
-        if len(postal) != 2 or total <= 0:
+        if len(postal) != 2 or votes < 0:
             continue
         state = years.setdefault(year, {}).setdefault(
-            postal, {"total": total, "REPUBLICAN": 0.0, "DEMOCRAT": 0.0})
-        state["total"] = total
+            postal, {"valid": 0.0, "REPUBLICAN": 0.0, "DEMOCRAT": 0.0})
+        candidate = row.get("candidate", "").strip().upper()
+        if candidate not in NONVOTES:
+            state["valid"] += votes
         party = row.get("party_simplified", "").strip().upper()
         if party in ("REPUBLICAN", "DEMOCRAT"):
             state[party] += votes
@@ -139,8 +143,10 @@ def load(variable_id: str, level: str, region: str,
 
     values = {}
     for postal, row in series[chosen].items():
-        republican = 100.0 * row["REPUBLICAN"] / row["total"]
-        democratic = 100.0 * row["DEMOCRAT"] / row["total"]
+        if row["valid"] <= 0:
+            continue
+        republican = 100.0 * row["REPUBLICAN"] / row["valid"]
+        democratic = 100.0 * row["DEMOCRAT"] / row["valid"]
         value = {"republican_share": republican,
                  "democratic_share": democratic,
                  "republican_minus_democratic_margin": republican - democratic}[variable_id]
@@ -156,7 +162,9 @@ def load(variable_id: str, level: str, region: str,
         "attribution": CAPABILITIES.attribution,
         "year": str(chosen),
         "key": "ISO3166_2",
-        "note": "Republican and Democratic candidates; state popular vote, not electoral votes",
+        "note": ("Shares use valid candidate votes (third parties and write-ins included; "
+                 "under/over/void/spoiled ballots excluded); state popular vote, not "
+                 "electoral votes"),
         "zero_is_data": True,
     }
     if variable_id == "republican_minus_democratic_margin":

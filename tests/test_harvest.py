@@ -177,6 +177,26 @@ def test_wide_admin_0_rule_is_carried_to_the_footnote_provenance(monkeypatch):
         actual.provenance["vintage"]
 
 
+def test_boundary_note_is_carried_to_the_footnote_provenance(monkeypatch):
+    from mapsvc.cartography import Boundaries
+
+    boundaries = Boundaries(
+        units=[{"id": "ESH", "key": "ESH", "name": "W. Sahara",
+                "geometry": BOX}],
+        keys=("ISO3",),
+        provenance={
+            "source": "Natural Earth", "release": "v5.1.1", "scale": "1:50m",
+            "note": "Western Sahara shown as a non-self-governing territory (UN)",
+        },
+    )
+    monkeypatch.setattr(H, "_check_granularity", lambda manifest: None)
+    monkeypatch.setattr(H.cartography, "load", lambda *args, **kwargs: boundaries)
+    result = H._build(build_manifest(variable_source=None, variable_id=None))
+    assert result.provenance["vintage"] == (
+        "v5.1.1; Western Sahara shown as a non-self-governing territory (UN)"
+    )
+
+
 def test_rows_and_dropped_come_back_in_a_stable_order(offline):
     offline([feature(a3, GDP_MD=v) for a3, v in
              [("DDD", 4), ("AAA", 1), ("CCC", -99), ("BBB", 2)]])

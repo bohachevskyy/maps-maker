@@ -91,3 +91,43 @@ def test_bls_rejects_html_without_caching_it(monkeypatch, tmp_path):
     with pytest.raises(StatisticsError, match="not return"):
         bls._data(2025)
     assert not (tmp_path / "bls" / "laucnty25.xlsx").exists()
+
+
+def test_bls_retries_403_with_backoff_then_caches_success(monkeypatch, tmp_path):
+    monkeypatch.setenv("MAPSVC_CACHE", str(tmp_path))
+    outcomes = [
+        bls.fetch.FetchError("denied", status=403),
+        bls.fetch.FetchError("denied", status=403),
+        _workbook(ROWS),
+    ]
+    calls = []
+    sleeps = []
+
+    def get(*args, **kwargs):
+        calls.append((args, kwargs))
+        outcome = outcomes.pop(0)
+        if isinstance(outcome, Exception):
+            raise outcome
+        return outcome
+
+    monkeypatch.setattr(bls.fetch, "get", get)
+    monkeypatch.setattr(bls.time, "sleep", sleeps.append)
+    first = bls._data(2025)
+    second = bls._data(2025)
+    assert first == second
+    assert len(calls) == 3
+    assert sleeps == [1.0, 2.0]
+
+
+def test_bls_persistent_403_names_denied_url(monkeypatch, tmp_path):
+    monkeypatch.setenv("MAPSVC_CACHE", str(tmp_path))
+    monkeypatch.setattr(
+        bls.fetch, "get",
+        lambda *args, **kwargs: (_ for _ in ()).throw(
+            bls.fetch.FetchError("denied", status=403)),
+    )
+    monkeypatch.setattr(bls.time, "sleep", lambda delay: None)
+    url = bls.URL.format(yy=25)
+    with pytest.raises(StatisticsError, match=url.replace(".", r"\.")) as excinfo:
+        bls._data(2025)
+    assert "4 attempts" in str(excinfo.value)
