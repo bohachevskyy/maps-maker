@@ -2622,7 +2622,8 @@ def _context_labels(result, rows, frame, encoding, manifest, placer, land) -> tu
     seas = _sea_labels(result.names, frame, placer, water, out)
     if seas:
         credits.append(f"Sea names: {result.provenance.get('names_source') or 'Natural Earth'}.")
-    _country_labels(result, rows, frame, encoding, manifest, placer, mapped, out)
+    reach = max((box[3] for box, _ in land), default=frame.bottom) + 60.0
+    _country_labels(result, rows, frame, encoding, manifest, placer, mapped, out, reach)
     aliases: dict = {}
     for layer in result.overlays:
         aliases.update(layer.get("river_names") or {})
@@ -2680,7 +2681,8 @@ def _sea_labels(names, frame, placer, water, out) -> int:
     return placed
 
 
-def _country_labels(result, rows, frame, encoding, manifest, placer, mapped, out) -> int:
+def _country_labels(result, rows, frame, encoding, manifest, placer, mapped, out,
+                    lowest: float = float("inf")) -> int:
     """Neighbouring countries on a `within` map, and the countries of a plain
     country base map under an overlay, in small grey capitals."""
     candidates = []
@@ -2734,8 +2736,9 @@ def _country_labels(result, rows, frame, encoding, manifest, placer, mapped, out
                 if not _fits_inside(box, thin, []) or not placer.fits(
                         (box[0] - 3.0, box[1] - 4.0, box[2] + 3.0, box[3] + 4.0)):
                     continue
-                # On the map itself: a neighbour reaches under the insets.
-                if not all(frame.visible(x, y) for x, y in (
+                # On the map itself: a neighbour reaches under the insets, and
+                # the page below the mapped land is blank.
+                if box[3] > lowest or not all(frame.visible(x, y) for x, y in (
                         (box[0], box[1]), (box[2], box[1]), (box[0], box[3]), (box[2], box[3]))):
                     continue
                 if not own and not mapped.free(box, pad=2.0):
