@@ -979,10 +979,330 @@ def build_trans_siberian() -> pd.DataFrame:
     return truth
 
 
+# --------------------------------------------------------------------------
+# Volyn settlements (KATOTTH + OpenStreetMap)
+
+
+KATOTTH_CATEGORY = {"M": "місто (city)", "T": "селище міського типу (urban-type settlement)",
+                    "X": "селище (settlement; former urban-type settlements since 2024)", "C": "село (village)"}
+OSM_SETTLEMENT = {"city", "town", "village", "hamlet"}
+OSM_UNMATCHED_NOTES = {  # measured with Nominatim on 2026-10-08
+    "UA07020050160029877": ": in OSM only as way 30718441 tagged place=locality, no settlement node",
+}
+
+
+def norm_name(text: str) -> str:
+    text = unicodedata.normalize("NFC", str(text)).strip().lower()
+    text = re.sub(r"[’ʼ'`´‘]", "'", text)
+    return re.sub(r"\s+", " ", text)
+
+
+def read_katotth(path: Path) -> pd.DataFrame:
+    raw = pd.read_excel(path, header=None, dtype=str)
+    header = raw.index[raw[0].astype(str).str.contains("Перший рівень", na=False)][0]
+    k = raw.iloc[header + 1:, :7].copy()
+    k.columns = ["l1", "l2", "l3", "l4", "lx", "cat", "name"]
+    k = k[k.l1.notna()]
+    for col in ("l1", "l2", "l3", "l4", "lx", "cat", "name"):
+        k[col] = k[col].str.strip()
+    return k
+
+
+def volyn_katotth() -> tuple[pd.DataFrame, pd.DataFrame]:
+    k = read_katotth(fetch(KATOTTH_URL, "s2o_katotth_2026-07-07.xlsx"))
+    v = k[k.l1.str.startswith("UA07")]
+    raions = v[v.cat == "P"].set_index("l2").name.to_dict()
+    hromadas = v[v.cat == "H"].set_index("l3").name.to_dict()
+    sett = v[v.cat.isin(["M", "T", "X", "C"])].copy()
+    sett = pd.DataFrame({
+        "katotth": sett.l4, "category": sett.cat, "name": sett.name,
+        "hromada_katotth": sett.l3, "hromada": sett.l3.map(hromadas),
+        "raion_katotth": sett.l2, "raion": sett.l2.map(raions),
+    })
+    return sett.sort_values("katotth").reset_index(drop=True), v
+
+
+def volyn_osm():
+    payload = overpass(*OVERPASS_FILES["volyn_settlements"])
+    nodes = [e for e in payload["elements"] if e["type"] == "node"]
+    rels = [e for e in payload["elements"] if e["type"] == "relation"]
+    polys = {}
+    for r in rels:
+        tags = r["tags"]
+        lvl, code = tags.get("admin_level"), tags.get("katotth", "")
+        if lvl == "4":
+            polys[("oblast", tags.get("ISO3166-2"))] = (tags.get("name:en", tags.get("name")), relation_polygon(r))
+        elif lvl in ("6", "7") and code.startswith("UA07"):
+            polys[("raion" if lvl == "6" else "hromada", code)] = (tags.get("name"), relation_polygon(r))
+    places = pd.DataFrame([{
+        "osm_node_id": n["id"], "lon": n["lon"], "lat": n["lat"], "osm_place": n["tags"].get("place"),
+        "osm_name": n["tags"].get("name:uk") or n["tags"].get("name", ""), "osm_katotth": n["tags"].get("katotth", ""),
+        "osm_prefix": n["tags"].get("name:prefix", ""),
+    } for n in nodes])
+    return places, polys, osm_base(payload)
+
+
+def match_volyn(sett: pd.DataFrame, places: pd.DataFrame, polys: dict) -> tuple[pd.DataFrame, pd.DataFrame]:
+    hromada_polys = {code: g for (kind, code), (_n, g) in polys.items() if kind == "hromada"}
+    raion_polys = {code: g for (kind, code), (_n, g) in polys.items() if kind == "raion"}
+    pts = [Point(x, y) for x, y in zip(places.lon, places.lat)]
+    tree = shapely.STRtree(pts)
+
+    def contained(polys_by_code):
+        out = [""] * len(pts)
+        for code, geom in polys_by_code.items():
+            for i in tree.query(geom, predicate="contains"):
+                out[i] = code
+        return out
+
+    places = places.copy()
+    places["hromada_katotth"] = contained(hromada_polys)
+    places["raion_katotth"] = contained(raion_polys)
+    places["key"] = places.osm_name.map(norm_name)
+    settl = places[places.osm_place.isin(OSM_SETTLEMENT)]
+    used: set[int] = set()
+    rows = []
+    for s in sett.itertuples():
+        key = norm_name(s.name)
+        how, hit = "unmatched", None
+        for level, column, code in (("name in hromada", "hromada_katotth", s.hromada_katotth),
+                                    ("name in raion", "raion_katotth", s.raion_katotth)):
+            cand = settl[(settl[column] == code) & (settl.key == key) & ~settl.osm_node_id.isin(used)]
+            if len(cand) > 1:   # namesakes: the node's own katotth tag decides
+                tagged = cand[cand.osm_katotth == s.katotth]
+                cand = tagged if len(tagged) == 1 else cand.iloc[0:0]
+                level += " (namesake resolved by katotth tag)" if len(cand) else ""
+            if len(cand) == 1:
+                how, hit = level, cand.iloc[0]
+                break
+        if hit is None:
+            cand = settl[(settl.osm_katotth == s.katotth) & ~settl.osm_node_id.isin(used)]
+            if len(cand) == 1:
+                how, hit = "katotth tag only (name differs)", cand.iloc[0]
+        if hit is not None:
+            used.add(int(hit.osm_node_id))
+        rows.append({
+            **s._asdict(), "match": how,
+            "osm_node_id": int(hit.osm_node_id) if hit is not None else None,
+            "osm_place": hit.osm_place if hit is not None else "", "osm_name": hit.osm_name if hit is not None else "",
+            "lon": round(float(hit.lon), 6) if hit is not None else None,
+            "lat": round(float(hit.lat), 6) if hit is not None else None,
+        })
+    out = pd.DataFrame(rows).drop(columns="Index")
+    out["osm_node_id"] = out.osm_node_id.astype("Int64")
+    leftovers = settl[~settl.osm_node_id.isin(used)]
+    return out, leftovers
+
+
+UK_LATIN = {  # Ukrainian national transliteration (Cabinet of Ministers resolution 55, 2010)
+    "а": "a", "б": "b", "в": "v", "г": "h", "ґ": "g", "д": "d", "е": "e", "є": "ie", "ж": "zh", "з": "z",
+    "и": "y", "і": "i", "ї": "i", "й": "i", "к": "k", "л": "l", "м": "m", "н": "n", "о": "o", "п": "p",
+    "р": "r", "с": "s", "т": "t", "у": "u", "ф": "f", "х": "kh", "ц": "ts", "ч": "ch", "ш": "sh",
+    "щ": "shch", "ь": "", "ю": "iu", "я": "ia", "'": "",
+}
+UK_INITIAL = {"є": "ye", "ї": "yi", "й": "y", "ю": "yu", "я": "ya"}
+
+
+def translit(text: str) -> str:
+    out = []
+    for word in re.split(r"(\W+)", norm_name(text)):
+        word = word.replace("зг", "zgh")
+        latin = "".join(UK_INITIAL.get(ch, UK_LATIN.get(ch, ch)) if i == 0 else UK_LATIN.get(ch, ch)
+                        for i, ch in enumerate(word))
+        out.append(latin)
+    return "".join(out).title().replace("'", "")
+
+
+RAION_EN = {"Луцький": "LUTSK RAION", "Ковельський": "KOVEL RAION", "Володимирський": "VOLODYMYR RAION",
+            "Камінь-Каширський": "KAMIN-KASHYRSKYI\nRAION"}
+
+
+def render_volyn(truth, polys, base, how, unmatched) -> None:
+    crs = "+proj=tmerc +lat_0=51.1 +lon_0=24.85 +k=1 +x_0=0 +y_0=0 +datum=WGS84 +units=m +no_defs"
+    t = Transformer.from_crs(4326, crs, always_xy=True)
+
+    def proj(geom):
+        return gpd.GeoSeries([geom], crs=4326).to_crs(crs)
+
+    volyn = polys[("oblast", "UA-07")][1]
+    rivne = polys[("oblast", "UA-56")][1]
+    lviv = polys[("oblast", "UA-46")][1]
+    vx0, vy0, vx1, vy1 = proj(volyn).total_bounds
+    (rx, _ry), = project_points(crs, [(26.25, 50.62)])
+    extent = (vx0 - 9_000, min(vx1 + 7_000, rx - 1_500), vy0 - 7_000, vy1 + 7_000)
+    check_window("volyn_settlements", crs, extent)
+    n_loc = int(truth.lon.notna().sum())
+    cv = Canvas(extent, "Every town and village of Volyn oblast",
+                f"All {len(truth):,} settlements in Ukraine's official codifier (KATOTTH), by legal status · {n_loc:,} located on OpenStreetMap",
+                map_w=10.4, footer=1.2)
+    ax = cv.ax
+    ax.set_facecolor("#f1efe9")
+    for geom, colour in ((rivne, "#e9e6de"), (lviv, "#e9e6de")):
+        proj(geom).plot(ax=ax, color=colour, edgecolor="none", zorder=1)
+    hromadas = [g for (kind, _c), (_n, g) in polys.items() if kind == "hromada"]
+    proj(volyn).plot(ax=ax, color="#e3ddcf", edgecolor="none", zorder=2)
+    # Horokhiv hromada has 43 sub-km2 exclaves inside Mar'ianivka: real, but noise at this scale
+    outlines = [unary_union([p for p in getattr(g, "geoms", [g]) if p.area > 1.5e-4]) for g in hromadas]
+    outlines = [shapely.Polygon(g.exterior) if g.geom_type == "Polygon" else g for g in outlines]
+    gpd.GeoSeries([g.boundary for g in outlines], crs=4326).to_crs(crs).plot(ax=ax, color="white", linewidth=0.7, zorder=2.1)
+    raions = {code: (name, g) for (kind, code), (name, g) in polys.items() if kind == "raion"}
+    for _code, (_name, g) in raions.items():
+        proj(g.boundary.difference(volyn.boundary.buffer(0.001))).plot(ax=ax, color="#7d7668", linewidth=1.5, zorder=3)
+    # the state border: Volyn's and its neighbours' edges that touch no Ukrainian oblast in the set
+    others = unary_union([rivne, lviv]).buffer(0.002)
+    proj(volyn.boundary.intersection(others)).plot(ax=ax, color="#5d564a", linewidth=2.0, zorder=3.1)
+    border = [volyn.boundary.difference(others),
+              lviv.boundary.difference(unary_union([volyn, rivne]).buffer(0.002)).intersection(box(22, 49, 24.3, 52)),
+              rivne.boundary.difference(unary_union([volyn, lviv]).buffer(0.002)).intersection(box(25, 51.45, 28, 52.5))]
+    for g in border:
+        proj(g).plot(ax=ax, color="#5d564a", linewidth=2.0, linestyle=(0, (5, 2.5)), zorder=3.2)
+    for name, lon, lat, rot in (("POLAND", 23.72, 51.0, 0), ("BELARUS", 25.3, 51.98, 0), ("RIVNE OBLAST", 25.85, 50.42, 0),
+                                ("LVIV OBLAST", 24.2, 50.33, 0)):
+        x, y = t.transform(lon, lat)
+        ax.text(x, y, name, fontsize=9, color="#8e897d", ha="center", va="center", rotation=rot, zorder=2.5, clip_on=True)
+
+    loc = truth.dropna(subset=["lon", "lat"]).copy()
+    loc["x"], loc["y"] = t.transform(loc.lon.to_numpy(), loc.lat.to_numpy())
+    vil, sel, city = (loc[loc.category == c] for c in ("C", "X", "M"))
+    ax.scatter(vil.x, vil.y, s=6, color="#4a5559", edgecolor="none", alpha=0.85, zorder=5)
+    ax.scatter(sel.x, sel.y, s=30, color="white", edgecolor=INK, linewidth=1.1, zorder=6)
+    ax.scatter(city.x, city.y, s=[110 if n == "Луцьк" else 58 for n in city.name], marker="s", color=INK,
+               edgecolor="white", linewidth=1.0, zorder=7)
+
+    # greedy label placement: try eight positions, keep the first that overlaps nothing placed
+    cv.fig.canvas.draw()
+    renderer = cv.fig.canvas.get_renderer()
+    taken = []
+    for row in pd.concat([city.assign(rank=0), sel.assign(rank=1)]).sort_values(["rank", "name"]).itertuples():
+        big = row.category == "M"
+        label = translit(row.name)
+        candidates = [(8, 0, "left", "center"), (-8, 0, "right", "center"), (0, 9, "center", "bottom"),
+                      (0, -9, "center", "top"), (7, 7, "left", "bottom"), (-7, 7, "right", "bottom"),
+                      (7, -7, "left", "top"), (-7, -7, "right", "top")]
+        for dx, dy, ha, va in candidates:
+            txt = ax.annotate(label, (row.x, row.y), xytext=(dx * (1.3 if big else 1), dy * (1.3 if big else 1)),
+                              textcoords="offset points", ha=ha, va=va,
+                              fontsize=(12 if row.name == "Луцьк" else 10) if big else 8.2,
+                              fontweight="bold" if big else "normal", style="normal" if big else "italic",
+                              color=INK if big else "#2b3539", zorder=9, path_effects=HALO)
+            bb = txt.get_window_extent(renderer).expanded(1.04, 1.1)
+            if not any(bb.overlaps(o) for o in taken):
+                taken.append(bb)
+                break
+            txt.remove()
+        else:
+            print(f"  WARNING: no free label position for {label}")
+    # symbols of labelled places also block raion names
+    for row in pd.concat([city, sel]).itertuples():
+        px, py = ax.transData.transform((row.x, row.y))
+        taken.append(mpl.transforms.Bbox.from_extents(px - 6, py - 6, px + 6, py + 6))
+    for _code, (name, g) in raions.items():
+        short = name.split()[0]
+        gp = proj(g).iloc[0]
+        inner = gp.buffer(-7_000)
+        centre = gp.representative_point()
+        xs_ = np.arange(inner.bounds[0], inner.bounds[2], 3_000)
+        ys_ = np.arange(inner.bounds[1], inner.bounds[3], 3_000)
+        cands = sorted(((x, y) for x in xs_ for y in ys_ if inner.contains(Point(x, y))),
+                       key=lambda c: (c[0] - centre.x) ** 2 + (c[1] - centre.y) ** 2)
+        for x, y in cands:
+            txt = ax.text(x, y, RAION_EN[short], fontsize=11, color="#7a7365", ha="center", va="center", zorder=2.6,
+                          fontweight="bold", alpha=0.8, linespacing=1.1)
+            bb = txt.get_window_extent(renderer).expanded(1.05, 1.15)
+            if not any(bb.overlaps(o) for o in taken):
+                taken.append(bb)
+                break
+            txt.remove()
+    cats = truth.category.value_counts()
+    col_x = cv.left + cv.map_w + 0.45
+    col_w = WIDTH_IN - col_x - 0.3
+    lg = cv.panel(col_x, cv.H - cv.header - 0.05, col_w, 7.6)
+    lg.text(0, 7.55, "Settlement status (KATOTTH)", va="top", fontsize=10.5, fontweight="bold")
+    items = [("s", 110, INK, "white", f"Місто — city ({cats.get('M', 0)}),\nLutsk the oblast centre", True),
+             ("o", 30, "white", INK, f"Селище — settlement ({cats.get('X', 0)}),\nformer urban-type settlement", True),
+             ("o", 6, "#4a5559", "none", f"Село — village ({cats.get('C', 0)})", False)]
+    y = 7.0
+    for marker, size, face, edge, label, _lab in items:
+        lg.scatter([0.2], [y], s=size, marker=marker, color=face, edgecolor=edge, linewidth=1.0)
+        lg.text(0.5, y, label, va="center", fontsize=9.5, linespacing=1.25)
+        y -= 0.55
+    y -= 0.1
+    lg.text(0, y, "Boundaries", va="top", fontsize=10.5, fontweight="bold")
+    y -= 0.42
+    for colour, lw, style, label in (("#5d564a", 2.0, (0, (5, 2.5)), "State border"),
+                                     ("#5d564a", 2.0, "-", "Oblast border"),
+                                     ("#7d7668", 1.5, "-", "Raion border (4 raions)"),
+                                     ("white", 2.2, "-", f"Hromada border ({sum(1 for k in polys if k[0] == 'hromada')} hromadas)")):
+        lg.plot([0, 0.4], [y, y], color=colour, linewidth=lw, linestyle=style, solid_capstyle="butt")
+        if colour == "white":
+            lg.add_patch(Rectangle((0, y - 0.09), 0.4, 0.18, facecolor="#e3ddcf", edgecolor="none", zorder=0))
+        lg.text(0.5, y, label, va="center", fontsize=9.5)
+        y -= 0.3
+    y -= 0.25
+    lg.text(0, y, "Located on OpenStreetMap", va="top", fontsize=10.5, fontweight="bold")
+    y -= 0.42
+    lines = [("KATOTTH settlements", f"{len(truth):,}"),
+             ("matched by name within hromada", f"{int(how.get('name in hromada', 0)):,}")]
+    for k, v in how.items():
+        if k not in ("name in hromada", "unmatched"):
+            lines.append((k, f"{v:,}"))
+    lines.append(("not found as a settlement node", f"{int(how.get('unmatched', 0)):,}"))
+    for k, v in lines:
+        lg.text(0, y, k, va="center", fontsize=9.3)
+        lg.text(col_w - 0.05, y, v, va="center", ha="right", fontsize=9.3)
+        y -= 0.27
+    if len(unmatched):
+        note = ("Not drawn: " + "; ".join(f"{translit(r.name)} ({r.name}), {translit(r.hromada)} hromada" for r in unmatched.itertuples())
+                + " — mapped in OSM only as a place=locality area, not as a settlement node.")
+        lg.text(0, y - 0.05, textwrap.fill(note, 44), va="top", fontsize=8.6, color=MUTED, linespacing=1.4)
+    cv.footnote([
+        f"Source: Кодифікатор адміністративно-територіальних одиниць та територій територіальних громад (KATOTTH), Ministry for Development of Communities and Territories of Ukraine, {KATOTTH_ORDER}. "
+        f"Positions, boundaries: © OpenStreetMap contributors (ODbL 1.0), place nodes and admin relations as of {base[:10]}.",
+        "Projection: transverse Mercator centred on 24.85°E. Names transliterated with Ukraine's 2010 national system. Every city and settlement labelled; villages unlabelled. "
+        "Since 2024 KATOTTH has no urban-type settlements (T): all were renamed селище (X). Hromada exclaves under 1 km² not outlined.",
+    ], width=165)
+    cv.save("volyn_settlements")
+
+
+def build_volyn_settlements() -> pd.DataFrame:
+    sett, volyn_rows = volyn_katotth()
+    places, polys, base = volyn_osm()
+    truth, leftovers = match_volyn(sett, places, polys)
+    write_csv("volyn_settlements", truth)
+    cats = truth.category.value_counts()
+    how = truth.match.value_counts()
+    matched = int(truth.lon.notna().sum())
+    unmatched = truth[truth.lon.isna()]
+    n_h = int((volyn_rows.cat == "H").sum())
+    osm_settl = places[places.osm_place.isin(OSM_SETTLEMENT)]
+    old_prefix = osm_settl.osm_prefix.value_counts()
+    print(f"  KATOTTH: {len(truth)} settlements {dict(cats)}; OSM {len(osm_settl)} settlement nodes")
+    print(f"  match: {dict(how)}")
+    print("  unmatched:", "; ".join(f"{r.name} ({r.category}, {r.hromada})" for r in unmatched.itertuples()))
+    print("  OSM leftovers:", "; ".join(f"{r.osm_name} [{r.osm_place}]" for r in leftovers.itertuples()))
+    cat_osm = pd.crosstab(truth.category, truth.osm_place.replace("", "—"))
+    print(cat_osm)
+    mismatch_rows = truth[(truth.lon.notna()) & (truth.osm_katotth if "osm_katotth" in truth else False)] if False else None
+    del mismatch_rows
+    write_md("volyn_settlements", [
+        f"- URL/API: {KATOTTH_URL} (KATOTTH xlsx, linked from {KATOTTH_PAGE}; rows under UA07, categories M/T/X/C). Coordinates: Overpass API, `" + compact(VOLYN_QUERY) + "`.",
+        f"- Vintage: KATOTTH as amended by the Ministry for Development of Communities and Territories {KATOTTH_ORDER} (the newest of 26 editions listed on 2026-10-08); OpenStreetMap as of {base}.",
+        "- Licence: KATOTTH is an official act of a Ukrainian ministry (not subject to copyright, Law of Ukraine on Copyright Art. 10); coordinates and boundaries © OpenStreetMap contributors, ODbL 1.0.",
+        f"- Rows: {len(truth)} KATOTTH settlements of Volyn oblast — {cats.get('M', 0)} cities (M), {cats.get('T', 0)} urban-type settlements (T), {cats.get('X', 0)} селища (X), {cats.get('C', 0)} villages (C); 4 raions, {n_h} hromadas. Columns: katotth, category, name, hromada/raion codes and names, match, osm_node_id, osm_place, osm_name, lon, lat. "
+        f"Located via an OSM place=city/town/village/hamlet node: {matched} ({', '.join(f'{v} {k}' for k, v in how.items() if k != 'unmatched')}); unmatched {int(how.get('unmatched', 0))}" + (f" ({'; '.join(f'{r.name}, {r.hromada} hromada' + OSM_UNMATCHED_NOTES.get(r.katotth, '') for r in unmatched.itertuples())})" if len(unmatched) else "")
+        + f". OSM category vs KATOTTH: {int(((truth.category == 'C') & (truth.osm_place == 'hamlet')).sum())} villages are tagged place=hamlet; all 12 cities and 21 селища are city/town nodes.",
+        f"- Caveat: KATOTTH has no 'T' rows any more: the 2024 reform renamed every urban-type settlement to селище (X); OSM still tags {old_prefix.get('селище міського типу', 0)} nodes name:prefix='селище міського типу' and {old_prefix.get('місто', 0)} 'місто' (KATOTTH: {cats.get('M', 0)} cities). "
+        f"{len(leftovers)} OSM settlement nodes in Volyn match no KATOTTH row" + (f" ({'; '.join(f'{r.osm_name} [{r.osm_place}]' for r in leftovers.head(12).itertuples())}{' …' if len(leftovers) > 12 else ''})" if len(leftovers) else "") + ".",
+    ])
+    render_volyn(truth, polys, base, how, unmatched)
+    return truth
+
+
 BUILDERS: dict[str, Callable[[], pd.DataFrame]] = {
     "atlantic_hurricanes_2024": build_atlantic_hurricanes_2024,
     "tokyo_subway": build_tokyo_subway,
     "trans_siberian": build_trans_siberian,
+    "volyn_settlements": build_volyn_settlements,
     "volcanoes_holocene": build_volcanoes_holocene,
     "europe_largest_cities": build_europe_largest_cities,
 }
@@ -1076,6 +1396,124 @@ def print_results(results) -> None:
             print(f"   {'PASS' if ok else 'FAIL'}  {spot:34} {measured}")
 
 
+REPORT_NOTES = """
+## Proposed spec corrections
+
+| Map | Spot | Problem | Proposed |
+|---|---|---|---|
+| `atlantic_hurricanes_2024` | `line_near=-77.3,18.1` (Beryl) | **FAIL**: -77.3,18.1 is inland Jamaica; Beryl's centre never crossed Jamaica. Its nearest best-track fix is 2024-07-03 21:00 UTC at -77.5,17.5 (Cat 4, 118 kt), 70 km away. | `line_near=-77.5,17.5` (closest pass, off Jamaica's south coast) or `line_near=-61.5,12.5` (Carriacou landfall, Cat 4, 1 Jul); both 0.0 km |
+| `atlantic_hurricanes_2024` | `line_near=-82.6,27.2` (Milton), `line_near=-83.9,29.9` (Helene) | PASS but at 14.9 and 17.7 km of a 20 km tolerance: neither is the NHC landfall point. | `line_near=-82.6,27.4` and `line_near=-83.7,30.0` (NHC landfall records, `usa_record = L`); both 0.0 km |
+
+Every other spot passes with a wide margin. The `(verify)` count for Volyn
+(1,080±12%) is right: KATOTTH lists 1,087.
+
+## What was measured, and what the spec should know
+
+- **`trans_siberian` units = [1, 5000] vs 8,181 OSM ways.** The two
+  direction relations (2128634 even, 4224465 odd) have 8,181 distinct ways
+  between them. A map that draws them way by way has more features than the
+  range allows. A map that draws the merged route has 1 or 2. The range should
+  say which one it counts.
+- **`trans_siberian` total_km: a buffer dissolve is the wrong tool here.**
+  Each direction relation is one unbroken Moscow→Vladivostok chain (9,295 and
+  9,298 km). Their mean, 9,297 km, is 0.1% off the official 9,289. The France
+  method (30 m buffers) gives 9,565 km, and 9,428 km at 100 m. It overcounts
+  because the two directions run on separate alignments for long stretches,
+  and undercounts shared single-track ways at 0.93×. Distances along the chain
+  match the official kilometre posts: Yekaterinburg 1,817 (official 1,816),
+  Novosibirsk 3,336 (3,343), Irkutsk 5,186 (5,185), Khabarovsk 8,528 (8,521).
+  Both relations carry `comment=in work`.
+- **`tokyo_subway`: separate tunnels defeat a 30 m dissolve.** Each line's
+  two directions often run in separate shield tunnels 20–80 m apart. With
+  30 m buffers the 13 lines sum to 327 km; with 100 m buffers, 308 km. The
+  operators' line lengths sum to 312 km (Metro 203.3, which counts the shared
+  Wakōshi–Kotake-mukaihara section twice, plus Toei 109.0). Half the sum of
+  member ways matches best: Ōedo 40.70 against 40.7 official, Mita 26.50
+  against 26.5. 39 route relations: one per direction and service pattern.
+  The relation with ref `Al` (the Keikyu–Toei–Keisei airport through-service)
+  is dropped.
+- **`volyn_settlements`: KATOTTH no longer has urban-type settlements.**
+  Codifier edition: order No. 1321 of 7 July 2026, the newest of 26 on
+  mindev.gov.ua (the Ministry's site; minregion.gov.ua answers 403). It lists
+  12 M, 0 T, 21 X and 1,054 C for UA07: 1,087 settlements, 4 raions and 54
+  hromadas. Since the 2024 reform every former смт has been an X (селище).
+  OSM still tags 22 nodes `name:prefix=селище міського типу`, and 11 `місто`
+  against KATOTTH's 12 cities. OSM nodes carry a `katotth` tag, but matching
+  used names, not that tag. 1,086 of 1,087 KATOTTH names match exactly one
+  place=city/town/village/hamlet node inside the OSM hromada polygon with the
+  same KATOTTH code. No namesakes needed resolving, and no match needed the
+  raion fallback. The one miss is Октавин (Zymne hromada): OSM has it only as
+  way 30718441 tagged place=locality (checked with Nominatim). Two OSM hamlets
+  match no KATOTTH row: Хлібове, and Ягодин (tagged `is_in:village=Римачі`).
+  38 KATOTTH villages are tagged place=hamlet in OSM. The excludes hold:
+  Volyn's lon/lat bbox ends at 26.107°E, 0.14° short of Rivne (26.25°E).
+- **`europe_largest_cities`: the definition is GeoNames' `population`
+  field.** Places of class PPLX (city sections, e.g. Pest at 1.00 M) are
+  dropped. Europe means 45 states, plus Russia west of 58°E (Ufa and Perm in,
+  Yekaterinburg out), plus Istanbul. Turkey otherwise, Transcaucasia and
+  Kazakhstan are out (Baku, 2.35 M, would otherwise rank 8th). GeoNames is
+  not consistent: Stockholm (1.52 M) and Copenhagen (1.15 M) are urban-area
+  figures, and Moscow is the 2010 census figure, 10.38 M. Ranks 26–30 are
+  separated by 1.16–1.12 M, so a different source reorders them. Without
+  Istanbul, Oslo (1.08 M) becomes 30th.
+- **`volcanoes_holocene`: 1,214 volcanoes, served live.** volcano.si.edu
+  answers scripted requests with HTTP 403. The GVP GeoServer WFS serves the
+  live list: 1,214 rows, numberMatched 1,214. 366 of them have no dated
+  eruption: "Holocene" is GVP's judgement of activity, not a dated eruption.
+  The newest published citation found is v. 5.3.4 (30 Dec 2025), but
+  last-eruption years run to 2026, so the WFS is newer.
+- **`atlantic_hurricanes_2024`: 18 named storms, 919 fixes, IBTrACS
+  v04r01.** One UNNAMED 2024 system, Potential Tropical Cyclone Eight, is
+  excluded. Beryl's two NHC landfalls are Carriacou (Cat 4, 1 Jul) and
+  Matagorda, Texas (Cat 1, 8 Jul).
+
+## Reference images
+
+Every reference.png is 1,600 px wide and built with geopandas/matplotlib
+outside mapsvc:
+
+- Hurricanes: Lambert conformal conic (20°/45°N). Tracks coloured by the
+  Saffir–Simpson category of each segment, pre-genesis and post-tropical
+  stages dashed grey. Every landfall ringed; Beryl, Helene and Milton
+  annotated.
+- Tokyo: Japan Plane Rectangular CS IX. The 13 lines in their OSM colour
+  tags, with stations and a legend of line codes. The 23 wards are muted
+  context.
+- Volcanoes: Equal Earth centred on 150°E, six type classes, plate
+  boundaries.
+- Trans-Siberian: equidistant conic (47°/57°N). 15 stops labelled with
+  kilometres from Moscow.
+- European cities: LAEA centred on 52°N 22°E, circle area ∝ population, all
+  30 labelled. The 58°E limit is drawn.
+- Volyn: transverse Mercator. Cities, селища and villages by symbol; the 4
+  raions labelled; 54 hromadas outlined; state and oblast borders
+  distinguished.
+"""
+
+
+def render_report(results) -> str:
+    lines = [
+        "# Set-2 overlay references: spot-check report", "",
+        "Generated by `uv run evals/maps/etalons/set2_overlays.py`. Spot checks are evaluated from the written "
+        "`truth.csv` files only, with run.py's tolerances (event_near 100 km, line_near 20 km).", "",
+        "| Map | Rows | Count | Spot checks |", "|---|---:|---:|---|",
+    ]
+    total = passed = 0
+    for map_id in IDS:
+        if map_id not in results:
+            lines.append(f"| `{map_id}` | — | — | not built |")
+            continue
+        count, rows, checks = results[map_id]
+        cells = []
+        for spot, ok, measured in checks:
+            total += 1
+            passed += ok
+            cells.append(f"{'PASS' if ok else '**FAIL**'} `{spot}` ({measured})")
+        lines.append(f"| `{map_id}` | {rows:,} | {count:,} | {'<br>'.join(cells)} |")
+    lines += ["", f"**{passed} of {total} spot checks pass.**", REPORT_NOTES.rstrip(), ""]
+    return "\n".join(lines)
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("ids", nargs="*", choices=IDS, help="map ids; default: all six")
@@ -1094,6 +1532,7 @@ def main() -> int:
             print(f"\n[{map_id}]", flush=True)
             BUILDERS[map_id]()
     print_results(evaluate(ids))
+    REPORT_PATH.write_text(render_report(evaluate(IDS)), encoding="utf-8")
     return 0
 
 
