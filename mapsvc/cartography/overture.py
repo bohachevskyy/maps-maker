@@ -271,6 +271,17 @@ def load(level: str, bbox, detail: str = "simplified",
             "name": name,
             "geometry": json.loads(geometry),
         })
+    # Countries have no `region`, so at admin_0 every id above is an Overture
+    # UUID even though each carries a unique ISO3 join key. The public key is
+    # the id a reader (and the eval) can check, so it wins wherever unique --
+    # the same rule natural_earth applies to its adm1_code.
+    if not codes_are_ids:
+        seen: dict = {}
+        for unit in units:
+            seen[unit["key"]] = seen.get(unit["key"], 0) + 1
+        for unit in units:
+            if unit["key"] and seen[unit["key"]] == 1:
+                unit["id"] = unit["key"]
     units.sort(key=lambda u: (u["name"] or "", u["id"]))
 
     return Boundaries(units=units, keys=KEYS[level], provenance={
