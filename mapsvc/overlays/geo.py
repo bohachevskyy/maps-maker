@@ -61,3 +61,42 @@ def route_m(lines: list, radius: float = 20.0, step: float = 25.0) -> float:
                     grid.setdefault((cx, cy), []).append((x, y, index))
                     total += length / pieces
     return total
+
+
+def chain(lines: list) -> list:
+    """Ways joined end to end into as few polylines as possible. Deterministic.
+
+    A route relation lists every way it uses -- 4,171 of them for the
+    Trans-Siberian -- and drawing each as its own subpath costs bytes and
+    leaves joins unrounded. Lines are visited in the order given; each grows
+    forward, then backward, by the earliest unused line sharing an endpoint
+    (reversed if need be).
+    """
+    ends: dict = {}
+    for index, coords in enumerate(lines):
+        if len(coords) < 2:
+            continue
+        ends.setdefault(tuple(coords[0]), []).append(index)
+        ends.setdefault(tuple(coords[-1]), []).append(index)
+    used = [len(c) < 2 for c in lines]
+
+    def take(point):
+        for index in ends.get(point, ()):
+            if not used[index]:
+                used[index] = True
+                coords = [tuple(c) for c in lines[index]]
+                return coords if coords[0] == point else coords[::-1]
+        return None
+
+    out = []
+    for index, coords in enumerate(lines):
+        if used[index]:
+            continue
+        used[index] = True
+        path = [tuple(c) for c in coords]
+        while (nxt := take(path[-1])) is not None:
+            path.extend(nxt[1:])
+        while (prev := take(path[0])) is not None:
+            path[:0] = prev[::-1][:-1]
+        out.append(path)
+    return out

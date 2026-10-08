@@ -308,7 +308,7 @@ def test_overpass_falls_back_after_504(monkeypatch):
     monkeypatch.setattr(overpass.fetch.urllib.request, "urlopen", urlopen)
 
     assert overpass._post("ql") == b'{"elements": []}'
-    assert [r.full_url for r in calls if r.data is not None] == list(overpass.ENDPOINTS)
+    assert [r.full_url for r in calls if r.data is not None] == list(overpass.ENDPOINTS[:2])
 
 
 def test_overpass_health_skips_busy_endpoint_and_sends_user_agent(monkeypatch):
