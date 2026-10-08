@@ -29,7 +29,14 @@ from mapsvc import colors, project
 # Ordered categories (depth classes, speed classes): strong to faint.
 ORDERED = ("#d0312d", "#f0962c", "#3f78b5", "#9a9a9a", "#6a3d9a")
 # Unordered categories. A two-class flow is Minard's: tan out, black back.
-NOMINAL = ("#1b9e77", "#d95f02", "#7570b3", "#e7298a", "#66a61e", "#e6ab02")
+NOMINAL = ("#1b9e77", "#d95f02", "#7570b3", "#e7298a", "#66a61e", "#e6ab02",
+           "#8c8c8c")
+# Saffir-Simpson along a storm track: grey outside the tropical stages, blue
+# below hurricane strength, then yellow to deep red to purple, one hue step
+# per category -- ordered, so the eye reads the strongest segments first.
+SSHS = {"other": "#b3b8bb", "td": "#8cb6d6", "ts": "#3a7fb8", "cat1": "#f2c84b",
+        "cat2": "#f08a24", "cat3": "#dd4b1a", "cat4": "#a50f15", "cat5": "#5c1a6b"}
+TRACK_W = (1.0, 1.2, 1.5, 2.0, 2.4, 2.8, 3.2, 3.6)   # thin to thick, same order
 FLOW = ("#d6b27c", "#25292c", "#7d9fbf", "#b3546b")
 # Text in a band's colour must still read on paper: the tan is darkened.
 NOTE_INK = {"#d6b27c": "#8a6630"}
@@ -160,7 +167,29 @@ def centre_lon(layers: list) -> float | None:
             lons.extend(f["coords"][0][0] for f in layer["features"] if f["coords"])
         elif layer["kind"] == "flow":
             lons.extend(f["lon"] for f in layer["features"])
-    return project.central_meridian(lons)
+    centre = project.central_meridian(lons)
+    if centre is None and len(lons) >= SEAM_MIN_POINTS:
+        centre = _emptiest_seam(lons)
+    return centre
+
+
+# Points spread round the whole globe (1,214 Holocene volcanoes: resultant
+# 0.09) have no centre, but they do have an emptiest meridian. Centred on
+# Greenwich the seam at 180° cuts the Ring of Fire through 75 volcanoes;
+# centred on 120°W it runs through 7.
+SEAM_MIN_POINTS = 200
+SEAM_BAND = 10.0
+
+
+def _emptiest_seam(lons: list) -> float | None:
+    def near(centre):
+        seam = centre + 180.0
+        return sum(1 for v in lons if abs((v - seam + 180.0) % 360.0 - 180.0) <= SEAM_BAND)
+    counts = {c: near(c) for c in range(-180, 180, 30)}
+    best = min(counts, key=lambda c: (counts[c], abs(c), c))
+    if counts[best] * 2 > counts[0]:
+        return None
+    return None if best == 0 else float(best)
 
 
 def draw(layers: list, places: list, frame, layout: dict, physical: list = ()) -> Art:
@@ -181,8 +210,12 @@ def draw(layers: list, places: list, frame, layout: dict, physical: list = ()) -
                         for k, v in sorted((layer.get("stats") or {}).items()))
         head = (f'<g data-overlay={quoteattr(layer.get("source", ""))} '
                 f'data-layer="{index}"{stats}>')
-        if kind == "points":
+        if kind == "points" and layer.get("rank"):
+            body, legend = _ranked_points(layer, frame, labels, anchors, layout)
+        elif kind == "points":
             body, legend = _points(layer, frame, labels, anchors, layout)
+        elif kind == "lines" and layer.get("along"):
+            body, legend = _tracks(layer, frame, labels, anchors)
         elif kind == "lines":
             body, legend = _lines(layer, frame, anchors, labels)
         elif kind == "flow":
@@ -244,7 +277,7 @@ def _footer_line(layer: dict, credited: set) -> str:
     if layer.get("encoding"):
         line += f" {layer['encoding']}."
     drawn = len(layer.get("features") or [])
-    noun = {"flow": "rows", "lines": "lines", "places": "places",
+    noun = layer.get("noun") or {"flow": "rows", "lines": "lines", "places": "places",
             "temperature": "observations"}.get(layer["kind"],
                                                                      "features")
     excluded = layer.get("excluded") or []
@@ -324,6 +357,123 @@ def _points(layer, frame, labels, anchors, layout):
             {"value": None, "label": layer.get("label") or "Feature"}]},
             {None: default}, {None}, "dot"))
     return "".join(out), legend
+
+
+def _short(v: float) -> str:
+    """A population on a label: 10.4M, 873k."""
+    if v >= 1e6:
+        return f"{v / 1e6:.1f}M"
+    if v >= 1e3:
+        return f"{v / 1e3:.0f}k"
+    return f"{v:,.0f}"
+
+
+def _ranked_points(layer, frame, labels, anchors, layout):
+    """The N largest, as proportional circles, each named with its value.
+
+    Largest drawn first so a small neighbour stays on top of a big one; every
+    circle is blocked before any label is placed, then labels go largest
+    first: beside the circle if there is room, otherwise on a leader.
+    """
+    radius, _ = _radius_fn(layer, frame, layout)
+    placed = []
+    for f in layer["features"]:
+        x, y = _xy(frame, f["lon"], f["lat"])
+        if not frame.visible(x, y):
+            continue
+        placed.append((radius(f["size"]), f["rank"], x, y, f))
+    placed.sort(key=lambda t: (-t[0], t[1]))
+    out = ['<g fill="#c4553a" fill-opacity="0.62" stroke="#ffffff" stroke-width="0.8">']
+    for r, _, x, y, f in placed:
+        out.append(f'<circle cx="{_num(x)}" cy="{_num(y)}" r="{_num(r)}" '
+                   f'data-fid={quoteattr(str(f["id"]))} '
+                   f'data-value={quoteattr(_stat(f["size"]))} '
+                   f'data-lon="{f["lon"]}" data-lat="{f["lat"]}"/>')
+        anchors.append((x, y))
+        labels.block(x - r, y - r, x + r, y + r)
+    out.append("</g>")
+    missed = 0
+    for r, rank, x, y, f in sorted(placed, key=lambda t: t[1]):
+        text = f"{f['name']} {_short(f['size'])}"
+        if not (_beside(labels, text, x, y, r, rank <= 5)
+                or labels.callout(text, x, y, r, bold=rank <= 5)):
+            missed += 1
+    if missed:
+        out.append(f'<desc data-unlabelled="{missed}">{missed} labels did not fit</desc>')
+    legend = [_size_block(layer, radius, None)] if placed else []
+    return "".join(out), legend
+
+
+def _beside(labels, text, x, y, r, bold) -> bool:
+    """A label touching its circle's edge: right, left, above, below, then the
+    diagonals -- never across a gap where it could be read as a neighbour's."""
+    extra = ' font-weight="600"' if bold else ""
+    for dx, dy in ((1, 0), (-1, 0), (0, -1), (0, 1), (1, -1), (-1, -1), (1, 1), (-1, 1)):
+        norm = math.hypot(dx, dy)
+        ax, ay = x + dx / norm * (r + 1.5), y + dy / norm * (r + 1.5)
+        if labels._try_at(text, ax, ay, dx, dy, LABEL_SIZE, extra):
+            return True
+    return False
+
+
+def _tracks(layer, frame, labels, anchors):
+    """Storm tracks: one line per storm, each segment in its category's colour.
+
+    Segments of one class are drawn as one path, weakest first, so a
+    hurricane's red runs over the blue of its own tropical-storm stages.
+    Hurricanes are named at their peak, strongest first; majors in bold.
+    """
+    category = layer.get("category") or {"classes": []}
+    order = [c["value"] for c in category["classes"]]
+    rank = {v: i for i, (v, _) in enumerate(SSHS.items())}
+    paths: dict = {v: [] for v in order}
+    for f in sorted(layer["features"], key=lambda f: f["id"]):
+        coords = project.unwrap_ring([tuple(c) for c in f["coords"]], frame.lon0)
+        pts = [frame.xy(lon, lat) for lon, lat in coords]
+        classes = f.get("classes") or []
+        run, current = [], None
+        for i in range(len(pts) - 1):
+            cls = classes[i] if i < len(classes) else "other"
+            if cls != current and run:
+                paths.setdefault(current, []).append(run)
+                run = []
+            if not run:
+                run = [pts[i]]
+            run.append(pts[i + 1])
+            current = cls
+            labels.ink(pts[i], pts[i + 1], 1.5)
+        if run:
+            paths.setdefault(current, []).append(run)
+        anchors.extend(pts[:: max(1, len(pts) // 8)])
+    out = []
+    for value in sorted(paths, key=lambda v: rank.get(v, -1)):
+        runs = paths[value]
+        if not runs:
+            continue
+        d = "".join("M" + "L".join(f"{_num(x)},{_num(y)}" for x, y in _thin(run))
+                    for run in runs)
+        width = TRACK_W[rank.get(value, 0)]
+        out.append(f'<path d="{d}" fill="none" stroke="{SSHS.get(value, ORDERED[0])}" '
+                   f'stroke-width="{width}" stroke-linecap="round" stroke-linejoin="round" '
+                   f'data-class={quoteattr(str(value))}/>')
+    named = sorted((f for f in layer["features"] if f.get("peak", -1) >= 1),
+                   key=lambda f: (-f["peak"], -f.get("peak_wind", 0), f["id"]))
+    for f in named:
+        x, y = _xy(frame, *f["peak_at"])
+        if frame.visible(x, y):
+            labels.callout(f["name"], x, y, 2.0, bold=f["peak"] >= 3)
+    present = {v for v, runs in paths.items() if runs}
+    colours = {v: SSHS.get(v, ORDERED[0]) for v in order}
+    return "".join(out), [_swatch_block(category, colours, present, "line")]
+
+
+def _thin(run):
+    out = [run[0]]
+    for i, (x, y) in enumerate(run[1:], 1):
+        if i < len(run) - 1 and math.hypot(x - out[-1][0], y - out[-1][1]) < SIMPLIFY_PX:
+            continue
+        out.append((x, y))
+    return out
 
 
 def _size_block(layer, radius, floor):
