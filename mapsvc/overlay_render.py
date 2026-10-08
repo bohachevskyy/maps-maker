@@ -250,7 +250,7 @@ def draw(layers: list, places: list, frame, layout: dict, physical: list = ()) -
         if kind == "points" and layer.get("style") == "settlements":
             body, legend = _settlements(layer, frame, labels, anchors)
         elif kind == "lines" and layer.get("style") == "routes":
-            body, legend = _routes(layer, frame, labels, anchors)
+            body, legend = _routes(layer, frame, labels, anchors, places)
         elif kind == "points" and layer.get("rank"):
             body, legend = _ranked_points(layer, frame, labels, anchors, layout)
         elif kind == "points":
@@ -812,7 +812,7 @@ def route_colours(classes: list) -> dict:
     return out
 
 
-def _routes(layer, frame, labels, anchors):
+def _routes(layer, frame, labels, anchors, places=()):
     """Route relations: one colour per line, cased in white so lines that run
     side by side stay apart; stations as white dots, interchanges larger and
     named. A single route is drawn bold over the muted base map."""
@@ -848,9 +848,11 @@ def _routes(layer, frame, labels, anchors):
         x, y = _xy(frame, st["lon"], st["lat"])
         if frame.visible(x, y):
             stations.append((st, x, y))
+    standing = _station_standing([t[0] for t in stations], places)
+    stations.sort(key=lambda t: (-standing[t[0]["name"]], t[0]["name"]))
     dots = []
-    for st, x, y in sorted(stations, key=lambda t: (t[0]["lines"], t[0]["name"])):
-        big = st["lines"] >= 2
+    for st, x, y in reversed(stations):
+        big = standing[st["name"]] >= INTERCHANGE_STANDING
         r = min(3.8, 2.4 + 0.45 * (st["lines"] - 2)) if big else 1.5
         dots.append(f'<circle cx="{_num(x)}" cy="{_num(y)}" r="{_num(r)}" '
                     f'stroke-width="{1.0 if big else 0.6}"/>')
@@ -861,24 +863,58 @@ def _routes(layer, frame, labels, anchors):
     if dots:
         out.append(f'<g fill="#ffffff" stroke="{TEXT}">' + "".join(dots) + "</g>")
     named = 0
-    for st, x, y in stations:            # most lines first
-        if st["lines"] < 2 or named >= STATION_LABELS:
+    named_hubs = 0
+    for st, x, y in stations:            # most important first
+        if standing[st["name"]] < INTERCHANGE_STANDING or named >= STATION_LABELS:
             break
-        bold = st["lines"] >= 3
+        bold = standing[st["name"]] >= 3.0
         extra = ' font-weight="600"' if bold else ""
         # A station's name may cross another line, halo first, as on any
         # transit map; it may not cover another name or a station.
         if labels.place(st["name"], x, y, bold=bold) or _place_over_lines(
                 labels, st["name"], x, y, 4.0, LABEL_SIZE, extra):
             named += 1
+        elif named_hubs < HUB_CALLOUTS and labels.callout_lines(
+                [(st["name"], True)], x, y, 3.0,
+                reaches=(10.0, 18.0, 28.0, 40.0, 54.0, 70.0), size=LABEL_SIZE):
+            named += 1
+        named_hubs += 1
 
     present = {v for v, d in paths.items() if d}
     legend = [_swatch_block(layer["category"], colours, present, "line")]
     if layer.get("facts"):
         legend.append(_facts_block(layer.get("facts_label") or "", layer["facts"]))
-    if stations and any(st["lines"] >= 2 for st, _, _ in stations):
+    if stations and any(standing[st["name"]] >= INTERCHANGE_STANDING for st, _, _ in stations):
         legend.append(_station_block())
     return "".join(out), legend
+
+
+INTERCHANGE_STANDING = 2.0
+# The most important stations are called out on a leader when they cannot be
+# named beside their dot: a map of Tokyo without Tokyo is not read.
+HUB_CALLOUTS = 12
+
+
+def _station_standing(stations: list, places: list = ()) -> dict:
+    """How much a station matters, from what the data says about it: the lines
+    it serves, whether OSM marks it as also served by trains or as a
+    Wikidata entity, whether other stations are named after it (Shinjuku,
+    Nishi-shinjuku: the district's own station), and whether it carries the
+    name of a populated place. Not how many lines alone: Tokyo Station has
+    one subway line and is the one a reader looks for."""
+    names = [st["name"].casefold() for st in stations]
+    town = {str(p.get("name") or "").casefold() for p in places}
+    out = {}
+    for st in stations:
+        me = st["name"].casefold()
+        stem = me.replace("-", " ")
+        kin = sum(1 for other in names if other != me and (
+            other.replace("-", " ").endswith(" " + stem)
+            or other.replace("-", " ").startswith(stem + " ")))
+        out[st["name"]] = (st["lines"] + 1.2 * bool(st.get("rail"))
+                           + 0.6 * bool(st.get("wikidata")) + min(1.4, 0.7 * kin)
+                           + 3.0 * (me in town))
+    return out
 
 
 def _place_over_lines(labels, text, x, y, gap, size, extra) -> bool:
@@ -931,7 +967,7 @@ def places_along(places: list, layers: list, km: float = ALONG_KM) -> list:
 
 
 def _station_block():
-    rows = [(1.5, 0.6, "Station"), (2.85, 1.0, "Interchange (size: lines served)")]
+    rows = [(1.5, 0.6, "Station"), (2.85, 1.0, "Major interchange (named)")]
     w = max(30 + _text_w(t, 10) for _, _, t in rows)
     h = 16 * len(rows) + 4
 

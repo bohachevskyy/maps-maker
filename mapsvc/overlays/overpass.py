@@ -1075,11 +1075,15 @@ def _ref_key(ref) -> tuple:
     return (int(number.group()) if number else 1 << 30, text)
 
 
+def _other_rail(tags: dict) -> bool:
+    return any(str(tags.get(k) or "").lower() == "yes" for k in ("train", "light_rail"))
+
+
 def _stations(stops: list, nodes: dict, lines: set) -> list:
     """Stops grouped into stations by name and distance, with the lines serving
     each. A line's stop positions in both directions, and two lines' stops at
     one interchange, are one station: same name, within STATION_KM."""
-    clusters: list = []           # [local name, lon, lat, label, set(lines)]
+    clusters: list = []           # [local name, lon, lat, label, set(lines), rail, wikidata]
     for ref, key, lon, lat in sorted(stops, key=lambda s: (s[0], s[1])):
         if key not in lines:
             continue
@@ -1095,10 +1099,16 @@ def _stations(stops: list, nodes: dict, lines: set) -> list:
                 c[4].add(key)
                 if not c[3] and tags.get("name:en"):
                     c[3] = tags["name:en"]
+                c[5] = c[5] or _other_rail(tags)
+                c[6] = c[6] or bool(tags.get("wikidata"))
                 break
         else:
-            clusters.append([local, lon, lat, tags.get("name:en"), {key}])
+            clusters.append([local, lon, lat, tags.get("name:en"), {key},
+                             _other_rail(tags), bool(tags.get("wikidata"))])
+    # `rail`: the stop is also marked as served by trains (JR, private
+    # railways), and `wikidata`: someone has made the station an entity. Both
+    # are OSM's own marks of a station that matters beyond this network.
     out = [{"name": c[3] or c[0], "lon": round(c[1], 5), "lat": round(c[2], 5),
-            "lines": len(c[4])} for c in clusters]
+            "lines": len(c[4]), "rail": c[5], "wikidata": c[6]} for c in clusters]
     out.sort(key=lambda s: (-s["lines"], s["name"], s["lon"], s["lat"]))
     return out
