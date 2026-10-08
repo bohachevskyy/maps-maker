@@ -2623,7 +2623,10 @@ def _context_labels(result, rows, frame, encoding, manifest, placer, land) -> tu
     if seas:
         credits.append(f"Sea names: {result.provenance.get('names_source') or 'Natural Earth'}.")
     _country_labels(result, rows, frame, encoding, manifest, placer, mapped, out)
-    _river_labels(result.physical, frame, placer, out)
+    aliases: dict = {}
+    for layer in result.overlays:
+        aliases.update(layer.get("river_names") or {})
+    _river_labels(result.physical, frame, placer, out, aliases)
     if not out:
         return "", credits
     return (f'<g font-family="{FONT}" class="context-labels">' + "".join(out) + "</g>",
@@ -2751,7 +2754,7 @@ def _country_labels(result, rows, frame, encoding, manifest, placer, mapped, out
     return placed
 
 
-def _river_labels(layers, frame, placer, out) -> int:
+def _river_labels(layers, frame, placer, out, aliases=None) -> int:
     """Major rivers, named along a straight reach of each: those the overlay
     crosses first, then by Natural Earth's rank, then the longest on the page."""
     runs: dict = {}
@@ -2761,6 +2764,7 @@ def _river_labels(layers, frame, placer, out) -> int:
             continue
         for feature in layer.get("features", []):
             name = str(feature.get("name") or "").strip()
+            name = (aliases or {}).get(name, name)
             if not name:
                 continue
             ranks[name] = min(ranks.get(name, 9.0), float(feature.get("rank", 9.0)))
@@ -2779,22 +2783,24 @@ def _river_labels(layers, frame, placer, out) -> int:
         return inked is not None and any(inked((x - 4, y - 4, x + 4, y + 4))
                                          for r in rs for x, y in r[::2])
 
-    ranked = sorted(((not served(rs), math.floor(ranks.get(name, 9.0)),
+    named = set((aliases or {}).values())
+    ranked = sorted(((name not in named, not served(rs), math.floor(ranks.get(name, 9.0)),
                       -sum(length(r) for r in rs), name) for name, rs in runs.items()))
     placed = 0
-    for unserved, rank, neg_total, name in ranked:
+    for plain, unserved, rank, neg_total, name in ranked:
         total = -neg_total
-        if placed >= RIVER_LABELS:
+        if placed >= RIVER_LABELS and plain:
             break
         # Major: Natural Earth shows it by zoom 5, or the overlay crosses a
         # long reach of it. The Mūša is neither.
-        if total < RIVER_MIN_PX or (rank > RIVER_MAJOR and (unserved or total < 2 * RIVER_MIN_PX)):
+        if total < RIVER_MIN_PX or (plain and rank > RIVER_MAJOR
+                                    and (unserved or total < 2 * RIVER_MIN_PX)):
             continue
         w = _text_w(name, RIVER_SIZE) * 1.02
         h = RIVER_SIZE
         spot = None
         for run in sorted(runs[name], key=lambda r: (-length(r), r[0])):
-            spot = _river_spot(run, w, h, frame, placer)
+            spot = _river_spot(run, w, h, frame, placer, 88.0 if not plain else 65.0)
             if spot:
                 break
         if spot is None:
@@ -2810,7 +2816,7 @@ def _river_labels(layers, frame, placer, out) -> int:
     return placed
 
 
-def _river_spot(run, w, h, frame, placer):
+def _river_spot(run, w, h, frame, placer, steepest: float = 65.0):
     """A straight reach of the river at least as long as the name, middle
     first, with the name set just above it."""
     n = len(run)
@@ -2834,7 +2840,7 @@ def _river_spot(run, w, h, frame, placer):
             angle -= 180
         elif angle <= -90:
             angle += 180
-        if abs(angle) > 65:
+        if abs(angle) > steepest:
             continue
         rad = math.radians(angle)
         # Beside the line, clear of its bends: above it first, then below.

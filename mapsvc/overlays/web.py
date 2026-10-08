@@ -93,8 +93,15 @@ CATALOGUE = (
         "summary": "After Minard (1869): band width is proportional to the number "
                    "of soldiers still with the army · {start:,.0f} crossed the "
                    "Niemen, about {end:,.0f} came back",
-        "notes": {"start": "{v:,.0f} cross the Niemen", "turn": "{v:,.0f} reach Moscow",
-                  "end": "≈ {v:,.0f} return"},
+        # The two dates are the campaign's own (the crossing of the Niemen on
+        # 24 June 1812, the entry into Moscow on 14 September), as Minard's map
+        # is read; the three figures are his data.
+        "notes": {"start": "{v:,.0f} cross the Niemen, 24 June",
+                  "turn": "{v:,.0f} reach Moscow, 14 Sept.",
+                  "end": "≈ {v:,.0f} recross the Niemen"},
+        # Natural Earth's names for the rivers Minard's army crossed, in the
+        # English of his time.
+        "river_names": {"Nemunas": "Niemen", "Dnepre": "Dnieper", "Berezina": "Berezina"},
         "license": "public domain (1869 figures; transcription distributed in R HistData)",
         "attribution": _MINARD,
         "companions": (_MINARD_TEMP_URL,),
@@ -873,6 +880,7 @@ def _flow_layer(base, rows, roles, entry, excluded):
                  "scale": "linear"},
         "category": category, "features": features, "stats": stats,
         "notes": notes, "summary": summary,
+        "river_names": dict(entry.get("river_names") or {}),
         "encoding": (f"Band width ∝ {size_label} (linear, as Minard drew it)"
                      + (f"; colour = {category['label'].lower()}" if category else "")
                      + f"; {len(groups)} group{'s' if len(groups) != 1 else ''}"),
