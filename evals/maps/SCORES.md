@@ -98,3 +98,31 @@ What cheaper models got wrong, all of it in places where the manifest leaves the
 
 Set 1 mean 4.0 (unchanged from sol), set 2 mean 3.18 incl. tokyo_subway=1 (refused during an Overpass outage), overall 3.57.
 Automatic checks 20/21 (Texas after the BLS fix).
+
+## Round 6 (2026-10-08): 21 maps, terra; auto checks 21/21
+
+| map | r5 | r6 |
+|---|---|---|
+| africa_internet | 3 | 4 |
+| atlantic_hurricanes_2024 | 3 | 4 |
+| ca_county_income | 4 | 4 |
+| canada_population_change | 4 | 4 |
+| eu_nuts2_gdp | 4 | 4 |
+| eu_renewables | 4 | 4 |
+| europe_largest_cities | 3 | 4 |
+| france_lgv | 4 | 4 |
+| gdp_world | 4 | 4 |
+| germany_density_nuts3 | 3 | 4 |
+| napoleon_1812 | 4 | 4 |
+| population_change | 4 | 4 |
+| quakes_2025 | 4 | 4 |
+| texas_county_unemployment | 4 | 4 |
+| tokyo_subway | 1 | 2 |
+| trans_siberian | 4 | 4 |
+| ukraine_oblast_population | 4 | 4 |
+| us_diesel | 4 | 4 |
+| us_election_2024 | 4 | 2 |
+| volcanoes_holocene | 3 | 3 |
+| volyn_settlements | 3 | 3 |
+
+Set 1 4.00, set 2 3.45, overall 3.71. Below 3: us_election_2024, tokyo_subway.
