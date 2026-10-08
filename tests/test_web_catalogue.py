@@ -180,7 +180,7 @@ def test_top_n_is_ranked_inside_the_window_and_the_within_countries(iso2):
     assert reasons["in countries not on the map"] == 1
     assert reasons["smaller than the 3 largest"] == 1
     assert reasons["districts of a city, or historical, abandoned or destroyed places"] == 1
-    assert "caveat: Moscow is a 2010 census count" in layer["encoding"]
+    assert "caveat: Moscow is an older figure, below the 2021 census count of 13.0 million" in layer["encoding"]
     assert layer["title"] == "The 3 largest cities by population"
     assert "city proper" in layer["summary"] and "not the metropolitan area" in layer["encoding"]
     assert layer["provenance"]["license"] == "CC BY 4.0"

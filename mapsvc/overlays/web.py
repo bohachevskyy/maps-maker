@@ -194,7 +194,10 @@ CATALOGUE = (
         # Said under the map when the city is on it: GeoNames carries the
         # latest figure its sources give, which for a few cities is not the
         # city proper's current one.
-        "caveats": {"Moscow": "a 2010 census count",
+        # Measured 2026-10-08 in cities15000: Moscow 10,381,222 -- near the 2002
+        # census, well below the 2021 census (13.0 M); Stockholm 1,515,017 and
+        # Copenhagen 1,153,615, well above their municipalities.
+        "caveats": {"Moscow": "an older figure, below the 2021 census count of 13.0 million",
                     "Stockholm": "a wider urban-area figure",
                     "Copenhagen": "a wider urban-area figure"},
         "size_label": "Population, city proper",
@@ -968,7 +971,7 @@ def _points_layer(base, rows, roles, entry, excluded, window):
 
 
 def _caveats(entry, kept) -> str:
-    """". Caveat: Moscow is a 2010 census count; ..." for the cities drawn."""
+    """". Caveat: Moscow is an older figure ...; ..." for the cities drawn."""
     found: dict = {}
     for row in kept:
         text = (entry.get("caveats") or {}).get(row.get("name"))
