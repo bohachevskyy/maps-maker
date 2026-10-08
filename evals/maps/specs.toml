@@ -212,7 +212,7 @@ excludes = [[16.37, 48.21]]
 spot = ["DE300>3000", "DE300>DE600"]   # Berlin, Hamburg (verify)
 must = [
   "about 400 Kreise and kreisfreie Städte, joined on NUTS 3 code",
-  "log-like classes: density spans from ~35 to ~4,000 per km2",
+  "log-like classes: density spans from ~35 to ~4,800 per km2 (München 4,829)",
   "Länder borders drawn heavier than district borders",
   "© EuroGeographics credited",
 ]
