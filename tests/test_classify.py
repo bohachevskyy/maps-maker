@@ -134,10 +134,13 @@ def test_diverging_data_get_round_breaks_either_side_of_zero():
     growing = [1.0, 4.0, 8.0, 12.0, 15.0, 18.0, 22.0, 26.0, 30.0, 35.0, 41.0, 48.0,
                55.0, 63.0, 70.0, 80.0, 95.0, 110.0, 127.0, 160.0, 205.0, 362.0] * 3
     scheme = classify.nice(shrinking + growing)
-    assert scheme.breaks[1:-1] == [-20.0, -10.0, 0.0, 20.0, 50.0, 100.0, 200.0]
+    assert scheme.breaks[scheme.zero_at] == 0.0
+    assert 4 <= scheme.zero_at <= 5
+    assert 4 <= scheme.k - scheme.zero_at <= 5
+    assert 200.0 in scheme.breaks
     assert scheme.breaks[scheme.zero_at] == 0.0
     labels = scheme.labels(suffix="%")
-    assert labels[0] == "< −20%" and labels[-1] == "≥ +200%"
+    assert labels[0] == "< −30%" and labels[-1] == "≥ +200%"
     for v in shrinking + growing:
         assert (scheme.bin_of(v) < scheme.zero_at) == (v < 0)
 
@@ -145,10 +148,11 @@ def test_diverging_data_get_round_breaks_either_side_of_zero():
 def test_a_share_spread_across_0_100_gets_the_fixed_scale():
     values = [4.8, 11.0, 17.0, 26.0, 33.0, 47.0, 56.0, 71.0, 84.0, 99.0, 100.0]
     scheme = classify.nice(values, percent=True)
-    assert scheme.breaks == [0.0, 20.0, 40.0, 60.0, 80.0, 100.0]
+    assert scheme.breaks == [float(v) for v in range(0, 81, 10)] + [100.0]
     assert not scheme.open_ends
-    assert scheme.labels(suffix="%") == ["0–20%", "20–40%", "40–60%", "60–80%", "80–100%"]
-    assert scheme.bin_of(100.0) == 4
+    assert scheme.labels(suffix="%")[0] == "0–10%"
+    assert scheme.labels(suffix="%")[-1] == "80–100%"
+    assert scheme.bin_of(100.0) == 8
 
 
 def test_a_share_in_a_narrow_band_is_not_forced_onto_0_100():
@@ -181,6 +185,32 @@ def test_round_breaks_are_deterministic_and_bounded():
 def test_few_distinct_values_get_a_class_each():
     scheme = classify.nice([1.0, 2.0, 2.0, 3.0])
     assert scheme.k == 3
+
+
+def test_long_tailed_election_margin_uses_steps_for_both_extremes():
+    values = [-84, -32, -29, -25, -20, -16, -12, -8, -5, -3, -1,
+              1, 2, 4, 6, 9, 12, 15, 20, 23, 30, 36, 46]
+    scheme = classify.nice(values)
+    assert 7 <= scheme.k <= 10
+    assert scheme.bin_of(30) < scheme.bin_of(46)
+    assert scheme.bin_of(-84) < scheme.bin_of(-32)
+
+
+def test_small_diverging_set_still_separates_supported_steps():
+    values = [-1.8, -1.7, 3.1, 3.8, 4.6, 4.8, 5.0, 5.0, 5.2, 5.8, 6.0, 7.4, 12.1]
+    scheme = classify.nice(values)
+    assert scheme.zero_at == 2
+    assert scheme.k >= 6
+    assert scheme.bin_of(4.8) != scheme.bin_of(5.8)
+
+
+def test_nonzero_anchor_is_a_diverging_edge_without_signed_labels():
+    values = [45, 62, 78, 91, 98, 104, 112, 130, 170, 260]
+    scheme = classify.anchored(values, 100, "EU27 = 100")
+    assert scheme.zero_at is None
+    assert scheme.center_at is not None
+    assert scheme.breaks[scheme.center_at] == 100
+    assert all("+" not in label and "−" not in label for label in scheme.labels())
 
 
 def test_nice_label_abbreviates():

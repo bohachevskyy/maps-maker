@@ -45,6 +45,25 @@ def choose(extent: Extent) -> str:
     return "laea"
 
 
+def frame_box(box: Extent) -> Extent:
+    """A feature extent with modest geographic breathing room.
+
+    Long thin routes also get enough height to remain a map rather than a
+    ribbon. Pure so both harvest and the I/O-free renderer can use the exact
+    same derived framing rule.
+    """
+    west, south, east, north = box
+    dx = (east - west) * 0.08 + 0.3
+    dy = (north - south) * 0.08 + 0.3
+    west, east, south, north = west - dx, east + dx, south - dy, north + dy
+    ground = (east - west) * math.cos(math.radians((south + north) / 2))
+    if north - south < ground / 3:
+        grow = (ground / 3 - (north - south)) / 2
+        south, north = south - grow, north + grow
+    return (round(max(-180.0, west), 2), round(max(-90.0, south), 2),
+            round(min(180.0, east), 2), round(min(90.0, north), 2))
+
+
 def _mercator(lon0: float):
     def project(lon: float, lat: float) -> tuple[float, float]:
         phi = math.radians(max(-MERCATOR_LAT_LIMIT, min(MERCATOR_LAT_LIMIT, lat)))

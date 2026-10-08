@@ -205,6 +205,46 @@ def test_rows_and_dropped_come_back_in_a_stable_order(offline):
     assert [d["id"] for d in result.dropped] == ["CCC"]
 
 
+def test_every_explicit_within_country_is_drawn_or_hatched(monkeypatch):
+    from mapsvc.cartography import Boundaries
+    from mapsvc.statistics import Values
+
+    units = [
+        {"id": "AAA", "keys": {"ISO3": "AAA"}, "geometry": BOX},
+        {"id": "BBB", "keys": {"ISO3": "BBB"}, "geometry": BOX},
+    ]
+    boundaries = Boundaries(units=units, keys=("ISO3",), provenance={})
+    monkeypatch.setattr(H, "_check_granularity", lambda manifest: None)
+    monkeypatch.setattr(H.cartography, "load", lambda *args, **kwargs: boundaries)
+    monkeypatch.setattr(H.derive, "values", lambda manifest: Values(
+        values={"AAA": 42.0}, provenance={"level": "ratio"}))
+    manifest = build_manifest(within=("AAA", "BBB"), bbox=None,
+                              variable_source="owid", variable_id="x")
+    result = H._build(manifest)
+    assert [row["id"] for row in result.rows] == ["AAA"]
+    assert [(row["id"], row["reason"]) for row in result.dropped] == [("BBB", "no_join")]
+    assert len(result.rows) + len(result.dropped) == len(manifest.within)
+    from mapsvc.render import render
+    svg = render(manifest, result)
+    assert 'data-id="AAA"' in svg and 'data-id="BBB"' in svg
+    assert "1 of 2 features excluded" in svg
+
+
+def test_missing_explicit_within_country_is_an_error(monkeypatch):
+    from mapsvc.cartography import Boundaries
+
+    boundaries = Boundaries(
+        units=[{"id": "AAA", "keys": {"ISO3": "AAA"}, "geometry": BOX}],
+        keys=("ISO3",), provenance={})
+    monkeypatch.setattr(H, "_check_granularity", lambda manifest: None)
+    monkeypatch.setattr(H.cartography, "load", lambda *args, **kwargs: boundaries)
+    manifest = build_manifest(within=("AAA", "BBB"), bbox=None,
+                              variable_source=None, variable_id=None)
+    with pytest.raises(H.HarvestError, match="BBB") as caught:
+        H._build(manifest)
+    assert caught.value.field == "within"
+
+
 
 def test_a_genuinely_empty_variable_still_blames_the_variable(offline):
     offline([feature("AAA", GDP_MD=-99), feature("BBB", GDP_MD=-99)])

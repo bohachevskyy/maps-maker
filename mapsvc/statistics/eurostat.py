@@ -356,7 +356,7 @@ def load(variable_id: str, level: str, region: str, year: int | None = None) -> 
                               "variable.change" if year is not None else "variable.id")
     spread = sorted(set(chosen.values()))
     year_label = str(spread[0]) if len(spread) == 1 else f"{spread[0]}–{spread[-1]}"
-    return Values(values=values, years=chosen, provenance={
+    provenance = {
         "source": "Eurostat",
         "vintage": f"{_parse_id(variable_id)[0]}, updated {cube.get('updated', '')[:10]}",
         "variable": meta.label,
@@ -367,4 +367,40 @@ def load(variable_id: str, level: str, region: str, year: int | None = None) -> 
         "year": year_label,
         "key": "NUTS",
         "note": (f"{provisional} values provisional or estimated" if provisional else None),
-    })
+    }
+    dataset, pinned = _parse_id(variable_id)
+    if pinned.get("unit") == "PPS_EU27_2020_HAB":
+        reference_year = max(chosen.values())
+        reference = _eu27_reference(dataset, tuple(sorted(pinned.items())), reference_year)
+        if reference is not None and reference > 0:
+            provenance["index_reference"] = {
+                "label": "EU27 = 100", "value": reference,
+                "year": reference_year, "raw_unit": meta.unit,
+            }
+    return Values(values=values, years=chosen, provenance=provenance)
+
+
+@functools.lru_cache(maxsize=16)
+def _eu27_reference(dataset: str, pinned_items: tuple, year: int | None = None) -> float | None:
+    """EU27 aggregate for the exact dataset cell and year, when published."""
+    pinned = dict(pinned_items)
+    query = dict(pinned, geo="EU27_2020", lang="en")
+    if year is not None:
+        query["time"] = str(year)
+    try:
+        payload = json.loads(_get(DATA.format(dataset=dataset) + "?"
+                                  + urllib.parse.urlencode(sorted(query.items()))))
+    except StatisticsError:
+        return None
+    category = (((payload.get("dimension") or {}).get("geo") or {})
+                .get("category") or {})
+    geo = category.get("index", {})
+    if "EU27_2020" not in geo:
+        return None
+    observations = payload.get("value") or {}
+    if isinstance(observations, list):
+        observations = {str(i): value for i, value in enumerate(observations)}
+    for value in observations.values():
+        if value is not None:
+            return float(value)
+    return None

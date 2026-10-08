@@ -34,7 +34,7 @@ NO_DATA = {-99, "-99", "", None}
 # Bump when the shape of a cached HarvestResult changes -- new provenance keys,
 # a different join, altered drop reasons. Without it a code change silently
 # keeps serving rows written in the old format.
-CACHE_VERSION = 18
+CACHE_VERSION = 19
 
 # Physical context is derived from the overlay and its window, never requested
 # in the manifest. These files are fetched here and cached with the other input
@@ -177,7 +177,7 @@ def _framed_on_overlays(manifest: Manifest) -> HarvestResult:
     world = overlays.Window(bbox=None, within=None, extent=WORLD_EXTENT)
     layers = _load_overlay_layers(manifest.overlays, world)
     box = overlay_render.overlay_extent(layers)
-    box = WORLD_EXTENT if box is None else frame_box(box)
+    box = WORLD_EXTENT if box is None else project.frame_box(box)
     result = _base(dataclasses.replace(manifest, bbox=box))
     result.overlays = layers
     result.provenance["overlay_bbox"] = list(box)
@@ -193,18 +193,7 @@ def frame_box(box: tuple) -> tuple:
     """An overlay's extent padded into a window: 8% plus 0.3° each side, and
     tall enough (a third of its ground width) that a long thin route is not
     framed as a ribbon."""
-    import math
-
-    west, south, east, north = box
-    dx = (east - west) * 0.08 + 0.3
-    dy = (north - south) * 0.08 + 0.3
-    west, east, south, north = west - dx, east + dx, south - dy, north + dy
-    ground = (east - west) * math.cos(math.radians((south + north) / 2))
-    if north - south < ground / 3:
-        grow = (ground / 3 - (north - south)) / 2
-        south, north = south - grow, north + grow
-    return (round(max(-180.0, west), 2), round(max(-90.0, south), 2),
-            round(min(180.0, east), 2), round(min(90.0, north), 2))
+    return project.frame_box(box)
 
 
 def _base(manifest: Manifest) -> HarvestResult:
@@ -214,7 +203,8 @@ def _base(manifest: Manifest) -> HarvestResult:
         stored = json.loads(cached.read_text())
         return HarvestResult(stored["rows"], stored["provenance"], stored["dropped"],
                              context=stored.get("context", []),
-                             names=stored.get("names", []))
+                             names=stored.get("names", []),
+                             hierarchy=stored.get("hierarchy", []))
 
     result = _build(manifest)
     _add_context(manifest, result)
@@ -223,7 +213,7 @@ def _base(manifest: Manifest) -> HarvestResult:
     cached.parent.mkdir(parents=True, exist_ok=True)
     payload = {"rows": result.rows, "provenance": result.provenance,
                "dropped": result.dropped, "context": result.context,
-               "names": result.names}
+               "names": result.names, "hierarchy": result.hierarchy}
     temporary = cached.with_suffix(".part")
     temporary.write_text(json.dumps(payload, sort_keys=True))
     temporary.replace(cached)
@@ -799,6 +789,7 @@ def _build(manifest: Manifest) -> HarvestResult:
         boundaries = cartography.load(manifest.basemap_source, manifest.level,
                                       manifest.bbox, manifest.basemap_detail,
                                       manifest.within)
+    _require_named_units(manifest, boundaries)
     provenance = {
         "bbox": None if manifest.bbox is None else list(manifest.bbox),
         "within": manifest.within,
@@ -822,7 +813,9 @@ def _build(manifest: Manifest) -> HarvestResult:
         # A base map: cartography with nothing painted on it.
         rows = [{"id": u["id"], "geometry": u["geometry"], "value": None,
                  "name": u.get("name")} for u in boundaries.units]
-        return HarvestResult(rows=rows, provenance=provenance, dropped=[])
+        hierarchy = _hierarchy(manifest, provenance)
+        return HarvestResult(rows=rows, provenance=provenance, dropped=[],
+                             hierarchy=hierarchy)
 
     statistics_key = statistics.key_at(manifest.variable_source, manifest.level)
     boundary_keys = tuple(boundaries.keys or boundaries.provenance.get("keys", ()))
@@ -856,6 +849,7 @@ def _build(manifest: Manifest) -> HarvestResult:
         "per": values.provenance.get("per"),
         "change": values.provenance.get("change"),
         "diverging": values.provenance.get("diverging"),
+        "index_reference": values.provenance.get("index_reference"),
     })
 
     # The measurement level of what is drawn, which render reads instead of
@@ -917,7 +911,7 @@ def _build(manifest: Manifest) -> HarvestResult:
     if not rows:
         raise HarvestError(*_nothing_usable(manifest, dropped))
 
-    plain = _plain_land(dropped, keys_of, statistics_key)
+    plain = _plain_land(dropped, keys_of, statistics_key, manifest.within)
     if plain:
         dropped = [d for d in dropped if d not in plain]
         provenance["plain_land"] = sorted(str(d.get("name") or d["id"]) for d in plain)
@@ -927,8 +921,27 @@ def _build(manifest: Manifest) -> HarvestResult:
     dropped.sort(key=lambda r: (str(r["id"]), r["reason"]))
     context = [{"id": str(d["id"]), "geometry": d["geometry"]}
                for d in sorted(plain, key=lambda d: str(d["id"]))]
+    hierarchy = _hierarchy(manifest, provenance)
     return HarvestResult(rows=rows, provenance=provenance, dropped=dropped,
-                         context=context)
+                         context=context, hierarchy=hierarchy)
+
+
+def _hierarchy(manifest: Manifest, provenance: dict) -> list:
+    """A coarser boundary layer implied by a detailed administrative map.
+
+    NUTS 2 and 3 polygons do not make their NUTS 1 parents legible merely by
+    sharing many hairline edges. Fetching the published parent geometry once
+    is both smaller and more faithful than trying to union hundreds of child
+    rings without a topology library.
+    """
+    if manifest.basemap_source != "gisco" or manifest.level not in ("nuts_2", "nuts_3"):
+        return []
+    parents = cartography.load("gisco", "nuts_1", manifest.bbox, "full",
+                               manifest.within)
+    provenance["hierarchy_level"] = "nuts_1"
+    provenance["hierarchy_scale"] = parents.provenance.get("scale")
+    return [{"id": unit["id"], "name": unit.get("name"),
+             "geometry": unit["geometry"]} for unit in parents.units]
 
 
 # Territories with no permanent population, which no statistics source covers.
@@ -937,11 +950,40 @@ def _build(manifest: Manifest) -> HarvestResult:
 UNINHABITED = {"ATA", "ATF", "HMD", "BVT", "SGS"}
 
 
-def _plain_land(dropped: list, keys_of: dict, statistics_key: str) -> list:
+def _require_named_units(manifest: Manifest, boundaries) -> None:
+    """An explicitly named country may not disappear before the value join.
+
+    Descendant selectors (CAN at admin_1, US-CA at admin_2, EU at NUTS) do not
+    name units at the requested level and are checked by the ordinary invariant
+    that every returned boundary enters either rows or dropped. At admin_0 each
+    selector is the unit itself, so absence is unambiguous and must be loud.
+    """
+    if manifest.level != "admin_0" or not manifest.within:
+        return
+    aliases = set()
+    for unit in boundaries.units:
+        aliases.add(str(unit.get("id") or "").upper())
+        aliases.update(str(value).upper() for value in (unit.get("keys") or {}).values()
+                       if value)
+        if unit.get("key"):
+            aliases.add(str(unit["key"]).upper())
+    special = {"EU", "EU27", "EU27_2020", "WORLD"}
+    missing = sorted(code for code in manifest.within
+                     if code.upper() not in aliases and code.upper() not in special)
+    if missing:
+        raise HarvestError(
+            "the boundary source did not return explicitly selected unit(s): "
+            + ", ".join(missing), "within")
+
+
+def _plain_land(dropped: list, keys_of: dict, statistics_key: str,
+                within: tuple | None = None) -> list:
     if statistics_key != "ISO3":
         return []
+    explicit = {str(code).upper() for code in (within or ())}
     return [d for d in dropped if d["reason"] in ("no_join", "no_data")
-            and keys_of.get(d["id"]) in UNINHABITED]
+            and keys_of.get(d["id"]) in UNINHABITED
+            and keys_of.get(d["id"]) not in explicit]
 
 
 # What a drop reason means, for the footnote. A source can add its own (Ukrstat:

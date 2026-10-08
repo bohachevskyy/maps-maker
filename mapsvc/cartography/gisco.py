@@ -1,10 +1,10 @@
 """Eurostat GISCO: NUTS regions, the geography Eurostat publishes statistics on.
 
     https://gisco-services.ec.europa.eu/distribution/v2/nuts/geojson/
-        NUTS_RG_{20M|10M}_2024_4326_LEVL_{1|2|3}.geojson
+        NUTS_RG_{20M|01M}_2024_4326_LEVL_{1|2|3}.geojson
 
 GeoJSON in EPSG:4326, so no projection or parsing work. `simplified` is the
-1:20 million file, `full` the 1:10 million one. Every feature carries NUTS_ID,
+1:20 million file, `full` the 1:1 million one. Every feature carries NUTS_ID,
 which is the join key, plus its country (CNTR_CODE, ISO3_CODE) and an EU
 membership flag (EU_STAT).
 
@@ -31,8 +31,8 @@ URL = ("https://gisco-services.ec.europa.eu/distribution/v2/nuts/geojson/"
 
 LEVELS = ("nuts_1", "nuts_2", "nuts_3")
 KEYS = {level: ("NUTS",) for level in LEVELS}
-_SCALE = {"simplified": "20M", "full": "10M"}
-_SCALE_LABEL = {"20M": "1:20,000,000", "10M": "1:10,000,000"}
+_SCALE = {"simplified": "20M", "full": "01M"}
+_SCALE_LABEL = {"20M": "1:20,000,000", "01M": "1:1,000,000"}
 
 LICENSE = "Eurostat GISCO copyright notice"
 ATTRIBUTION = "© EuroGeographics for the administrative boundaries"
