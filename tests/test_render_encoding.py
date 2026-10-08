@@ -179,11 +179,11 @@ def test_a_lone_negative_outlier_does_not_trigger_a_diverging_ramp():
 
 def test_diverging_colours_meet_at_the_light_centre():
     below, above = colors.diverging("RdBu", 2, 3), colors.colors("RdBu", 6)
-    assert below == ["#ef8a62", "#f6c4ad", "#b7d7e8", "#67a9cf", "#2166ac"]
+    assert below == ["#ef8a62", "#f4b89d", "#a6cde3", "#67a9cf", "#2166ac"]
     assert below[1:] == above[2:]
     reversed_asymmetric = colors.diverging("RdBu", 2, 4, reverse=True)
-    assert reversed_asymmetric[:2] == ["#92c5de", "#b7d7e8"]
-    assert reversed_asymmetric[2:] == ["#f6c4ad", "#f4a582", "#d6604d", "#b2182b"]
+    assert reversed_asymmetric[:2] == ["#7fb5d5", "#a6cde3"]
+    assert reversed_asymmetric[2:] == ["#f4b89d", "#ee9b76", "#d6604d", "#b2182b"]
 
 
 # ------------------------------------------------------- small features ---
@@ -218,8 +218,8 @@ def test_election_margin_puts_republican_leads_in_red_and_names_both_signs():
         rows=_change_rows(values), provenance=_ratio(diverging=direction), dropped=[]))
     root = ET.fromstring(text)
     fills = {key: path.get("fill") for key, path in _features(root).items()}
-    assert fills["U00"].lower().startswith(("#05", "#21", "#43", "#67", "#92", "#b7"))
-    assert fills["U09"].lower().startswith(("#67", "#b2", "#d6", "#ef", "#f4", "#f6"))
+    assert fills["U00"].lower().startswith(("#05", "#21", "#43", "#67", "#7f", "#a6"))
+    assert fills["U09"].lower().startswith(("#67", "#b2", "#d6", "#ee", "#ef", "#f4"))
     assert "blue = Democratic lead; red = Republican lead" in text
 
 

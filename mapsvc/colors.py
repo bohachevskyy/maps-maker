@@ -58,13 +58,14 @@ _GRADED = {
         4: ["#ca0020", "#f4a582", "#92c5de", "#0571b0"],
         5: ["#ca0020", "#f4a582", "#f7f7f7", "#92c5de", "#0571b0"],
         # The first positive class must remain visibly blue against WATER on a
-        # world map; ColorBrewer's #d1e5f0 was only 1.12:1 against #eaf1f7.
-        6: ["#b2182b", "#ef8a62", "#f6c4ad", "#b7d7e8", "#67a9cf", "#2166ac"],
-        7: ["#b2182b", "#ef8a62", "#f6c4ad", "#f7f7f7", "#b7d7e8", "#67a9cf", "#2166ac"],
-        8: ["#b2182b", "#d6604d", "#f4a582", "#f6c4ad", "#b7d7e8", "#92c5de", "#4393c3", "#2166ac"],
-        9: ["#b2182b", "#d6604d", "#f4a582", "#f6c4ad", "#f7f7f7", "#b7d7e8", "#92c5de", "#4393c3", "#2166ac"],
-        10: ["#67001f", "#b2182b", "#d6604d", "#f4a582", "#f6c4ad", "#b7d7e8", "#92c5de", "#4393c3", "#2166ac", "#053061"],
-        11: ["#67001f", "#b2182b", "#d6604d", "#f4a582", "#f6c4ad", "#f7f7f7", "#b7d7e8", "#92c5de", "#4393c3", "#2166ac", "#053061"],
+        # world map; ColorBrewer's #d1e5f0 was only 1.12:1 against #eaf1f7; the first class either side of zero is
+        # also kept 1.35:1 off the sea tint.
+        6: ["#b2182b", "#ef8a62", "#f4b89d", "#a6cde3", "#67a9cf", "#2166ac"],
+        7: ["#b2182b", "#ef8a62", "#f4b89d", "#f7f7f7", "#a6cde3", "#67a9cf", "#2166ac"],
+        8: ["#b2182b", "#d6604d", "#ee9b76", "#f4b89d", "#a6cde3", "#7fb5d5", "#4393c3", "#2166ac"],
+        9: ["#b2182b", "#d6604d", "#ee9b76", "#f4b89d", "#f7f7f7", "#a6cde3", "#7fb5d5", "#4393c3", "#2166ac"],
+        10: ["#67001f", "#b2182b", "#d6604d", "#ee9b76", "#f4b89d", "#a6cde3", "#7fb5d5", "#4393c3", "#2166ac", "#053061"],
+        11: ["#67001f", "#b2182b", "#d6604d", "#ee9b76", "#f4b89d", "#f7f7f7", "#a6cde3", "#7fb5d5", "#4393c3", "#2166ac", "#053061"],
     }),
     "BrBG": ("diverging", {
         3: ["#d8b365", "#f5f5f5", "#5ab4ac"],
@@ -103,7 +104,7 @@ OCEAN = "#ffffff"
 # Inside a window where every unit was fetched, water is tinted so the frame
 # reads as a map. Outside it -- or on a `within` map, where neighbours were not
 # fetched -- the page stays white, so an absent neighbour never passes for sea.
-WATER = "#f4f6f7"
+WATER = "#dfeaf1"
 # Physical context on overlay maps: quiet enough to sit behind the subject,
 # but distinct from both water and the neutral basemap.
 LAKE_FILL = "#dbeaf2"

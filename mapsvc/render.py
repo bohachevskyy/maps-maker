@@ -231,7 +231,7 @@ def render(manifest: Manifest, result: HarvestResult) -> str:
                           stroke_width=unit_stroke,
                           plain=_visible_area(parts) < MIN_VISIBLE_AREA))
     body.append("</g>")
-    body.append(_hierarchy(result.hierarchy, frame))
+    body.append(_hierarchy(result.hierarchy, frame, land))
     body.append(_physical_context(result.physical, frame))
     if frame.outline is not None:
         body.append(f'<path d="{_d([frame.outline])}" fill="none" '
@@ -263,6 +263,7 @@ def render(manifest: Manifest, result: HarvestResult) -> str:
     labels_svg = ""
     if encoding.mode != "basemap":
         encoding.missing_label = _missing_label(result, drawn_missing, insets)
+        encoding.extra_keys = _outside_keys(result)
         legend, legend_band = _legend(encoding, frame, land,
                                       [u for u in units if u],
                                       bool(drawn_missing) or inset_missing)
@@ -338,6 +339,8 @@ class Encoding:
         self.circles: list = []          # (x, y, r, row) of every drawn circle
         self.vmin = 0.0
         self.missing_label = "no data"   # what the hatch means, in the legend
+        # (fill, label) keys after the hatch: neutral land drawn but not mapped.
+        self.extra_keys: list = []
         self.decimals: int | None = None    # the source's own precision, if it has one
 
     def fill(self, value) -> str:
@@ -848,14 +851,26 @@ def _physical_context(layers: list, frame: Frame) -> str:
     return "".join(out)
 
 
-def _hierarchy(units: list, frame: Frame) -> str:
-    """Published parent outlines over detailed child polygons."""
+def _hierarchy(units: list, frame: Frame, land: list = ()) -> str:
+    """Published parent outlines over detailed child polygons.
+
+    A parent whose children went to an inset (the Canaries) is not on the
+    main map: its outline would be drawn where nothing else is.
+    """
     if not units:
         return ""
+    drawn = _union(land) if land else None
     paths = []
     for unit in sorted(units, key=lambda item: str(item["id"])):
         parts = _project(unit["geometry"], frame)
-        d = _d([ring for part in parts for ring in part])
+        rings = [ring for part in parts for ring in part]
+        if drawn is not None and rings:
+            xs = [x for ring in rings for x, _ in ring]
+            ys = [y for ring in rings for _, y in ring]
+            if (max(xs) < drawn[0] - 4 or min(xs) > drawn[2] + 4
+                    or max(ys) < drawn[1] - 4 or min(ys) > drawn[3] + 4):
+                continue
+        d = _d(rings)
         if d:
             paths.append(f'<path d="{d}" data-parent-id={quoteattr(str(unit["id"]))}/>')
     if not paths:
@@ -1434,6 +1449,8 @@ LABEL_EXTREMES = 2
 LABEL_PER_SIDE = 3
 LABEL_PER_SIDE_STEP = 150
 LABEL_MIN_AREA = 40.0
+# A density map also names this many more of its most populous dense units.
+LABEL_POPULOUS_EXTRA = 3
 # ...and at least this far (px) from the one before: not five districts of one
 # empty corner.
 LABEL_APART = 45.0
@@ -1456,6 +1473,9 @@ CALLOUT_DIRECTIONS = ((1, 0), (-1, 0), (1, -0.5), (1, 0.5), (-1, -0.5), (-1, 0.5
                       (-0.5, -1), (-0.5, 1))
 # A last-resort callout may cover this much mapped land; a normal one none.
 CALLOUT_MAX_COVER = 0.25
+# With names only (no code to fall back on), a middling unit's callout may
+# cover this much land before the unit goes unlabelled.
+CALLOUT_NAMES_COVER = 0.6
 # Callouts whose units lie within this distance of each other share a stack.
 STACK_NEAR = 64.0
 # A leader longer than this crosses too much of the map to be followed: the
@@ -1465,6 +1485,8 @@ LEADER_MAX = 90.0
 LEADER_SHORT = 80.0
 # No leader is ever longer than this: past it a middling unit goes unlabelled.
 LEADER_LIMIT = 110.0
+# With names only, a last-resort callout may reach this far.
+LEADER_FAR = 170.0
 STACK_GAP = 1.5
 # A stack's column moves out from the land in these steps, and the whole
 # stack up or down by these, until every label is in free space.
@@ -1559,6 +1581,10 @@ def _value_text(value, encoding: Encoding) -> str:
     v = float(value)
     if encoding.mode == "symbols":
         return _short_count(v)
+    if encoding.value_scale != 1.0:
+        # An index (EU27 = 100): the legend's unit, with the source's own in
+        # brackets for the reader who wants it.
+        return f"{v * encoding.value_scale:.0f} ({_short_count(v)})"
     prefix, suffix = _affixes(encoding.unit)
     scheme = encoding.scheme
     signed = scheme is not None and scheme.zero_at is not None
@@ -1901,6 +1927,7 @@ def _readers_extremes(units, valued, encoding, change: bool) -> set:
     # decline) is told from both.
     low_n = high_n = per_side
     scheme = encoding.scheme
+    story = _populous_dense(units, valued, encoding, per_side + LABEL_POPULOUS_EXTRA)
     diverging = scheme is not None and (
         scheme.zero_at is not None or scheme.center_at is not None)
     if scheme is not None and not diverging and len(valued) >= 3:
@@ -1921,11 +1948,17 @@ def _readers_extremes(units, valued, encoding, change: bool) -> set:
             apart = primary or diverging or all(
                 math.hypot(at[gid][0] - at[o][0], at[gid][1] - at[o][1]) >= LABEL_APART
                 for o in picked if o in at and gid in at)
-            if (big and apart) or (not change and primary):
+            seen = area.get(gid, 0.0) >= MIN_VISIBLE_AREA
+            if (big and apart) or (primary and (seen or not change)):
                 picked.append(gid)
         return picked
 
-    keep = set(side(valued, low_n)) | set(side(valued[::-1], high_n))
+    if story:
+        # A density map is told by its cities: the one emptiest and the one
+        # densest unit, then the most populous of the dense ones.
+        keep = {valued[0][1], valued[-1][1]} | story
+    else:
+        keep = set(side(valued, low_n)) | set(side(valued[::-1], high_n))
     # When the extremes sit in insets (Mayotte, Guyane), the main map's own
     # highest and lowest are named too: Severozapaden, not only the outermost
     # regions.
@@ -1935,6 +1968,38 @@ def _readers_extremes(units, valued, encoding, change: bool) -> set:
     if main:
         keep |= {main[0][1], main[-1][1]}
     return keep
+
+
+_PER_AREA = re.compile(r"\bper\s+(square\s+kilomet|sq\.?\s*km|km|square\s+mile|sq\.?\s*mi)",
+                      re.I)
+
+
+def _geometry_km2(geometry: dict) -> float:
+    polygons = (geometry.get("coordinates") or []
+                if geometry.get("type") == "MultiPolygon"
+                else [geometry.get("coordinates") or []])
+    return sum(_ground_area([tuple(p[:2]) for p in polygon[0]])
+               for polygon in polygons if polygon and len(polygon[0]) >= 3)
+
+
+def _populous_dense(units, valued, encoding, n: int) -> set:
+    """For a density map of many units, the most populous of the dense ones.
+
+    A density is told by its cores: the dark patches a reader looks for are
+    the big cities (Hamburg, Koeln, Muenchen), not the n-th densest district.
+    People per unit is density times ground area, so the harvest rows are
+    enough; the dense ones are the top 15% by density. Empty for anything that
+    is not a per-area quantity.
+    """
+    if (not encoding.unit or not _PER_AREA.search(encoding.unit)
+            or encoding.mode != "choropleth" or len(valued) < LABEL_MAX_UNITS):
+        return set()
+    by_id = {str(row["id"]): row for row, _, _ in units}
+    cutoff = valued[int(len(valued) * 0.85)][0]
+    people = sorted(((value * _geometry_km2(by_id[gid]["geometry"]), gid)
+                     for value, gid in valued if value >= cutoff and gid in by_id),
+                    reverse=True)
+    return {gid for _, gid in people[:n]}
 
 
 def _choropleth_labels(rows, insets, frame, encoding, names, placer, out,
@@ -2082,6 +2147,13 @@ def _callouts(targets, placer, space, frame, out, leaders, unlabelled, insets=()
                 t.blocks(code=True), t.x, t.y, t.ring, t.holes, placer, insets, out, t.gid)):
             later.append(t)
     rest += _stack_phase(later, lambda t: LEADER_MAX, placer, space, frame, out, leaders)
+    if not codes:
+        # Names only, so no code to fall back on: the units still unplaced
+        # share columns in the nearest free space, however far, in the order
+        # of the units on the ground -- not each its own crossing leader.
+        far = [t for t in rest if t.inset is None and t.rank[0] != 3]
+        rest = ([t for t in rest if t not in far]
+                + _stack_phase(far, lambda t: LEADER_FAR, placer, space, frame, out, leaders))
 
     for t in sorted(rest, key=lambda t: t.rank):
         if t.inset is not None:
@@ -2107,12 +2179,13 @@ def _callouts(targets, placer, space, frame, out, leaders, unlabelled, insets=()
         # Without codes to fall back on (one name style), a middling unit may
         # also be called out over a little land.
         covers = ((CALLOUT_MAX_COVER, 1.0) if t.rank[0] == 0
-                  else (CALLOUT_MAX_COVER,) if not codes else ())
+                  else (CALLOUT_MAX_COVER, CALLOUT_NAMES_COVER) if not codes else ())
         for cover in covers:
             for line in t.lines():
                 if placed:
                     break
-                placed = _radial(t, line, cover, placer, space, out, leaders)
+                placed = _radial(t, line, cover, placer, space, out, leaders,
+                                 LEADER_LIMIT if codes or t.rank[0] == 0 else LEADER_FAR)
         if not placed:
             unlabelled.append(t.gid)
 
@@ -2347,9 +2420,11 @@ def _leader_svg(seg, t) -> str:
             f'stroke="{LEADER}" stroke-width="0.6" class="leader"/>' + dot)
 
 
-def _radial(t, line, max_cover, placer, space, out, leaders) -> bool:
+def _radial(t, line, max_cover, placer, space, out, leaders,
+            limit: float = None) -> bool:
     """A single callout, nearest first, over at most `max_cover` mapped land."""
-    for reach in (r for r in CALLOUT_REACH if r <= LEADER_LIMIT):
+    limit = LEADER_LIMIT if limit is None else limit
+    for reach in (r for r in CALLOUT_REACH if r <= limit):
         for dx, dy in CALLOUT_DIRECTIONS:
             if dx == 0:
                 continue
@@ -2638,6 +2713,10 @@ def _country_labels(result, rows, frame, encoding, manifest, placer, mapped, out
                 # from every one, so it is never read as part of a label.
                 if not _fits_inside(box, thin, []) or not placer.fits(
                         (box[0] - 3.0, box[1] - 4.0, box[2] + 3.0, box[3] + 4.0)):
+                    continue
+                # On the map itself: a neighbour reaches under the insets.
+                if not all(frame.visible(x, y) for x, y in (
+                        (box[0], box[1]), (box[2], box[1]), (box[0], box[3]), (box[2], box[3]))):
                     continue
                 if not own and not mapped.free(box, pad=2.0):
                     continue
@@ -2954,7 +3033,45 @@ def _entries(encoding: Encoding, has_missing: bool) -> list[tuple[str, str]]:
     entries = list(zip(encoding.swatches, encoding.scheme.labels(*_affixes(encoding.unit))))
     if has_missing:
         entries.append((f"url(#{colors.HATCH_ID})", encoding.missing_label))
-    return entries
+    return entries + list(encoding.extra_keys)
+
+
+def _outside_keys(result) -> list[tuple[str, str]]:
+    """Legend keys for the neutral land that is drawn but is not data.
+
+    Neighbouring countries on a `within` map are "outside the set"; the
+    land with no permanent population (Antarctica) is named as such. Both
+    are one swatch when a map draws both.
+    """
+    if not result.context:
+        return []
+    p = result.provenance
+    plain = [str(n) for n in p.get("plain_land") or []]
+    neighbours = bool(p.get("context_source"))
+    if neighbours and plain:
+        label = "Outside the set, or uninhabited"
+    elif neighbours:
+        label = "Outside the set"
+    elif plain and plain[0] == "Antarctica":
+        label = "Uninhabited (Antarctica)"
+    elif plain:
+        label = "Uninhabited land"
+    else:
+        return []
+    return [(colors.CONTEXT_LAND, label)]
+
+
+def _plain_keys(encoding: Encoding, has_missing: bool) -> list[tuple[str, str]]:
+    """The keys that follow the scale: the hatch, then neutral land."""
+    keys = [(f"url(#{colors.HATCH_ID})", encoding.missing_label)] if has_missing else []
+    return keys + list(encoding.extra_keys)
+
+
+def _key_swatch(fill: str, x: float, y: float, w: float = SWATCH_W) -> str:
+    if fill.startswith("url("):
+        return _hatch_swatch(x, y, w)
+    return (f'<rect x="{_num(x)}" y="{_num(y)}" width="{_num(w)}" height="{SWATCH_H}" '
+            f'fill="{fill}" stroke="{colors.BORDER}" stroke-width="0.4" class="legend-key"/>')
 
 
 def _hatch_swatch(x: float, y: float, w: float = SWATCH_W) -> str:
@@ -2976,19 +3093,21 @@ def _panel(encoding: Encoding, has_missing: bool):
         big = encoding.radius(refs[0])
         labels = [_count_label(v) for v in refs]
         w = max(min_w, 20 + 2 * big + 10 + max(_text_w(s, 10.5) for s in labels))
-        if has_missing:
-            w = max(w, 20 + SWATCH_W + 8 + _text_w(encoding.missing_label, 10.5))
-        h = 12 + head_h + 8 + 2 * big + (22 if has_missing else 0) + 10
+        keys = _plain_keys(encoding, has_missing)
+        for _, label in keys:
+            w = max(w, 20 + SWATCH_W + 8 + _text_w(label, 10.5))
+        h = 12 + head_h + 8 + 2 * big + 22 * len(keys) + 10
 
         def draw(x, y):
             out = [f'<g font-family="{FONT}">', _box(x, y, w, h)]
             out += _heading(encoding, x + 10, y + 20)
             base = y + 12 + head_h + 8 + 2 * big
             out += _nested_circles(encoding, refs, labels, x + 10 + big, base)
-            if has_missing:
-                out.append(_hatch_swatch(x + 10, base + 9))
-                out.append(f'<text x="{_num(x + 10 + SWATCH_W + 8)}" y="{_num(base + 19.5)}" '
-                           f'font-size="10.5" fill="#333333">{escape(encoding.missing_label)}</text>')
+            for i, (fill, label) in enumerate(keys):
+                out.append(_key_swatch(fill, x + 10, base + 9 + 22 * i))
+                out.append(f'<text x="{_num(x + 10 + SWATCH_W + 8)}" '
+                           f'y="{_num(base + 19.5 + 22 * i)}" '
+                           f'font-size="10.5" fill="#333333">{escape(label)}</text>')
             out.append("</g>")
             return "".join(out)
         return w, h, draw
@@ -3029,11 +3148,12 @@ def _band(encoding: Encoding, has_missing: bool):
             out += _heading(encoding, x, y + 12)
             base = y + head_h + 10 + 2 * big
             out += _nested_circles(encoding, refs, labels, x + big, base)
-            if has_missing:
-                mx = x + 2 * big + 10 + max(_text_w(s, 10.5) for s in labels) + 36
-                out.append(_hatch_swatch(mx, base - SWATCH_H))
+            mx = x + 2 * big + 10 + max(_text_w(s, 10.5) for s in labels) + 36
+            for fill, label in _plain_keys(encoding, has_missing):
+                out.append(_key_swatch(fill, mx, base - SWATCH_H))
                 out.append(f'<text x="{_num(mx + SWATCH_W + 8)}" y="{_num(base - 2.5)}" '
-                           f'font-size="10.5" fill="#333333">{escape(encoding.missing_label)}</text>')
+                           f'font-size="10.5" fill="#333333">{escape(label)}</text>')
+                mx += SWATCH_W + 8 + _text_w(label, 10.5) + 24
             out.append("</g>")
             return "".join(out)
         return h, draw
@@ -3102,11 +3222,12 @@ def _band(encoding: Encoding, has_missing: bool):
             out.append(f'<text x="{_num(tx)}" y="{_num(sy + SWATCH_H + 14)}" '
                        f'font-size="10.5" text-anchor="{anchor}"{weight} '
                        f'fill="#333333">{escape(label)}</text>')
-        if has_missing:
-            mx = x + k * cell + 28
-            out.append(_hatch_swatch(mx, sy, 30))
+        mx = x + k * cell + 28
+        for fill, label in _plain_keys(encoding, has_missing):
+            out.append(_key_swatch(fill, mx, sy, 30))
             out.append(f'<text x="{_num(mx + 38)}" y="{_num(sy + SWATCH_H - 2.5)}" '
-                       f'font-size="10.5" fill="#333333">{escape(encoding.missing_label)}</text>')
+                       f'font-size="10.5" fill="#333333">{escape(label)}</text>')
+            mx += 38 + _text_w(label, 10.5) + 22
         out.append("</g>")
         return "".join(out)
     return h, draw

@@ -47,7 +47,7 @@ LINE_W = 1.9
 POINT_R = 2.6                 # a point with no size attribute
 DENSE_POINT_R = 1.65          # categorical point clouds above DENSE_POINT_COUNT
 DENSE_POINT_COUNT = 500
-MAG_R0 = 2.0                  # radius of the smallest magnitude drawn
+MAG_R0 = 2.6                  # radius of the smallest magnitude drawn
 SQRT_R_MAX = 0.035            # largest sqrt-scaled circle, share of sqrt(area)
 FLOW_W_MAX = 0.075            # widest band, share of map height...
 FLOW_W_MAX_W = 0.027          # ...or of map width, whichever is larger
@@ -619,7 +619,7 @@ def _size_block(layer, radius, floor):
         cx = x
         for r, text in zip(radii, labels):
             out.append(f'<circle cx="{_num(cx + r)}" cy="{_num(cy)}" r="{_num(r)}" '
-                       'fill="#9aa3a8" fill-opacity="0.8" stroke="#ffffff" stroke-width="0.6"/>')
+                       'fill="#9aa3a8" fill-opacity="0.8" stroke="#5f686e" stroke-width="0.7"/>')
             out.append(f'<text x="{_num(cx + 2 * r + 5)}" y="{_num(cy + 3.5)}" '
                        f'font-size="10" fill="{TEXT}">{escape(text)}</text>')
             cx += 2 * r + 10 + _text_w(text, 10) + 14
