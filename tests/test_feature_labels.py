@@ -281,3 +281,69 @@ def test_a_sea_is_named_over_open_water_only():
     xs = [float(p.split(",")[0]) for p in land_box.get("d").lstrip("M").rstrip("Z").split("L")]
     assert float(t.get("x")) - R._text_w("Test Sea", R.SEA_SIZE) / 2 > max(xs)
     assert "Sea names: Natural Earth marine (public domain)." in text
+
+
+# ------------------------------------------------- text of titles and values ---
+
+def _enc(unit, values=(), scheme_zero=None):
+    enc = R.Encoding("choropleth", "x", unit)
+    enc.decimals = R._source_decimals(list(values)) if values else None
+    if scheme_zero is not None:
+        class _S:
+            zero_at = scheme_zero
+        enc.scheme = _S()
+    return enc
+
+
+def test_a_value_keeps_the_precision_of_its_source():
+    enc = _enc("percent", [1.3, 4.1, 9.5, 12.2])
+    assert R._value_text(9.5, enc) == "9.5%"            # not "10%"
+    assert R._value_text(12.2, enc) == "12.2%"
+    assert R._value_text(4.8, _enc("% change 2016–2021")) == "4.8%"   # computed: one decimal under 10
+
+
+def test_a_margin_is_in_percentage_points_led_by_the_winning_side():
+    unit = "percentage points (Republican minus Democratic; positive = Republican lead)"
+    enc = _enc(unit, scheme_zero=4)
+    assert R._value_text(46.3, enc) == "R+46 pp"
+    assert R._value_text(-31.2, enc) == "D+31 pp"
+    assert R._value_text(0.9, enc) == "R+0.9 pp"
+
+
+def test_a_long_subtitle_wraps_whole_and_is_never_cut_with_an_ellipsis():
+    text = ("By state · percentage points (Republican minus Democratic; positive = "
+            "Republican lead) · Shares use valid candidate votes (third parties and "
+            "write-ins included; under/over/void/spoiled ballots excluded); state "
+            "popular vote, not electoral votes · blue = Democratic lead; red = "
+            "Republican lead")
+    lines = R._subtitle_lines(text)
+    assert 2 <= len(lines) <= 3
+    joined = " ".join(line for _, _, line in lines)
+    assert "…" not in joined and "not electoral votes" in joined
+    assert all(R._text_w(line, size) <= R.MAP_W for _, size, line in lines)
+
+
+def test_an_overlay_title_names_the_place_it_is_about():
+    assert R._overlay_title("The 30 largest cities by population", "Europe") == \
+        "Europe's 30 largest cities by population"
+    assert R._overlay_title("Trans-Siberian Railway in Russia", "Russia") == \
+        "Trans-Siberian Railway in Russia"
+    assert R._overlay_title("Every magnitude 6+ earthquake in 2025", "World") == \
+        "Every magnitude 6+ earthquake in 2025"
+
+
+def test_district_names_lose_their_status_but_keep_apart_from_a_namesake():
+    rows = [{"id": "A", "name": "München, Kreisfreie Stadt"},
+            {"id": "B", "name": "München, Landkreis"},
+            {"id": "C", "name": "Köln, Kreisfreie Stadt"}]
+    assert R._label_names(rows) == {"A": "München", "B": "München (Landkreis)", "C": "Köln"}
+
+
+def test_physical_layers_from_one_publisher_share_a_credit_line():
+    layers = [{"provenance": {"name": "Natural Earth ne_50m_lakes",
+                              "publisher": "Natural Earth", "license": "public domain"}},
+              {"provenance": {"name": "Natural Earth ne_50m_rivers",
+                              "publisher": "Natural Earth", "license": "public domain"}}]
+    assert R._physical_credits(layers) == [
+        "Physical context: Natural Earth ne_50m_lakes; ne_50m_rivers "
+        "(Natural Earth, public domain)."]

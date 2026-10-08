@@ -285,7 +285,7 @@ def render(manifest: Manifest, result: HarvestResult) -> str:
 
     title, subtitle = _title(manifest, p), _subtitle(manifest, p, encoding)
     if art is not None and manifest.variable_id is None and art.title:
-        title, subtitle = art.title, art.subtitle
+        title, subtitle = _overlay_title(art.title, p.get("place")), art.subtitle
     head = [
         f'<text x="{PAD}" y="36" font-size="21" font-weight="600" '
         f'fill="{colors.TEXT}">{escape(title)}</text>',
@@ -1812,9 +1812,6 @@ def _missing_label(result, drawn_missing: list, insets: list) -> str:
     return meaning if len(meaning) <= 44 else MISSING_TEXT
 
 
-_TRACE: list = []
-
-
 def _feature_labels(rows: list, insets: list, missing: list, frame: Frame,
                     encoding: Encoding, land: list, placer, every: int,
                     change: bool = False, fresh=None) -> str:
@@ -1865,7 +1862,6 @@ def _feature_labels(rows: list, insets: list, missing: list, frame: Frame,
         plain_placer, mixed_placer = fresh(), fresh()
         plain = attempt(plain_placer, False)
         mixed = attempt(mixed_placer, True)
-        _TRACE.append((sorted(plain[1]), sorted(mixed[1])))
         if len(plain[1]) <= len(mixed[1]):
             (out, unlabelled), chosen = plain, plain_placer
         else:
@@ -2636,7 +2632,10 @@ def _country_labels(result, rows, frame, encoding, manifest, placer, mapped, out
             for dx, dy in _spiral(8.0, 120.0):
                 cx, cy = px + dx, py + dy
                 box = (cx - w / 2, cy - h / 2, cx + w / 2, cy + h / 2)
-                if not _fits_inside(box, thin, []) or not placer.fits(box):
+                # Data labels win: a context name keeps a clear 4 px around it
+                # from every one, so it is never read as part of a label.
+                if not _fits_inside(box, thin, []) or not placer.fits(
+                        (box[0] - 3.0, box[1] - 4.0, box[2] + 3.0, box[3] + 4.0)):
                     continue
                 if not own and not mapped.free(box, pad=2.0):
                     continue
@@ -3200,6 +3199,19 @@ _PLACE_ALIASES = {
 }
 
 
+def _overlay_title(title: str, place: str | None) -> str:
+    """An overlay's own title with the place it is about: "The 30 largest
+    cities by population" on a map of Europe is "Europe's 30 largest cities by
+    population"; "Every magnitude 6+ earthquake" keeps its own scope."""
+    place = _PLACE_ALIASES.get(place, place)
+    if not place or place == "World" or place.casefold() in title.casefold():
+        return title
+    ranked = re.match(r"^The (\d+) (largest|biggest|smallest|most [\w-]+) (.+)$", title)
+    if ranked:
+        return f"{place}'s {ranked.group(1)} {ranked.group(2)} {ranked.group(3)}"
+    return f"{title}, {place}"
+
+
 def _title(manifest: Manifest, provenance: dict) -> str:
     """Concept, place, period: 'Present population, Ukraine, 1 January 2022'.
 
@@ -3324,14 +3336,18 @@ def _footer(manifest, frame: Frame, encoding: Encoding, result, top: float,
     overlay_only = manifest.variable_id is None and bool(result.overlays)
     lines = [f"Boundaries: {source}."]
     if overlay_only:
-        lines.append(f"Projection: {_projection_label(frame)}.")
+        # Where the map is drawn is one paragraph: boundaries, projection and
+        # the physical layers under the data.
+        lines[0] = " ".join([lines[0], f"Projection: {_projection_label(frame)}.",
+                             *_physical_credits(result.physical)])
     else:
         lines.extend([
             f"Variable: {variable}.",
             f"Projection: {_projection_label(frame)}. Classification: {method}. {excluded}."
             + (f" {_plain_land_note(p)}" if _plain_land_note(p) else ""),
         ])
-    lines.extend(_physical_credits(result.physical))
+    if not overlay_only:
+        lines.extend(_physical_credits(result.physical))
     lines.extend(_merge_label_credits(extra))
 
     # Attribution can make a line longer than the canvas. There is no text
@@ -3390,9 +3406,13 @@ def _physical_credits(layers) -> list[str]:
     for details, names in groups.items():
         # "Natural Earth ne_50m_lakes", "Natural Earth ne_50m_rivers": the
         # publisher is said once.
-        head = names[0].split(" ")[0] if len(names) > 1 else ""
-        if head and all(n.startswith(head + " ") for n in names):
-            names = [names[0]] + [n[len(head) + 1:] for n in names[1:]]
+        words = [n.split(" ") for n in names]
+        common = 0
+        while len(names) > 1 and all(len(w) > common + 1 for w in words) and all(
+                w[common] == words[0][common] for w in words):
+            common += 1
+        if common:
+            names = [names[0]] + [" ".join(w[common:]) for w in words[1:]]
         out.append("Physical context: " + "; ".join(names)
                    + (f" ({details})." if details else "."))
     return out

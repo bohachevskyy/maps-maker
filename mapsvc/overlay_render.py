@@ -926,6 +926,8 @@ SETTLEMENT_STYLE = {
 SETTLEMENT_RANK = ("city", "town", "suburb", "village", "hamlet")
 # Villages are tried for a label in order of population, only this many.
 VILLAGE_LABEL_TRIES = 400
+DENSE_POINTS = 100            # more symbols than this and villages go unnamed
+DENSE_VILLAGE_LABELS = 10
 
 
 def _settlement_style(place):
@@ -975,7 +977,15 @@ def _settlements(layer, frame, labels, anchors):
         if not labels._try(f["name"], x, y, r + 1.5, size, f' font-weight="{weight}"'):
             labels.callout(f["name"], x, y, r, bold=True)
     block([t for t in placed if not major(t[0])])
-    for f, x, y in [t for t in order if not major(t[0])][:VILLAGE_LABEL_TRIES]:
+    # A page of a thousand villages named is a page of text: past
+    # DENSE_POINTS symbols only the cities and towns are named, and the few
+    # villages the data ranks (by population) -- none if it ranks none.
+    minor = [t for t in order if not major(t[0])]
+    tries = VILLAGE_LABEL_TRIES
+    if len(placed) > DENSE_POINTS:
+        minor = [t for t in minor if t[0].get("population")]
+        tries = DENSE_VILLAGE_LABELS
+    for f, x, y in minor[:tries]:
         r, _, _, size, weight, ink = _settlement_style(f["category"])
         if size:
             extra = (f' font-weight="{weight}"' if weight else "") + f' style="fill:{ink}"'
@@ -1124,6 +1134,8 @@ class Labels:
         # tested against the few near it.
         self.ink_cells: dict = {}
         self.leaders: list[tuple] = []
+        # Dots of the named places on the map: a label sits nearest its own.
+        self.dots: list[tuple] = []
 
     def block(self, x0, y0, x1, y1):
         self.taken.append((x0, y0, x1, y1))
@@ -1190,7 +1202,7 @@ class Labels:
             else:
                 ty = y + h * 0.35
             box = (x0, ty - h * 0.85, x0 + w, ty + h * 0.2)
-            if self._free(box):
+            if self._free(box) and not self._nearer_another(box, x, y):
                 self.taken.append(box)
                 self.out.append(
                     f'<text x="{_num(tx)}" y="{_num(ty)}" font-size="{size:g}" '
@@ -1198,6 +1210,14 @@ class Labels:
                     f'{escape(text)}</text>')
                 return True
         return False
+
+    def _nearer_another(self, box, x, y) -> bool:
+        """Whether a label box sits closer to another named place's dot than to
+        its own: Moscow's name above Yaroslavl's dot reads as Yaroslavl's."""
+        cx, cy = (box[0] + box[2]) / 2, (box[1] + box[3]) / 2
+        own = math.hypot(cx - x, cy - y)
+        return any(math.hypot(cx - dx, cy - dy) < own
+                   for dx, dy in self.dots if abs(dx - x) + abs(dy - y) > 1.0)
 
     def place(self, text, x, y, italic=False, bold=False):
         extra = (' font-style="italic"' if italic else "") + (
@@ -1287,6 +1307,7 @@ class Labels:
                          and math.hypot(ax - x, ay - y) <= SERVED_PX for ax, ay in anchors)
             candidates.append((not served, -p["pop"], p["name"], x, y, served))
         candidates.sort()
+        self.dots = [(x, y) for _, _, _, x, y, _ in candidates][:CONTEXT_LABELS * 3]
         dots, texts = [], []
         bold_left = CONTEXT_BOLD
         for _, _, name, x, y, served in candidates:

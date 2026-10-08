@@ -177,9 +177,10 @@ def test_top_n_is_ranked_inside_the_window_and_the_within_countries(iso2):
         ("Moscow", 1), ("London", 2), ("Paris", 3)]
     reasons = {e["reason"]: e["count"] for e in layer["excluded"]}
     assert reasons["outside the map window"] == 1
-    assert reasons["in countries outside `within`"] == 1
+    assert reasons["in countries not on the map"] == 1
     assert reasons["smaller than the 3 largest"] == 1
-    assert any(r.startswith("feature_code PPLX") for r in reasons)
+    assert reasons["districts of a city, or historical, abandoned or destroyed places"] == 1
+    assert "caveat: Moscow is a 2010 census count" in layer["encoding"]
     assert layer["title"] == "The 3 largest cities by population"
     assert "city proper" in layer["summary"] and "not the metropolitan area" in layer["encoding"]
     assert layer["provenance"]["license"] == "CC BY 4.0"
@@ -268,3 +269,13 @@ def test_the_agent_is_shown_the_filters_it_may_use():
     assert web._GVP in offered and "Filters after '#'" in offered
     storms = agent._overlay_candidates("web", "atlantic hurricane tracks")
     assert "Requires season" in storms
+
+
+def test_a_volcano_whose_record_reports_deaths_outranks_a_quiet_one():
+    fields = {"text": "Geological_Summary", "year": "Last_Eruption_Year", "size": "Elevation"}
+    deadly = {"Geological_Summary": "A catastrophic eruption killed 36,000; the tsunami "
+                                    "devastated the coast.", "Last_Eruption_Year": 1883,
+              "Elevation": 813}
+    quiet = {"Geological_Summary": "A field of cones.", "Last_Eruption_Year": -3000,
+             "Elevation": 813}
+    assert web._notability(deadly, fields) > web._notability(quiet, fields) + 2

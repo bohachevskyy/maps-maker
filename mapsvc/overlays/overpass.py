@@ -781,7 +781,7 @@ def _settlements(nodes: list, spec: Filter, what: str, where: str,
         "features": features, "stats": stats,
         "summary": f"{len(features):,} settlements in OpenStreetMap: {breakdown}",
         "encoding": ("One symbol per OSM place node, sized by its place tag; "
-                     "cities and towns always named, villages where room allows"),
+                     "cities and towns named, villages only on sparse maps"),
         "excluded": [], "provenance": provenance,
     }
 

@@ -189,6 +189,14 @@ CATALOGUE = (
         # Sections of a city (PPLX: Pest, Brooklyn) would count it twice;
         # historical, abandoned and destroyed places are not cities now.
         "exclude": {"feature_code": ("PPLX", "PPLH", "PPLQ", "PPLW", "PPLCH")},
+        "exclude_reason": "districts of a city, or historical, abandoned or "
+                          "destroyed places",
+        # Said under the map when the city is on it: GeoNames carries the
+        # latest figure its sources give, which for a few cities is not the
+        # city proper's current one.
+        "caveats": {"Moscow": "a 2010 census count",
+                    "Stockholm": "a wider urban-area figure",
+                    "Copenhagen": "a wider urban-area figure"},
         "size_label": "Population, city proper",
         "label": "Cities", "rank_noun": "cities",
         "definition": "population of the city proper as recorded by GeoNames "
@@ -607,9 +615,9 @@ def _exclude(records: list, entry: dict) -> tuple[list, list]:
                 break
         else:
             kept.append(record)
-    return kept, [{"count": n, "reason": f"{column} {'/'.join(rules[column])} "
-                   "(parts of another place, or not a place today)"}
-                  for column, n in sorted(dropped.items())]
+    why = entry.get("exclude_reason") or (
+        "parts of another place, or not a place today")
+    return kept, [{"count": n, "reason": why} for column, n in sorted(dropped.items())]
 
 
 def _csv(text: str, url: str):
@@ -929,7 +937,7 @@ def _scope(rows: list, window: Window) -> tuple[list, list]:
         kept = [r for r in inside if iso.to_alpha2(r["country"]) in wanted]
         if len(kept) < len(inside):
             excluded.append({"count": len(inside) - len(kept),
-                             "reason": "in countries outside `within`"})
+                             "reason": "in countries not on the map"})
         inside = kept
     return inside, excluded
 
@@ -959,6 +967,20 @@ def _points_layer(base, rows, roles, entry, excluded, window):
             "noun": noun}
 
 
+def _caveats(entry, kept) -> str:
+    """". Caveat: Moscow is a 2010 census count; ..." for the cities drawn."""
+    found: dict = {}
+    for row in kept:
+        text = (entry.get("caveats") or {}).get(row.get("name"))
+        if text:
+            found.setdefault(text, []).append(row["name"])
+    if not found:
+        return ""
+    parts = [(" and ".join(names) + (" is " if len(names) == 1 else " are ") + text)
+             for text, names in found.items()]
+    return "; caveat: " + "; ".join(parts)
+
+
 def _ranked_layer(base, rows, roles, entry, excluded, window, n):
     """The N largest by size, within the window and `within`: every one is
     named on the map with its value, so the ranking can be read off it."""
@@ -982,7 +1004,7 @@ def _ranked_layer(base, rows, roles, entry, excluded, window, n):
     features = [{"id": f"r{r['i']}", "lon": r["lon"], "lat": r["lat"],
                  "size": r["size"], "category": None, "name": r.get("name") or "",
                  "rank": rank} for rank, r in enumerate(kept, 1)]
-    scope = ("the map window and the countries in `within`"
+    scope = ("the map window and the countries drawn"
              if any(e["reason"].startswith("in countries") for e in scoped)
              or (window.within and "country" in roles) else "the map window")
     definition = entry.get("definition") or size_label
@@ -996,7 +1018,7 @@ def _ranked_layer(base, rows, roles, entry, excluded, window, n):
             "summary": f"{definition[:1].upper()}{definition[1:]}",
             "encoding": (f"{measure[:1].upper()}{measure[1:]}: {definition}. "
                          f"Circle area ∝ {measure}; ranked within {scope}; every "
-                         f"one labelled with its {measure}"),
+                         f"one labelled with its {measure}{_caveats(entry, kept)}"),
             "excluded": excluded, "label_top": len(features), "noun": noun}
 
 
