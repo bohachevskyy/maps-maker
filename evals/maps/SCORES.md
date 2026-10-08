@@ -49,3 +49,23 @@ No map reaches 5. Open defects, from the round-4 critic:
 4. reference anchors: EU27=100 scale, Napoleon dates, Sevastopol outline,
    Dijon/Mulhouse labels, ACS margin-of-error note
 5. layout: crop frames to data (Napoleon, EU), merge repeated credit lines
+
+## Cheaper agent models (2026-10-07)
+Same code, same prompts, `--repeat 3`, reasoning effort low, via the Codex CLI
+(`MAPSVC_CODEX_MODEL`). A run whose SVG is byte-identical to gpt-5.6-sol's
+round 4 inherits its score (4); every differing run was critiqued separately.
+
+| model | identical to sol | auto checks | mean (30 runs) | worst map | wall time |
+|---|---|---|---|---|---|
+| gpt-5.6-sol (baseline) | — | 30/30 | 4.00 | 4 | — |
+| gpt-5.6-terra | 29/30 | 29/30* | 3.97 | 3 (gdp_world, 1 of 3 runs) | 623 s |
+| gpt-5.6-luna | 25/30 | 27/30 | 3.67 | 1 (france_lgv, 0 of 3 runs) | 612 s |
+| gpt-6-luna | 24/30 | 27/30 | 3.67 | 1 (france_lgv, 2 of 3 runs) | 690 s |
+
+\* the failure was a service bug (Overture country ids were UUIDs), fixed; the re-rendered map scores 3 because Overture's admin_0 omits Greenland, Hong Kong, Macao, Puerto Rico and Bermuda.
+
+What cheaper models got wrong, all of it in places where the manifest leaves them freedom:
+- OSM tag filters: `service=highspeed` (matches nothing), `usage=main` (60,340 ways, refused), `highspeed=*` (288 extra ways)
+- a bbox added to a `within` map: dropped Alaska/Hawaii (us_diesel) or Del Norte/San Joaquin/Stanislaus labels (ca_county_income)
+- the wrong measure: OWID low-carbon (incl. nuclear) instead of renewables — France 95% vs 26%; spot checks could not catch it
+- basemap: Overture for a world map (missing territories)
