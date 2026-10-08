@@ -207,7 +207,11 @@ def _belongs(feature, codes, level: str) -> bool:
     unit = str(props.get("iso_3166_2") or "").upper()
     country = str(props.get(registry.country_property(level)) or "").upper()
     alpha2 = str(props.get("ISO_A2_EH") or props.get("ISO_A2") or "").upper()
-    return any(code == unit or code == country or code == alpha2 for code in codes)
+    # ADM0_A3 is not ISO3 for a handful of units (South Sudan is SDS, ISO SSD;
+    # Western Sahara is SAH, ISO ESH). The join already uses ISO3, so `within`
+    # must accept it too -- otherwise within ["SSD"] silently drops the unit.
+    iso3 = str(registry.iso3_of(props) or "").upper() if level == "admin_0" else ""
+    return any(code in (unit, country, alpha2, iso3) and code for code in codes)
 
 
 def _selected(level: str, bbox, within: str | None = None) -> list:

@@ -57,3 +57,13 @@ def test_natural_earth_load_exposes_esh_key_and_boundary_note(monkeypatch):
     assert set(units) == {"MAR", "ESH"}
     assert units["ESH"]["geometry"]["type"] == "MultiPolygon"
     assert boundaries.provenance["note"] == natural_earth.WESTERN_SAHARA_NOTE
+
+
+def test_within_accepts_iso3_where_adm0_a3_differs():
+    from mapsvc.cartography import natural_earth as ne
+
+    sudan = {"properties": {"ADM0_A3": "SDS", "ISO_A3": "SSD", "ISO_A2": "SS"}}
+    sahara = {"properties": {"ADM0_A3": "SAH", "ISO_A3": "ESH", "ISO_A2": "EH"}}
+    assert ne._belongs(sudan, {"SSD"}, "admin_0")
+    assert ne._belongs(sudan, {"SDS"}, "admin_0")
+    assert ne._belongs(sahara, {"ESH"}, "admin_0")
