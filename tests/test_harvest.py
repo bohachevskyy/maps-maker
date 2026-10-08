@@ -167,6 +167,71 @@ def test_bbox_cannot_clip_units_selected_by_within(monkeypatch):
     assert "drop the bbox or widen it" in str(caught.value)
 
 
+def test_redundant_bbox_over_four_times_within_extent_is_dropped(monkeypatch, tmp_path):
+    from mapsvc.cartography import Boundaries
+
+    monkeypatch.setenv("MAPSVC_CACHE", str(tmp_path))
+    units = [
+        {"id": "US-AK", "name": "Alaska", "geometry": {
+            "type": "Polygon", "coordinates": [[[-170, 52], [-130, 52],
+                [-130, 71], [-170, 71], [-170, 52]]]}},
+        {"id": "US-HI", "name": "Hawaii", "geometry": {
+            "type": "Polygon", "coordinates": [[[-160, 18], [-154, 18],
+                [-154, 23], [-160, 23], [-160, 18]]]}},
+        {"id": "US-CA", "name": "California", "geometry": {
+            "type": "Polygon", "coordinates": [[[-125, 32], [-114, 32],
+                [-114, 42], [-125, 42], [-125, 32]]]}}]
+    boundaries = Boundaries(units=units, provenance={})
+    monkeypatch.setattr(H.cartography, "load", lambda *args, **kwargs: boundaries)
+
+    manifest = build_manifest(bbox=(-180, -90, 180, 90), within=("USA",),
+                              level="admin_1", variable_source=None,
+                              variable_id=None, basemap_source="census")
+    result = H.harvest(manifest)
+
+    assert result.provenance["bbox"] is None
+    dropped = result.provenance["bbox_dropped"]
+    assert dropped["bbox"] == [-180, -90, 180, 90]
+    assert dropped["within_extent"] == [-170.0, 18.0, -114.0, 71.0]
+    assert dropped["area_ratio"] == pytest.approx(21.833, abs=0.001)
+    assert "clips no selected unit" in dropped["reason"]
+
+
+def test_bbox_at_or_below_four_times_within_extent_is_kept(monkeypatch, tmp_path):
+    from mapsvc.cartography import Boundaries
+
+    monkeypatch.setenv("MAPSVC_CACHE", str(tmp_path))
+    boundaries = Boundaries(units=[{"id": "AAA", "name": "A", "geometry": BOX}],
+                            provenance={})
+    monkeypatch.setattr(H.cartography, "load", lambda *args, **kwargs: boundaries)
+
+    manifest = build_manifest(bbox=(-0.5, -0.5, 1.5, 1.5), within=("AAA",),
+                              variable_source=None, variable_id=None)
+    result = H.harvest(manifest)
+
+    assert result.provenance["bbox"] == [-0.5, -0.5, 1.5, 1.5]
+    assert "bbox_dropped" not in result.provenance
+
+
+def test_pipeline_renders_without_a_bbox_that_harvest_dropped(monkeypatch):
+    from mapsvc import pipeline
+
+    result = H.HarvestResult(
+        provenance={"bbox_dropped": {"bbox": [-180, -90, 180, 90]}})
+    seen = {}
+    monkeypatch.setattr(pipeline, "harvest", lambda manifest: result)
+    monkeypatch.setattr(
+        pipeline, "render",
+        lambda manifest, harvested: seen.setdefault("bbox", manifest.bbox) or "svg",
+    )
+
+    actual = pipeline.draw(build_manifest(bbox=(-180, -90, 180, 90),
+                                          within=("USA",)))
+
+    assert actual == "svg"
+    assert seen["bbox"] is None
+
+
 def test_wide_admin_0_rule_is_carried_to_the_footnote_provenance(monkeypatch):
     result = H.HarvestResult(rows=[], provenance={"vintage": "v5.1.1"}, dropped=[])
     monkeypatch.setattr(H, "_base", lambda manifest: result)
@@ -399,3 +464,47 @@ def test_sea_names_are_clipped_to_the_maps_neighbourhood(monkeypatch):
     ring = result.names[0]["geometry"]["coordinates"][0][0]
     assert max(p[0] for p in ring) <= 20.0, "clipped to the window"
     assert result.provenance["names_source"] == H.MARINE_CREDIT
+
+
+def test_city_scale_routes_derive_municipal_context():
+    city = validate({
+        "bbox": [139.5, 35.55, 139.95, 35.85], "level": "admin_1",
+        "basemap": {"source": "natural_earth"}, "variable": None,
+        "overlays": [{"source": "overpass", "id":
+                      "route=subway;network=東京メトロ|都営地下鉄"}],
+    })
+    derived = H._overlay_context_manifest(city)
+    assert derived.level == "admin_2"
+    assert derived.basemap_source == "overture"
+    assert derived.basemap_detail == "full"
+
+    regional = validate({
+        "bbox": [0, 40, 20, 55], "level": "admin_1", "variable": None,
+        "basemap": {"source": "natural_earth"},
+        "overlays": [{"source": "overpass", "id": "route=train;network=Rail"}],
+    })
+    assert H._overlay_context_manifest(regional) == regional
+
+
+def test_bbox_overlay_window_is_named_by_its_largest_place(monkeypatch):
+    from mapsvc.models import HarvestResult
+
+    manifest = validate({
+        "bbox": [139.5, 35.55, 139.95, 35.85], "level": "admin_1",
+        "basemap": {"source": "natural_earth"}, "variable": None,
+        "overlays": [{"source": "overpass", "id": "route=subway;network=Metro"}],
+    })
+    seen = {}
+    monkeypatch.setattr(H, "context_places", lambda *args, **kwargs: [
+        {"name": "Tokyo", "lon": 139.7, "lat": 35.68, "pop": 37_000_000}])
+
+    def layers(specs, window):
+        seen["window"] = window
+        return [{"kind": "lines", "style": "routes", "features": []}]
+
+    monkeypatch.setattr(H, "_load_overlay_layers", layers)
+    monkeypatch.setattr(H, "_add_physical_context", lambda *args: None)
+    result = HarvestResult(rows=[{"id": "x", "geometry": BOX, "value": None}],
+                           provenance={}, dropped=[])
+    H._add_overlays(manifest, result)
+    assert seen["window"].name == "Tokyo"

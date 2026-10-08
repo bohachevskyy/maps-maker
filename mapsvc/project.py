@@ -53,8 +53,13 @@ def frame_box(box: Extent) -> Extent:
     same derived framing rule.
     """
     west, south, east, north = box
-    dx = (east - west) * 0.08 + 0.3
-    dy = (north - south) * 0.08 + 0.3
+    span = max(east - west, north - south)
+    # A fixed 0.3 degrees is useful for a lone point, but it more than doubles
+    # a city-scale network's frame. Let a non-zero dataset set its own scale;
+    # continental routes still reach the same 0.3-degree cap.
+    base = 0.3 if span <= 1e-9 else min(0.3, max(0.02, span * 0.1))
+    dx = (east - west) * 0.08 + base
+    dy = (north - south) * 0.08 + base
     west, east, south, north = west - dx, east + dx, south - dy, north + dy
     ground = (east - west) * math.cos(math.radians((south + north) / 2))
     if north - south < ground / 3:
@@ -221,7 +226,26 @@ def central_meridian(longitudes, step: float = 30.0, concentration: float = 0.35
     s = sum(math.sin(math.radians(v)) for v in values)
     c = sum(math.cos(math.radians(v)) for v in values)
     if math.hypot(s, c) / len(values) < concentration:
-        return None
+        # A ring-shaped distribution has no meaningful circular mean, but its
+        # seam still matters. Minimise points within ten degrees of the seam;
+        # a finer grid than the mean's rounding is important for volcanoes:
+        # 140E has 2 near its Atlantic seam, while 150E has 37.
+        if len(values) < 200:
+            return None
+        candidates = range(-180, 180, 10)
+
+        def near(centre):
+            seam = centre + 180.0
+            return sum(abs((value - seam + 180.0) % 360.0 - 180.0) <= 10.0
+                       for value in values)
+
+        counts = {candidate: near(candidate) for candidate in candidates}
+        best = min(candidates, key=lambda candidate:
+                   (counts[candidate], abs(candidate), candidate))
+        # An even distribution has no materially better seam.
+        if counts[best] * 2 > counts[0]:
+            return None
+        return None if best == 0 else float(best)
     centre = step * round(math.degrees(math.atan2(s, c)) / step)
     centre = (centre + 180.0) % 360.0 - 180.0
     return None if centre == 0 else centre

@@ -222,9 +222,9 @@ def _selected(level: str, bbox, within: str | None = None) -> list:
             f"natural_earth has no {level!r}; it provides {', '.join(LEVELS)}. "
             "Use the overture basemap for finer levels.", "level"
         )
+    # ``load_source`` is the one normalisation gateway for Natural Earth;
+    # admin-0 geometry is already corrected there for every consumer.
     features = load_source(level)["features"]
-    if level == "admin_0":
-        features = _western_sahara(features)
     if within:
         codes = {c.strip().upper() for c in within}
         features = [f for f in features if _belongs(f, codes, level)]
@@ -279,7 +279,10 @@ def load(level: str, bbox, detail: str = "simplified",
         "license": "public domain",
         "attribution": "Natural Earth",
         "release": registry.SOURCE_VINTAGE,
-        "note": WESTERN_SAHARA_NOTE if level == "admin_0" else None,
+        "note": (WESTERN_SAHARA_NOTE
+                 if level == "admin_0" and any(
+                     unit.get("key") in {"MAR", "ESH"} for unit in units)
+                 else None),
         "level": level,
         "detail": detail,
         "scale": f"1:{registry.scale_for(level)}",

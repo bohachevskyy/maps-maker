@@ -253,7 +253,7 @@ def test_points_round_the_globe_centre_on_their_emptiest_seam():
     # central Asia: no mean centre, but an obvious place for the seam.
     lons = [v for v in range(-180, 180, 2) if not 40 <= v <= 80] * 3
     layer = {"kind": "points", "features": [{"lon": v, "lat": 0} for v in lons]}
-    assert overlay_render.centre_lon([layer]) == -120.0
+    assert overlay_render.centre_lon([layer]) == -110.0
     # Evenly spread: no seam is better than another, so keep Greenwich.
     even = {"kind": "points", "features": [{"lon": v, "lat": 0}
                                            for v in range(-180, 180, 1)]}

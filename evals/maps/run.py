@@ -37,6 +37,7 @@ _COMPARISON = re.compile(r"^\s*([^<>=±]+?)\s*([<>])\s*([^<>=±]+?)\s*$")
 # tolerance of a point. LGVs stop 8-12 km short of city centres, hence 20 km.
 _NEAR = re.compile(rf"^\s*(event_near|line_near)\s*=\s*({_NUMBER})\s*,\s*({_NUMBER})\s*$")
 NEAR_KM = {"event_near": 100.0, "line_near": 20.0}
+_ISO_3166_2 = re.compile(r"^[A-Z]{2}-(.+)$", re.IGNORECASE)
 
 
 def parse_spot(expression: str) -> dict:
@@ -300,6 +301,22 @@ def _footnote_check(text: str) -> dict:
     return result
 
 
+def _resolve_key(key: str, candidates: set[str]) -> str | None:
+    """Resolve a truth key without guessing when a short id is ambiguous."""
+    if key in candidates:
+        return key
+    prefixed = _ISO_3166_2.fullmatch(key)
+    if prefixed:
+        matches = [candidate for candidate in candidates
+                   if _ISO_3166_2.fullmatch(candidate) is None
+                   and candidate == prefixed.group(1)]
+    else:
+        matches = [candidate for candidate in candidates
+                   if (match := _ISO_3166_2.fullmatch(candidate)) is not None
+                   and match.group(1) == key]
+    return matches[0] if len(matches) == 1 else None
+
+
 def _truth_check(path: pathlib.Path, features: set[str], values: dict[str, str]) -> dict:
     if not path.exists():
         return {"status": "not_available", "reason": "truth.csv is absent"}
@@ -323,14 +340,18 @@ def _truth_check(path: pathlib.Path, features: set[str], values: dict[str, str])
         return {"status": "unevaluable", "reason": f"could not read truth.csv: {exc}"}
 
     rows = [(key, value) for key, value in rows if key]
-    present = [(key, truth) for key, truth in rows if key in features]
-    matching = [(key, truth) for key, truth in present if key in values]
+    present = [(key, truth, rendered_key)
+               for key, truth in rows
+               if (rendered_key := _resolve_key(key, features)) is not None]
+    matching = [(key, truth, rendered_key)
+                for key, truth, rendered_key in present
+                if rendered_key in values]
     errors = []
     skipped = []
-    for key, truth in matching:
+    for key, truth, rendered_key in matching:
         try:
             expected = float(truth)
-            actual = float(values[key])
+            actual = float(values[rendered_key])
         except (TypeError, ValueError):
             skipped.append(key)
             continue

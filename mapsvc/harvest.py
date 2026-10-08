@@ -9,8 +9,10 @@ Synchronous, and only lightly cached for now: the Natural Earth files are cached
 to disk, Overture is queried live on every request.
 """
 
+import dataclasses
 import hashlib
 import json
+import math
 import re
 import os
 import pathlib
@@ -34,7 +36,7 @@ NO_DATA = {-99, "-99", "", None}
 # Bump when the shape of a cached HarvestResult changes -- new provenance keys,
 # a different join, altered drop reasons. Without it a code change silently
 # keeps serving rows written in the old format.
-CACHE_VERSION = 20
+CACHE_VERSION = 23
 
 # Physical context is derived from the overlay and its window, never requested
 # in the manifest. These files are fetched here and cached with the other input
@@ -81,7 +83,13 @@ def source_path(level: str = "admin_0") -> pathlib.Path:
 
 
 def load_source(level: str = "admin_0") -> dict:
-    """The raw Natural Earth GeoJSON for a level, fetched once and reused."""
+    """Natural Earth GeoJSON for a level, fetched once and normalised.
+
+    Admin-0 has one project-wide political correction: Natural Earth's
+    de-facto Morocco polygon crosses the internationally recognised Western
+    Sahara border.  Applying it at this single gateway keeps cartography,
+    statistics, ISO lookups, titles, and context land on identical geometry.
+    """
     path = source_path(level)
     if not path.exists():
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -94,7 +102,13 @@ def load_source(level: str = "admin_0") -> dict:
         temporary = path.with_suffix(".part")
         temporary.write_bytes(payload)
         temporary.replace(path)
-    return json.loads(path.read_text())
+    data = json.loads(path.read_text())
+    if level == "admin_0":
+        # Late import avoids harvest <-> cartography's provider import cycle.
+        from mapsvc.cartography.natural_earth import _western_sahara
+
+        data["features"] = _western_sahara(data.get("features", []))
+    return data
 
 
 def select_region(features: list, region: str, level: str = "admin_0") -> list:
@@ -145,11 +159,31 @@ def cache_key(manifest: Manifest) -> str:
 def harvest(manifest: Manifest) -> HarvestResult:
     if manifest.overlays and manifest.bbox is None and not manifest.within:
         return _framed_on_overlays(manifest)
-    result = _base(manifest)
-    _state_derived_basemap_rule(manifest, result)
-    if manifest.overlays:
-        _add_overlays(manifest, result)
+    effective, boundaries, dropped_bbox = _effective_window(
+        _overlay_context_manifest(manifest))
+    result = (_base(effective) if boundaries is None
+              else _base(effective, boundaries))
+    if dropped_bbox is not None:
+        result.provenance["bbox_dropped"] = dropped_bbox
+    _state_derived_basemap_rule(effective, result)
+    if effective.overlays:
+        _add_overlays(effective, result)
     return result
+
+
+def _overlay_context_manifest(manifest: Manifest) -> Manifest:
+    """Use municipal context for a city-scale route instead of provinces."""
+    if (manifest.variable_id is not None or manifest.bbox is None
+            or not any(source == "overpass" and "route=" in overlay_id
+                       for source, overlay_id in manifest.overlays)):
+        return manifest
+    west, south, east, north = manifest.bbox
+    ground_width = (east - west) * max(
+        0.2, math.cos(math.radians((south + north) / 2)))
+    if max(ground_width, north - south) > 2.0:
+        return manifest
+    return dataclasses.replace(manifest, level="admin_2", basemap_source="overture",
+                               basemap_detail="full")
 
 
 def _state_derived_basemap_rule(manifest: Manifest, result: HarvestResult) -> None:
@@ -196,7 +230,7 @@ def frame_box(box: tuple) -> tuple:
     return project.frame_box(box)
 
 
-def _base(manifest: Manifest) -> HarvestResult:
+def _base(manifest: Manifest, boundaries=None) -> HarvestResult:
     key = cache_key(manifest)
     cached = cache_dir() / "harvest" / f"{key}.json"
     if cached.exists():
@@ -206,7 +240,7 @@ def _base(manifest: Manifest) -> HarvestResult:
                              names=stored.get("names", []),
                              hierarchy=stored.get("hierarchy", []))
 
-    result = _build(manifest)
+    result = _build(manifest, boundaries)
     _add_context(manifest, result)
     _add_names(manifest, result)
     result.provenance["place"] = _place(manifest, result)
@@ -235,9 +269,21 @@ def _add_overlays(manifest: Manifest, result: HarvestResult) -> None:
     geometries += [d["geometry"] for d in result.dropped if d.get("geometry")]
     extent = tuple(manifest.bbox or (project.extent_of(geometries) if geometries
                                      else WORLD_EXTENT))
+    place = _place_name(manifest.within)
+    if place is None and manifest.bbox is not None:
+        try:
+            candidates = context_places(extent, None, keep=1)
+        except OSError:
+            candidates = []
+        place = candidates[0]["name"] if candidates else None
     window = overlays.Window(bbox=manifest.bbox, within=manifest.within, extent=extent,
-                             name=_place_name(manifest.within))
+                             name=place)
     result.overlays.extend(_load_overlay_layers(manifest.overlays, window))
+    if (len(result.rows) <= 20 and any(
+            layer.get("style") == "settlements"
+            and "KATOTTH" in str((layer.get("category") or {}).get("label") or "")
+            for layer in result.overlays)):
+        result.overlays.append(_administrative_labels(result))
     brings_places = any(layer["kind"] == "places" or layer.get("own_labels")
                         for layer in result.overlays)
     if manifest.bbox is None and geometries:
@@ -257,6 +303,31 @@ def _add_overlays(manifest: Manifest, result: HarvestResult) -> None:
         result.places = overlay_render.places_along(
             context_places(extent, manifest.within, keep=None), routes)[:PLACES_KEEP]
     _add_physical_context(manifest, result, extent)
+
+
+def _administrative_labels(result: HarvestResult) -> dict:
+    """Named anchors for the few districts beneath a dense settlement map."""
+    features = []
+    for row in sorted(result.rows, key=lambda item: str(item["id"])):
+        rings = project.outer_rings(row["geometry"])
+        if not rings:
+            continue
+        ring = max(rings, key=project.planar_area)
+        lon, lat = project.pole_of_inaccessibility(ring, precision=0.01)
+        features.append({"id": str(row["id"]), "lon": round(lon, 5),
+                         "lat": round(lat, 5), "name": row.get("name"),
+                         "major": True})
+    p = result.provenance
+    return {
+        "source": "cartography", "id": "derived-admin-labels", "kind": "places",
+        "title": "Administrative districts", "label": "Administrative districts",
+        "size": None, "category": None, "features": features,
+        "stats": {}, "summary": "",
+        "encoding": "District names placed at interior points of their published boundaries",
+        "drawn": len(features), "noun": "district labels", "excluded": [],
+        "provenance": {"name": p.get("source"), "attribution": p.get("attribution"),
+                       "license": p.get("license"), "vintage": p.get("vintage")},
+    }
 
 
 def _load_overlay_layers(specs, window) -> list:
@@ -573,6 +644,17 @@ def _add_context(manifest: Manifest, result: HarvestResult) -> None:
         result.provenance["context_source"] = (
             f"{registry.SOURCE_NAME} {registry.SOURCE_VINTAGE} 1:"
             f"{registry.scale_for(CONTEXT_LEVEL)} (public domain)")
+        drawn_ids = {str(item.get("id") or "").upper()
+                     for item in result.rows + result.dropped}
+        selected = drawn_ids | {str(code).upper() for code in manifest.within or ()}
+        if selected & {"MAR", "ESH"}:
+            from mapsvc.cartography.natural_earth import WESTERN_SAHARA_NOTE
+
+            vintage = str(result.provenance.get("vintage") or "")
+            if WESTERN_SAHARA_NOTE not in vintage:
+                result.provenance["vintage"] = (
+                    f"{vintage}; {WESTERN_SAHARA_NOTE}".lstrip("; ")
+                )
 
 
 # ------------------------------------------------------------------- names ---
@@ -782,9 +864,43 @@ def validate_window(manifest: Manifest):
     return complete
 
 
-def _build(manifest: Manifest) -> HarvestResult:
+def _bbox_area(bbox: tuple) -> float:
+    return max(0.0, bbox[2] - bbox[0]) * max(0.0, bbox[3] - bbox[1])
+
+
+def _effective_window(manifest: Manifest):
+    """Discard a redundant bbox that only adds empty frame around `within`."""
+    if manifest.bbox is None or not manifest.within:
+        return manifest, None, None
+    # Keep the cheap count-before-geometry guard ahead of validate_window's
+    # complete political load. _build skips the duplicate when it receives
+    # these already-loaded boundaries.
     _check_granularity(manifest)
     boundaries = validate_window(manifest)
+    if boundaries is None or manifest.bbox is None or not boundaries.units:
+        return manifest, boundaries, None
+
+    extent = project.extent_of([unit["geometry"] for unit in boundaries.units])
+    selected_area = _bbox_area(extent)
+    requested_area = _bbox_area(manifest.bbox)
+    if selected_area <= 0 or requested_area <= 4 * selected_area:
+        return manifest, boundaries, None
+
+    ratio = requested_area / selected_area
+    note = {
+        "bbox": list(manifest.bbox),
+        "within_extent": [round(float(v), 6) for v in extent],
+        "area_ratio": round(ratio, 3),
+        "reason": ("bbox clips no selected unit and its area is more than 4× "
+                   "the within units' extent"),
+    }
+    return dataclasses.replace(manifest, bbox=None), boundaries, note
+
+
+def _build(manifest: Manifest, boundaries=None) -> HarvestResult:
+    if boundaries is None:
+        _check_granularity(manifest)
+        boundaries = validate_window(manifest)
     if boundaries is None:
         boundaries = cartography.load(manifest.basemap_source, manifest.level,
                                       manifest.bbox, manifest.basemap_detail,
@@ -934,11 +1050,14 @@ def _hierarchy(manifest: Manifest, provenance: dict) -> list:
     is both smaller and more faithful than trying to union hundreds of child
     rings without a topology library.
     """
-    if manifest.basemap_source != "gisco" or manifest.level not in ("nuts_2", "nuts_3"):
+    if manifest.basemap_source == "gisco" and manifest.level in ("nuts_2", "nuts_3"):
+        source, level = "gisco", "nuts_1"
+    elif manifest.basemap_source == "overture" and manifest.level == "admin_2":
+        source, level = "overture", "admin_1"
+    else:
         return []
-    parents = cartography.load("gisco", "nuts_1", manifest.bbox, "full",
-                               manifest.within)
-    provenance["hierarchy_level"] = "nuts_1"
+    parents = cartography.load(source, level, manifest.bbox, "full", manifest.within)
+    provenance["hierarchy_level"] = level
     provenance["hierarchy_scale"] = parents.provenance.get("scale")
     return [{"id": unit["id"], "name": unit.get("name"),
              "geometry": unit["geometry"]} for unit in parents.units]

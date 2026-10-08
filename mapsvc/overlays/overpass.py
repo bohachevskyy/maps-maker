@@ -551,7 +551,8 @@ _NOUNS = {
 }
 _MODIFIERS = {("highspeed", "yes"): "high-speed", ("electrified", "contact_line"): "electrified",
               ("usage", "main"): "main"}
-_PLACE_NOUNS = {"city": "cities", "town": "towns", "village": "villages",
+_PLACE_NOUNS = {"city": "cities", "town": "towns", "selyshche": "selyshcha",
+                "village": "villages",
                 "hamlet": "hamlets", "suburb": "suburbs", "quarter": "quarters",
                 "neighbourhood": "neighbourhoods", "locality": "localities",
                 "isolated_dwelling": "isolated dwellings"}
@@ -733,11 +734,12 @@ def _name(tags: dict) -> str | None:
 
 # ------------------------------------------------------------ settlements ---
 
-_PLACE_LABELS = {"city": "City", "town": "Town", "village": "Village",
+_PLACE_LABELS = {"city": "City", "town": "Town", "selyshche": "Selyshche",
+                 "village": "Village",
                  "hamlet": "Hamlet", "suburb": "Suburb", "quarter": "Quarter",
                  "neighbourhood": "Neighbourhood", "locality": "Locality",
                  "isolated_dwelling": "Isolated dwelling"}
-_PLACE_ORDER = ("city", "town", "suburb", "village", "quarter", "neighbourhood",
+_PLACE_ORDER = ("city", "selyshche", "town", "suburb", "village", "quarter", "neighbourhood",
                 "hamlet", "isolated_dwelling", "locality")
 
 
@@ -759,8 +761,10 @@ def _settlements(nodes: list, spec: Filter, what: str, where: str,
         features.append({"id": f"n{n['id']}", "lon": round(n["lon"], 5),
                          "lat": round(n["lat"], 5), "size": None,
                          "category": tags.get("place"), "name": _name(tags),
-                         "population": _population(tags)})
+                         "population": _population(tags),
+                         "katotth": tags.get("katotth")})
     features.sort(key=lambda f: f["id"])
+    official = _apply_katotth(features, provenance)
     counts = {}
     for f in features:
         counts[f["category"]] = counts.get(f["category"], 0) + 1
@@ -770,20 +774,67 @@ def _settlements(nodes: list, spec: Filter, what: str, where: str,
     stats.update({f"count_{v}": counts[v] for v in _PLACE_ORDER if counts.get(v)})
     breakdown = ", ".join(f"{counts[v]:,} {_PLACE_NOUNS[v] if counts[v] != 1 else v}"
                           for v in _PLACE_ORDER if counts.get(v))
+    excluded = []
+    if official and official["missing"]:
+        excluded.append({"count": official["missing"],
+                         "reason": "KATOTTH settlements without a matched OSM place node"})
+    if official and official["fallback"]:
+        excluded.append({"count": official["fallback"],
+                         "reason": "OSM place nodes unmatched to KATOTTH (OSM category fallback)"})
+    category_label = ("Official settlement category (KATOTTH)" if official
+                      else "Settlement (OSM place tag)")
     return {
         "source": "overpass", "id": spec.text(), "kind": "points",
         "style": "settlements",
         # The layer names its own places; Natural Earth labels would repeat them.
         "own_labels": True,
         "title": f"{what}{where}", "label": what, "size": None,
-        "category": {"field": "place", "label": "Settlement (OSM place tag)",
+        "category": {"field": "place", "label": category_label,
                      "ordered": True, "classes": classes},
         "features": features, "stats": stats,
         "summary": f"{len(features):,} settlements in OpenStreetMap: {breakdown}",
         "encoding": ("One symbol per OSM place node, sized by its place tag; "
                      "cities and towns named, villages only on sparse maps"),
-        "excluded": [], "provenance": provenance,
+        "excluded": excluded, "provenance": provenance,
     }
+
+
+def _apply_katotth(features: list, provenance: dict) -> dict | None:
+    """Replace OSM ranks with Ukraine's official settlement typology.
+
+    OSM supplies coordinates and carries the stable ``katotth`` join code.
+    Unmatched nodes keep their OSM category and are disclosed; official rows
+    without a node have no defensible point to draw and are also disclosed.
+    """
+    codes = [str(feature.get("katotth") or "") for feature in features]
+    codes = [code for code in codes if code.startswith("UA")]
+    if not codes:
+        return None
+    from mapsvc.statistics import katotth
+
+    catalogue = katotth.load()
+    matched = 0
+    for feature in features:
+        row = catalogue.get(str(feature.get("katotth") or ""))
+        if not row:
+            continue
+        feature["category"] = row["category"]
+        feature["official_name"] = row["name"]
+        feature["raion"] = row.get("raion")
+        matched += 1
+    # The first four code characters identify the oblast. Only infer a total
+    # when every tagged node belongs to the same one.
+    prefixes = {code[:4] for code in codes}
+    official_total = None
+    if len(prefixes) == 1:
+        prefix = next(iter(prefixes))
+        official_total = sum(code.startswith(prefix) for code in catalogue)
+    fallback = len(features) - matched
+    provenance["attribution"] += f"; settlement categories: {katotth.ATTRIBUTION}"
+    provenance["license"] += f"; KATOTTH is an {katotth.LICENSE}"
+    provenance["vintage"] += f"; KATOTTH {katotth.VINTAGE}"
+    return {"matched": matched, "fallback": fallback,
+            "missing": max(0, (official_total or matched) - matched)}
 
 
 # ----------------------------------------------------------------- routes ---
@@ -886,14 +937,37 @@ def layer_from_relations(data: dict, spec, window: Window) -> dict:
             if member.get("type") == "relation":
                 master_of.setdefault(member["ref"], m)
 
+    routes_by_id = {route["id"]: route for route in routes}
+    requested_networks = set(spec.values("network"))
+    through_masters = set()
+    for master in masters:
+        master_tags = master.get("tags") or {}
+        master_operator = str(master_tags.get("operator") or "").strip()
+        if (requested_networks and master_tags.get("network")
+                and master_tags["network"] not in requested_networks):
+            through_masters.add(master["id"])
+            continue
+        for member in master.get("members") or ():
+            route = routes_by_id.get(member.get("ref"))
+            tags = (route or {}).get("tags") or {}
+            operators = {part.strip() for part in str(tags.get("operator") or "").split(";")
+                         if part.strip()}
+            if master_operator and len(operators) > 1 and operators - {master_operator}:
+                through_masters.add(master["id"])
+                break
+
     groups: dict = {}
-    through = 0
+    through_ids = set()
     for r in routes:
         tags = r.get("tags") or {}
         master = master_of.get(r["id"])
-        kind = (master or {}).get("tags", {}).get("route_master")
+        master_tags = (master or {}).get("tags", {})
+        kind = master_tags.get("route_master")
+        if master and master["id"] in through_masters:
+            through_ids.add(master["id"])
+            continue
         if master and tags.get("route") and kind and kind != tags["route"]:
-            through += 1
+            through_ids.add(master["id"])
             continue
         if master:
             key, identity = f"m{master['id']}", master.get("tags") or {}
@@ -955,8 +1029,8 @@ def layer_from_relations(data: dict, spec, window: Window) -> dict:
     title = (classes[0]["label"] if single else what) + where
     vintage = (data.get("osm3s") or {}).get("timestamp_osm_base")
     excluded = []
-    if through:
-        excluded.append({"count": through,
+    if through_ids:
+        excluded.append({"count": len(through_ids),
                          "reason": "through-service relations (another network's "
                                    "trains running over these lines)"})
     facts = [("Route length", f"≈ {route_km:,.0f} km")]

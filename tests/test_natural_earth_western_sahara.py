@@ -1,5 +1,7 @@
 """The Natural Earth de facto Morocco boundary is corrected without Shapely."""
 
+import json
+
 import pytest
 
 from mapsvc.cartography import natural_earth
@@ -51,12 +53,60 @@ def test_western_sahara_split_conserves_spherical_area():
 
 def test_natural_earth_load_exposes_esh_key_and_boundary_note(monkeypatch):
     monkeypatch.setattr("mapsvc.harvest.load_source",
-                        lambda level="admin_0": {"features": _sample()})
+                        lambda level="admin_0": {
+                            "features": natural_earth._western_sahara(_sample())})
     boundaries = natural_earth.load("admin_0", None)
     units = {unit["key"]: unit for unit in boundaries.units}
     assert set(units) == {"MAR", "ESH"}
     assert units["ESH"]["geometry"]["type"] == "MultiPolygon"
     assert boundaries.provenance["note"] == natural_earth.WESTERN_SAHARA_NOTE
+
+
+def test_admin0_source_gateway_applies_split_for_every_consumer(monkeypatch, tmp_path):
+    """Context/statistics/cartography all read this one normalised gateway."""
+    from mapsvc import harvest
+
+    path = tmp_path / "admin0.geojson"
+    path.write_text(json.dumps({"type": "FeatureCollection", "features": _sample()}))
+    monkeypatch.setattr(harvest, "source_path", lambda level="admin_0": path)
+
+    features = harvest.load_source("admin_0")["features"]
+    marocco, sahara = features
+    assert marocco["geometry"]["type"] == "MultiPolygon"
+    assert len(sahara["geometry"]["coordinates"]) == 2
+
+
+def test_boundary_note_is_absent_when_marocco_and_sahara_are_not_drawn(monkeypatch):
+    france = _feature("FRA", "FRA", "France", [
+        [-5, 42], [8, 42], [8, 51], [-5, 51], [-5, 42],
+    ])
+    monkeypatch.setattr("mapsvc.harvest.load_source",
+                        lambda level="admin_0": {"features": [france]})
+    boundaries = natural_earth.load("admin_0", None)
+    assert boundaries.provenance["note"] is None
+
+
+def test_sahara_is_named_neutral_context_when_marocco_is_the_data(monkeypatch):
+    from mapsvc import harvest
+    from mapsvc.manifest import Manifest
+    from mapsvc.models import HarvestResult
+
+    marocco, sahara = natural_earth._western_sahara(_sample())
+    marocco["properties"].update({"LABEL_X": -12, "LABEL_Y": 32})
+    sahara["properties"].update({"LABEL_X": -13, "LABEL_Y": 24})
+    monkeypatch.setattr(harvest, "context_countries", lambda: [marocco, sahara])
+    result = HarvestResult(
+        rows=[{"id": "MAR", "name": "Morocco",
+               "geometry": marocco["geometry"], "value": 1}],
+        provenance={"vintage": "v5.1.1"},
+    )
+
+    harvest._add_context(Manifest(bbox=None, within=("MAR",), level="admin_0",
+                                  variable_source=None, variable_id=None), result)
+
+    assert [item["id"] for item in result.context] == ["ESH"]
+    assert result.context[0]["name"] == "W. Sahara"
+    assert natural_earth.WESTERN_SAHARA_NOTE in result.provenance["vintage"]
 
 
 def test_within_accepts_iso3_where_adm0_a3_differs():

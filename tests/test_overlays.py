@@ -3,6 +3,7 @@
 Offline: every source is exercised on a small recorded response.
 """
 
+import csv
 import io
 import json
 import pathlib
@@ -530,6 +531,14 @@ def test_world_map_centres_on_concentrated_overlays():
     assert project.central_meridian([1.0, -2.0, 3.0]) is None               # already 0
 
 
+def test_real_holocene_volcanoes_put_the_seam_in_the_quiet_atlantic():
+    truth = pathlib.Path(__file__).parents[1] / "evals/maps/volcanoes_holocene/truth.csv"
+    with truth.open(encoding="utf-8") as handle:
+        longitudes = [float(row["lon"]) for row in csv.DictReader(handle)]
+    assert len(longitudes) == 1214
+    assert project.central_meridian(longitudes) == 140.0
+
+
 def test_rings_crossing_a_moved_seam_are_split_not_smeared():
     greenland = [(-70.0, 60.0), (-15.0, 60.0), (-15.0, 80.0), (-70.0, 80.0), (-70.0, 60.0)]
     pieces = project.split_at_seam(project.unwrap_ring(greenland, 150.0), 150.0)
@@ -565,6 +574,12 @@ def test_frame_box_pads_a_thin_route_into_a_readable_window():
     west, south, east, north = frame_box((24.0, 53.9, 37.7, 55.8))
     assert west < 24.0 and east > 37.7
     assert north - south >= (east - west) * 0.57 / 3 - 1e-6   # cos 55° ≈ 0.57
+
+
+def test_frame_box_does_not_bury_a_city_network_in_fixed_degree_padding():
+    framed = project.frame_box((139.57, 35.57, 139.93, 35.82))
+    assert framed[2] - framed[0] < 0.55
+    assert framed[3] - framed[1] < 0.45
 
 
 def test_overlay_labels_keep_off_lines_and_bands():

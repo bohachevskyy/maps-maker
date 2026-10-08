@@ -1,8 +1,10 @@
-"""Pure, offline tests for the reference-map spot-check language."""
+"""Pure, offline tests for the reference-map checks."""
+
+import csv
 
 import pytest
 
-from evals.maps.run import evaluate_spot, parse_spot
+from evals.maps.run import _truth_check, evaluate_spot, parse_spot
 
 
 @pytest.mark.parametrize(
@@ -45,3 +47,54 @@ def test_near_checks_measure_distance_to_overlay_geometry():
     near = evaluate_spot("line_near=4.83,45.76", geometry=geometry, values={})
     assert near["status"] == "pass" and near["nearest_km"] < 10
     assert evaluate_spot("line_near=4.83,45.76", {})["status"] == "unevaluable"
+
+
+def test_truth_check_matches_short_keys_to_iso_3166_2_ids(tmp_path):
+    truth = tmp_path / "truth.csv"
+    with truth.open("w", newline="", encoding="utf-8") as handle:
+        writer = csv.writer(handle)
+        writer.writerows((("key", "value"), ("AK", "12.5"), ("DC", "3.5")))
+
+    result = _truth_check(
+        truth,
+        {"US-AK", "US-DC"},
+        {"US-AK": "12.5", "US-DC": "3.5"},
+    )
+
+    assert result["present_keys"] == 2
+    assert result["matching_value_keys"] == 2
+    assert result["fraction_keys_present"] == 1
+    assert result["median_abs_pct_error"] == 0
+
+
+def test_truth_check_matches_prefixed_truth_to_short_rendered_ids(tmp_path):
+    truth = tmp_path / "truth.csv"
+    truth.write_text("key,value\nUA-30,100\nUA-32,200\n", encoding="utf-8")
+
+    result = _truth_check(truth, {"30", "32"}, {"30": "100", "32": "200"})
+
+    assert result["present_keys"] == 2
+    assert result["matching_value_keys"] == 2
+
+
+def test_truth_check_does_not_guess_ambiguous_short_ids(tmp_path):
+    truth = tmp_path / "truth.csv"
+    truth.write_text("key,value\nCA,100\n", encoding="utf-8")
+
+    result = _truth_check(
+        truth,
+        {"US-CA", "ES-CA"},
+        {"US-CA": "100", "ES-CA": "100"},
+    )
+
+    assert result["present_keys"] == 0
+    assert result["matching_value_keys"] == 0
+
+
+def test_truth_check_does_not_equate_different_country_prefixes(tmp_path):
+    truth = tmp_path / "truth.csv"
+    truth.write_text("key,value\nUA-30,100\n", encoding="utf-8")
+
+    result = _truth_check(truth, {"DE-30"}, {"DE-30": "100"})
+
+    assert result["present_keys"] == 0

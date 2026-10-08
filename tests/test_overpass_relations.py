@@ -127,6 +127,30 @@ def test_relations_are_one_line_each_with_validated_colours():
     assert centre["lines"] == 2
 
 
+def test_cross_operator_route_master_is_excluded_as_one_through_service():
+    first = _relation(1, {"route": "subway", "network": "Metro",
+                          "operator": "Metro;Other", "name": "Airport A"},
+                      [_way(10, [(1, 45), (2, 45)])])
+    second = _relation(2, {"route": "subway", "network": "Metro",
+                           "operator": "Metro", "name": "Airport B"},
+                       [_way(11, [(2, 45), (3, 45)])])
+    master = {"type": "relation", "id": 50,
+              "tags": {"type": "route_master", "route_master": "subway",
+                       "network": "Metro", "operator": "Metro"},
+              "members": [{"type": "relation", "ref": 1},
+                          {"type": "relation", "ref": 2}]}
+    regular = _relation(3, {"route": "subway", "network": "Metro",
+                            "operator": "Metro", "name": "Regular"},
+                        [_way(12, [(1, 46), (2, 46)])])
+    layer = overpass.layer_from_relations(
+        {"elements": [first, second, regular, master]},
+        "route=subway;network=Metro", WINDOW)
+    assert layer["stats"]["count"] == 1
+    assert layer["category"]["classes"][0]["label"] == "Regular"
+    assert layer["excluded"] == [{"count": 1, "reason":
+        "through-service relations (another network's trains running over these lines)"}]
+
+
 def test_a_bad_colour_tag_is_ignored():
     assert overpass.osm_colour("#C1A470") == "#c1a470"
     assert overpass.osm_colour("url(javascript:x)") is None
@@ -186,6 +210,32 @@ def test_place_nodes_are_a_settlement_hierarchy(mini_geojson):
     assert ">Lutsk<" in svg and ">Kovel<" in svg       # always named
     assert ">Khutir<" not in svg                        # hamlets never
     assert svg == _overlay_map(mini_geojson, [layer])
+
+
+def test_ukrainian_place_nodes_use_official_katotth_categories(monkeypatch):
+    from mapsvc.statistics import katotth
+
+    monkeypatch.setattr(katotth, "load", lambda: {
+        "UA07000000000000001": {"category": "city", "name": "A", "raion": "R"},
+        "UA07000000000000002": {"category": "selyshche", "name": "B", "raion": "R"},
+    })
+    data = {"elements": [
+        {"type": "node", "id": 1, "lon": 1, "lat": 45,
+         "tags": {"place": "town", "name": "A", "katotth": "UA07000000000000001"}},
+        {"type": "node", "id": 2, "lon": 2, "lat": 45,
+         "tags": {"place": "town", "name": "B", "katotth": "UA07000000000000002"}},
+        {"type": "node", "id": 3, "lon": 3, "lat": 45,
+         "tags": {"place": "hamlet", "name": "Extra"}},
+    ]}
+    layer = overpass.layer_from_overpass(
+        data, overpass.parse_filter("place=city|town|village|hamlet"), WINDOW, "ql")
+    assert [feature["category"] for feature in layer["features"]] == [
+        "city", "selyshche", "hamlet"]
+    assert layer["stats"]["count_city"] == 1
+    assert layer["stats"]["count_selyshche"] == 1
+    assert "KATOTTH" in layer["category"]["label"]
+    assert layer["excluded"][0]["count"] == 1
+    assert "unmatched" in layer["excluded"][0]["reason"]
 
 
 def test_places_along_a_route_keep_its_stops():
