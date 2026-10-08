@@ -20,6 +20,7 @@ anything else with coordinates is points; GeoJSON lines are lines.
 """
 
 import csv
+import datetime
 import hashlib
 import http.client
 import io
@@ -31,6 +32,7 @@ import socket
 import urllib.error
 import urllib.parse
 import urllib.request
+import zipfile
 
 from mapsvc import fetch
 from mapsvc.overlays import UNKNOWN_LICENSE, Capabilities, OverlayError, Window
@@ -52,13 +54,23 @@ CAPABILITIES = Capabilities(
                 "a size, drawn as bands like Minard's map) or labelled places. "
                 "Search the curated catalogue of open datasets first; a URL "
                 "found elsewhere is accepted if it fetches and has coordinates",
-    id_help="an https URL of a CSV (with lon/lat columns) or GeoJSON file",
+    id_help="an https URL of a CSV (with lon/lat columns), GeoJSON or zipped "
+            "file, optionally followed by filters after '#': "
+            "'<url>#season=2024', '<url>#top=30'. top=N keeps the N largest by "
+            "size inside the window and the `within` countries; other filters "
+            "are listed with each catalogue entry, and an entry may require one",
     searchable=True,
 )
 
 _RDATASETS = "https://raw.githubusercontent.com/vincentarelbundock/Rdatasets/master/csv/"
 _NE = "https://raw.githubusercontent.com/nvkelso/natural-earth-vector/master/geojson/"
 _MINARD_TEMP_URL = _RDATASETS + "HistData/Minard.temp.csv"
+_IBTRACS = ("https://www.ncei.noaa.gov/data/international-best-track-archive-for-"
+            "climate-stewardship-ibtracs/v04r01/access/csv/")
+_GEONAMES = "https://download.geonames.org/export/dump/cities15000.zip"
+_GVP = ("https://webservices.volcano.si.edu/geoserver/GVP-VOTW/ows?service=WFS"
+        "&request=GetFeature&typeName=GVP-VOTW:Smithsonian_VOTW_Holocene_Volcanoes"
+        "&outputFormat=application/json")
 _MINARD = ("Charles Joseph Minard, 'Carte figurative des pertes successives en "
            "hommes de l'Armée Française dans la campagne de Russie 1812–1813' "
            "(1869), as transcribed by L. Wilkinson, The Grammar of Graphics; "
@@ -114,17 +126,28 @@ CATALOGUE = (
         "attribution": _MINARD,
     },
     {
-        "url": _RDATASETS + "dplyr/storms.csv",
-        "title": "Atlantic hurricanes and tropical storms, 1975–2022 (NOAA HURDAT2)",
-        "description": "Six-hourly positions of Atlantic storms with wind speed "
-                       "and status: storm tracks as flows, width by wind.",
-        "keywords": "hurricane storm tropical cyclone atlantic track wind noaa hurdat",
-        "roles": {"lon": "long", "lat": "lat", "size": "wind", "category": "status",
-                  "group": ("name", "year"), "order": "rownames"},
-        "size_label": "maximum sustained wind (knots)", "category_label": "Status",
+        "url": _IBTRACS + "ibtracs.NA.list.v04r01.csv",
+        "title": "North Atlantic hurricanes and tropical storms, 1851–present "
+                 "(NOAA IBTrACS)",
+        "description": "Best tracks of every North Atlantic tropical cyclone, "
+                       "three-hourly positions with wind and Saffir-Simpson "
+                       "category, one line per storm. Updated weekly, so the "
+                       "latest season is included (provisional until NHC's "
+                       "post-season review).",
+        "keywords": "hurricane hurricanes storm storms tropical cyclone cyclones "
+                    "atlantic caribbean gulf mexico track tracks wind noaa nhc "
+                    "hurdat ibtracs best track saffir simpson category season "
+                    "named landfall",
+        "format": "ibtracs",
+        "filters": {"season": {"min": 1851, "max": "this year",
+                               "help": "the storm season, a year"}},
+        "required_filters": ("season",),
+        "max_bytes": 100 * 1024 * 1024,
         "label": "Storm tracks",
-        "license": "public domain (NOAA); packaged in R dplyr (MIT)",
-        "attribution": "NOAA National Hurricane Center HURDAT2, via R dplyr and Rdatasets",
+        "license": "public domain (NOAA)",
+        "attribution": "NOAA NCEI, International Best Track Archive for Climate "
+                       "Stewardship (IBTrACS) v04r01; Knapp et al. (2010), "
+                       "doi:10.25921/82ty-9e16",
     },
     {
         "url": _RDATASETS + "datasets/quakes.csv",
@@ -144,9 +167,75 @@ CATALOGUE = (
         "description": "7,342 cities and towns with population estimates; points "
                        "sized by population.",
         "keywords": "cities towns population places capitals urban natural earth",
-        "roles": {"size": "pop_max", "name": "name"},
-        "size_label": "Population", "label": "Cities",
+        "roles": {"size": "pop_max", "name": "name", "country": "adm0_a3"},
+        "size_label": "Population, largest estimate (often the urban area)",
+        "label": "Cities", "rank_noun": "cities",
         "license": "public domain", "attribution": "Natural Earth",
+    },
+    {
+        "url": _GEONAMES,
+        "title": "Cities of the world with population (GeoNames cities15000)",
+        "description": "About 34,000 cities of 15,000+ people, with the population "
+                       "of the city proper (the administrative city, not the "
+                       "metropolitan area) and country. For the largest N "
+                       "anywhere: top=N, scoped by the map window and `within`.",
+        "keywords": "cities city largest biggest population populous towns urban "
+                    "places capitals geonames ranking top most",
+        "format": "geonames",
+        "max_bytes": 20 * 1024 * 1024,
+        "required_filters": ("top",),
+        "roles": {"lon": "longitude", "lat": "latitude", "size": "population",
+                  "name": "name", "country": "country_code"},
+        # Sections of a city (PPLX: Pest, Brooklyn) would count it twice;
+        # historical, abandoned and destroyed places are not cities now.
+        "exclude": {"feature_code": ("PPLX", "PPLH", "PPLQ", "PPLW", "PPLCH")},
+        "size_label": "Population, city proper",
+        "label": "Cities", "rank_noun": "cities",
+        "definition": "population of the city proper as recorded by GeoNames "
+                      "(administrative city limits, not the metropolitan area)",
+        "license": "CC BY 4.0", "attribution": "GeoNames (geonames.org), cities15000",
+    },
+    {
+        "url": _GVP,
+        "title": "Holocene volcanoes of the world (Smithsonian GVP)",
+        "description": "About 1,200 volcanoes with eruptions or unrest in the last "
+                       "~11,700 years (the Holocene), from the Smithsonian Global "
+                       "Volcanism Program, with name, country and volcano type.",
+        "keywords": "volcano volcanoes volcanic eruption eruptions active holocene "
+                    "10000 years ring fire smithsonian gvp stratovolcano caldera "
+                    "shield geology",
+        "roles": {"name": "Volcano_Name", "category": "Primary_Volcano_Type"},
+        "category_label": "Volcano type",
+        # GVP's 28 primary types, collapsed to the families a world map can
+        # tell apart. Complex and compound volcanoes are composite edifices.
+        "category_map": {
+            "Stratovolcano": "strato", "Stratovolcano(es)": "strato",
+            "Stratovolcano?": "strato", "Complex": "strato", "Compound": "strato",
+            "Shield": "shield", "Shield(s)": "shield", "Shield(pyroclastic)": "shield",
+            "Caldera": "caldera", "Caldera(s)": "caldera",
+            "Volcanic field": "field",
+            "Fissure vent": "fissure", "Fissure vent(s)": "fissure",
+            "Crater rows": "fissure",
+            "Lava dome": "small", "Lava dome(s)": "small", "Pyroclastic cone": "small",
+            "Pyroclastic cone(s)": "small", "Cone": "small", "Lava cone": "small",
+            "Lava cone(s)": "small", "Lava cone(es)": "small", "Tuff cone": "small",
+            "Tuff cone(s)": "small", "Tuff ring(s)": "small", "Maar": "small",
+            "Maar(s)": "small", "Explosion crater(s)": "small",
+        },
+        "category_order": ("strato", "shield", "caldera", "field", "fissure",
+                           "small", "other"),
+        "category_labels": {"strato": "Stratovolcano or complex",
+                            "shield": "Shield", "caldera": "Caldera",
+                            "field": "Volcanic field", "fissure": "Fissure vents",
+                            "small": "Cones, domes and maars",
+                            "other": "Type not recorded"},
+        "category_other": "other",
+        "label": "Holocene volcanoes", "label_top": 0, "noun": "volcanoes",
+        "license": "Smithsonian terms of use; cite as requested",
+        "attribution": "Global Volcanism Program, 2026. Volcanoes of the World "
+                       "(v. 5.4.0; 7 Aug 2026). Distributed by Smithsonian "
+                       "Institution, compiled by Venzke, E. "
+                       "doi:10.5479/si.GVP.VOTW5-2026.5.4",
     },
     {
         "url": _NE + "ne_10m_airports.geojson",
@@ -175,9 +264,83 @@ def companions(url: str) -> tuple[str, ...]:
 
 # ------------------------------------------------------------------ parse ---
 
+# What to show, after the URL: "#season=2024", "#top=30". Never how to draw.
+# `top` applies to any points dataset with a size column; the rest are
+# declared by a catalogue entry.
+MAX_TOP = 200
+_FILTER = re.compile(r"([a-z_]{1,20})=([0-9]{1,6})")
+GENERIC_FILTERS = {"top": {"min": 1, "max": MAX_TOP,
+                           "help": "keep the N largest by size within the map "
+                                   "window and `within`"}}
+
+
+def split(overlay_id: str) -> tuple[str, dict]:
+    """A canonical id's URL and its filters, {name: int}."""
+    url, _, fragment = overlay_id.partition("#")
+    filters = {}
+    for part in filter(None, fragment.split(";")):
+        name, _, value = part.partition("=")
+        filters[name] = int(value)
+    return url, filters
+
+
+def filters_for(url: str) -> dict:
+    """Every filter a URL accepts: the generic ones plus its entry's own."""
+    return {**GENERIC_FILTERS, **(_BY_URL.get(url, {}).get("filters") or {})}
+
+
+def _bound(value, today_year: int) -> int:
+    return today_year if value == "this year" else int(value)
+
+
 def parse(overlay_id: str) -> str:
-    """An https URL, refused if it could reach this machine or its network."""
-    url = overlay_id.strip()
+    """An https URL, refused if it could reach this machine or its network,
+    plus filters after '#' checked against what the dataset accepts."""
+    url, _, fragment = overlay_id.strip().partition("#")
+    url = _parse_url(url)
+    entry = _BY_URL.get(url, {})
+    accepted = filters_for(url)
+    this_year = datetime.date.today().year
+    filters: dict = {}
+    for part in fragment.split(";") if fragment else ():
+        match = _FILTER.fullmatch(part.strip())
+        if not match:
+            raise OverlayError(
+                f"web overlay filter {part!r} is not name=integer; this dataset "
+                f"accepts {_filter_help(url)}", "overlays.id")
+        name, value = match.group(1), int(match.group(2))
+        spec = accepted.get(name)
+        if spec is None:
+            raise OverlayError(
+                f"web overlay filter {name!r} is not one this dataset accepts; "
+                f"it accepts {_filter_help(url)}", "overlays.id")
+        low, high = _bound(spec["min"], this_year), _bound(spec["max"], this_year)
+        if not low <= value <= high:
+            raise OverlayError(f"web overlay filter {name}={value} is outside "
+                               f"{low}-{high}", "overlays.id")
+        if name in filters:
+            raise OverlayError(f"web overlay filter {name!r} is given twice",
+                               "overlays.id")
+        filters[name] = value
+    missing = [f for f in entry.get("required_filters") or () if f not in filters]
+    if missing:
+        raise OverlayError(
+            f"{entry.get('title') or url} needs {', '.join(missing)}: add "
+            f"'#{missing[0]}=...' to the URL ({_filter_help(url)})", "overlays.id")
+    if not filters:
+        return url
+    return url + "#" + ";".join(f"{k}={filters[k]}" for k in sorted(filters))
+
+
+def _filter_help(url: str) -> str:
+    this_year = datetime.date.today().year
+    return "; ".join(
+        f"{name}=<{_bound(spec['min'], this_year)}-{_bound(spec['max'], this_year)}> "
+        f"({spec['help']})" for name, spec in sorted(filters_for(url).items()))
+
+
+def _parse_url(url: str) -> str:
+    url = url.strip()
     if len(url) > MAX_URL or any(c.isspace() for c in url):
         raise OverlayError("web overlay id must be one https URL", "overlays.id")
     parts = urllib.parse.urlsplit(url)
@@ -211,35 +374,38 @@ def _check_resolves_public(host: str) -> None:
 
 class _SafeRedirect(urllib.request.HTTPRedirectHandler):
     def redirect_request(self, req, fp, code, msg, headers, newurl):
-        parse(newurl)
+        _parse_url(newurl.partition("#")[0])
         _check_resolves_public(urllib.parse.urlsplit(newurl).hostname)
         return super().redirect_request(req, fp, code, msg, headers, newurl)
 
 
-def _download(url: str) -> bytes:
-    parse(url)
+def _download(url: str, limit: int = MAX_BYTES) -> bytes:
+    _parse_url(url)
     _check_resolves_public(urllib.parse.urlsplit(url).hostname)
     opener = urllib.request.build_opener(_SafeRedirect)
     request = urllib.request.Request(url, headers={"User-Agent": fetch.USER_AGENT})
     try:
         with opener.open(request, timeout=TIMEOUT) as response:
-            payload = response.read(MAX_BYTES + 1)
+            payload = response.read(limit + 1)
     except urllib.error.HTTPError as exc:
         raise OverlayError(f"{url} returned HTTP {exc.code}", "overlays.id") from exc
     except (OSError, http.client.HTTPException) as exc:
         raise OverlayError(f"could not fetch {url}: {exc}", "overlays.id") from exc
-    if len(payload) > MAX_BYTES:
-        raise OverlayError(f"{url} is larger than {MAX_BYTES // 2**20} MB",
+    if len(payload) > limit:
+        raise OverlayError(f"{url} is larger than {limit // 2**20} MB",
                            "overlays.id")
     return payload
 
 
 def fetch_bytes(url: str) -> bytes:
+    """The file at a URL, cached by the URL alone: filters select from it."""
+    url = url.partition("#")[0]
     digest = hashlib.sha256(url.encode()).hexdigest()[:16]
     target = fetch.path("overlays", "web", digest)
     if target.exists():
         return target.read_bytes()
-    payload = _download(url)
+    # A curated entry may be larger than an arbitrary URL is allowed to be.
+    payload = _download(url, _BY_URL.get(url, {}).get("max_bytes") or MAX_BYTES)
     target.parent.mkdir(parents=True, exist_ok=True)
     temporary = target.with_name(target.name + ".part")
     temporary.write_bytes(payload)
@@ -255,9 +421,13 @@ class Candidate:
         self.title = entry["title"]
         self.subtitle = entry["description"]
         self.license = entry["license"]
+        self.filters = _filter_help(entry["url"])
+        self.required = tuple(entry.get("required_filters") or ())
 
     def as_prompt_line(self) -> str:
-        return f"{self.id}: {self.title} -- {self.subtitle} [{self.license}]"
+        needs = (f" Requires {', '.join(self.required)}." if self.required else "")
+        return (f"{self.id}: {self.title} -- {self.subtitle} [{self.license}]. "
+                f"Filters after '#': {self.filters}.{needs}")
 
 
 def search(query: str, limit: int = 8) -> list:
@@ -285,10 +455,10 @@ _ORDER = ("order", "seq", "sequence", "step", "index")
 _NAME = ("name", "city", "label", "place", "title", "town")
 
 
-def check(url: str) -> None:
-    """Fetch and shape-check a URL without a window; raises OverlayError."""
+def check(overlay_id: str) -> None:
+    """Fetch and shape-check an id without a window; raises OverlayError."""
     world = Window(None, None, (-180.0, -90.0, 180.0, 90.0))
-    layer_from_bytes(fetch_bytes(url), url, world)
+    layer_from_bytes(fetch_bytes(overlay_id), overlay_id, world)
 
 
 def load(overlay_id: str, window: Window) -> dict:
@@ -296,15 +466,11 @@ def load(overlay_id: str, window: Window) -> dict:
     return layer_from_bytes(payload, overlay_id, window)
 
 
-def layer_from_bytes(payload: bytes, url: str, window: Window) -> dict:
+def layer_from_bytes(payload: bytes, overlay_id: str, window: Window) -> dict:
+    url, filters = split(overlay_id)
     entry = _BY_URL.get(url, {})
+    payload = _unzip(payload, url)
     text = payload.decode("utf-8-sig", errors="replace")
-    if text.lstrip().startswith("{"):
-        records, columns, lines = _geojson(text, url)
-    else:
-        records, columns = _csv(text, url)
-        lines = []
-    roles = dict(entry.get("roles") or _guess_roles(columns, records))
     host = urllib.parse.urlsplit(url).hostname
     provenance = {
         "name": entry.get("attribution") or host,
@@ -313,9 +479,24 @@ def layer_from_bytes(payload: bytes, url: str, window: Window) -> dict:
         "url": url,
         "vintage": None,
     }
-    base = {"source": "web", "id": url, "provenance": provenance,
+    base = {"source": "web", "id": overlay_id, "provenance": provenance,
             "title": entry.get("title") or f"Data from {host}",
             "label": entry.get("label") or entry.get("title") or host}
+    if entry.get("format") == "ibtracs":
+        return _ibtracs_layer(base, text, filters, window)
+    if entry.get("format") == "geonames":
+        records, columns = _geonames(text, url)
+        lines = []
+    elif text.lstrip().startswith("{"):
+        records, columns, lines = _geojson(text, url)
+    else:
+        records, columns = _csv(text, url)
+        lines = []
+    roles = dict(entry.get("roles") or _guess_roles(columns, records))
+    if "__lon" in columns:
+        roles.setdefault("lon", "__lon")
+        roles.setdefault("lat", "__lat")
+    records, dropped = _exclude(records, entry)
     if entry.get("kind") == "temperature":
         return _temperature_layer(base, records, roles)
     if lines:
@@ -324,19 +505,102 @@ def layer_from_bytes(payload: bytes, url: str, window: Window) -> dict:
         raise OverlayError(
             f"{url} has no recognisable longitude/latitude columns (found "
             f"{', '.join(columns[:12])})", "overlays.id")
-    rows, bad = _rows(records, roles)
+    rows, bad = _rows(records, roles, entry)
     if not rows:
         raise OverlayError(f"{url} has no rows with numeric coordinates", "overlays.id")
     if len(rows) > MAX_ROWS:
         raise OverlayError(f"{url} has {len(rows):,} rows, over {MAX_ROWS:,}",
                            "overlays.id")
-    excluded = [{"count": bad, "reason": "rows without numeric coordinates"}] if bad else []
+    excluded = list(dropped)
+    if bad:
+        excluded.append({"count": bad, "reason": "rows without numeric coordinates"})
     has_size = "size" in roles
+    if "top" in filters:
+        if not has_size:
+            raise OverlayError(f"{url} has no numeric size column, so it has no "
+                               "largest N; drop the top filter", "overlays.id")
+        return _ranked_layer(base, rows, roles, entry, excluded, window, filters["top"])
     if has_size and ("group" in roles or "order" in roles):
         return _flow_layer(base, rows, roles, entry, excluded)
-    if not has_size and "name" in roles and len(rows) <= MAX_PLACES:
+    if (not has_size and "name" in roles and "category" not in roles
+            and len(rows) <= MAX_PLACES):
         return _places_layer(base, rows, entry, excluded)
     return _points_layer(base, rows, roles, entry, excluded, window)
+
+
+# A zip must hold one data file, read in memory and never extracted to disk;
+# its declared size and its compression ratio are both bounded before reading.
+MAX_UNZIPPED = 64 * 1024 * 1024
+MAX_RATIO = 40
+
+
+def _unzip(payload: bytes, url: str) -> bytes:
+    if not payload.startswith(b"PK\x03\x04"):
+        return payload
+    try:
+        archive = zipfile.ZipFile(io.BytesIO(payload))
+        members = [m for m in archive.infolist()
+                   if not m.is_dir() and not m.filename.startswith(("__MACOSX/", "."))
+                   and m.filename.lower().endswith((".csv", ".txt", ".tsv", ".json",
+                                                    ".geojson"))]
+        if len(members) != 1:
+            raise OverlayError(f"{url} is a zip with {len(members)} data files; "
+                               "expected exactly one", "overlays.id")
+        member = members[0]
+        if member.flag_bits & 0x1:
+            raise OverlayError(f"{url} is an encrypted zip", "overlays.id")
+        if (member.file_size > MAX_UNZIPPED
+                or member.file_size > MAX_RATIO * max(1, member.compress_size)):
+            raise OverlayError(f"{url} unpacks to {member.file_size:,} bytes, over "
+                               f"the {MAX_UNZIPPED // 2**20} MB limit or ratio",
+                               "overlays.id")
+        with archive.open(member) as handle:
+            data = handle.read(MAX_UNZIPPED + 1)
+    except (zipfile.BadZipFile, zipfile.LargeZipFile, NotImplementedError,
+            RuntimeError, OSError) as exc:
+        raise OverlayError(f"{url} is not a readable zip: {exc}", "overlays.id") from exc
+    if len(data) > MAX_UNZIPPED:
+        raise OverlayError(f"{url} unpacks to more than {MAX_UNZIPPED // 2**20} MB",
+                           "overlays.id")
+    return data
+
+
+# The `geoname` table, as documented in download.geonames.org/export/dump.
+GEONAMES_COLUMNS = (
+    "geonameid", "name", "asciiname", "alternatenames", "latitude", "longitude",
+    "feature_class", "feature_code", "country_code", "cc2", "admin1_code",
+    "admin2_code", "admin3_code", "admin4_code", "population", "elevation", "dem",
+    "timezone", "modification_date")
+
+
+def _geonames(text: str, url: str):
+    records = []
+    for line in text.splitlines():
+        cells = line.split("\t")
+        if len(cells) != len(GEONAMES_COLUMNS):
+            continue
+        records.append(dict(zip(GEONAMES_COLUMNS, cells)))
+    if not records:
+        raise OverlayError(f"{url} has no rows in the GeoNames layout", "overlays.id")
+    return records, list(GEONAMES_COLUMNS)
+
+
+def _exclude(records: list, entry: dict) -> tuple[list, list]:
+    """Rows a catalogue entry says are not features of their own."""
+    rules = entry.get("exclude") or {}
+    if not rules:
+        return records, []
+    kept, dropped = [], {}
+    for record in records:
+        for column, values in sorted(rules.items()):
+            if str(record.get(column) or "") in values:
+                dropped[column] = dropped.get(column, 0) + 1
+                break
+        else:
+            kept.append(record)
+    return kept, [{"count": n, "reason": f"{column} {'/'.join(rules[column])} "
+                   "(parts of another place, or not a place today)"}
+                  for column, n in sorted(dropped.items())]
 
 
 def _csv(text: str, url: str):
@@ -453,7 +717,7 @@ def _numeric_share(records, column) -> float:
     return sum(_number(v) is not None for v in values) / max(1, len(values))
 
 
-def _rows(records, roles):
+def _rows(records, roles, entry=None):
     rows, bad = [], 0
     for i, record in enumerate(records):
         lon, lat = _number(record.get(roles["lon"])), _number(record.get(roles["lat"]))
@@ -467,6 +731,10 @@ def _rows(records, roles):
             row["size"] = _number(record.get(roles["size"]))
         if "category" in roles:
             row["category"] = str(record.get(roles["category"]) or "")
+            mapping = (entry or {}).get("category_map")
+            if mapping:
+                row["category"] = mapping.get(row["category"],
+                                              entry.get("category_other") or "")
         if "group" in roles:
             row["group"] = " ".join(str(record.get(c) or "") for c in roles["group"])
         if "order" in roles:
@@ -474,6 +742,8 @@ def _rows(records, roles):
             row["order"] = order if order is not None else i
         if "name" in roles:
             row["name"] = str(record.get(roles["name"]) or "")
+        if roles.get("country"):
+            row["country"] = str(record.get(roles["country"]) or "").upper()
         rows.append(row)
     return rows, bad
 
@@ -485,6 +755,9 @@ def _category(rows, roles, entry):
     for row in rows:
         if row["category"] not in values:
             values.append(row["category"])
+    order = entry.get("category_order")
+    if order:
+        values = [v for v in order if v in values] + [v for v in values if v not in order]
     if len(values) > MAX_CATEGORIES:
         for row in rows:
             row["category"] = None
@@ -598,11 +871,35 @@ def _in_window(lon, lat, window: Window) -> bool:
     return w <= lon <= e and s <= lat <= n
 
 
-def _points_layer(base, rows, roles, entry, excluded, window):
+def _scope(rows: list, window: Window) -> tuple[list, list]:
+    """Rows inside the map window and, when the map names countries in
+    `within` and the data carries a country code, inside those countries.
+
+    A box alone is not a scope: drawn around Europe it admits Ankara and
+    Tehran, and Russia's box spans the globe. The country column is exact
+    where polygons, simplified at 1:50m, put St Petersburg in the sea.
+    """
     inside = [r for r in rows if _in_window(r["lon"], r["lat"], window)]
-    outside = len(rows) - len(inside)
-    if outside:
-        excluded = excluded + [{"count": outside, "reason": "outside the map window"}]
+    excluded = []
+    if len(rows) > len(inside):
+        excluded.append({"count": len(rows) - len(inside),
+                         "reason": "outside the map window"})
+    codes = [c for c in window.within or () if "-" not in c and len(c) in (2, 3)]
+    if codes and inside and "country" in inside[0]:
+        from mapsvc.cartography import iso
+
+        wanted = {iso.to_alpha2(c) for c in codes} - {None}
+        kept = [r for r in inside if iso.to_alpha2(r["country"]) in wanted]
+        if len(kept) < len(inside):
+            excluded.append({"count": len(inside) - len(kept),
+                             "reason": "in countries outside `within`"})
+        inside = kept
+    return inside, excluded
+
+
+def _points_layer(base, rows, roles, entry, excluded, window):
+    inside, scoped = _scope(rows, window)
+    excluded = excluded + scoped
     category = _category(inside, roles, entry)
     size = None
     if "size" in roles:
@@ -612,12 +909,174 @@ def _points_layer(base, rows, roles, entry, excluded, window):
                  "size": r.get("size"), "category": r.get("category"),
                  "name": r.get("name")} for r in inside]
     size_text = (f"circle area ∝ {size['label']}" if size and size["scale"] != "magnitude"
-                 else "circle area ∝ 10^(M/2)" if size else "one dot per row")
+                 else "circle area ∝ 10^(M/2)" if size else
+                 f"colour = {category['label'].lower()}" if category else "one dot per row")
+    noun = entry.get("noun") or "points"
     return {**base, "kind": "points", "size": size, "category": category,
             "features": features, "stats": {"count": len(features)},
-            "summary": f"{len(features):,} points · {size_text}",
+            "summary": f"{len(features):,} {noun} · {size_text}",
             "encoding": size_text[:1].upper() + size_text[1:], "excluded": excluded,
-            "label_top": 5 if "name" in roles else 0}
+            "label_top": entry.get("label_top", 5 if "name" in roles else 0),
+            "noun": noun}
+
+
+def _ranked_layer(base, rows, roles, entry, excluded, window, n):
+    """The N largest by size, within the window and `within`: every one is
+    named on the map with its value, so the ranking can be read off it."""
+    inside, scoped = _scope(rows, window)
+    excluded = excluded + scoped
+    sized = [r for r in inside if r.get("size") is not None and r["size"] > 0]
+    if len(sized) < len(inside):
+        excluded.append({"count": len(inside) - len(sized), "reason": "without a size"})
+    if not sized:
+        raise OverlayError(f"{base['provenance']['url']} has no sized rows inside "
+                           "the map window", "overlays.id")
+    sized.sort(key=lambda r: (-r["size"], r["i"]))
+    kept = sized[:n]
+    if len(sized) > n:
+        excluded.append({"count": len(sized) - n,
+                         "reason": f"smaller than the {n} largest"})
+    size_label = entry.get("size_label") or roles["size"]
+    noun = entry.get("rank_noun") or "places"
+    where = f" in {window.name}" if window.name else ""
+    measure = re.split(r"\s*[(,]", size_label)[0].lower()
+    features = [{"id": f"r{r['i']}", "lon": r["lon"], "lat": r["lat"],
+                 "size": r["size"], "category": None, "name": r.get("name") or "",
+                 "rank": rank} for rank, r in enumerate(kept, 1)]
+    scope = ("the map window and the countries in `within`"
+             if any(e["reason"].startswith("in countries") for e in scoped)
+             or (window.within and "country" in roles) else "the map window")
+    definition = entry.get("definition") or size_label
+    return {**base, "kind": "points", "rank": True,
+            "title": f"The {len(kept)} largest {noun}{where} by {measure}",
+            "size": {"field": roles["size"], "label": size_label, "unit": "",
+                     "scale": "sqrt"},
+            "category": None, "features": features,
+            "stats": {"count": len(features), "largest": kept[0]["size"],
+                      "smallest": kept[-1]["size"]},
+            "summary": f"{definition[:1].upper()}{definition[1:]}",
+            "encoding": (f"{measure[:1].upper()}{measure[1:]}: {definition}. "
+                         f"Circle area ∝ {measure}; ranked within {scope}; every "
+                         f"one labelled with its {measure}"),
+            "excluded": excluded, "label_top": len(features), "noun": noun}
+
+
+# ---------------------------------------------------------------- ibtracs ---
+
+# IBTrACS USA_SSHS: -5 unknown, -4 post-tropical, -3 disturbance, -2
+# subtropical, -1 tropical depression, 0 tropical storm, 1-5 hurricane category.
+SSHS_CLASSES = (
+    ("other", "Post-tropical or disturbance"), ("td", "Tropical depression"),
+    ("ts", "Tropical storm"), ("cat1", "Category 1"), ("cat2", "Category 2"),
+    ("cat3", "Category 3"), ("cat4", "Category 4"), ("cat5", "Category 5"))
+# Saffir-Simpson thresholds in knots, for positions without a USA_SSHS.
+SSHS_KT = ((137, 5), (113, 4), (96, 3), (83, 2), (64, 1), (34, 0), (0, -1))
+
+
+def _sshs(cells: dict) -> int | None:
+    code = _number(cells.get("USA_SSHS"))
+    if code is not None:
+        code = int(code)
+        if code == -2:          # subtropical: depression or storm by its wind
+            wind = _number(cells.get("USA_WIND")) or 0
+            return 0 if wind >= 34 else -1
+        return code
+    wind = _number(cells.get("USA_WIND"))
+    if wind is None:
+        wind = _number(cells.get("WMO_WIND"))
+    if wind is None:
+        return None
+    return next(c for kt, c in SSHS_KT if wind >= kt)
+
+
+def _sshs_class(code: int | None) -> str:
+    if code is None or code < -1:
+        return "other"
+    return {-1: "td", 0: "ts"}.get(code, f"cat{code}")
+
+
+def _ibtracs_layer(base: dict, text: str, filters: dict, window: Window) -> dict:
+    """One line per storm of a season, its category at every position."""
+    season = str(filters["season"])
+    lines = text.splitlines()
+    header = next(csv.reader(lines[:1]), [])
+    if "SID" not in header or "SEASON" not in header:
+        raise OverlayError(f"{base['provenance']['url']} is not an IBTrACS CSV",
+                           "overlays.id")
+    column = header.index("SEASON")
+    # A season is a few hundred of 128,000 rows: test the column before parsing.
+    picked = [line for line in lines[2:] if line.split(",", column + 1)[column] == season]
+    storms: dict = {}
+    spur = 0
+    for cells in csv.reader(picked):
+        row = dict(zip(header, (c.strip() for c in cells)))
+        if row.get("TRACK_TYPE") != "main":
+            spur += 1
+            continue
+        storms.setdefault(row["SID"], []).append(row)
+    if not storms:
+        raise OverlayError(f"IBTrACS has no storms in season {season}", "overlays.id")
+    features, never, provisional = [], 0, 0
+    for sid in sorted(storms):
+        rows = sorted(storms[sid], key=lambda r: r["ISO_TIME"])
+        codes = [_sshs(r) for r in rows]
+        if max((c for c in codes if c is not None), default=-5) < -1:
+            never += 1
+            continue
+        if not any(r.get("USA_AGENCY", "").startswith("hurdat") for r in rows):
+            provisional += 1
+        coords, classes, winds = [], [], []
+        for r, code in zip(rows, codes):
+            lon, lat = _number(r.get("LON")), _number(r.get("LAT"))
+            if lon is None or lat is None:
+                continue
+            coords.append([round(lon, 3), round(lat, 3)])
+            classes.append(_sshs_class(code))
+            wind = _number(r.get("USA_WIND"))
+            winds.append(wind if wind is not None else (_number(r.get("WMO_WIND")) or 0))
+        if len(coords) < 2:
+            never += 1
+            continue
+        peak = max(range(len(coords)), key=lambda i: (winds[i], -i))
+        top = max((c for c in codes if c is not None), default=-1)
+        name = rows[0].get("NAME") or "UNNAMED"
+        features.append({
+            "id": sid, "coords": coords, "classes": classes[:-1],
+            "category": _sshs_class(top), "name": name.title(),
+            "peak": top, "peak_wind": winds[peak], "peak_at": coords[peak],
+            "landfall": any(r.get("LANDFALL") == "0" for r in rows),
+        })
+    hurricanes = sum(f["peak"] >= 1 for f in features)
+    major = sum(f["peak"] >= 3 for f in features)
+    excluded = []
+    if never:
+        excluded.append({"count": never, "reason": "never a tropical or "
+                         "subtropical cyclone (disturbances, invests)"})
+    if spur:
+        excluded.append({"count": spur, "reason": "positions on alternative (spur) tracks"})
+    vintage = f"season {season}"
+    if provisional:
+        vintage += (f"; {provisional} storm{'s' if provisional != 1 else ''} "
+                    "provisional (operational data, not yet reanalysed)")
+    base["provenance"]["vintage"] = vintage
+    present = {c for f in features for c in f["classes"]}
+    return {**base, "kind": "lines", "along": True,
+            "title": f"North Atlantic tropical storms and hurricanes, {season}",
+            "label": "Storm tracks",
+            "size": None,
+            "category": {"field": "USA_SSHS", "label": "Saffir-Simpson category",
+                         "ordered": True,
+                         "classes": [{"value": v, "label": label}
+                                     for v, label in SSHS_CLASSES if v in present]},
+            "features": features,
+            "stats": {"count": len(features), "hurricanes": hurricanes,
+                      "major_hurricanes": major},
+            "summary": (f"{len(features)} tropical cyclones · "
+                        f"{hurricanes} hurricanes, {major} major"),
+            "encoding": ("One line per storm, coloured by its Saffir-Simpson "
+                         "category at each three-hourly position (US agency "
+                         "1-minute sustained wind); hurricanes named at their peak"),
+            "excluded": excluded, "noun": "storms"}
 
 
 def _lines_layer(base, lines, roles, window):
