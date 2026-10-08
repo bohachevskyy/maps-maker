@@ -231,6 +231,7 @@ CATALOGUE = (
                             "other": "Type not recorded"},
         "category_other": "other",
         "label": "Holocene volcanoes", "label_top": 0, "noun": "volcanoes",
+        "theme": "seismic", "category_counts": True,
         "license": "Smithsonian terms of use; cite as requested",
         "attribution": "Global Volcanism Program, 2026. Volcanoes of the World "
                        "(v. 5.4.0; 7 Aug 2026). Distributed by Smithsonian "
@@ -480,6 +481,7 @@ def layer_from_bytes(payload: bytes, overlay_id: str, window: Window) -> dict:
         "vintage": None,
     }
     base = {"source": "web", "id": overlay_id, "provenance": provenance,
+            **({"theme": entry["theme"]} if entry.get("theme") else {}),
             "title": entry.get("title") or f"Data from {host}",
             "label": entry.get("label") or entry.get("title") or host}
     if entry.get("format") == "ibtracs":
@@ -762,7 +764,10 @@ def _category(rows, roles, entry):
         for row in rows:
             row["category"] = None
         return None
-    labels = entry.get("category_labels") or {}
+    labels = dict(entry.get("category_labels") or {})
+    if entry.get("category_counts"):
+        counts = {v: sum(1 for r in rows if r["category"] == v) for v in values}
+        labels = {v: f"{labels.get(v, v)} ({counts[v]:,})" for v in values}
     return {"field": roles["category"], "label": entry.get("category_label") or
             roles["category"],
             "classes": [{"value": v, "label": labels.get(v, v)} for v in values]}
@@ -966,9 +971,11 @@ def _ranked_layer(base, rows, roles, entry, excluded, window, n):
 # IBTrACS USA_SSHS: -5 unknown, -4 post-tropical, -3 disturbance, -2
 # subtropical, -1 tropical depression, 0 tropical storm, 1-5 hurricane category.
 SSHS_CLASSES = (
-    ("other", "Post-tropical or disturbance"), ("td", "Tropical depression"),
-    ("ts", "Tropical storm"), ("cat1", "Category 1"), ("cat2", "Category 2"),
-    ("cat3", "Category 3"), ("cat4", "Category 4"), ("cat5", "Category 5"))
+    ("other", "Before genesis or post-tropical"),
+    ("td", "Tropical depression (< 34 kt)"), ("ts", "Tropical storm (34–63 kt)"),
+    ("cat1", "Category 1 (64–82 kt)"), ("cat2", "Category 2 (83–95 kt)"),
+    ("cat3", "Category 3 (96–112 kt)"), ("cat4", "Category 4 (113–136 kt)"),
+    ("cat5", "Category 5 (≥ 137 kt)"))
 # Saffir-Simpson thresholds in knots, for positions without a USA_SSHS.
 SSHS_KT = ((137, 5), (113, 4), (96, 3), (83, 2), (64, 1), (34, 0), (0, -1))
 

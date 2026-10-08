@@ -37,6 +37,7 @@ NOMINAL = ("#1b9e77", "#d95f02", "#7570b3", "#e7298a", "#66a61e", "#e6ab02",
 SSHS = {"other": "#b3b8bb", "td": "#8cb6d6", "ts": "#3a7fb8", "cat1": "#f2c84b",
         "cat2": "#f08a24", "cat3": "#dd4b1a", "cat4": "#a50f15", "cat5": "#5c1a6b"}
 TRACK_W = (1.0, 1.2, 1.5, 2.0, 2.4, 2.8, 3.2, 3.6)   # thin to thick, same order
+TRACK_DASH = "3 2.5"          # a track outside its tropical life
 FLOW = ("#d6b27c", "#25292c", "#7d9fbf", "#b3546b")
 # Text in a band's colour must still read on paper: the tan is darkened.
 NOTE_INK = {"#d6b27c": "#8a6630"}
@@ -453,9 +454,10 @@ def _tracks(layer, frame, labels, anchors):
         d = "".join("M" + "L".join(f"{_num(x)},{_num(y)}" for x, y in _thin(run))
                     for run in runs)
         width = TRACK_W[rank.get(value, 0)]
+        dash = f' stroke-dasharray="{TRACK_DASH}"' if value == "other" else ""
         out.append(f'<path d="{d}" fill="none" stroke="{SSHS.get(value, ORDERED[0])}" '
-                   f'stroke-width="{width}" stroke-linecap="round" stroke-linejoin="round" '
-                   f'data-class={quoteattr(str(value))}/>')
+                   f'stroke-width="{width}" stroke-linecap="round" stroke-linejoin="round"'
+                   f'{dash} data-class={quoteattr(str(value))}/>')
     named = sorted((f for f in layer["features"] if f.get("peak", -1) >= 1),
                    key=lambda f: (-f["peak"], -f.get("peak_wind", 0), f["id"]))
     for f in named:
@@ -464,7 +466,8 @@ def _tracks(layer, frame, labels, anchors):
             labels.callout(f["name"], x, y, 2.0, bold=f["peak"] >= 3)
     present = {v for v, runs in paths.items() if runs}
     colours = {v: SSHS.get(v, ORDERED[0]) for v in order}
-    return "".join(out), [_swatch_block(category, colours, present, "line")]
+    return "".join(out), [_swatch_block(category, colours, present, "line",
+                                        dashed=frozenset({"other"}))]
 
 
 def _thin(run):
@@ -537,24 +540,26 @@ def _heading(text: str, x: float, y: float) -> str:
             f'fill="{TEXT}">{escape(text)}</text>')
 
 
-def _swatch_block(category, colours, present, mark):
+def _swatch_block(category, colours, present, mark, dashed=frozenset()):
     classes = [c for c in category["classes"] if c["value"] in present]
     heading = category.get("label") or ""
-    rows = [(colours.get(c["value"], ORDERED[0]), c["label"]) for c in classes]
-    w = max([_text_w(heading, 11.5)] + [30 + _text_w(t, 10) for _, t in rows])
+    rows = [(colours.get(c["value"], ORDERED[0]), c["label"], c["value"]) for c in classes]
+    w = max([_text_w(heading, 11.5)] + [30 + _text_w(t, 10) for _, t, _ in rows])
     h = 18 + 16 * len(rows)
 
     def draw(x, y):
         out = [_heading(heading, x, y + 11)] if heading else []
-        for i, (colour, text) in enumerate(rows):
+        for i, (colour, text, value) in enumerate(rows):
             cy = y + 18 + 16 * i + 6
             if mark == "dot":
                 out.append(f'<circle cx="{_num(x + 6)}" cy="{_num(cy)}" r="5" '
                            f'fill="{colour}" fill-opacity="0.85"/>')
             elif mark == "line":
+                dash = (f' stroke-dasharray="{TRACK_DASH}"'
+                        if value in dashed else "")
                 out.append(f'<line x1="{_num(x)}" y1="{_num(cy)}" x2="{_num(x + 20)}" '
                            f'y2="{_num(cy)}" stroke="{colour}" stroke-width="{LINE_W + 0.6}" '
-                           'stroke-linecap="round"/>')
+                           f'stroke-linecap="round"{dash}/>')
             else:
                 out.append(f'<rect x="{_num(x)}" y="{_num(cy - 5)}" width="20" height="10" '
                            f'fill="{colour}"/>')
