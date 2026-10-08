@@ -105,6 +105,18 @@ def test_the_default_basemap_is_overture():
     assert validate(raw).basemap_source == "overture"
 
 
+def test_wide_admin_0_windows_force_natural_earth():
+    raw = manifest(bbox=[-180, -60, 180, 85], variable=None,
+                   basemap={"source": "overture", "detail": "full"})
+    assert validate(raw).basemap_source == "natural_earth"
+
+
+def test_narrow_admin_0_windows_keep_the_requested_basemap():
+    raw = manifest(bbox=[-10, 35, 60, 72], variable=None,
+                   basemap={"source": "overture", "detail": "full"})
+    assert validate(raw).basemap_source == "overture"
+
+
 # --- variable -------------------------------------------------------------
 
 def test_variable_may_be_null_for_a_base_map():

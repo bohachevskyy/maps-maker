@@ -20,7 +20,8 @@ from mapsvc import cartography, derive, overlays, project, registry, statistics
 from mapsvc.manifest import Manifest
 from mapsvc.models import HarvestResult
 
-__all__ = ["HarvestResult", "HarvestError", "harvest", "load_source", "select_region"]
+__all__ = ["HarvestResult", "HarvestError", "harvest", "load_source",
+           "select_region", "validate_window"]
 
 FETCH_TIMEOUT = 60
 USER_AGENT = "mapsvc/0.1 (+https://github.com/nvkelso/natural-earth-vector)"
@@ -145,9 +146,21 @@ def harvest(manifest: Manifest) -> HarvestResult:
     if manifest.overlays and manifest.bbox is None and not manifest.within:
         return _framed_on_overlays(manifest)
     result = _base(manifest)
+    _state_derived_basemap_rule(manifest, result)
     if manifest.overlays:
         _add_overlays(manifest, result)
     return result
+
+
+def _state_derived_basemap_rule(manifest: Manifest, result: HarvestResult) -> None:
+    """Put the enforced wide-admin_0 source choice in the existing footnote."""
+    if (manifest.level == "admin_0" and manifest.bbox is not None
+            and manifest.bbox[2] - manifest.bbox[0] > 90
+            and manifest.basemap_source == "natural_earth"):
+        note = "Natural Earth required for admin_0 windows wider than 90°"
+        vintage = str(result.provenance.get("vintage") or "")
+        if note not in vintage:
+            result.provenance["vintage"] = f"{vintage}; {note}".lstrip("; ")
 
 
 def _framed_on_overlays(manifest: Manifest) -> HarvestResult:
@@ -732,11 +745,47 @@ def _check_granularity(manifest: Manifest) -> None:
     )
 
 
+def validate_window(manifest: Manifest):
+    """Ensure a political selection is not silently clipped by its bbox.
+
+    Returns the already-loaded boxed boundaries so harvest need not issue that
+    request again. The unboxed selection defines all member units.
+    """
+    if manifest.bbox is None or not manifest.within:
+        return None
+    complete = cartography.load(manifest.basemap_source, manifest.level, None,
+                                manifest.basemap_detail, manifest.within)
+    # Providers all use this same antimeridian-aware geometry intersection
+    # rule. Applying it to the complete selection avoids a second remote query
+    # and, crucially, does not turn an unrelated provider failure into a false
+    # "all units clipped" diagnosis.
+    from mapsvc.cartography.natural_earth import _intersecting
+
+    features = [{"geometry": unit["geometry"], "properties": {"id": unit["id"]}}
+                for unit in complete.units]
+    present = {str(feature["properties"]["id"])
+               for feature in _intersecting(features, manifest.bbox)}
+    missing = [unit for unit in complete.units if str(unit["id"]) not in present]
+    if missing:
+        names = sorted(str(unit.get("name") or unit["id"]) for unit in missing)
+        shown = ", ".join(names[:12])
+        if len(names) > 12:
+            shown += f", and {len(names) - 12} more"
+        raise HarvestError(
+            f"bbox cuts {len(names)} units selected by within off the political "
+            f"map: {shown}; drop the bbox or widen it to include every unit",
+            "bbox",
+        )
+    return complete
+
+
 def _build(manifest: Manifest) -> HarvestResult:
     _check_granularity(manifest)
-    boundaries = cartography.load(manifest.basemap_source, manifest.level,
-                                  manifest.bbox, manifest.basemap_detail,
-                                  manifest.within)
+    boundaries = validate_window(manifest)
+    if boundaries is None:
+        boundaries = cartography.load(manifest.basemap_source, manifest.level,
+                                      manifest.bbox, manifest.basemap_detail,
+                                      manifest.within)
     provenance = {
         "bbox": None if manifest.bbox is None else list(manifest.bbox),
         "within": manifest.within,

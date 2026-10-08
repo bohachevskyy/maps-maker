@@ -84,6 +84,13 @@ def validate(raw: dict) -> Manifest:
             f"basemap.detail must be one of {', '.join(registry.DETAILS)}, "
             f"got {basemap_detail!r}", "basemap.detail"
         )
+    # Overture's admin_0 is not a complete political world layer (notably
+    # Greenland and several territories are absent). At world/continent scale
+    # Natural Earth is both complete and appropriately detailed, so this is a
+    # derived source rule rather than a prompt preference.
+    if level == "admin_0" and bbox is not None and bbox[2] - bbox[0] > 90:
+        basemap_source = "natural_earth"
+
     supported = cartography.levels(basemap_source)
     if level not in supported:
         raise ManifestError(

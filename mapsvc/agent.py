@@ -493,6 +493,13 @@ the overlay, so `within` alone is right for a country's network. Add a bbox \
 only to zoom in. A world map is bbox [-180, -90, 180, 90]. An \
 end date is exclusive: all of 2019 is start=2019-01-01;end=2020-01-01.
 
+Reliability rules are enforced after your answer: a bbox combined with `within` \
+must retain every named political unit; admin_0 windows wider than 90 degrees \
+are automatically switched to Natural Earth; and Overpass tags must be real, \
+specific OSM key=value pairs (never `*`) that match at least one feature. A \
+rejection will name clipped units or suggest common tag values, so repair the \
+manifest by dropping/widening the bbox or correcting/narrowing the tag.
+
 For `web`, never invent data and never paste values: either search the curated \
 catalogue (empty id, a search_query) and pick returned URLs, or give an https \
 URL of a CSV/GeoJSON you are confident exists. The service fetches it and \
@@ -573,7 +580,12 @@ def describe(prompt: str) -> tuple[Manifest, dict, str]:
         try:
             _check_per((raw.get("variable") or {}).get("per"))
             manifest = validate(raw)
-            _check_overlay_urls(manifest)
+            # validate() can apply derived source rules. Return the effective
+            # manifest rather than claiming the model's rejected source was used.
+            if ("basemap" in raw
+                    and raw.get("basemap", {}).get("source") != manifest.basemap_source):
+                raw["basemap"]["source"] = manifest.basemap_source
+            _preflight(manifest)
             return manifest, raw, answer.get("reasoning", "")
         except ManifestError as error:
             last_error = error
@@ -635,20 +647,32 @@ def _strip_overlays(raw: dict) -> None:
                        for item in items]
 
 
-def _check_overlay_urls(manifest: Manifest) -> None:
-    """A URL the model proposed must load and have a usable shape.
+def _preflight(manifest: Manifest) -> None:
+    """Run checks whose failures need to reach the model's repair turn.
 
-    Fetched here rather than at harvest so a dead or shapeless URL is handed
-    back to the model for repair; the bytes are cached, so harvest pays
-    nothing twice.
+    Web and Overpass bytes are cached, so the subsequent harvest does not fetch
+    them twice. Political bbox coverage is checked here as well as at harvest:
+    direct manifests still get the invariant, while agent manifests can repair
+    it by dropping or widening the bbox.
     """
-    from mapsvc.overlays import web
+    from mapsvc import harvest
+    from mapsvc.overlays import overpass, web
+
+    try:
+        harvest.validate_window(manifest)
+    except harvest.HarvestError as exc:
+        raise ManifestError(str(exc), exc.field) from None
 
     for i, (source, overlay_id) in enumerate(manifest.overlays):
-        if source != "web":
-            continue
         try:
-            web.check(overlay_id)
+            if source == "web":
+                web.check(overlay_id)
+            elif source == "overpass":
+                # Only the result can prove the filter matched zero or far too
+                # many features; load() caches it for the following harvest.
+                window = overlays.Window(manifest.bbox, manifest.within,
+                                         manifest.bbox or (-180, -90, 180, 90))
+                overpass.load(overlay_id, window)
         except overlays.OverlayError as exc:
             raise ManifestError(str(exc), f"overlays[{i}].id") from None
 
@@ -749,8 +773,7 @@ def _ask_codex(conversation: list[dict]) -> dict:
             executable, "exec", "--ephemeral", "--skip-git-repo-check",
             "-s", "read-only", "-c", "model_reasoning_effort=low",
         ]
-        if model := os.environ.get("MAPSVC_CODEX_MODEL"):
-            command.extend(["-m", model])
+        command.extend(["-m", os.environ.get("MAPSVC_CODEX_MODEL", DEFAULT_MODEL)])
         command.extend([
             "--output-schema", str(schema_path), "-o", str(output_path), "-",
         ])

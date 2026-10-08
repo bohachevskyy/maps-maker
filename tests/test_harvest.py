@@ -138,6 +138,45 @@ def test_second_harvest_reads_the_cache_and_matches(offline, monkeypatch):
            (first.rows, first.provenance, first.dropped)
 
 
+def test_bbox_cannot_clip_units_selected_by_within(monkeypatch):
+    from mapsvc.cartography import Boundaries
+
+    def square(lon, lat):
+        return {"type": "Polygon", "coordinates": [[
+            [lon, lat], [lon + 1, lat], [lon + 1, lat + 1],
+            [lon, lat + 1], [lon, lat],
+        ]]}
+
+    alaska = {"id": "US-AK", "name": "Alaska", "geometry": square(-150, 60)}
+    hawaii = {"id": "US-HI", "name": "Hawaii", "geometry": square(-157, 20)}
+    california = {"id": "US-CA", "name": "California",
+                  "geometry": square(-120, 35)}
+
+    def load(source, level, bbox, detail, within):
+        units = [alaska, hawaii, california] if bbox is None else [california]
+        return Boundaries(units=units)
+
+    monkeypatch.setattr(H.cartography, "load", load)
+    manifest = build_manifest(bbox=(-125, 24, -66, 50), within=("USA",),
+                              level="admin_1", variable_source=None,
+                              variable_id=None, basemap_source="census")
+    with pytest.raises(H.HarvestError) as caught:
+        H.validate_window(manifest)
+    assert caught.value.field == "bbox"
+    assert "Alaska" in str(caught.value) and "Hawaii" in str(caught.value)
+    assert "drop the bbox or widen it" in str(caught.value)
+
+
+def test_wide_admin_0_rule_is_carried_to_the_footnote_provenance(monkeypatch):
+    result = H.HarvestResult(rows=[], provenance={"vintage": "v5.1.1"}, dropped=[])
+    monkeypatch.setattr(H, "_base", lambda manifest: result)
+    manifest = build_manifest(bbox=(-180, -90, 180, 90), variable_source=None,
+                              variable_id=None, basemap_source="natural_earth")
+    actual = H.harvest(manifest)
+    assert "Natural Earth required for admin_0 windows wider than 90°" in \
+        actual.provenance["vintage"]
+
+
 def test_rows_and_dropped_come_back_in_a_stable_order(offline):
     offline([feature(a3, GDP_MD=v) for a3, v in
              [("DDD", 4), ("AAA", 1), ("CCC", -99), ("BBB", 2)]])

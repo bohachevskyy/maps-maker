@@ -1,8 +1,8 @@
 """OpenStreetMap features via the Overpass API (ODbL).
 
 The id is a tag filter in a deliberately small grammar -- `railway=rail;
-highspeed=yes`: key=value pairs, ANDed, lower-case [a-z0-9_:], `*` meaning
-"any value". The service writes the Overpass QL; the model never does, so it
+highspeed=yes`: concrete key=value pairs, ANDed, lower-case [a-z0-9_:]. The
+service writes the Overpass QL; the model never does, so it
 cannot ask for the planet or run arbitrary queries on a public server.
 
 The area is the manifest's: `within` becomes Overpass areas by ISO 3166 code
@@ -40,6 +40,17 @@ STATUS_TIMEOUT_S = 2
 MAXSIZE = 512 * 1024 * 1024
 MAX_WAYS = 40_000
 MAX_PAIRS = 4
+TAGINFO_TIMEOUT_S = 3
+TAGINFO_MIN_COUNT = 100
+TAGINFO_VALUES = 5
+TAGINFO = "https://taginfo.openstreetmap.org/api/4"
+
+# These are commonly used as yes/no qualifiers. A wildcard is still rejected:
+# for these keys it is especially likely that the request meant "=yes".
+BOOLEAN_KEYS = {
+    "bridge", "covered", "highspeed", "lit", "oneway", "tunnel",
+    "wheelchair",
+}
 
 CAPABILITIES = Capabilities(
     source="overpass",
@@ -49,8 +60,8 @@ CAPABILITIES = Capabilities(
                 "motorways, rivers, power lines, stations -- inside the map's "
                 "within/bbox, drawn as lines or points. Slow when uncached "
                 "(one to three minutes for a country), then instant",
-    id_help="semicolon-separated key=value tag pairs, ANDed, lower case "
-            "[a-z0-9_:], value * for any, e.g. 'railway=rail;usage=main' "
+    id_help="semicolon-separated concrete key=value tag pairs, ANDed, lower case "
+            "[a-z0-9_:], e.g. 'railway=rail;highspeed=yes' "
             "or 'power=line'",
 )
 
@@ -78,6 +89,11 @@ def _pairs(overlay_id: str) -> list[tuple[str, str]]:
                 "free Overpass QL is not accepted", "overlays.id")
         if any(k == key for k, _ in pairs):
             raise OverlayError(f"overpass filter repeats {key!r}", "overlays.id")
+        if value == "*":
+            hint = (f"; use {key}=yes if that is what you mean"
+                    if key in BOOLEAN_KEYS else "; choose a concrete value")
+            raise OverlayError(
+                f"overpass wildcard {key}=* is too broad{hint}", "overlays.id")
         pairs.append((key, value))
     if not pairs:
         raise OverlayError(f"overpass filter is empty; {CAPABILITIES.id_help}",
@@ -85,11 +101,56 @@ def _pairs(overlay_id: str) -> list[tuple[str, str]]:
     if len(pairs) > MAX_PAIRS:
         raise OverlayError(f"overpass filter has {len(pairs)} pairs, at most "
                            f"{MAX_PAIRS}", "overlays.id")
-    if all(v == "*" for _, v in pairs):
-        raise OverlayError("overpass filter needs at least one concrete value; "
-                           f"'{pairs[0][0]}=*' alone matches far too much",
-                           "overlays.id")
     return pairs
+
+
+def _taginfo_json(path: str, params: dict) -> dict:
+    query_string = urllib.parse.urlencode(params)
+    url = f"{TAGINFO}/{path}?{query_string}"
+    digest = hashlib.sha256(url.encode()).hexdigest()[:16]
+    payload = fetch.cached(url, "overlays", "taginfo", f"{digest}.json",
+                           timeout=TAGINFO_TIMEOUT_S, accept="application/json")
+    return json.loads(payload)
+
+
+def _suggestions(key: str) -> list[str]:
+    data = _taginfo_json("key/values", {
+        "key": key, "page": 1, "rp": TAGINFO_VALUES,
+        "sortname": "count_all", "sortorder": "desc",
+    })
+    return [str(item["value"]) for item in data.get("data", [])
+            if item.get("value")]
+
+
+def validate_tags(pairs) -> None:
+    """Reject invented or vanishingly rare tags before spending Overpass time.
+
+    Taginfo is advisory infrastructure: if it is unavailable or returns an
+    unusable response, Overpass remains the authority and the query proceeds.
+    Successful responses are cached on disk by exact URL.
+    """
+    for key, value in pairs:
+        try:
+            data = _taginfo_json("tag/stats", {"key": key, "value": value})
+            all_rows = [row for row in data.get("data", [])
+                        if row.get("type") == "all"]
+            if not all_rows:
+                continue
+            count = int(all_rows[0].get("count", 0))
+        except (fetch.FetchError, json.JSONDecodeError, TypeError, ValueError, KeyError):
+            continue
+        if count >= TAGINFO_MIN_COUNT:
+            continue
+        try:
+            common = _suggestions(key)
+        except (fetch.FetchError, json.JSONDecodeError, TypeError, ValueError, KeyError):
+            common = []
+        suggestion = (f" Common {key} values: "
+                      + ", ".join(f"{key}={item}" for item in common) + "."
+                      if common else "")
+        raise OverlayError(
+            f"OSM tag {key}={value} has only {count:,} uses worldwide; "
+            f"check the tag.{suggestion}", "overlays.id")
 
 
 def query(pairs, window: Window) -> str:
@@ -128,6 +189,7 @@ def _alpha2(code: str) -> str:
 
 def load(overlay_id: str, window: Window) -> dict:
     pairs = _pairs(overlay_id)
+    validate_tags(pairs)
     ql = query(pairs, window)
     digest = hashlib.sha256(ql.encode()).hexdigest()[:16]
     target = fetch.path("overlays", "overpass", f"{digest}.json")
@@ -284,6 +346,10 @@ def layer_from_overpass(data: dict, pairs, window: Window, ql: str) -> dict:
     elements = data.get("elements") or []
     ways = [e for e in elements if e.get("type") == "way" and len(e.get("geometry") or []) >= 2]
     nodes = [e for e in elements if e.get("type") == "node" and "lat" in e]
+    if not ways and not nodes:
+        raise OverlayError(
+            "OpenStreetMap filter matched 0 features; check the tag or widen "
+            "the window", "overlays.id")
     vintage = (data.get("osm3s") or {}).get("timestamp_osm_base")
     what = describe(pairs)
     where = f" in {window.name}" if window.name else ""

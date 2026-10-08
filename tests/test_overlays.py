@@ -187,6 +187,58 @@ def test_overpass_query_scopes_by_country_area_and_box():
     assert 'area["ISO3166-2"="FR-IDF"]' in sub
 
 
+def test_boolean_wildcard_is_rejected_with_yes_suggestion():
+    with pytest.raises(overlays.OverlayError, match="highspeed=yes"):
+        overpass._pairs("railway=rail;highspeed=*")
+
+
+def test_taginfo_rejects_a_near_unused_tag_with_cached_suggestions(monkeypatch,
+                                                                  tmp_path):
+    monkeypatch.setenv("MAPSVC_CACHE", str(tmp_path))
+    calls = []
+
+    def get(url, **kwargs):
+        calls.append((url, kwargs))
+        if "/tag/stats?" in url:
+            return json.dumps({"data": [{"type": "all", "count": 19}]}).encode()
+        return json.dumps({"data": [
+            {"value": "driveway"}, {"value": "yard"}, {"value": "spur"},
+        ]}).encode()
+
+    monkeypatch.setattr(overpass.fetch, "get", get)
+    for _ in range(2):
+        with pytest.raises(overlays.OverlayError) as caught:
+            overpass.validate_tags([("service", "highspeed")])
+        assert "only 19 uses worldwide" in str(caught.value)
+        assert "service=driveway" in str(caught.value)
+    assert len(calls) == 2, "the stats and suggestion responses are disk-cached"
+    assert all(call[1]["timeout"] == overpass.TAGINFO_TIMEOUT_S for call in calls)
+
+
+def test_taginfo_failure_does_not_block_overpass(monkeypatch):
+    def unavailable(*args, **kwargs):
+        raise overpass.fetch.FetchError("offline")
+
+    monkeypatch.setattr(overpass.fetch, "cached", unavailable)
+    overpass.validate_tags([("railway", "rail")])
+
+
+def test_an_empty_overpass_result_is_an_error():
+    window = overlays.Window(None, ("FRA",), (-5, 41, 10, 52), "France")
+    with pytest.raises(overlays.OverlayError, match="matched 0 features; check the tag"):
+        overpass.layer_from_overpass({"elements": []}, overpass._pairs(LGV),
+                                    window, "ql")
+
+
+def test_an_overbroad_overpass_filter_is_refused():
+    window = overlays.Window(None, ("FRA",), (-5, 41, 10, 52), "France")
+    way = {"type": "way", "id": 1,
+           "geometry": [{"lon": 1, "lat": 45}, {"lon": 2, "lat": 46}]}
+    with pytest.raises(overlays.OverlayError, match="40,001 OpenStreetMap ways"):
+        overpass.layer_from_overpass({"elements": [way] * 40_001},
+                                    [("usage", "main")], window, "ql")
+
+
 class _HTTPResponse:
     def __init__(self, payload):
         self.payload = payload

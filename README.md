@@ -94,9 +94,9 @@ curl -X POST localhost:8000/describe \
 The manifest comes back alongside the map so you can see what the agent chose,
 disagree with it, edit it, and POST it straight to `/map`.
 
-`MAPSVC_LLM=codex|openai` overrides backend selection. `MAPSVC_CODEX_MODEL`
-selects a Codex model; `OPENAI_MODEL` selects the API model and defaults to
-`gpt-5.6-terra`. `/map` is unaffected if neither LLM backend is available.
+`MAPSVC_LLM=codex|openai` overrides backend selection; both default to
+`gpt-5.6-terra`, overridable with `MAPSVC_CODEX_MODEL` or `OPENAI_MODEL`.
+`/map` is unaffected if neither LLM backend is available.
 
 **The agent is not trusted.** Its output goes through the same `validate()` as a
 hand-written manifest. The response schema is generated from `registry.py`, so
@@ -166,7 +166,7 @@ over a network want `/map` or `/describe`, which return the SVG itself.
 | variable | needed by | default |
 |---|---|---|
 | `MAPSVC_LLM` | `/describe` only | `codex` with no key when CLI is on PATH; otherwise `openai` |
-| `MAPSVC_CODEX_MODEL` | Codex backend only | Codex CLI default |
+| `MAPSVC_CODEX_MODEL` | Codex backend only | `gpt-5.6-terra` |
 | `OPENAI_API_KEY` | OpenAI backend only | none |
 | `OPENAI_MODEL` | `/describe` only | `gpt-5.6-terra` |
 | `MAPSVC_CACHE` | optional | `./cache` |

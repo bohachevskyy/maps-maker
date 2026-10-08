@@ -178,6 +178,22 @@ def test_codex_backend_uses_schema_transcript_and_first_json_object(monkeypatch)
     assert "You assemble manifests" in seen["kwargs"]["input"]
 
 
+def test_codex_backend_defaults_to_terra(monkeypatch):
+    monkeypatch.setenv("MAPSVC_LLM", "codex")
+    monkeypatch.delenv("MAPSVC_CODEX_MODEL", raising=False)
+    monkeypatch.setattr(agent.shutil, "which", lambda name: "/bin/codex")
+    seen = {}
+
+    def run(command, **kwargs):
+        seen["command"] = command
+        pathlib.Path(command[command.index("-o") + 1]).write_text(json.dumps(reply()))
+        return subprocess.CompletedProcess(command, 0, "", "")
+
+    monkeypatch.setattr(agent.subprocess, "run", run)
+    agent.describe("anything")
+    assert seen["command"][seen["command"].index("-m") + 1] == "gpt-5.6-terra"
+
+
 def test_codex_timeout_is_an_agent_error(monkeypatch):
     monkeypatch.setenv("MAPSVC_LLM", "codex")
     monkeypatch.setattr(agent.shutil, "which", lambda name: "/bin/codex")
@@ -225,6 +241,43 @@ def test_a_rejected_manifest_is_repaired_on_a_second_attempt(stub):
 
     followup = client.responses.calls[1]["input"][-1]["content"]
     assert "rejected" in followup and "variable.id" in followup
+
+
+def test_an_overpass_failure_is_fed_to_the_repair_turn(stub, monkeypatch):
+    broken = {**GOOD, "overlays": [
+        {"source": "overpass", "id": "service=highspeed", "search_query": ""}
+    ]}
+    fixed = dict(GOOD)
+    client = stub(reply(broken), reply(fixed))
+
+    def reject(*args, **kwargs):
+        raise agent.overlays.OverlayError(
+            "OSM tag service=highspeed has only 19 uses worldwide; check the tag",
+            "overlays.id")
+
+    from mapsvc.overlays import overpass
+    monkeypatch.setattr(overpass, "load", reject)
+    agent.describe("French high-speed rail")
+    followup = client.responses.calls[1]["input"][-1]["content"]
+    assert "service=highspeed" in followup and "overlays[0].id" in followup
+
+
+def test_a_clipped_within_bbox_is_fed_to_the_repair_turn(stub, monkeypatch):
+    broken = {**GOOD, "within": ["USA"]}
+    fixed = {key: value for key, value in broken.items() if key != "bbox"}
+    client = stub(reply(broken), reply(fixed))
+    calls = 0
+
+    def validate_window(manifest):
+        nonlocal calls
+        calls += 1
+        if manifest.bbox is not None:
+            raise H.HarvestError("bbox cuts off Alaska, Hawaii", "bbox")
+
+    monkeypatch.setattr(H, "validate_window", validate_window)
+    agent.describe("diesel use by US state")
+    followup = client.responses.calls[1]["input"][-1]["content"]
+    assert "Alaska, Hawaii" in followup and "field: bbox" in followup
 
 
 def test_repeated_failure_gives_up_and_names_the_field(stub):
