@@ -345,6 +345,7 @@ right for a very small window. More than {max_units} units is rejected.
 Two more geographies have their own levels and basemaps, measured:
 
   EU (within ["EU"])   nuts_1: 92    nuts_2: 244    nuts_3: 1,165 (too many)
+  Germany (within ["DEU"])                         nuts_3: 400
   US counties          California 58, Texas 254, all of the US 3,222 (too many:
                        scope admin_2 to one or a few states, e.g. ["US-CA"])
 
@@ -407,6 +408,8 @@ State the inferred denominator in reasoning, for example "normalized per capita 
 because state populations differ greatly."
 
 Prefer a ready-made ratio published by a source over deriving the same ratio. \
+For US county unemployment, prefer BLS LAUS's published annual-average \
+unemployment_rate over deriving the ACS survey fraction. \
 When the request itself names a ratio -- "GDP per capita", "share of ...", a \
 rate -- search a searchable source for that exact measure first and use what it \
 publishes; derive with `per` only when no source publishes it. Natural Earth's \

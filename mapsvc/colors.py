@@ -164,7 +164,7 @@ def colors(name: str, k: int) -> list[str]:
     return list(table[k])
 
 
-def diverging(name: str, below: int, above: int) -> list[str]:
+def diverging(name: str, below: int, above: int, reverse: bool = False) -> list[str]:
     """Colours for `below` classes under zero and `above` classes over it.
 
     Both sides are taken from one symmetric ramp of 2*max(below, above)
@@ -175,4 +175,6 @@ def diverging(name: str, below: int, above: int) -> list[str]:
         raise RampError(f"ramp '{name}' is not diverging")
     half = max(below, above)
     full = colors(name, 2 * half)
+    if reverse:
+        full.reverse()
     return full[half - below:half] + full[half:half + above]

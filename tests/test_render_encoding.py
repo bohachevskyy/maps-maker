@@ -181,6 +181,9 @@ def test_diverging_colours_meet_at_the_light_centre():
     below, above = colors.diverging("RdBu", 2, 3), colors.colors("RdBu", 6)
     assert below == ["#ef8a62", "#f6c4ad", "#b7d7e8", "#67a9cf", "#2166ac"]
     assert below[1:] == above[2:]
+    reversed_asymmetric = colors.diverging("RdBu", 2, 4, reverse=True)
+    assert reversed_asymmetric[:2] == ["#92c5de", "#b7d7e8"]
+    assert reversed_asymmetric[2:] == ["#f6c4ad", "#f4a582", "#d6604d", "#b2182b"]
 
 
 # ------------------------------------------------------- small features ---
@@ -205,6 +208,19 @@ def test_diverging_subtitle_names_decline_and_growth_colours():
                   HarvestResult(rows=_change_rows(values), provenance=_ratio(unit="% change"),
                                 dropped=[]))
     assert "red = decline; blue = growth" in text
+
+
+def test_election_margin_puts_republican_leads_in_red_and_names_both_signs():
+    values = [-40.0, -20.0, -10.0, -3.0, 2.0, 8.0, 15.0, 30.0, 45.0, 60.0]
+    direction = {"negative": "Democratic lead", "positive": "Republican lead",
+                 "negative_color": "blue", "positive_color": "red"}
+    text = render(build_manifest(bbox=(-1, 38, 21, 46)), HarvestResult(
+        rows=_change_rows(values), provenance=_ratio(diverging=direction), dropped=[]))
+    root = ET.fromstring(text)
+    fills = {key: path.get("fill") for key, path in _features(root).items()}
+    assert fills["U00"].lower().startswith(("#05", "#21", "#43", "#67", "#92", "#b7"))
+    assert fills["U09"].lower().startswith(("#67", "#b2", "#d6", "#ef", "#f4", "#f6"))
+    assert "blue = Democratic lead; red = Republican lead" in text
 
 
 # --------------------------------------------------------- texts, frame ---

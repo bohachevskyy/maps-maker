@@ -50,6 +50,35 @@ def test_extent_ignores_small_outlying_islands():
     assert project.extent_of([mainland]) == project.extent_of([with_island])
 
 
+def test_extent_includes_a_substantial_secondary_ring_like_newfoundland():
+    labrador = [[-68, 52], [-56, 52], [-56, 61], [-68, 61], [-68, 52]]
+    newfoundland = [[-59.5, 46], [-52.5, 46], [-52.5, 51.5], [-59.5, 51.5], [-59.5, 46]]
+    geometry = {"type": "MultiPolygon", "coordinates": [[labrador], [newfoundland]]}
+    extent = project.extent_of([geometry])
+    assert extent == (-68, 46, -52.5, 61)
+    assert extent[2] > -52.71 and extent[1] < 47.56, "St. John's is inside the frame"
+
+
+def test_extent_keeps_a_nearby_small_ring_but_not_a_far_flung_one():
+    mainland = [[0, 40], [10, 40], [10, 50], [0, 50], [0, 40]]
+    nearby = [[10.5, 43], [11, 43], [11, 43.5], [10.5, 43.5], [10.5, 43]]
+    far = [[-55, 3], [-52, 3], [-52, 6], [-55, 6], [-55, 3]]
+    geometry = {"type": "MultiPolygon",
+                "coordinates": [[mainland], [nearby], [far]]}
+    assert project.extent_of([geometry]) == (0, 40, 11, 50)
+
+
+def test_extent_area_is_latitude_adjusted_so_svalbard_does_not_frame_norway():
+    mainland = [[5, 58], [31, 58], [31, 71], [5, 71], [5, 58]]
+    # In square degrees this is >15% of mainland; geographically, at 78N, it
+    # is smaller. It is also more than the five-degree proximity allowance away.
+    svalbard = [[10, 76.5], [22, 76.5], [22, 80], [10, 80], [10, 76.5]]
+    geometry = {"type": "MultiPolygon", "coordinates": [[mainland], [svalbard]]}
+    extent = project.extent_of([geometry])
+    assert extent == (5, 58, 31, 71)
+    assert not (extent[0] <= 15.6 <= extent[2] and extent[1] <= 78.2 <= extent[3])
+
+
 def test_extent_skips_features_clipped_at_the_antimeridian():
     europe = {"type": "Polygon",
               "coordinates": [[[0, 40], [10, 40], [10, 48], [0, 48], [0, 40]]]}

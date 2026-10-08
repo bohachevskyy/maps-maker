@@ -105,6 +105,22 @@ def test_per_divides_and_names_the_unit(series):
     assert values.missing["CCC"] == "no_divisor"
 
 
+def test_like_counts_are_a_percentage_not_a_fraction(series, monkeypatch):
+    """A people/people rate reads 5%, not a unitless 0.05."""
+    SERIES["fuel"][2020]["AAA"] = 15.0
+    series.VARIABLES["admin_0"]["fuel"] = Variable(
+        id="fuel", label="unemployed people", unit="people", level="count")
+    try:
+        values = derive.values(_manifest(
+            id="fuel", per={"source": "series_bank", "id": "pop"}))
+        assert values.values["AAA"] == pytest.approx(10.0)
+        assert values.provenance["unit"] == "%"
+        assert "× 100" in values.provenance["per"]["formula"]
+        assert "as a percentage of" in values.provenance["variable"]
+    finally:
+        SERIES["fuel"][2020]["AAA"] = 3000.0
+
+
 def test_change_is_percent_between_the_two_years(series):
     values = derive.values(_manifest(id="pop", change={"from": 2000, "to": 2020}))
     assert values.values["AAA"] == pytest.approx(50.0)
