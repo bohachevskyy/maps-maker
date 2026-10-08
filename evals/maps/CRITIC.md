@@ -32,3 +32,17 @@ Write `<round>/<id>/critique.json`:
 
 Then return a short summary: one line per map with overall score and its top
 defect, plus the 3–5 highest-leverage fixes across the round.
+
+## Verified facts — don't flag these as defects
+
+Checked against primary sources; a critique that contradicts them is wrong.
+
+- **Ukrstat is CC BY 4.0.** stat.gov.ua footer, verified 2026-10-08: "All content is
+  available under the Creative Commons Attribution 4.0 International license unless
+  otherwise noted."
+- **Statistics Canada** publishes under the *Statistics Canada Open Licence*
+  (statcan.gc.ca/en/terms-conditions). Flag only if a map names a different licence.
+- **Ukrstat publishes no population estimate for Crimea or Sevastopol since 2014.**
+  Hatching them is correct.
+- **BLS 2025 county figures are 11-month averages** (no October 2025 collection), so
+  2024 is the latest full year.
