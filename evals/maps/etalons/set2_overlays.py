@@ -695,8 +695,294 @@ def render_europe_cities(truth, base, flagged, nxt) -> None:
     cv.save("europe_largest_cities")
 
 
+# --------------------------------------------------------------------------
+# Tokyo subway (OpenStreetMap)
+
+
+TOKYO_LINES = {  # ref -> (English name, operator); the 13 lines of Tokyo Metro and Toei
+    "G": ("Ginza", "Tokyo Metro"), "M": ("Marunouchi", "Tokyo Metro"), "H": ("Hibiya", "Tokyo Metro"),
+    "T": ("Tōzai", "Tokyo Metro"), "C": ("Chiyoda", "Tokyo Metro"), "Y": ("Yūrakuchō", "Tokyo Metro"),
+    "Z": ("Hanzōmon", "Tokyo Metro"), "N": ("Namboku", "Tokyo Metro"), "F": ("Fukutoshin", "Tokyo Metro"),
+    "A": ("Asakusa", "Toei"), "I": ("Mita", "Toei"), "S": ("Shinjuku", "Toei"), "E": ("Ōedo", "Toei"),
+}
+TOKYO_STATIONS = {  # label -> (OSM name, dx, dy) in points
+    "Tokyo": ("東京", 12, -6), "Shinjuku": ("新宿", -12, 4), "Shibuya": ("渋谷", -12, -4),
+    "Ikebukuro": ("池袋", -10, 8), "Ueno": ("上野", 12, 6),
+}
+
+
+def tokyo_lines() -> tuple[pd.DataFrame, list, str]:
+    payload = overpass(*OVERPASS_FILES["tokyo_subway"])
+    rels = [e for e in payload["elements"] if e["type"] == "relation"]
+    stations = [e for e in payload["elements"] if e["type"] == "node"]
+    rows = []
+    for ref, (name_en, operator) in TOKYO_LINES.items():
+        mine = [r for r in rels if r["tags"].get("ref") == ref]
+        if not mine:
+            raise ValueError(f"no OSM route relation for line {ref}")
+        ways = {}
+        for r in mine:
+            for m in r["members"]:
+                if m["type"] == "way" and "platform" not in m.get("role", "") and m.get("geometry"):
+                    line = way_line(m)
+                    if line is not None:
+                        ways[m["ref"]] = line
+        geom = unary_union(list(ways.values()))
+        colours = [r["tags"]["colour"].upper() for r in mine if r["tags"].get("colour", "").startswith("#")]
+        name_ja = sorted({r["tags"].get("name", "").split(" ")[0].split(":")[0].strip() for r in mine})[0]
+        rows.append({
+            "ref": ref, "name_en": f"{name_en} Line", "name_ja": name_ja, "operator": operator,
+            "network": mine[0]["tags"]["network"], "colour": max(set(colours), key=colours.count),
+            "osm_relations": ";".join(str(r["id"]) for r in sorted(mine, key=lambda r: r["id"])),
+            "osm_ways": len(ways),
+            # Tokyo's two directions often run in separate shield tunnels 20-80 m apart, so the
+            # dissolve buffer is 100 m here (30 m leaves e.g. the Oedo line at 43.6 km, not 40.7)
+            "route_km": round(dissolved_route_km(list(ways.values()), buffer_m=100, spacing_m=10), 2),
+            "half_track_km": round(sum(geodesic_km(w) for w in ways.values()) / 2, 2),
+            "geometry_wkt": wkt_lines(linemerge(geom) if geom.geom_type == "MultiLineString" else geom, 0.00003),
+        })
+    return pd.DataFrame(rows), stations, osm_base(payload)
+
+
+def build_tokyo_subway() -> pd.DataFrame:
+    truth, stations, base = tokyo_lines()
+    write_csv("tokyo_subway", truth)
+    narrow_km = sum(dissolved_route_km([LineString(c) for c in lines_of(wkt.loads(t))]) for t in truth.geometry_wkt)
+    metro = truth[truth.operator == "Tokyo Metro"].route_km.sum()
+    toei = truth[truth.operator == "Toei"].route_km.sum()
+    write_md("tokyo_subway", [
+        "- URL/API: Overpass API (overpass-api.de, mirror fallback): `" + compact(TOKYO_QUERY) + "`; relations with ref 'Al' (Keikyu–Toei–Keisei airport through-service) dropped.",
+        f"- Vintage: OpenStreetMap as of {base}; delete `.cache/s2o_tokyo_subway_overpass.json` to refresh.",
+        "- Licence: © OpenStreetMap contributors, ODbL 1.0. Wards: geoBoundaries gbOpen JPN ADM2 (from OpenStreetMap, ODbL).",
+        f"- Rows: {len(truth)} lines (9 Tokyo Metro, 4 Toei) — ref, name_en, name_ja, operator, network, colour (most common OSM `colour` tag of the line's relations), osm_relations, osm_ways, route_km (both directions dissolved with 100 m buffers), half_track_km (sum of member ways ÷ 2), geometry_wkt (member track ways, merged, simplified ~3 m). Sum of route_km: Tokyo Metro {metro:,.1f} km, Toei {toei:,.1f} km (operators' line lengths sum to 203.3 and 109.0).",
+        f"- Caveat: one OSM route relation per direction and service pattern (39 kept); lines are their union. Directions often run in separate tunnels 20–80 m apart: a 30 m dissolve sums to {narrow_km:,.0f} km (Ōedo 43.6 vs 40.7 official), hence 100 m; half_track_km is closest to the operators' figures. Track shared by Yūrakuchō and Fukutoshin (Wakōshi–Kotake-mukaihara) counts in both. Through-running onto JR and private railways is not part of the subway and not drawn.",
+    ])
+    crs = "EPSG:6677"   # JGD2011 / Japan Plane Rectangular CS IX (Tokyo)
+    lines = gpd.GeoDataFrame(truth, geometry=[wkt.loads(t) for t in truth.geometry_wkt], crs=4326).to_crs(crs)
+    xmin, ymin, xmax, ymax = lines.total_bounds
+    extent = (xmin - 1_500, xmax + 4_200, ymin - 1_300, ymax + 1_300)
+    check_window("tokyo_subway", crs, extent)
+    cv = Canvas(extent, "Tokyo subway network",
+                f"The 13 lines of Tokyo Metro and Toei, drawn in their official colours · {truth.route_km.sum():,.0f} km of line",
+                map_w=12.0, footer=0.95)
+    ax = cv.ax
+    wards = gpd.read_file(fetch(JPN_ADM2_URL, "s2o_geoboundaries_JPN_ADM2.geojson"))
+    wards = wards.cx[139.3:140.3, 35.3:36.1].to_crs(crs)
+    special = {"Chiyoda", "Chuo", "Minato", "Shinjuku", "Bunkyo", "Taito", "Sumida", "Koto", "Shinagawa", "Meguro",
+               "Ota", "Setagaya", "Shibuya", "Nakano", "Suginami", "Toshima", "Kita", "Arakawa", "Itabashi",
+               "Nerima", "Adachi", "Katsushika", "Edogawa"}
+    in23 = wards[wards.shapeName.isin(special)]
+    if len(in23) != 23:
+        raise ValueError(f"expected 23 special wards, found {len(in23)}")
+    wards[~wards.shapeName.isin(special)].plot(ax=ax, color="#eeebe4", edgecolor="white", linewidth=0.8, zorder=1)
+    in23.plot(ax=ax, color=LAND, edgecolor="white", linewidth=1.0, zorder=1)
+    gpd.GeoSeries([in23.union_all().boundary], crs=crs).plot(ax=ax, color="#b9b2a3", linewidth=1.0, zorder=1.2)
+    central = {"Chiyoda", "Chuo", "Minato", "Shinjuku", "Bunkyo", "Taito", "Toshima", "Shibuya", "Arakawa", "Kita"}
+    for row in in23[~in23.shapeName.isin(central)].itertuples():
+        p = row.geometry.representative_point()
+        ax.text(p.x, p.y, row.shapeName.upper(), fontsize=7.2, color="#a39d90", ha="center", va="center", zorder=1.5,
+                clip_on=True)
+    order = truth.sort_values("route_km", ascending=False).index
+    for i in order:
+        geom = lines.geometry.iloc[i]
+        gpd.GeoSeries([geom], crs=crs).plot(ax=ax, color="white", linewidth=4.6, zorder=3 + i * 0.01)
+        gpd.GeoSeries([geom], crs=crs).plot(ax=ax, color=truth.colour.iloc[i], linewidth=3.0, zorder=3.005 + i * 0.01)
+    st = pd.DataFrame([{"name": n["tags"].get("name", ""), "lon": n["lon"], "lat": n["lat"]} for n in stations])
+    sx, sy = Transformer.from_crs(4326, crs, always_xy=True).transform(st.lon.to_numpy(), st.lat.to_numpy())
+    network = lines.union_all()
+    on_line = np.array([network.distance(Point(x, y)) < 150 for x, y in zip(sx, sy)])
+    sx, sy = sx[on_line], sy[on_line]   # drop Saitama Rapid, Toyo Rapid and other non-member stations
+    ax.scatter(sx, sy, s=9, color="white", edgecolor="#3c474c", linewidth=0.6, zorder=5)
+    for label, (osm_name, dx, dy) in TOKYO_STATIONS.items():
+        hit = st[st.name == osm_name]
+        if hit.empty:
+            raise ValueError(f"station {osm_name} not in OSM result")
+        x, y = Transformer.from_crs(4326, crs, always_xy=True).transform(hit.lon.mean(), hit.lat.mean())
+        ax.scatter([x], [y], s=46, color="white", edgecolor=INK, linewidth=1.5, zorder=6)
+        ax.annotate(label, (x, y), xytext=(dx, dy), textcoords="offset points", ha="left" if dx > 0 else "right",
+                    va="center", fontsize=11, fontweight="bold", zorder=8, path_effects=HALO, color=INK)
+    for name, lon, lat in (("Tokyo Bay", 139.86, 35.60),):
+        (x, y), = project_points(crs, [(lon, lat)])
+        ax.text(x, y, name, fontsize=10, color="#5f8796", style="italic", ha="center", zorder=2)
+    col_x = cv.left + cv.map_w + 0.4
+    col_w = WIDTH_IN - col_x - 0.3
+    lg = cv.panel(col_x, cv.H - cv.header - 0.05, col_w, 6.6)
+    lg.text(0, 6.55, "Line (OSM colour tag)", va="top", fontsize=10.5, fontweight="bold")
+    y = 6.15
+    for operator in ("Tokyo Metro", "Toei"):
+        lg.text(0, y, operator, va="top", fontsize=9.5, color=MUTED, fontweight="bold")
+        y -= 0.33
+        for row in truth[truth.operator == operator].itertuples():
+            lg.plot([0, 0.45], [y, y], color=row.colour, linewidth=4, solid_capstyle="butt")
+            lg.scatter([0.6], [y], s=150, color="white", edgecolor=row.colour, linewidth=2.2, zorder=3)
+            lg.text(0.6, y, row.ref, va="center", ha="center", fontsize=7.5, color=INK, fontweight="bold", zorder=4)
+            lg.text(0.82, y, row.name_en, va="center", fontsize=9.5)
+            lg.text(col_w - 0.05, y, f"{row.route_km:.1f} km", va="center", ha="right", fontsize=9, color=MUTED)
+            y -= 0.27
+        y -= 0.12
+    lg.scatter([0.22], [y], s=9, color="white", edgecolor="#3c474c", linewidth=0.6)
+    lg.text(0.58, y, "Subway station", va="center", fontsize=9.5)
+    y -= 0.27
+    lg.scatter([0.22], [y], s=46, color="white", edgecolor=INK, linewidth=1.5)
+    lg.text(0.58, y, "Major interchange", va="center", fontsize=9.5)
+    y -= 0.27
+    lg.add_patch(Rectangle((0.02, y - 0.1), 0.4, 0.2, facecolor=LAND, edgecolor="#b9b2a3", linewidth=0.6))
+    lg.text(0.58, y, "The 23 special wards", va="center", fontsize=9.5)
+    cv.footnote([
+        f"Source: © OpenStreetMap contributors (ODbL 1.0), Overpass API, data as of {base[:10]}: route=subway relations of the Tokyo Metro and Toei networks, "
+        "colours from their colour tags; letters are the operators' line codes. Wards: geoBoundaries JPN ADM2 (OSM-derived, ODbL).",
+        "Projection: JGD2011 / Japan Plane Rectangular CS IX (EPSG:6677). Route km merge the two directions (often separate tunnels) with 100 m buffers. "
+        "Excluded: the airport through-service relation and all JR/private through-running beyond subway termini.",
+    ], width=160)
+    cv.save("tokyo_subway")
+    return truth
+
+
+# --------------------------------------------------------------------------
+# Trans-Siberian Railway (OpenStreetMap)
+
+
+TSR_STOPS = [  # (label, lon, lat, major, dx, dy) -- city centres; the dot is snapped to the line
+    ("Moscow", 37.62, 55.75, True, -8, -12), ("Yaroslavl", 39.87, 57.63, False, -8, 8),
+    ("Kirov", 49.67, 58.60, False, 0, 13), ("Perm", 56.25, 58.01, False, 9, 4),
+    ("Yekaterinburg", 60.61, 56.84, True, 6, 14), ("Tyumen", 65.53, 57.15, False, -6, -14),
+    ("Omsk", 73.37, 54.99, False, 0, -16), ("Novosibirsk", 82.92, 55.03, True, 0, -18),
+    ("Krasnoyarsk", 92.87, 56.01, False, 0, 13), ("Irkutsk", 104.28, 52.29, True, -10, -12),
+    ("Ulan-Ude", 107.58, 51.83, False, -4, 14), ("Chita", 113.50, 52.03, False, 10, -12),
+    ("Skovorodino", 123.94, 53.99, False, 0, 13), ("Khabarovsk", 135.07, 48.48, True, 10, 4),
+    ("Vladivostok", 131.88, 43.12, True, 10, -4),
+]
+
+
+def tsr_ways() -> tuple[pd.DataFrame, dict, str]:
+    payload = overpass(*OVERPASS_FILES["trans_siberian"])
+    ways: dict[int, dict] = {}
+    paths = {}
+    for rel in payload["elements"]:
+        direction = TSR_RELATIONS[rel["id"]]
+        members = [m for m in rel["members"] if m["type"] == "way" and m.get("geometry")]
+        paths[direction] = linemerge(unary_union([way_line(m) for m in members]))
+        for m in members:
+            entry = ways.setdefault(m["ref"], {"osm_id": m["ref"], "directions": set(), "line": way_line(m)})
+            entry["directions"].add(direction)
+    rows = []
+    for entry in ways.values():
+        d = entry["directions"]
+        rows.append({
+            "osm_id": entry["osm_id"], "direction": "both" if len(d) == 2 else next(iter(d)),
+            "length_km": geodesic_km(entry["line"]),
+            "geometry_wkt": wkt_lines(entry["line"], 0.0002, 4),
+        })
+    frame = pd.DataFrame(rows).sort_values("osm_id").reset_index(drop=True)
+    return frame, paths, osm_base(payload)
+
+
+def tsr_route_km(frame: pd.DataFrame) -> dict[str, float]:
+    """Route length = each direction's continuous path (its own ways plus shared ones).
+    The two directions are each one unbroken Moscow-Vladivostok chain in OSM."""
+    out = {d: frame[frame.direction.isin([d, "both"])].length_km.sum() for d in ("even", "odd")}
+    out["route"] = (out["even"] + out["odd"]) / 2
+    return out
+
+
+def chainage(path: LineString, lon: float, lat: float) -> tuple[float, float, float]:
+    coords = np.asarray(path.coords)
+    seg = np.array([GEOD.inv(a[0], a[1], b[0], b[1])[2] for a, b in zip(coords[:-1], coords[1:])]) / 1000
+    cum = np.concatenate([[0], np.cumsum(seg)])
+    i = int(np.argmin((coords[:, 0] - lon) ** 2 * math.cos(math.radians(lat)) ** 2 + (coords[:, 1] - lat) ** 2))
+    return cum[i], coords[i, 0], coords[i, 1]
+
+
+def build_trans_siberian() -> pd.DataFrame:
+    truth, paths, base = tsr_ways()
+    write_csv("trans_siberian", truth)
+    km = tsr_route_km(truth)
+    track_km = truth.length_km.sum()
+    lines = [wkt.loads(t) for t in truth.geometry_wkt]
+    dissolved30 = dissolved_route_km(lines)
+    even = paths["even"]
+    if even.geom_type != "LineString":
+        raise ValueError(f"even-direction relation is not one chain: {even.geom_type}")
+    if haversine_km(even.coords[0], (37.66, 55.78)) > haversine_km(even.coords[-1], (37.66, 55.78)):
+        even = LineString(list(even.coords)[::-1])
+    stops = []
+    for label, lon, lat, major, dx, dy in TSR_STOPS:
+        ch, slon, slat = chainage(even, lon, lat)
+        off = haversine_km((lon, lat), (slon, slat))
+        stops.append((label, slon, slat, major, dx, dy, ch, off))
+        print(f"  {label:13} km {ch:7,.0f}  (line passes {off:4.1f} km from the centre point)")
+    write_md("trans_siberian", [
+        "- URL/API: Overpass API (overpass-api.de, mirror fallback): `" + compact(TSR_QUERY) + "` — relation 2128634 'Транссибирская магистраль (чётное направление)' (Moscow → Vladivostok) and 4224465 (нечётное, Vladivostok → Moscow); their child relations (the Nizhny Novgorod variant, 13092161/13096470) are not followed.",
+        f"- Vintage: OpenStreetMap as of {base}; both relations are tagged comment='in work'. Delete `.cache/s2o_trans_siberian_overpass.json` to refresh.",
+        "- Licence: © OpenStreetMap contributors, ODbL 1.0. Basemap, lakes and rivers: Natural Earth (public domain).",
+        f"- Rows: {len(truth):,} OSM ways — osm_id, direction (even / odd / both = shared by both relations), length_km (WGS84 geodesic, full resolution), geometry_wkt (simplified ~20 m, 1e-4°). Track sum {track_km:,.0f} km; each direction is one unbroken chain: even {km['even']:,.0f} km, odd {km['odd']:,.0f} km, route = mean {km['route']:,.0f} km (official 9,289 km).",
+        f"- Caveat: route length with parallel tracks merged = one direction's chain, not a buffer dissolve: a 30 m dissolve gives {dissolved30:,.0f} km because the directions split onto separate alignments for long stretches (bridges, bypasses, yards) and single-track shared ways shrink to 0.93×. Route is via Yaroslavl–Kirov–Perm (the classic line), not via Nizhny Novgorod.",
+    ])
+    crs = "+proj=eqdc +lat_1=47 +lat_2=57 +lat_0=52 +lon_0=86 +datum=WGS84 +units=m +no_defs"
+    t = Transformer.from_crs(4326, crs, always_xy=True)
+    gl = gpd.GeoSeries(lines, crs=4326).to_crs(crs)
+    xmin, ymin, xmax, ymax = gl.total_bounds
+    extent = (xmin - 260_000, xmax + 480_000, ymin - 230_000, ymax + 260_000)
+    check_window("trans_siberian", crs, extent)
+    cv = Canvas(extent, "The Trans-Siberian Railway, Moscow to Vladivostok",
+                f"The classic route from Moscow Yaroslavsky station via Yekaterinburg, Novosibirsk and Irkutsk · {km['route']:,.0f} km by rail in OpenStreetMap (official 9,289 km)",
+                footer=1.0)
+    ax = cv.ax
+    region = box(10, 25, 160, 80)
+    world = B.load_world().clip(region).to_crs(crs)
+    world[world.key != "RUS"].plot(ax=ax, color="#eeebe4", edgecolor="white", linewidth=0.6, zorder=1)
+    world[world.key == "RUS"].plot(ax=ax, color=LAND, edgecolor="white", linewidth=0.6, zorder=1)
+    lakes = gpd.read_file(fetch(NE_LAKES_URL, "s2o_ne_50m_lakes.zip")).clip(region).to_crs(crs)
+    lakes.plot(ax=ax, color=WATER, edgecolor="none", zorder=1.2)
+    rivers = gpd.read_file(fetch(B.NE_RIVERS_URL, "ne_10m_rivers_lake_centerlines.zip"))
+    rivers = rivers[rivers.scalerank <= 3].clip(region).to_crs(crs)
+    rivers.plot(ax=ax, color="#a9c8d4", linewidth=0.6, zorder=1.3)
+    for lon in range(40, 141, 20):
+        lats = np.linspace(30, 75, 91)
+        gx, gy = t.transform(np.full_like(lats, lon), lats)
+        ax.plot(gx, gy, color="white", linewidth=0.5, alpha=0.7, zorder=1.1)
+    for lat in (40, 50, 60, 70):
+        lons = np.linspace(20, 150, 261)
+        gx, gy = t.transform(lons, np.full_like(lons, lat))
+        ax.plot(gx, gy, color="white", linewidth=0.5, alpha=0.7, zorder=1.1)
+    gl.plot(ax=ax, color="white", linewidth=4.2, zorder=3)
+    gl.plot(ax=ax, color="#b3001b", linewidth=2.2, zorder=4)
+    for label, lon, lat, major, dx, dy, ch, _off in stops:
+        x, y = t.transform(lon, lat)
+        ax.scatter([x], [y], s=46 if major else 18, color="white", edgecolor=INK, linewidth=1.4 if major else 0.9, zorder=6)
+        text = f"{label}\n{ch:,.0f} km" if label != "Moscow" else "Moscow\n0 km"
+        ax.annotate(text, (x, y), xytext=(dx, dy), textcoords="offset points",
+                    ha="center" if dx == 0 else ("left" if dx > 0 else "right"), va="center",
+                    fontsize=10.5 if major else 8.6, fontweight="bold" if major else "normal",
+                    linespacing=1.05, zorder=8, path_effects=HALO, color=INK if major else "#3c474c")
+    for name, lon, lat, size in (("R U S S I A", 96, 60.0, 12), ("KAZAKHSTAN", 68, 48.5, 9), ("MONGOLIA", 103, 46.8, 9),
+                                 ("CHINA", 120, 44.5, 9), ("Lake Baikal", 106.3, 53.9, 8.5), ("Sea of Japan", 134.5, 41.5, 8.5)):
+        x, y = t.transform(lon, lat)
+        water = name in {"Lake Baikal", "Sea of Japan"}
+        ax.text(x, y, name, fontsize=size, color="#5f8796" if water else "#9a958a", style="italic" if water else "normal",
+                ha="center", va="center", zorder=2, clip_on=True)
+    lg = legend_axes(cv, cv.left + 0.15, cv.footer + 0.15, 3.6, 1.0)
+    lg.add_patch(Rectangle((-0.1, -0.05), 3.6, 1.0, facecolor=PAPER, edgecolor="#c9c4b8", linewidth=0.6, alpha=0.95))
+    lg.plot([0, 0.55], [0.7, 0.7], color="#b3001b", linewidth=2.6)
+    lg.text(0.7, 0.7, "Trans-Siberian main line (OSM)", va="center", fontsize=9.5)
+    lg.scatter([0.27], [0.4], s=46, color="white", edgecolor=INK, linewidth=1.4)
+    lg.text(0.7, 0.4, "Major stop, km by rail from Moscow", va="center", fontsize=9.5)
+    lg.scatter([0.27], [0.12], s=18, color="white", edgecolor=INK, linewidth=0.9)
+    lg.text(0.7, 0.12, "Other stop", va="center", fontsize=9.5)
+    cv.footnote([
+        f"Source: © OpenStreetMap contributors (ODbL 1.0), Overpass API, data as of {base[:10]}: route relations 2128634 and 4224465 (the two running directions of the Trans-Siberian main line). "
+        "Land, lakes and rivers: Natural Earth, public domain.",
+        f"Projection: equidistant conic, standard parallels 47°N and 57°N, centred on 86°E. Route length = each direction's continuous chain of ways ({km['even']:,.0f} / {km['odd']:,.0f} km), so parallel tracks are not counted twice; "
+        f"all {len(truth):,} ways drawn. Distances are measured along the Moscow→Vladivostok chain.",
+    ], width=205)
+    cv.save("trans_siberian")
+    return truth
+
+
 BUILDERS: dict[str, Callable[[], pd.DataFrame]] = {
     "atlantic_hurricanes_2024": build_atlantic_hurricanes_2024,
+    "tokyo_subway": build_tokyo_subway,
+    "trans_siberian": build_trans_siberian,
     "volcanoes_holocene": build_volcanoes_holocene,
     "europe_largest_cities": build_europe_largest_cities,
 }
@@ -743,6 +1029,12 @@ def evaluate_spot(map_id: str, spot: str, frame: pd.DataFrame) -> tuple[bool, st
             lo, hi = expected * (1 - tol / 100), expected * (1 + tol / 100)
             return lo <= actual <= hi, f"{actual:,}; window {lo:,.0f}–{hi:,.0f}"
         m = re.fullmatch(r"total_km=([\d.]+)±([\d.]+)%", spot)
+        if m and "direction" in frame:
+            expected, tol = map(float, m.groups())
+            km = tsr_route_km(frame)
+            ok = abs(km["route"] - expected) <= expected * tol / 100
+            return ok, (f"{km['route']:,.0f} route-km ({(km['route'] / expected - 1) * 100:+.1f}%; directions {km['even']:,.0f} / "
+                        f"{km['odd']:,.0f}); {frame.length_km.sum():,.0f} km summing all ways")
         if m:
             expected, tol = map(float, m.groups())
             lines = [LineString(c) for c in truth_lines(map_id, frame)]
