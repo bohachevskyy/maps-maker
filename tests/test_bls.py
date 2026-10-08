@@ -131,3 +131,20 @@ def test_bls_persistent_403_names_denied_url(monkeypatch, tmp_path):
     with pytest.raises(StatisticsError, match=url.replace(".", r"\.")) as excinfo:
         bls._data(2025)
     assert "4 attempts" in str(excinfo.value)
+
+
+def test_an_eleven_month_file_is_not_the_latest_full_year(monkeypatch):
+    from mapsvc.statistics import bls
+
+    titles = {2025: "Labor force data by county, 2025 11-Month and Annual Averages",
+              2024: "Labor force data by county, 2024 annual averages"}
+    monkeypatch.setattr(bls, "_data", lambda year: year)
+    monkeypatch.setattr(bls.xlsx, "sheets",
+                        lambda year: {"s": [{"A": titles.get(year, "x")}]})
+    bls.latest_year.cache_clear()
+    monkeypatch.setattr(bls.datetime, "date", type("D", (), {"today": staticmethod(
+        lambda: type("T", (), {"year": 2026})())}))
+    try:
+        assert bls.latest_year() == 2024
+    finally:
+        bls.latest_year.cache_clear()

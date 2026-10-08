@@ -12,6 +12,7 @@ page from being saved under an ``.xlsx`` name.
 
 import datetime
 import functools
+import os
 import time
 import zipfile
 
@@ -39,8 +40,11 @@ URL = "https://www.bls.gov/lau/laucnty{yy:02d}.xlsx"
 FIRST_YEAR = 1990
 # Measured 2026-10-07: bls.gov returns 403 to anonymous-looking clients. Use a
 # descriptive product and durable contact identifier as requested by BLS.
-BLS_USER_AGENT = ("mapsvc/0.1 (statistical map service; contact: "
-                  "https://github.com/bohachevskyy/maps-maker)")
+# Measured 2026-10-08: the filter wants an email-shaped contact -- the same
+# string with a URL as contact is refused (403), with an address it is served
+# (200). Set MAPSVC_CONTACT_EMAIL to a real address you are happy to send.
+CONTACT = os.environ.get("MAPSVC_CONTACT_EMAIL", "mapsvc@example.invalid")
+BLS_USER_AGENT = f"mapsvc/0.1 (statistical map service; contact: {CONTACT})"
 RETRY_DELAYS = (1.0, 2.0, 4.0)
 RETRYABLE_STATUS = {403, 429, 500, 502, 503, 504}
 
@@ -114,11 +118,22 @@ def _data(year: int) -> bytes:
     return payload
 
 
+def _partial_year(payload: bytes) -> bool:
+    """True when the workbook's title says it averages fewer than 12 months."""
+    rows = next(iter(xlsx.sheets(payload).values()), [])
+    title = " ".join(str(v) for row in rows[:4] for v in row.values())
+    return "-month" in title.lower() and "12-month" not in title.lower()
+
+
 @functools.lru_cache(maxsize=1)
 def latest_year() -> int:
     for year in range(datetime.date.today().year - 1, FIRST_YEAR - 1, -1):
         try:
-            _data(year)
+            if _partial_year(_data(year)):
+                # 2025's file is "11-Month and Annual Averages": October 2025
+                # was never collected (the shutdown), so its "annual" figure is
+                # an 11-month mean. The latest FULL year is the honest default.
+                continue
             return year
         except StatisticsError as exc:
             if exc.field != "variable.change":

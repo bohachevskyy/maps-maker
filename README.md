@@ -167,6 +167,7 @@ over a network want `/map` or `/describe`, which return the SVG itself.
 |---|---|---|
 | `MAPSVC_LLM` | `/describe` only | `codex` with no key when CLI is on PATH; otherwise `openai` |
 | `MAPSVC_CODEX_MODEL` | Codex backend only | `gpt-5.6-terra` |
+| `MAPSVC_CONTACT_EMAIL` | BLS source only (its filter wants an email-shaped contact) | `mapsvc@example.invalid` |
 | `OPENAI_API_KEY` | OpenAI backend only | none |
 | `OPENAI_MODEL` | `/describe` only | `gpt-5.6-terra` |
 | `MAPSVC_CACHE` | optional | `./cache` |
