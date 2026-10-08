@@ -69,3 +69,32 @@ What cheaper models got wrong, all of it in places where the manifest leaves the
 - a bbox added to a `within` map: dropped Alaska/Hawaii (us_diesel) or Del Norte/San Joaquin/Stanislaus labels (ca_county_income)
 - the wrong measure: OWID low-carbon (incl. nuclear) instead of renewables — France 95% vs 26%; spot checks could not catch it
 - basemap: Overture for a world map (missing territories)
+
+## Round 5 (2026-10-08): 21 maps, agent gpt-5.6-terra
+
+| map | r5 |
+|---|---|
+| africa_internet | 3 |
+| atlantic_hurricanes_2024 | 3 |
+| ca_county_income | 4 |
+| canada_population_change | 4 |
+| eu_nuts2_gdp | 4 |
+| eu_renewables | 4 |
+| europe_largest_cities | 3 |
+| france_lgv | 4 |
+| gdp_world | 4 |
+| germany_density_nuts3 | 3 |
+| napoleon_1812 | 4 |
+| population_change | 4 |
+| quakes_2025 | 4 |
+| texas_county_unemployment | 4 |
+| tokyo_subway | 1 |
+| trans_siberian | 4 |
+| ukraine_oblast_population | 4 |
+| us_diesel | 4 |
+| us_election_2024 | 4 |
+| volcanoes_holocene | 3 |
+| volyn_settlements | 3 |
+
+Set 1 mean 4.0 (unchanged from sol), set 2 mean 3.18 incl. tokyo_subway=1 (refused during an Overpass outage), overall 3.57.
+Automatic checks 20/21 (Texas after the BLS fix).
