@@ -1901,7 +1901,9 @@ def _readers_extremes(units, valued, encoding, change: bool) -> set:
     # decline) is told from both.
     low_n = high_n = per_side
     scheme = encoding.scheme
-    if scheme is not None and scheme.zero_at is None and len(valued) >= 3:
+    diverging = scheme is not None and (
+        scheme.zero_at is not None or scheme.center_at is not None)
+    if scheme is not None and not diverging and len(valued) >= 3:
         numbers = [v for v, _ in valued]
         median = numbers[len(numbers) // 2]
         if numbers[-1] - median > 2.0 * (median - numbers[0]):
@@ -1916,7 +1918,7 @@ def _readers_extremes(units, valued, encoding, change: bool) -> set:
                 break
             big = area.get(gid, 0.0) >= floor
             primary = len(picked) < LABEL_EXTREMES
-            apart = primary or all(
+            apart = primary or diverging or all(
                 math.hypot(at[gid][0] - at[o][0], at[gid][1] - at[o][1]) >= LABEL_APART
                 for o in picked if o in at and gid in at)
             if (big and apart) or (not change and primary):
