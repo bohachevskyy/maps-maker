@@ -1524,7 +1524,7 @@ _KIND_SUFFIXES = (", Kreisfreie Stadt", ", Stadtkreis", ", Landkreis", ", Kreis"
                   ", Wissenschaftsstadt", ", Große Kreisstadt", ", Regionalverband")
 # What a reader calls a country, where Natural Earth's name is long.
 _COUNTRY_SHORT = {"United Arab Emirates": "UAE", "United States of America": "United States",
-                  "Prince Edward Island": "P.E.I."}
+                  "Prince Edward Island": "P.E.I.", "District of Columbia": "D.C."}
 MISSING_TEXT = "no data"
 
 
