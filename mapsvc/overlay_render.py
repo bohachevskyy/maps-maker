@@ -211,7 +211,11 @@ def draw(layers: list, places: list, frame, layout: dict, physical: list = ()) -
                         for k, v in sorted((layer.get("stats") or {}).items()))
         head = (f'<g data-overlay={quoteattr(layer.get("source", ""))} '
                 f'data-layer="{index}"{stats}>')
-        if kind == "points" and layer.get("rank"):
+        if kind == "points" and layer.get("style") == "settlements":
+            body, legend = _settlements(layer, frame, labels, anchors)
+        elif kind == "lines" and layer.get("style") == "routes":
+            body, legend = _routes(layer, frame, labels, anchors)
+        elif kind == "points" and layer.get("rank"):
             body, legend = _ranked_points(layer, frame, labels, anchors, layout)
         elif kind == "points":
             body, legend = _points(layer, frame, labels, anchors, layout)
@@ -277,10 +281,10 @@ def _footer_line(layer: dict, credited: set) -> str:
     line = "; ".join(parts) + "."
     if layer.get("encoding"):
         line += f" {layer['encoding']}."
-    drawn = len(layer.get("features") or [])
+    drawn = layer.get("drawn", len(layer.get("features") or []))
     noun = layer.get("noun") or {"flow": "rows", "lines": "lines", "places": "places",
-            "temperature": "observations"}.get(layer["kind"],
-                                                                     "features")
+                                 "temperature": "observations"}.get(layer["kind"],
+                                                                    "features")
     excluded = layer.get("excluded") or []
     if excluded:
         detail = ", ".join(f"{e['count']:,} {e['reason']}" for e in excluded)
@@ -636,6 +640,258 @@ def _facts_block(heading: str, facts: list):
                        f'fill="{TEXT}">{escape(a)}</text>')
             out.append(f'<text x="{_num(x + w)}" y="{_num(ty)}" font-size="10" '
                        f'text-anchor="end" fill="{TEXT}">{escape(b)}</text>')
+        return "".join(out)
+    return w, h, draw
+
+
+# ----------------------------------------------------------------- routes ---
+
+# Lines whose OSM colour tag is missing or invalid. Twelve, dark enough to read
+# as a line on the pale base map.
+ROUTE_PALETTE = ("#1f78b4", "#e31a1c", "#33a02c", "#ff7f00", "#6a3d9a", "#b15928",
+                 "#a6cee3", "#fb9a99", "#b2df8a", "#fdbf6f", "#cab2d6", "#8c8c8c")
+ROUTE_W = 2.6                 # a network's lines
+ROUTE_W_SINGLE = 3.6          # one route, the whole message of the map
+STATION_LABELS = 30
+
+
+def route_colours(classes: list) -> dict:
+    """Each line's own colour; the palette, in class order, for the rest."""
+    out, spare = {}, 0
+    for c in classes:
+        if c.get("colour"):
+            out[c["value"]] = c["colour"]
+        else:
+            out[c["value"]] = ROUTE_PALETTE[spare % len(ROUTE_PALETTE)] if len(classes) > 1 \
+                else ORDERED[0]
+            spare += 1
+    return out
+
+
+def _routes(layer, frame, labels, anchors):
+    """Route relations: one colour per line, cased in white so lines that run
+    side by side stay apart; stations as white dots, interchanges larger and
+    named. A single route is drawn bold over the muted base map."""
+    classes = layer["category"]["classes"]
+    colours = route_colours(classes)
+    width = ROUTE_W_SINGLE if len(classes) == 1 else ROUTE_W
+    paths: dict = {c["value"]: [] for c in classes}
+    for f in layer["features"]:
+        pts = _line_pixels(f["coords"], frame)
+        if len(pts) < 2:
+            continue
+        paths.setdefault(f["category"], []).append(
+            "M" + "L".join(f"{_num(x)},{_num(y)}" for x, y in pts))
+        for a, b in zip(pts, pts[1:]):
+            labels.ink(a, b, width / 2 + 1.0)
+        # Every vertex: a long route's stops must be found along all of it.
+        anchors.extend(pts)
+    out = []
+    # Later classes underneath, so the legend's first lines are on top.
+    for c in reversed(classes):
+        d = "".join(paths.get(c["value"]) or ())
+        if not d:
+            continue
+        out.append(f'<path d="{d}" fill="none" stroke="#ffffff" '
+                   f'stroke-width="{_num(width + 2.2)}" stroke-linecap="round" '
+                   'stroke-linejoin="round"/>')
+        out.append(f'<path d="{d}" fill="none" stroke="{colours[c["value"]]}" '
+                   f'stroke-width="{_num(width)}" stroke-linecap="round" '
+                   f'stroke-linejoin="round" data-class={quoteattr(str(c["value"]))}/>')
+
+    stations = []
+    for st in layer.get("stations") or ():
+        x, y = _xy(frame, st["lon"], st["lat"])
+        if frame.visible(x, y):
+            stations.append((st, x, y))
+    dots = []
+    for st, x, y in sorted(stations, key=lambda t: (t[0]["lines"], t[0]["name"])):
+        big = st["lines"] >= 2
+        r = min(3.8, 2.4 + 0.45 * (st["lines"] - 2)) if big else 1.5
+        dots.append(f'<circle cx="{_num(x)}" cy="{_num(y)}" r="{_num(r)}" '
+                    f'stroke-width="{1.0 if big else 0.6}"/>')
+        if big:
+            # A one-line stop's 1.5 px dot may sit under an interchange's
+            # name; in the core of a network there is no room otherwise.
+            labels.block(x - r, y - r, x + r, y + r)
+    if dots:
+        out.append(f'<g fill="#ffffff" stroke="{TEXT}">' + "".join(dots) + "</g>")
+    named = 0
+    for st, x, y in stations:            # most lines first
+        if st["lines"] < 2 or named >= STATION_LABELS:
+            break
+        bold = st["lines"] >= 3
+        extra = ' font-weight="600"' if bold else ""
+        # A station's name may cross another line, halo first, as on any
+        # transit map; it may not cover another name or a station.
+        if labels.place(st["name"], x, y, bold=bold) or _place_over_lines(
+                labels, st["name"], x, y, 4.0, LABEL_SIZE, extra):
+            named += 1
+
+    present = {v for v, d in paths.items() if d}
+    legend = [_swatch_block(layer["category"], colours, present, "line")]
+    if layer.get("facts"):
+        legend.append(_facts_block(layer.get("facts_label") or "", layer["facts"]))
+    if stations and any(st["lines"] >= 2 for st, _, _ in stations):
+        legend.append(_station_block())
+    return "".join(out), legend
+
+
+def _place_over_lines(labels, text, x, y, gap, size, extra) -> bool:
+    """Labels' own placement, except that line ink does not block a position."""
+    w, h = _text_w(text, size), size
+    for dx, dy in labels.OFFSETS:
+        x0 = x + gap if dx > 0 else x - gap - w if dx < 0 else x - w / 2
+        tx = x + gap if dx > 0 else x - gap if dx < 0 else x
+        anchor = "start" if dx > 0 else "end" if dx < 0 else "middle"
+        ty = y - gap - 1 if dy < 0 else y + gap + h - 1 if dy > 0 else y + h * 0.35
+        box = (x0, ty - h * 0.85, x0 + w, ty + h * 0.2)
+        if labels._free(box, ink=False):
+            labels.taken.append(box)
+            labels.out.append(
+                f'<text x="{_num(tx)}" y="{_num(ty)}" font-size="{size:g}" '
+                f'text-anchor="{anchor}" fill="{TEXT}" {HALO}{extra}>{escape(text)}</text>')
+            return True
+    return False
+
+
+ALONG_KM = 12.0
+
+
+def places_along(places: list, layers: list, km: float = ALONG_KM) -> list:
+    """The places within `km` of a route's line, in the order given.
+
+    For a route too long for general context labels: Novosibirsk and Irkutsk
+    are its stops, Murmansk is not. Vertices are bucketed by tenth of a degree
+    so each place is tested only against the line near it.
+    """
+    cell = 0.1
+    grid: dict = {}
+    for layer in layers:
+        for f in layer["features"]:
+            for lon, lat in f["coords"]:
+                grid.setdefault((int(lon // cell), int(lat // cell)), []).append((lon, lat))
+    out = []
+    for p in places:
+        k = math.cos(math.radians(p["lat"]))
+        reach_lat = km / 111.2
+        reach_lon = reach_lat / max(k, 0.05)
+        cx0, cx1 = int((p["lon"] - reach_lon) // cell), int((p["lon"] + reach_lon) // cell)
+        cy0, cy1 = int((p["lat"] - reach_lat) // cell), int((p["lat"] + reach_lat) // cell)
+        near = any(math.hypot((lon - p["lon"]) * k, lat - p["lat"]) * 111.2 <= km
+                   for i in range(cx0, cx1 + 1) for j in range(cy0, cy1 + 1)
+                   for lon, lat in grid.get((i, j), ()))
+        if near:
+            out.append(p)
+    return out
+
+
+def _station_block():
+    rows = [(1.5, 0.6, "Station"), (2.85, 1.0, "Interchange (size: lines served)")]
+    w = max(30 + _text_w(t, 10) for _, _, t in rows)
+    h = 16 * len(rows) + 4
+
+    def draw(x, y):
+        out = []
+        for i, (r, sw, text) in enumerate(rows):
+            cy = y + 8 + 16 * i
+            out.append(f'<circle cx="{_num(x + 6)}" cy="{_num(cy)}" r="{r}" fill="#ffffff" '
+                       f'stroke="{TEXT}" stroke-width="{sw}"/>')
+            out.append(f'<text x="{_num(x + 28)}" y="{_num(cy + 3.5)}" font-size="10" '
+                       f'fill="{TEXT}">{escape(text)}</text>')
+        return "".join(out)
+    return w, h, draw
+
+
+# ------------------------------------------------------------ settlements ---
+
+# place tag -> (radius, fill, stroke, label size, label weight, label ink).
+# Rank reads twice, by size and by darkness; hamlets are dots, never named.
+SETTLEMENT_STYLE = {
+    "city": (4.6, "#ffffff", 1.7, 12.0, "700", TEXT),
+    "town": (3.0, TEXT, 0.0, 10.0, "600", TEXT),
+    "suburb": (2.0, "#46525a", 0.0, 8.5, None, MUTED),
+    "village": (1.55, "#5d6870", 0.0, 7.5, None, MUTED),
+    "hamlet": (1.0, "#98a2a8", 0.0, 0.0, None, MUTED),
+}
+SETTLEMENT_RANK = ("city", "town", "suburb", "village", "hamlet")
+# Villages are tried for a label in order of population, only this many.
+VILLAGE_LABEL_TRIES = 400
+
+
+def _settlement_style(place):
+    return SETTLEMENT_STYLE.get(place, SETTLEMENT_STYLE["hamlet"])
+
+
+def _settlements(layer, frame, labels, anchors):
+    placed = []
+    for f in layer["features"]:
+        x, y = _xy(frame, f["lon"], f["lat"])
+        if frame.visible(x, y):
+            placed.append((f, x, y))
+
+    def rank(place):
+        return SETTLEMENT_RANK.index(place) if place in SETTLEMENT_RANK else len(SETTLEMENT_RANK)
+
+    out = []
+    for place in sorted({f["category"] for f, _, _ in placed}, key=rank, reverse=True):
+        r, fill, stroke, *_ = _settlement_style(place)
+        group = [t for t in placed if t[0]["category"] == place]
+        ring = (f' stroke="{TEXT}" stroke-width="{stroke}"' if stroke
+                else ' stroke="#ffffff" stroke-width="0.5"' if r >= 2.5 else "")
+        out.append(f'<g fill="{fill}"{ring} data-class={quoteattr(str(place))}>')
+        for f, x, y in group:
+            out.append(f'<circle cx="{_num(x)}" cy="{_num(y)}" r="{r}" '
+                       f'data-fid={quoteattr(f["id"])}/>')
+        out.append("</g>")
+
+    def major(f):
+        return f["category"] in ("city", "town")
+
+    def block(rows):
+        for f, x, y in rows:
+            r = _settlement_style(f["category"])[0]
+            labels.block(x - r, y - r, x + r, y + r)
+            if r >= 2.5:
+                anchors.append((x, y))
+
+    # Cities and towns are named first and may sit over a village's dot (the
+    # halo keeps both legible); a village's name may not cover anything.
+    order = sorted((t for t in placed if t[0].get("name")),
+                   key=lambda t: (rank(t[0]["category"]), -(t[0].get("population") or 0),
+                                  t[0]["name"], t[0]["id"]))
+    block([t for t in placed if major(t[0])])
+    for f, x, y in (t for t in order if major(t[0])):
+        r, _, _, size, weight, _ = _settlement_style(f["category"])
+        if not labels._try(f["name"], x, y, r + 1.5, size, f' font-weight="{weight}"'):
+            labels.callout(f["name"], x, y, r, bold=True)
+    block([t for t in placed if not major(t[0])])
+    for f, x, y in [t for t in order if not major(t[0])][:VILLAGE_LABEL_TRIES]:
+        r, _, _, size, weight, ink = _settlement_style(f["category"])
+        if size:
+            extra = (f' font-weight="{weight}"' if weight else "") + f' style="fill:{ink}"'
+            labels._try(f["name"], x, y, r + 1.5, size, extra)
+
+    present = {f["category"] for f, _, _ in placed}
+    return "".join(out), [_settlement_block(layer["category"], present)]
+
+
+def _settlement_block(category, present):
+    rows = [(c["value"], c["label"]) for c in category["classes"] if c["value"] in present]
+    heading = category.get("label") or ""
+    w = max([_text_w(heading, 11.5)] + [30 + _text_w(t, 10) for _, t in rows])
+    h = 18 + 16 * len(rows)
+
+    def draw(x, y):
+        out = [_heading(heading, x, y + 11)] if heading else []
+        for i, (place, text) in enumerate(rows):
+            r, fill, stroke, *_ = _settlement_style(place)
+            cy = y + 18 + 16 * i + 6
+            ring = f' stroke="{TEXT}" stroke-width="{stroke}"' if stroke else ""
+            out.append(f'<circle cx="{_num(x + 6)}" cy="{_num(cy)}" r="{r}" '
+                       f'fill="{fill}"{ring}/>')
+            out.append(f'<text x="{_num(x + 28)}" y="{_num(cy + 3.5)}" font-size="10" '
+                       f'fill="{TEXT}">{escape(text)}</text>')
         return "".join(out)
     return w, h, draw
 

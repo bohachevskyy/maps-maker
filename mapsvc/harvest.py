@@ -182,7 +182,8 @@ def _framed_on_overlays(manifest: Manifest) -> HarvestResult:
     result.overlays = layers
     result.provenance["overlay_bbox"] = list(box)
     _add_physical_context(manifest, result, box)
-    brings_places = any(layer["kind"] == "places" for layer in layers)
+    brings_places = any(layer["kind"] == "places" or layer.get("own_labels")
+                        for layer in layers)
     if box[2] - box[0] <= PLACES_MAX_SPAN and not brings_places:
         result.places = context_places(box, None)
     return result
@@ -247,7 +248,8 @@ def _add_overlays(manifest: Manifest, result: HarvestResult) -> None:
     window = overlays.Window(bbox=manifest.bbox, within=manifest.within, extent=extent,
                              name=_place_name(manifest.within))
     result.overlays.extend(_load_overlay_layers(manifest.overlays, window))
-    brings_places = any(layer["kind"] == "places" for layer in result.overlays)
+    brings_places = any(layer["kind"] == "places" or layer.get("own_labels")
+                        for layer in result.overlays)
     if manifest.bbox is None and geometries:
         # Labels for what will be framed: the units near the overlay, not
         # every unit `within` brings (Réunion is not on a map of LGVs).
@@ -257,6 +259,13 @@ def _add_overlays(manifest: Manifest, result: HarvestResult) -> None:
     small = (extent[2] - extent[0]) <= PLACES_MAX_SPAN
     if small and not brings_places:
         result.places = context_places(extent, manifest.within)
+    elif not brings_places and (routes := [layer for layer in result.overlays
+                                           if layer.get("style") == "routes"]):
+        # A route across a continent still has its stops: the places it passes.
+        from mapsvc import overlay_render
+
+        result.places = overlay_render.places_along(
+            context_places(extent, manifest.within, keep=None), routes)[:PLACES_KEEP]
     _add_physical_context(manifest, result, extent)
 
 
@@ -459,7 +468,8 @@ def _place_name(within: tuple | None) -> str | None:
     return None
 
 
-def context_places(extent: tuple, within: tuple | None) -> list:
+def context_places(extent: tuple, within: tuple | None,
+                   keep: int | None = PLACES_KEEP) -> list:
     """Natural Earth populated places inside the window, largest first.
 
     Public domain, 7,342 places at 1:10m. A `within` of country codes keeps
@@ -490,7 +500,7 @@ def context_places(extent: tuple, within: tuple | None) -> list:
         })
     found = [p for p in found if p["name"]]
     found.sort(key=lambda p: (-p["pop"], p["name"]))
-    return found[:PLACES_KEEP]
+    return found[:keep] if keep else found
 
 
 # ----------------------------------------------------------------- context ---
