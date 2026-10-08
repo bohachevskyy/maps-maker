@@ -239,7 +239,7 @@ prompt = "Tracks of every Atlantic hurricane and tropical storm in 2024"
 truth = "NOAA IBTrACS v04 (public domain), NA basin, season 2024, named storms"
 units = [15, 25]
 contains = [[-82.6, 27.2], [-77.3, 18.1], [-40.0, 30.0]]
-spot = ["count=18±25%", "line_near=-82.6,27.2", "line_near=-83.9,29.9", "line_near=-77.3,18.1"]   # Milton, Helene, Beryl (verify)
+spot = ["count=18±25%", "line_near=-82.6,27.2", "line_near=-83.9,29.9", "line_near=-95.97,28.63"]   # Milton, Helene, Beryl at its Texas landfall (4.4 km in IBTrACS)
 must = [
   "one line per storm, coloured or weighted by Saffir-Simpson category along the track",
   "the major landfalling storms named (Beryl, Helene, Milton)",
