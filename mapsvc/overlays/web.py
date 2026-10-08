@@ -239,7 +239,7 @@ CATALOGUE = (
                             "other": "Type not recorded"},
         "category_other": "other",
         "label": "Holocene volcanoes", "label_top": 15, "noun": "volcanoes",
-        "map_title": "Volcanoes of the Holocene (the last ~11,700 years), world",
+        "map_title": "Holocene volcanoes of the world (active in the last ~11,700 years)",
         "note": "Holocene volcanoes are those with eruptions or unrest since the "
                 "last ice age (~11,700 years); the best-documented are named, "
                 "ranked by what each record reports of its consequences",

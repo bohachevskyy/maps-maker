@@ -3204,7 +3204,8 @@ def _overlay_title(title: str, place: str | None) -> str:
     cities by population" on a map of Europe is "Europe's 30 largest cities by
     population"; "Every magnitude 6+ earthquake" keeps its own scope."""
     place = _PLACE_ALIASES.get(place, place)
-    if not place or place == "World" or place.casefold() in title.casefold():
+    if (not place or place == "World" or place.casefold() in title.casefold()
+            or re.fullmatch(r"[A-Z]{2,3}(-[A-Z0-9]+)?", place)):   # a code is no name
         return title
     ranked = re.match(r"^The (\d+) (largest|biggest|smallest|most [\w-]+) (.+)$", title)
     if ranked:
