@@ -239,7 +239,7 @@ prompt = "Tracks of every Atlantic hurricane and tropical storm in 2024"
 truth = "NOAA IBTrACS v04 (public domain), NA basin, season 2024, named storms"
 units = [15, 25]
 contains = [[-82.6, 27.2], [-77.3, 18.1], [-40.0, 30.0]]
-spot = ["count=18±25%", "line_near=-82.6,27.2", "line_near=-83.9,29.9", "line_near=-95.97,28.63"]   # Milton, Helene, Beryl at its Texas landfall (4.4 km in IBTrACS)
+spot = ["count=18±25%", "line_near=-82.6,27.4", "line_near=-83.7,30.0", "line_near=-95.97,28.63"]   # NHC landfalls: Milton, Helene, Beryl (Texas)
 must = [
   "one line per storm, coloured or weighted by Saffir-Simpson category along the track",
   "the major landfalling storms named (Beryl, Helene, Milton)",
@@ -281,7 +281,7 @@ reference = ["https://volcano.si.edu/"]
 id = "trans_siberian"
 prompt = "Route of the Trans-Siberian Railway"
 truth = "OpenStreetMap route relation for the Trans-Siberian main line, Moscow Yaroslavsky to Vladivostok"
-units = [1, 5000]
+units = [1, 20000]                                      # a merged route is 1-2 features; raw OSM ways are ~8,200
 contains = [[37.66, 55.78], [131.88, 43.11]]
 excludes = [[116.4, 39.9]]
 spot = ["total_km=9289±15%", "line_near=82.92,55.03", "line_near=104.28,52.29"]   # Novosibirsk, Irkutsk
@@ -345,10 +345,10 @@ truth = "KATOTTH, Ukraine's codifier of administrative-territorial units (Minist
 units = [950, 1200]
 contains = [[25.33, 50.75], [24.72, 51.21], [24.32, 50.85], [23.95, 51.55]]
 excludes = [[26.25, 50.62], [24.03, 49.84]]
-spot = ["count=1080±12%", "event_near=25.33,50.75", "event_near=24.72,51.21"]   # Lutsk, Kovel (verify count)
+spot = ["count=1087±8%", "event_near=25.33,50.75", "event_near=24.72,51.21"]   # KATOTTH 07-07-2026: 12 M + 21 X + 1,054 C
 must = [
   "every settlement as a point inside Volyn oblast only (none from Rivne or Lviv oblasts)",
-  "settlement type distinguished: cities > urban-type settlements > villages (size/symbol)",
+  "settlement type distinguished: cities > селища (former urban-type settlements, renamed in 2024) > villages (size/symbol)",
   "cities and towns labelled; villages unlabelled or sparingly labelled without clutter",
   "the 4 raions (Lutsk, Kovel, Volodymyr, Kamin-Kashyrskyi) drawn as context",
   "source credited",
