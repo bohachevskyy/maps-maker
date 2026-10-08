@@ -88,7 +88,8 @@ class Frame:
     """
 
     def __init__(self, manifest: Manifest, geometries: list,
-                 centre_lon: float | None = None, min_height: int | None = None):
+                 centre_lon: float | None = None, min_height: int | None = None,
+                 crop_window: bool = False):
         self.extent = tuple(manifest.bbox or project.extent_of(geometries))
         self.is_world = self.extent == WORLD
         if self.is_world and centre_lon:
@@ -102,15 +103,16 @@ class Frame:
         self.lat0 = (self.extent[1] + self.extent[3]) / 2.0
 
         if self.windowed:
-            outline = [self.projector(lon, lat)
-                       for lon, lat in project.window_outline(self.extent)]
-            xs, ys = [p[0] for p in outline], [p[1] for p in outline]
+            projected_window = [self.projector(lon, lat)
+                                for lon, lat in project.window_outline(self.extent)]
+            xs, ys = [p[0] for p in projected_window], [p[1] for p in projected_window]
             bounds = (min(xs), min(ys), max(xs), max(ys))
             # The globe's outline is a curve whose widest point is a single
             # vertex at the equator: fitted with a 1 px margin it sits on the
             # page gutter and reads as cut off flat. A bbox window is a
             # rectangle-ish frame and can go to the edge.
-            margin = WORLD_MARGIN if self.is_world else 1.0
+            margin = WORLD_MARGIN if self.is_world or crop_window else 1.0
+            outline = None if crop_window else projected_window
         else:
             outline = None
             bounds = project.viewport_bounds(geometries, self.projector, self.extent)
@@ -152,10 +154,19 @@ def _shift(point: tuple[float, float]) -> tuple[float, float]:
 # ---------------------------------------------------------------- render ---
 
 def render(manifest: Manifest, result: HarvestResult) -> str:
+    overlay_box = tuple(result.provenance.get("overlay_bbox") or ())
+    measured_overlay = overlay_render.overlay_extent(result.overlays)
+    if measured_overlay is not None:
+        overlay_box = tuple(project.frame_box(measured_overlay))
+    overlay_framed = bool(overlay_box) and overlay_box != WORLD
     if manifest.bbox is None and result.provenance.get("overlay_bbox"):
         # Framed on its overlays (no window was given): the harvest chose it.
         manifest = dataclasses.replace(
             manifest, bbox=tuple(result.provenance["overlay_bbox"]))
+    if overlay_framed:
+        # Even if an agent supplied a loose bbox, rendering remains derived:
+        # centre and crop the projection on the data actually being drawn.
+        manifest = dataclasses.replace(manifest, bbox=overlay_box)
     rows = sorted(result.rows, key=lambda r: r["id"])
     dropped = sorted(result.dropped, key=lambda r: r["id"])
     show_missing = registry.DEFAULT_MISSING != "exclude"
@@ -175,7 +186,9 @@ def render(manifest: Manifest, result: HarvestResult) -> str:
     # rather than a box dangling below its frame. A taller frame creates that
     # room without naming Alaska or Hawaii.
     inset_room = MAP_H_MAX if 0 < len(insets) <= 2 and not manifest.overlays else None
-    frame = Frame(manifest, framed, overlay_render.centre_lon(result.overlays), inset_room)
+    frame = Frame(manifest, framed,
+                  overlay_render.centre_lon(result.overlays, geometries), inset_room,
+                  crop_window=overlay_framed)
     p = result.provenance
     encoding = _encoding(manifest, every_row, p)
 
@@ -217,6 +230,7 @@ def render(manifest: Manifest, result: HarvestResult) -> str:
                           stroke_width=unit_stroke,
                           plain=_visible_area(parts) < MIN_VISIBLE_AREA))
     body.append("</g>")
+    body.append(_hierarchy(result.hierarchy, frame))
     body.append(_physical_context(result.physical, frame))
     if frame.outline is not None:
         body.append(f'<path d="{_d([frame.outline])}" fill="none" '
@@ -304,13 +318,15 @@ class Encoding:
 
     def __init__(self, mode: str, label: str, unit: str,
                  scheme: classify.Classification | None = None,
-                 swatches: list[str] | None = None, vmax: float = 0.0):
+                 swatches: list[str] | None = None, vmax: float = 0.0,
+                 value_scale: float = 1.0):
         self.mode = mode
         self.label = label
         self.unit = unit
         self.scheme = scheme
         self.swatches = swatches
         self.vmax = vmax
+        self.value_scale = value_scale
         self.r_max = 0.0
         self.circles: list = []          # (x, y, r, row) of every drawn circle
         self.vmin = 0.0
@@ -321,7 +337,9 @@ class Encoding:
             return colors.BASEMAP_FILL
         if self.mode == "symbols":
             return colors.COUNT_LAND
-        return self.swatches[self.scheme.bin_of(value)]
+        displayed = (float(value) * self.value_scale
+                     if self.value_scale != 1.0 else value)
+        return self.swatches[self.scheme.bin_of(displayed)]
 
     def radius(self, value: float) -> float:
         if self.vmax <= 0 or value <= 0:
@@ -375,16 +393,28 @@ def _encoding(manifest: Manifest, rows: list, provenance: dict) -> Encoding:
     if level == "ratio" and numeric:
         # Round breaks: log-spaced, either side of zero, a fixed 0-100 scale
         # or rounded natural breaks -- whichever the values call for.
-        scheme = classify.nice([float(v) for v in values], percent=_is_share(unit))
-        if scheme.zero_at is not None:
+        index_reference = provenance.get("index_reference") or {}
+        reference_value = float(index_reference.get("value") or 0.0)
+        value_scale = 100.0 / reference_value if reference_value > 0 else 1.0
+        displayed = [float(v) * value_scale for v in values]
+        if reference_value > 0:
+            reference_label = str(index_reference.get("label") or "reference = 100")
+            scheme = classify.anchored(displayed, 100.0, reference_label)
+            year = index_reference.get("year")
+            unit = f"index ({reference_label}{f', {year}' if year else ''})"
+        else:
+            scheme = classify.nice(displayed, percent=_is_share(unit))
+        center_at = scheme.zero_at if scheme.zero_at is not None else scheme.center_at
+        if center_at is not None:
             direction = provenance.get("diverging") or {}
             reverse = ((direction.get("negative_color"), direction.get("positive_color"))
                        == ("blue", "red"))
             swatches = colors.diverging(
-                "RdBu", scheme.zero_at, scheme.k - scheme.zero_at, reverse=reverse)
+                "RdBu", center_at, scheme.k - center_at, reverse=reverse)
         else:
             swatches = colors.colors(registry.RAMP_FOR_LEVEL["ratio"], scheme.k)
-        return Encoding("choropleth", label, unit, scheme, swatches)
+        return Encoding("choropleth", label, unit, scheme, swatches,
+                        value_scale=value_scale)
 
     ramp = registry.RAMP_FOR_LEVEL.get(level, "YlGnBu")
     scheme = classify.build(values, level, registry.DEFAULT_METHOD, registry.DEFAULT_K)
@@ -777,6 +807,23 @@ def _physical_context(layers: list, frame: Frame) -> str:
                        f'stroke-linecap="round" stroke-linejoin="round"{dash}/>')
     out.append("</g>")
     return "".join(out)
+
+
+def _hierarchy(units: list, frame: Frame) -> str:
+    """Published parent outlines over detailed child polygons."""
+    if not units:
+        return ""
+    paths = []
+    for unit in sorted(units, key=lambda item: str(item["id"])):
+        parts = _project(unit["geometry"], frame)
+        d = _d([ring for part in parts for ring in part])
+        if d:
+            paths.append(f'<path d="{d}" data-parent-id={quoteattr(str(unit["id"]))}/>')
+    if not paths:
+        return ""
+    return ('<g clip-path="url(#map-clip)" class="hierarchy-borders" fill="none" '
+            'stroke="#4f5858" stroke-width="1.15" stroke-linejoin="round" '
+            'pointer-events="none">' + "".join(paths) + "</g>")
 
 
 def _physical_line(coords: list, frame: Frame) -> list:
@@ -2571,8 +2618,12 @@ def _water(frame: Frame) -> str:
     for line in project.graticule(frame.extent, interval):
         pts = [frame.xy(lon, lat) for lon, lat in line]
         lines.append("M" + "L".join(f"{_num(x)},{_num(y)}" for x, y in pts))
+    water = (f'<path d="{_d([frame.outline])}" fill="{colors.WATER}" stroke="none"/>'
+             if frame.outline is not None else
+             f'<rect x="{PAD}" y="{MAP_TOP}" width="{MAP_W}" height="{frame.map_h}" '
+             f'fill="{colors.WATER}"/>')
     return (
-        f'<path d="{_d([frame.outline])}" fill="{colors.WATER}" stroke="none"/>'
+        water +
         f'<path d="{"".join(lines)}" fill="none" stroke="{colors.GRATICULE}" '
         'stroke-width="0.5" clip-path="url(#map-clip)"/>'
     )
@@ -2855,7 +2906,8 @@ def _band(encoding: Encoding, has_missing: bool):
                 continue  # an open end, or a single-value class already written
             tx = x + i * cell
             anchor = "start" if i == 0 else ("end" if i == k else "middle")
-            weight = ' font-weight="600"' if scheme.zero_at == i else ""
+            centre = scheme.zero_at if scheme.zero_at is not None else scheme.center_at
+            weight = ' font-weight="600"' if centre == i else ""
             out.append(f'<line x1="{_num(tx)}" y1="{_num(sy + SWATCH_H)}" x2="{_num(tx)}" '
                        f'y2="{_num(sy + SWATCH_H + 3)}" stroke="#8c8c8c" stroke-width="0.6"/>')
             out.append(f'<text x="{_num(tx)}" y="{_num(sy + SWATCH_H + 14)}" '

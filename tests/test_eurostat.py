@@ -31,6 +31,20 @@ REGIONS = {"type": "FeatureCollection", "features": [
     _region("FRY2", "FR", "FRA", True, -61, 14),
     _region("NO08", "NO", "NOR", False, 10, 59),
 ]}
+PARENTS = {"type": "FeatureCollection", "features": [
+    {**_region("LU0", "LU", "LUX", True, 6, 49),
+     "properties": {**_region("LU0", "LU", "LUX", True, 6, 49)["properties"],
+                    "LEVL_CODE": 1}},
+    {**_region("BG3", "BG", "BGR", True, 23, 43),
+     "properties": {**_region("BG3", "BG", "BGR", True, 23, 43)["properties"],
+                    "LEVL_CODE": 1}},
+    {**_region("EL3", "EL", "GRC", True, 23, 37),
+     "properties": {**_region("EL3", "EL", "GRC", True, 23, 37)["properties"],
+                    "LEVL_CODE": 1}},
+    {**_region("FRY", "FR", "FRA", True, -61, 14),
+     "properties": {**_region("FRY", "FR", "FRA", True, -61, 14)["properties"],
+                    "LEVL_CODE": 1}},
+]}
 
 # A JSON-stat 2.0 cube shaped like the API's: freq x unit x geo x time.
 CUBE = {
@@ -71,6 +85,8 @@ def offline(monkeypatch, tmp_path):
     (tmp_path / "gisco").mkdir()
     (tmp_path / "gisco" / f"NUTS_RG_20M_{gisco.VINTAGE}_LEVL_2.geojson").write_text(
         json.dumps(REGIONS))
+    (tmp_path / "gisco" / f"NUTS_RG_01M_{gisco.VINTAGE}_LEVL_1.geojson").write_text(
+        json.dumps(PARENTS))
     (tmp_path / "eurostat" / "dimensions").mkdir(parents=True)
     (tmp_path / "eurostat" / "dimensions" / "nama_10r_2gdp.json").write_text(json.dumps(SHAPE))
     requested = []
@@ -155,6 +171,23 @@ def test_the_eu_map_joins_on_nuts_and_states_the_drawn_vintage(offline):
     assert {r["id"] for r in result.rows} == {"BG31", "EL30", "FRY2", "LU00"}
     assert result.provenance["join_key"] == "NUTS"
     assert result.provenance["year"] == "2023–2024"
+    assert {unit["id"] for unit in result.hierarchy} == {"BG3", "EL3", "FRY", "LU0"}
+    assert result.provenance["hierarchy_scale"] == "1:1,000,000"
+
+
+def test_eu27_reference_reads_the_same_dataset_cell_and_year(monkeypatch):
+    payload = {
+        "dimension": {"geo": {"category": {"index": {"EU27_2020": 0}}}},
+        "value": {"0": 38_500.0},
+    }
+    monkeypatch.setattr(eurostat, "_get", lambda url: json.dumps(payload).encode())
+    eurostat._eu27_reference.cache_clear()
+    try:
+        actual = eurostat._eu27_reference(
+            "nama_10r_2gdp", (("freq", "A"), ("unit", "PPS_EU27_2020_HAB")), 2024)
+        assert actual == 38_500.0
+    finally:
+        eurostat._eu27_reference.cache_clear()
 
 
 def test_eurostat_needs_a_basemap_with_nuts_codes():

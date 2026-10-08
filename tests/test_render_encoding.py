@@ -137,7 +137,7 @@ def test_a_share_gets_a_0_100_legend_with_percent_labels():
                   HarvestResult(rows=_change_rows(values), provenance=_ratio(unit="%"),
                                 dropped=[]))
     texts = _texts(ET.fromstring(text))
-    assert "0–20%" in texts and "80–100%" in texts
+    assert all(label in texts for label in ("0%", "10%", "80%", "100%"))
     assert "fixed 0–100 scale" in text
 
 
@@ -361,6 +361,38 @@ def test_a_change_names_both_years_and_its_formula():
                                               provenance=prov, dropped=[])))
     assert root.get("aria-label") == "Change in population, 2000–2023"
     assert "(2023 − 2000) / 2000 × 100" in _footnote(root)
+
+
+def test_published_reference_is_displayed_as_an_index_but_raw_values_survive():
+    rows = _rows(("LOW", _box(0, 40, 4, 44), 20_000.0),
+                 ("MID", _box(4, 40, 8, 44), 40_000.0),
+                 ("HIGH", _box(8, 40, 12, 44), 80_000.0))
+    provenance = _ratio(
+        variable="GDP per inhabitant", unit="PPS (EU27 from 2020)", year="2024",
+        index_reference={"label": "EU27 = 100", "value": 40_000.0, "year": 2024})
+    root = ET.fromstring(render(build_manifest(bbox=(-1, 39, 13, 45)),
+                                HarvestResult(rows=rows, provenance=provenance,
+                                              dropped=[])))
+    features = _features(root)
+    assert features["LOW"].get("data-value") == "20000"
+    assert features["HIGH"].get("data-value") == "80000"
+    text = " ".join(_texts(root))
+    assert "index (EU27 = 100, 2024)" in text
+    assert any(g.get("class") == "legend" for g in root.iter(f"{SVG}g")) or "EU27 = 100" in text
+
+
+def test_parent_boundaries_are_redrawn_over_child_units():
+    child = _box(0, 40, 5, 45)
+    parent = _box(0, 40, 10, 45)
+    result = HarvestResult(
+        rows=_rows(("CHILD", child, 1.0)), provenance=_ratio(), dropped=[],
+        hierarchy=[{"id": "PARENT", "geometry": parent}],
+    )
+    root = ET.fromstring(render(build_manifest(bbox=(-1, 39, 11, 46)), result))
+    group = next(g for g in root.iter(f"{SVG}g")
+                 if g.get("class") == "hierarchy-borders")
+    assert group.get("stroke-width") == "1.15"
+    assert [path.get("data-parent-id") for path in group.findall(f"{SVG}path")] == ["PARENT"]
 
 
 def test_title_is_concept_place_period_without_filler():

@@ -14,6 +14,9 @@ class Classification:
     # Diverging only: index into `breaks` of the zero edge, which is also the
     # number of classes below zero.
     zero_at: int | None = None
+    # Non-zero reference edge for an indexed presentation (for example
+    # Eurostat's EU27=100). Kept separate so labels do not acquire +/- signs.
+    center_at: int | None = None
     # How the edges were chosen, in words, for the footnote.
     scheme: str = "quantile"
     # Whether the first and last classes are open-ended ("< 2k", ">= 50k"):
@@ -266,12 +269,12 @@ def _categorical(categories: list[str]) -> Classification:
 # and last class read "< 2k" and ">= 100k" and no edge is an artefact of the
 # extreme value.
 
-MIN_CLASSES, MAX_CLASSES = 5, 7
+MIN_CLASSES, MAX_CLASSES = 5, 9
 LOG_DECADES = 1.5
 # Ladders of round numbers per decade, finest first. A wide domain coarsens
 # to keep within MAX_CLASSES.
 SERIES = ((1.0, 2.0, 5.0), (1.0, 3.0), (1.0,))
-FINE_SERIES = (1.0, 1.5, 2.0, 3.0, 5.0, 7.0)
+FINE_SERIES = (1.0, 1.5, 2.0, 3.0, 4.0, 5.0, 7.0)
 # Per side of a diverging map: a ramp of 2 x 5 classes is the most ColorBrewer
 # holds (RdBu 10/11), and the innermost class keeps about this share of the
 # side, so +0.1% and +9% are not split for the sake of a round number.
@@ -279,7 +282,7 @@ SIDE_MAX = 5
 SIDE_INNER_SHARE = 0.2
 JENKS_K = 7
 END_CLASS_MIN = 2
-PERCENT_STEPS = (0.0, 20.0, 40.0, 60.0, 80.0, 100.0)
+PERCENT_STEPS = tuple(float(v) for v in range(0, 81, 10)) + (100.0,)
 # A share whose values span less than this many points is a narrow band, and
 # a 0-100 scale would put it all in one or two classes.
 PERCENT_MIN_SPAN = 50.0
@@ -324,7 +327,7 @@ def nice(values: list[float], percent: bool = False) -> Classification:
         return _nice_diverging(s)
     if percent and lo >= 0 and hi <= 100 and hi - lo >= PERCENT_MIN_SPAN:
         return Classification("graded", len(PERCENT_STEPS) - 1, breaks=list(PERCENT_STEPS),
-                              scheme="fixed 0–100 scale in steps of 20")
+                              scheme="fixed 0–100 scale in 9 rounded classes")
     if lo > 0 and math.log10(hi / lo) > LOG_DECADES:
         edges = _log_edges(lo, hi)
         if len(edges) >= MIN_CLASSES - 1:
@@ -382,16 +385,34 @@ def _side_edges(magnitudes: list[float]) -> list[float]:
     """Round edges for one side of zero, on that side's magnitudes."""
     m = sorted(magnitudes)
     inner, outer = _rank(m, SIDE_INNER_SHARE), m[-1]
+    distinct = len(set(m))
+    target = min(SIDE_MAX, distinct,
+                 max(2, math.ceil(math.sqrt(distinct)) + (1 if distinct >= 8 else 0)))
+    candidates = []
     for series in SERIES:
         edges = ladder(inner, outer, series)
-        if edges and len(edges) <= SIDE_MAX - 1:
+        if edges:
+            candidates.append(edges[:SIDE_MAX - 1])
+        if target - 1 <= len(edges) <= SIDE_MAX - 1:
             return edges
     edges = ladder(inner, outer, FINE_SERIES)
     if edges:
-        return edges[-(SIDE_MAX - 1):]
-    # Every value on this side is about the same size: split at its median.
-    median = round_sig(_rank(m, 0.5), 1)
-    return [median] if 0 < median < outer else []
+        candidates.append(edges[-(SIDE_MAX - 1):])
+        if len(edges) >= target - 1:
+            return edges[-(SIDE_MAX - 1):]
+    # A narrow side can contain several distinct observations but no useful
+    # ladder number (Canada's two declining provinces are -1.7 and -1.8%).
+    # Quantile ranks retain those distinctions; rounding is kept only where it
+    # does not collapse an edge onto the outermost value.
+    needed = min(target, len(set(m)))
+    ranked = quantile(m, needed)[1:-1]
+    ranked = [round_sig(v, 2) for v in ranked]
+    ranked = sorted({v for v in ranked if 0 < v < outer})
+    if ranked:
+        return ranked
+    if needed == 2 and m[0] < outer:
+        return [m[0]]
+    return max(candidates, key=len, default=[])
 
 
 def _nice_diverging(s: list[float]) -> Classification:
@@ -401,3 +422,18 @@ def _nice_diverging(s: list[float]) -> Classification:
     zero_at = len(below) + 1
     return Classification("graded", len(breaks) - 1, breaks=breaks, zero_at=zero_at,
                           scheme="round breaks either side of zero", open_ends=True)
+
+
+def anchored(values: list[float], center: float, label: str) -> Classification:
+    """Round diverging classes around a published non-zero reference."""
+    shifted = [float(value) - center for value in values]
+    if not substantially_diverging(shifted):
+        return nice(values)
+    base = _nice_diverging(sorted(shifted))
+    return Classification(
+        "graded", base.k,
+        breaks=[edge + center for edge in base.breaks],
+        center_at=base.zero_at,
+        scheme=f"round breaks around {label}",
+        open_ends=base.open_ends,
+    )

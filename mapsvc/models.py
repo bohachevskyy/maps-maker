@@ -44,6 +44,9 @@ class HarvestResult:
     # named features for muted context labels, derived from the map's window.
     # Not data; render names them only where nothing mapped is labelled.
     names: list = field(default_factory=list)
+    # Coarser administrative outlines drawn over the mapped units. Harvest
+    # fetches these because render is deliberately I/O-free.
+    hierarchy: list = field(default_factory=list)
 
 
 @dataclass(frozen=True)

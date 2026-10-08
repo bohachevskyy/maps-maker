@@ -42,9 +42,11 @@ FLOW = ("#d6b27c", "#25292c", "#7d9fbf", "#b3546b")
 # Text in a band's colour must still read on paper: the tan is darkened.
 NOTE_INK = {"#d6b27c": "#8a6630"}
 # Polygon borders under overlays: the base map is orientation, not message.
-MUTED_BORDER = "#ffffff"
+MUTED_BORDER = "#9fa8a5"
 LINE_W = 1.9
 POINT_R = 2.6                 # a point with no size attribute
+DENSE_POINT_R = 1.65          # categorical point clouds above DENSE_POINT_COUNT
+DENSE_POINT_COUNT = 500
 MAG_R0 = 2.0                  # radius of the smallest magnitude drawn
 SQRT_R_MAX = 0.035            # largest sqrt-scaled circle, share of sqrt(area)
 FLOW_W_MAX = 0.075            # widest band, share of map height...
@@ -118,8 +120,18 @@ def overlay_extent(layers: list) -> tuple | None:
     for layer in layers or []:
         if layer["kind"] == "lines":
             for f in layer["features"]:
-                lons.extend(c[0] for c in f["coords"])
-                lats.extend(c[1] for c in f["coords"])
+                coords = f["coords"]
+                # Storm files carry long pre-genesis and post-tropical tails.
+                # They remain drawn, but the named tropical lifecycle defines
+                # the basin frame rather than a few grey fixes near Iceland.
+                if layer.get("along") and f.get("classes"):
+                    active = []
+                    for i, category in enumerate(f["classes"]):
+                        if category != "other" and i + 1 < len(coords):
+                            active.extend((coords[i], coords[i + 1]))
+                    coords = active or coords
+                lons.extend(c[0] for c in coords)
+                lats.extend(c[1] for c in coords)
         elif layer["kind"] in ("points", "places", "flow"):
             lons.extend(f["lon"] for f in layer["features"])
             lats.extend(f["lat"] for f in layer["features"])
@@ -154,7 +166,7 @@ def focus(geometries: list, layers: list) -> list:
     return keep or geometries
 
 
-def centre_lon(layers: list) -> float | None:
+def centre_lon(layers: list, geometries: list = ()) -> float | None:
     """A world map's central meridian, derived from where its overlays are.
 
     Earthquakes ring the Pacific; centred on Greenwich, the ring is cut in
@@ -170,7 +182,7 @@ def centre_lon(layers: list) -> float | None:
             lons.extend(f["lon"] for f in layer["features"])
     centre = project.central_meridian(lons)
     if centre is None and len(lons) >= SEAM_MIN_POINTS:
-        centre = _emptiest_seam(lons)
+        centre = _emptiest_seam(lons, geometries)
     return centre
 
 
@@ -182,13 +194,37 @@ SEAM_MIN_POINTS = 200
 SEAM_BAND = 10.0
 
 
-def _emptiest_seam(lons: list) -> float | None:
+def _emptiest_seam(lons: list, geometries: list = ()) -> float | None:
     def near(centre):
         seam = centre + 180.0
         return sum(1 for v in lons if abs((v - seam + 180.0) % 360.0 - 180.0) <= SEAM_BAND)
-    counts = {c: near(c) for c in range(-180, 180, 30)}
-    best = min(counts, key=lambda c: (counts[c], abs(c), c))
-    if counts[best] * 2 > counts[0]:
+
+    def land_cut(centre):
+        seam = centre + 180.0
+        cost = 0.0
+        for geometry in geometries:
+            for ring in project.outer_rings(geometry):
+                unwrapped = project.unwrap_ring(ring, 0.0)
+                if not unwrapped:
+                    continue
+                xs = [point[0] for point in unwrapped]
+                if not any(min(xs) < branch < max(xs)
+                           for branch in (seam - 360.0, seam, seam + 360.0)):
+                    continue
+                ys = [point[1] for point in unwrapped]
+                mean_lat = sum(ys) / len(ys)
+                cost += (max(ys) - min(ys)) * max(
+                    0.1, math.cos(math.radians(mean_lat)))
+        return cost
+
+    candidates = range(-180, 180, 30)
+    counts = {c: near(c) for c in candidates}
+    # One degree of substantial land cut costs as much as two points near the
+    # seam. For the Holocene volcanoes this chooses 150E (37 points, only three
+    # small Atlantic land crossings) over 120W (7 points, Eurasia cut at 60E).
+    scores = {c: counts[c] + 2.0 * land_cut(c) for c in candidates}
+    best = min(candidates, key=lambda c: (scores[c], counts[c], abs(c), c))
+    if scores[best] * 2 > scores[0]:
         return None
     return None if best == 0 else float(best)
 
@@ -320,18 +356,23 @@ def _points(layer, frame, labels, anchors, layout):
     colours = _palette(layer.get("category"), "points")
     default = ORDERED[0]
     placed = []
+    dense = len(layer["features"]) >= DENSE_POINT_COUNT and not layer.get("size")
     for f in layer["features"]:
         x, y = _xy(frame, f["lon"], f["lat"])
         if not frame.visible(x, y):
             continue
-        r = radius(f["size"]) if f.get("size") is not None else POINT_R
+        r = radius(f["size"]) if f.get("size") is not None else (
+            DENSE_POINT_R if dense else POINT_R)
         if r <= 0:
             continue
         placed.append((r, f["id"], x, y, f))
     # Smallest first: the large ones are translucent, the small ones stay
     # visible through them rather than vanishing underneath.
     placed.sort(key=lambda t: (t[0], t[1]))
-    out = ['<g fill-opacity="0.78" stroke="#ffffff" stroke-width="0.6">']
+    opacity = "0.58" if dense else "0.78"
+    stroke_width = "0.35" if dense else "0.6"
+    out = [f'<g fill-opacity="{opacity}" stroke="#ffffff" '
+           f'stroke-width="{stroke_width}">']
     for r, fid, x, y, f in placed:
         fill = colours.get(f.get("category"), default)
         value = "" if f.get("size") is None else f' data-value={quoteattr(_stat(f["size"]))}'

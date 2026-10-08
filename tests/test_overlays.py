@@ -121,6 +121,18 @@ def test_points_render_sized_coloured_and_credited(mini_geojson):
     assert svg == _overlay_map(mini_geojson, [layer])
 
 
+def test_dense_categorical_points_are_smaller_and_translucent(mini_geojson):
+    layer = {"kind": "points", "source": "test", "features": [
+        {"id": str(i), "lon": i / 10, "lat": 42, "category": "cone"}
+        for i in range(500)
+    ], "category": {"classes": [{"value": "cone", "label": "Cone"}]},
+        "provenance": {}}
+    svg = _overlay_map(mini_geojson, [layer])
+    assert 'fill-opacity="0.58"' in svg
+    assert 'stroke-width="0.35"' in svg
+    assert 'r="1.65"' in svg
+
+
 def test_overlay_only_footer_omits_pipeline_boilerplate_and_urls(mini_geojson):
     layer = _quake_layer()
     layer["provenance"]["url"] = "https://example.test/raw-query"
