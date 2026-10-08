@@ -1,0 +1,14 @@
+key,name,value,unit,year,pop_2016,pop_2021,pct_exact
+CA-AB,Alberta,4.8,"percent change in population, 2016 to 2021",2016-2021,4067175,4262635,4.8057927
+CA-BC,British Columbia,7.6,"percent change in population, 2016 to 2021",2016-2021,4648055,5000879,7.590788
+CA-MB,Manitoba,5,"percent change in population, 2016 to 2021",2016-2021,1278365,1342153,4.9898112
+CA-NB,New Brunswick,3.8,"percent change in population, 2016 to 2021",2016-2021,747101,775610,3.8159499
+CA-NL,Newfoundland and Labrador,-1.8,"percent change in population, 2016 to 2021",2016-2021,519716,510550,-1.7636555
+CA-NS,Nova Scotia,5,"percent change in population, 2016 to 2021",2016-2021,923598,969383,4.9572433
+CA-NT,Northwest Territories,-1.7,"percent change in population, 2016 to 2021",2016-2021,41786,41070,-1.7134926
+CA-NU,Nunavut,2.5,"percent change in population, 2016 to 2021",2016-2021,35944,36858,2.5428444
+CA-ON,Ontario,5.8,"percent change in population, 2016 to 2021",2016-2021,13448494,14223942,5.7660583
+CA-PE,Prince Edward Island,8,"percent change in population, 2016 to 2021",2016-2021,142907,154331,7.9940101
+CA-QC,Quebec,4.1,"percent change in population, 2016 to 2021",2016-2021,8164361,8501833,4.1334772
+CA-SK,Saskatchewan,3.1,"percent change in population, 2016 to 2021",2016-2021,1098352,1132505,3.1094767
+CA-YT,Yukon,12.1,"percent change in population, 2016 to 2021",2016-2021,35874,40232,12.148074

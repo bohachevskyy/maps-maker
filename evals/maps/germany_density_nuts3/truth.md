@@ -1,0 +1,5 @@
+- URL/API: https://ec.europa.eu/eurostat/api/dissemination/statistics/1.0/data/demo_r_d3dens?format=JSON&lang=EN&unit=PER_KM2&sinceTimePeriod=2019 (JSON-stat; geo filtered to the German NUTS 2024 level-3 codes); geometry https://gisco-services.ec.europa.eu/distribution/v2/nuts/geojson/NUTS_RG_01M_2024_4326_LEVL_3.geojson, Länder https://gisco-services.ec.europa.eu/distribution/v2/nuts/geojson/NUTS_RG_01M_2024_4326_LEVL_1.geojson.
+- Vintage: Eurostat demo_r_d3dens updated 2026-02-25; year 2024–2024 for every region. Geometry GISCO NUTS 2024, 1:1M.
+- Licence: Eurostat data, free reuse with attribution; © EuroGeographics for the administrative boundaries (GISCO).
+- Rows: 400 — every German NUTS 3 region (Landkreise, kreisfreie Städte, Region Hannover, Regionalverband Saarbrücken, Städteregion Aachen), keyed by NUTS code.
+- Caveat: the dataset also carries 7 pre-2024 Thuringian codes (DEG04, DEG0B, DEG0F, DEG0H, DEG0I, DEG0N, DEG0P), with values only to 2022; they have no NUTS 2024 geometry and are omitted. Density is resident population ÷ total area (land and inland water).

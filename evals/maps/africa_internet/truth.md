@@ -1,0 +1,5 @@
+- URL/API: https://ourworldindata.org/grapher/share-of-individuals-using-the-internet.csv (Grapher CSV; latest non-missing year per ISO3 code; metadata at the same path with `.metadata.json`).
+- Vintage: OWID 'Share of the population using the Internet', citing ITU World Telecommunication/ICT Indicators Database via World Bank (2026); latest year 2024 for 51 countries, older for SDN 2017, SSD 2019, ERI 2020.
+- Licence: OWID data CC BY 4.0 (ITU data via World Bank WDI, CC BY 4.0). Boundaries: Natural Earth 1:50m (public domain).
+- Rows: 54 of 55 units on an explicit list (54 sovereign African states plus Western Sahara). No value in the source: ESH.
+- Caveat: 'Internet user' is ITU's definition: used the internet from any device in the last three months. Natural Earth 1:50m puts the 178,000 km² of Western Sahara west of the berm inside its Morocco polygon; the reference cuts Morocco at 27°40′N so Western Sahara (no ITU value) is hatched whole rather than shown at Morocco's 91%. Somaliland is drawn and valued as part of Somalia; Réunion, Mayotte, St Helena, the Canaries and Madeira belong to non-African states and are context only.

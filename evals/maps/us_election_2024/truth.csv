@@ -1,0 +1,52 @@
+key,name,value,unit,year,rep_votes,dem_votes,valid_votes,mit_totalvotes,rep_pct,dem_pct,margin_pp_mit_total
+US-AK,Alaska,13.138682,percentage points (Republican % minus Democratic % of valid votes),2024,184458,140026,338177,338177,54.544809,41.406128,13.138682
+US-AL,Alabama,30.471372,percentage points (Republican % minus Democratic % of valid votes),2024,1462616,772412,2265090,2265090,64.572092,34.10072,30.471372
+US-AR,Arkansas,30.636962,percentage points (Republican % minus Democratic % of valid votes),2024,759241,396905,1182676,1182676,64.196872,33.55991,30.636962
+US-AZ,Arizona,5.5286032,percentage points (Republican % minus Democratic % of valid votes),2024,1770242,1582860,3389319,3389319,52.23002,46.701417,5.5286032
+US-CA,California,-20.134802,percentage points (Republican % minus Democratic % of valid votes),2024,6081697,9276179,15865475,15865475,38.332902,58.467704,-20.134802
+US-CO,Colorado,-10.984842,percentage points (Republican % minus Democratic % of valid votes),2024,1377441,1728159,3192745,3192745,43.142844,54.127686,-10.984842
+US-CT,Connecticut,-14.504466,percentage points (Republican % minus Democratic % of valid votes),2024,736918,992053,1759010,1759010,41.893906,56.398372,-14.504466
+US-DC,District of Columbia,-83.809445,percentage points (Republican % minus Democratic % of valid votes),2024,21076,294185,325869,325869,6.4676296,90.277075,-83.809445
+US-DE,Delaware,-14.701714,percentage points (Republican % minus Democratic % of valid votes),2024,214351,289758,512913,512913,41.790908,56.492622,-14.701714
+US-FL,Florida,13.10005,percentage points (Republican % minus Democratic % of valid votes),2024,6110125,4683038,10893752,10893752,56.088343,42.988293,13.10005
+US-GA,Georgia,2.1920031,percentage points (Republican % minus Democratic % of valid votes),2024,2663117,2548017,5250905,5250905,50.717295,48.525292,2.1920031
+US-HI,Hawaii,-23.104852,percentage points (Republican % minus Democratic % of valid votes),2024,193661,313044,516701,522236,37.480284,60.585135,-22.859971
+US-IA,Iowa,13.209511,percentage points (Republican % minus Democratic % of valid votes),2024,927019,707278,1663506,1663506,55.72682,42.51731,13.209511
+US-ID,Idaho,36.492066,percentage points (Republican % minus Democratic % of valid votes),2024,605246,274972,905057,917466,66.873799,30.381733,35.9985
+US-IL,Illinois,-10.895619,percentage points (Republican % minus Democratic % of valid votes),2024,2449079,3062863,5633310,5633310,43.474955,54.370574,-10.895619
+US-IN,Indiana,18.958299,percentage points (Republican % minus Democratic % of valid votes),2024,1720347,1163603,2936677,2936677,58.581417,39.623118,18.958299
+US-KS,Kansas,16.115581,percentage points (Republican % minus Democratic % of valid votes),2024,758802,544853,1327591,1327591,57.156308,41.040727,16.115581
+US-KY,Kentucky,30.534675,percentage points (Republican % minus Democratic % of valid votes),2024,1337494,704043,2074530,2074530,64.472145,33.93747,30.534675
+US-LA,Louisiana,22.005008,percentage points (Republican % minus Democratic % of valid votes),2024,1208505,766870,2006975,2006975,60.215249,38.210242,22.005008
+US-MA,Massachusetts,-25.195701,percentage points (Republican % minus Democratic % of valid votes),2024,1251303,2126518,3473668,3512930,36.022527,61.218228,-24.914103
+US-MD,Maryland,-28.536264,percentage points (Republican % minus Democratic % of valid votes),2024,1035550,1902577,3038334,3038334,34.082823,62.619087,-28.536264
+US-ME,Maine,-6.9373027,percentage points (Republican % minus Democratic % of valid votes),2024,377977,435652,831375,842447,45.464081,52.401383,-6.846128
+US-MI,Michigan,1.4142014,percentage points (Republican % minus Democratic % of valid votes),2024,2816636,2736533,5664186,5664186,49.72711,48.312909,1.4142014
+US-MN,Minnesota,-4.2394097,percentage points (Republican % minus Democratic % of valid votes),2024,1519032,1656979,3253920,3253920,46.683139,50.922549,-4.2394097
+US-MO,Missouri,18.408241,percentage points (Republican % minus Democratic % of valid votes),2024,1751986,1200599,2995327,2995327,58.490642,40.082402,18.408241
+US-MS,Mississippi,22.888776,percentage points (Republican % minus Democratic % of valid votes),2024,747744,466668,1228008,1228008,60.890809,38.002033,22.888776
+US-MT,Montana,19.93041,percentage points (Republican % minus Democratic % of valid votes),2024,352079,231906,602963,602963,58.391477,38.461066,19.93041
+US-NC,North Carolina,3.2118525,percentage points (Republican % minus Democratic % of valid votes),2024,2898423,2715375,5699141,5699141,50.857191,47.645338,3.2118525
+US-ND,North Dakota,36.446062,percentage points (Republican % minus Democratic % of valid votes),2024,246505,112327,368155,368155,66.956852,30.51079,36.446062
+US-NE,Nebraska,20.460479,percentage points (Republican % minus Democratic % of valid votes),2024,564816,369995,952182,952182,59.318072,38.857592,20.460479
+US-NH,New Hampshire,-2.7796303,percentage points (Republican % minus Democratic % of valid votes),2024,395523,418488,826189,831033,47.873186,50.652817,-2.7634282
+US-NJ,New Jersey,-5.9095308,percentage points (Republican % minus Democratic % of valid votes),2024,1968215,2220713,4272725,4272725,46.064631,51.974162,-5.9095308
+US-NM,New Mexico,-6.0007386,percentage points (Republican % minus Democratic % of valid votes),2024,423391,478802,923403,923403,45.851161,51.8519,-6.0007386
+US-NV,Nevada,3.0985157,percentage points (Republican % minus Democratic % of valid votes),2024,751205,705197,1484840,1484840,50.591646,47.493131,3.0985157
+US-NY,New York,-12.590419,percentage points (Republican % minus Democratic % of valid votes),2024,3578899,4619195,8262600,8381429,43.314441,55.90486,-12.411917
+US-OH,Ohio,11.207364,percentage points (Republican % minus Democratic % of valid votes),2024,3180116,2533699,5767788,5767788,55.135799,43.928435,11.207364
+US-OK,Oklahoma,34.262754,percentage points (Republican % minus Democratic % of valid votes),2024,1036213,499599,1566173,1566173,66.162103,31.89935,34.262754
+US-OR,Oregon,-14.307017,percentage points (Republican % minus Democratic % of valid votes),2024,919480,1240600,2244493,2244493,40.966044,55.273062,-14.307017
+US-PA,Pennsylvania,1.709731,percentage points (Republican % minus Democratic % of valid votes),2024,3543308,3423042,7034206,7034206,50.372537,48.662806,1.709731
+US-RI,Rhode Island,-13.789111,percentage points (Republican % minus Democratic % of valid votes),2024,214406,285156,513086,513086,41.787537,55.576648,-13.789111
+US-SC,South Carolina,17.867739,percentage points (Republican % minus Democratic % of valid votes),2024,1483747,1028452,2548140,2548140,58.22863,40.360891,17.867739
+US-SD,South Dakota,29.194585,percentage points (Republican % minus Democratic % of valid votes),2024,272081,146859,428922,428922,63.433678,34.239092,29.194585
+US-TN,Tennessee,29.719884,percentage points (Republican % minus Democratic % of valid votes),2024,1966865,1056265,3063942,3063942,64.193937,34.474053,29.719884
+US-TX,Texas,13.683305,percentage points (Republican % minus Democratic % of valid votes),2024,6393597,4835250,11388674,11388674,56.13996,42.456655,13.683305
+US-UT,Utah,21.582351,percentage points (Republican % minus Democratic % of valid votes),2024,883818,562566,1488494,1488494,59.376659,37.794308,21.582351
+US-VA,Virginia,-5.7664755,percentage points (Republican % minus Democratic % of valid votes),2024,2074097,2333778,4503288,4503288,46.057392,51.823867,-5.7664755
+US-VT,Vermont,-31.507598,percentage points (Republican % minus Democratic % of valid votes),2024,119395,235791,369422,372885,32.319407,63.827005,-31.214986
+US-WA,Washington,-18.218189,percentage points (Republican % minus Democratic % of valid votes),2024,1530923,2245849,3924243,3924243,39.011932,57.230121,-18.218189
+US-WI,Wisconsin,0.85882864,percentage points (Republican % minus Democratic % of valid votes),2024,1697626,1668229,3422918,3422918,49.595871,48.737042,0.85882864
+US-WV,West Virginia,41.863847,percentage points (Republican % minus Democratic % of valid votes),2024,533556,214309,762584,762584,69.96685,28.103002,41.863847
+US-WY,Wyoming,45.756148,percentage points (Republican % minus Democratic % of valid votes),2024,192633,69527,269048,271123,71.598005,25.841857,45.40596

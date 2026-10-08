@@ -1,0 +1,5 @@
+- URL/API: https://www150.statcan.gc.ca/n1/tbl/csv/98100001-eng.zip (full-table CSV of https://www150.statcan.gc.ca/t1/tbl1/en/tv.action?pid=9810000101); rows with DGUID 2021A0002xx, keyed by ISO 3166-2 via the SGC province code.
+- Vintage: Statistics Canada, Census of Population 2021, table 98-10-0001-01 'Population and dwelling counts: Canada, provinces and territories' (census release 2022-02-09; file dated 2022-02-03). Canada: 35,151,728 → 36,991,981 (5.2%).
+- Licence: Statistics Canada Open Licence (Open Government Licence – Canada). Boundaries: Natural Earth 1:10m admin-1 (public domain), because StatCan's own 2021 boundary file (lpr_000b21a_e.zip) sits behind a Cloudflare JavaScript challenge that a script cannot pass.
+- Rows: 13 — 10 provinces, 3 territories. `value` = StatCan's published percent change (one decimal); `pct_exact` recomputes it from `pop_2016` and `pop_2021` (max difference 0.048 points).
+- Caveat: 2016 counts are as published in 2021 for 2021 boundaries (provinces are unchanged). Two units declined: Newfoundland and Labrador and the Northwest Territories.

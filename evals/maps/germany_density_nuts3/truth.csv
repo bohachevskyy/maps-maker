@@ -1,0 +1,401 @@
+key,name,value,unit,year
+DE111,"Stuttgart, Stadtkreis",2975.2,persons per km2,2024
+DE112,Böblingen,638.7,persons per km2,2024
+DE113,Esslingen,836.7,persons per km2,2024
+DE114,Göppingen,403.5,persons per km2,2024
+DE115,Ludwigsburg,781.2,persons per km2,2024
+DE116,Rems-Murr-Kreis,513.3,persons per km2,2024
+DE117,"Heilbronn, Stadtkreis",1318.2,persons per km2,2024
+DE118,"Heilbronn, Landkreis",322.2,persons per km2,2024
+DE119,Hohenlohekreis,148.6,persons per km2,2024
+DE11A,Schwäbisch Hall,135.3,persons per km2,2024
+DE11B,Main-Tauber-Kreis,102.3,persons per km2,2024
+DE11C,Heidenheim,215.7,persons per km2,2024
+DE11D,Ostalbkreis,210.2,persons per km2,2024
+DE121,"Baden-Baden, Stadtkreis",407.9,persons per km2,2024
+DE122,"Karlsruhe, Stadtkreis",1826.2,persons per km2,2024
+DE123,"Karlsruhe, Landkreis",427.2,persons per km2,2024
+DE124,Rastatt,319.6,persons per km2,2024
+DE125,"Heidelberg, Stadtkreis",1452.9,persons per km2,2024
+DE126,"Mannheim, Stadtkreis",2265.3,persons per km2,2024
+DE127,Neckar-Odenwald-Kreis,129.5,persons per km2,2024
+DE128,Rhein-Neckar-Kreis,529.6,persons per km2,2024
+DE129,"Pforzheim, Stadtkreis",1377.5,persons per km2,2024
+DE12A,Calw,202.3,persons per km2,2024
+DE12B,Enzkreis,348.1,persons per km2,2024
+DE12C,Freudenstadt,140.3,persons per km2,2024
+DE131,"Freiburg im Breisgau, Stadtkreis",1548,persons per km2,2024
+DE132,Breisgau-Hochschwarzwald,199.3,persons per km2,2024
+DE133,Emmendingen,250.6,persons per km2,2024
+DE134,Ortenaukreis,241,persons per km2,2024
+DE135,Rottweil,182.4,persons per km2,2024
+DE136,Schwarzwald-Baar-Kreis,209,persons per km2,2024
+DE137,Tuttlingen,197.7,persons per km2,2024
+DE138,Konstanz,378.7,persons per km2,2024
+DE139,Lörrach,296.4,persons per km2,2024
+DE13A,Waldshut,152.7,persons per km2,2024
+DE141,Reutlingen,268.7,persons per km2,2024
+DE142,"Tübingen, Landkreis",450.2,persons per km2,2024
+DE143,Zollernalbkreis,210.6,persons per km2,2024
+DE144,"Ulm, Stadtkreis",1087.7,persons per km2,2024
+DE145,Alb-Donau-Kreis,149,persons per km2,2024
+DE146,Biberach,147.3,persons per km2,2024
+DE147,Bodenseekreis,495.5,persons per km2,2024
+DE148,Ravensburg,178.4,persons per km2,2024
+DE149,Sigmaringen,110.4,persons per km2,2024
+DE211,"Ingolstadt, Kreisfreie Stadt",1079.7,persons per km2,2024
+DE212,"München, Kreisfreie Stadt",4828.6,persons per km2,2024
+DE213,"Rosenheim, Kreisfreie Stadt",1753.1,persons per km2,2024
+DE214,Altötting,201.6,persons per km2,2024
+DE215,Berchtesgadener Land,126.4,persons per km2,2024
+DE216,Bad Tölz-Wolfratshausen,119.8,persons per km2,2024
+DE217,Dachau,264.3,persons per km2,2024
+DE218,Ebersberg,262.6,persons per km2,2024
+DE219,Eichstätt,111.8,persons per km2,2024
+DE21A,Erding,160.7,persons per km2,2024
+DE21B,Freising,230.9,persons per km2,2024
+DE21C,Fürstenfeldbruck,500.2,persons per km2,2024
+DE21D,Garmisch-Partenkirchen,89.3,persons per km2,2024
+DE21E,Landsberg am Lech,162.3,persons per km2,2024
+DE21F,Miesbach,113.5,persons per km2,2024
+DE21G,Mühldorf a. Inn,151.9,persons per km2,2024
+DE21H,"München, Landkreis",537.4,persons per km2,2024
+DE21I,Neuburg-Schrobenhausen,135.5,persons per km2,2024
+DE21J,Pfaffenhofen a. d. Ilm,172.6,persons per km2,2024
+DE21K,"Rosenheim, Landkreis",182,persons per km2,2024
+DE21L,Starnberg,327.4,persons per km2,2024
+DE21M,Traunstein,120,persons per km2,2024
+DE21N,Weilheim-Schongau,144.9,persons per km2,2024
+DE221,"Landshut, Kreisfreie Stadt",1065.2,persons per km2,2024
+DE222,"Passau, Kreisfreie Stadt",814.9,persons per km2,2024
+DE223,"Straubing, Kreisfreie Stadt",742.5,persons per km2,2024
+DE224,Deggendorf,142.9,persons per km2,2024
+DE225,Freyung-Grafenau,79.9,persons per km2,2024
+DE226,Kelheim,118.8,persons per km2,2024
+DE227,"Landshut, Landkreis",120.4,persons per km2,2024
+DE228,"Passau, Landkreis",128.2,persons per km2,2024
+DE229,Regen,79.5,persons per km2,2024
+DE22A,Rottal-Inn,94.5,persons per km2,2024
+DE22B,Straubing-Bogen,86.9,persons per km2,2024
+DE22C,Dingolfing-Landau,115.7,persons per km2,2024
+DE231,"Amberg, Kreisfreie Stadt",847.7,persons per km2,2024
+DE232,"Regensburg, Kreisfreie Stadt",1905.4,persons per km2,2024
+DE233,"Weiden i. d. Opf, Kreisfreie Stadt",597.7,persons per km2,2024
+DE234,Amberg-Sulzbach,82.9,persons per km2,2024
+DE235,Cham,84.6,persons per km2,2024
+DE236,Neumarkt i. d. OPf.,103,persons per km2,2024
+DE237,Neustadt a. d. Waldnaab,67.6,persons per km2,2024
+DE238,"Regensburg, Landkreis",141.3,persons per km2,2024
+DE239,Schwandorf,103,persons per km2,2024
+DE23A,Tirschenreuth,67,persons per km2,2024
+DE241,"Bamberg, Kreisfreie Stadt",1384,persons per km2,2024
+DE242,"Bayreuth, Kreisfreie Stadt",1089.7,persons per km2,2024
+DE243,"Coburg, Kreisfreie Stadt",853.9,persons per km2,2024
+DE244,"Hof, Kreisfreie Stadt",818.1,persons per km2,2024
+DE245,"Bamberg, Landkreis",127.4,persons per km2,2024
+DE246,"Bayreuth, Landkreis",81,persons per km2,2024
+DE247,"Coburg, Landkreis",143.2,persons per km2,2024
+DE248,Forchheim,181,persons per km2,2024
+DE249,"Hof, Landkreis",103.7,persons per km2,2024
+DE24A,Kronach,99.5,persons per km2,2024
+DE24B,Kulmbach,108.9,persons per km2,2024
+DE24C,Lichtenfels,130.7,persons per km2,2024
+DE24D,Wunsiedel i. Fichtelgebirge,116.8,persons per km2,2024
+DE251,"Ansbach, Kreisfreie Stadt",402.2,persons per km2,2024
+DE252,"Erlangen, Kreisfreie Stadt",1521.3,persons per km2,2024
+DE253,"Fürth, Kreisfreie Stadt",2093.2,persons per km2,2024
+DE254,"Nürnberg, Kreisfreie Stadt",2854.4,persons per km2,2024
+DE255,"Schwabach, Kreisfreie Stadt",997.9,persons per km2,2024
+DE256,"Ansbach, Landkreis",95.1,persons per km2,2024
+DE257,Erlangen-Höchstadt,248.1,persons per km2,2024
+DE258,"Fürth, Landkreis",383.3,persons per km2,2024
+DE259,Nürnberger Land,211.5,persons per km2,2024
+DE25A,Neustadt a. d. Aisch-Bad Windsheim,79.7,persons per km2,2024
+DE25B,Roth,144.3,persons per km2,2024
+DE25C,Weißenburg-Gunzenhausen,99,persons per km2,2024
+DE261,"Aschaffenburg, Kreisfreie Stadt",1193.8,persons per km2,2024
+DE262,"Schweinfurt, Kreisfreie Stadt",1548.8,persons per km2,2024
+DE263,"Würzburg, Kreisfreie Stadt",1523.1,persons per km2,2024
+DE264,"Aschaffenburg, Landkreis",245.9,persons per km2,2024
+DE265,Bad Kissingen,91,persons per km2,2024
+DE266,Rhön-Grabfeld,77.7,persons per km2,2024
+DE267,Haßberge,88.1,persons per km2,2024
+DE268,Kitzingen,134,persons per km2,2024
+DE269,Miltenberg,179.9,persons per km2,2024
+DE26A,Main-Spessart,95.6,persons per km2,2024
+DE26B,"Schweinfurt, Landkreis",136.3,persons per km2,2024
+DE26C,"Würzburg, Landkreis",167.1,persons per km2,2024
+DE271,"Augsburg, Kreisfreie Stadt",2041.1,persons per km2,2024
+DE272,"Kaufbeuren, Kreisfreie Stadt",1153.3,persons per km2,2024
+DE273,"Kempten (Allgäu), Kreisfreie Stadt",1060.1,persons per km2,2024
+DE274,"Memmingen, Kreisfreie Stadt",630.3,persons per km2,2024
+DE275,Aichach-Friedberg,175.6,persons per km2,2024
+DE276,"Augsburg, Landkreis",245.1,persons per km2,2024
+DE277,Dillingen a.d. Donau,126.5,persons per km2,2024
+DE278,Günzburg,171.4,persons per km2,2024
+DE279,Neu-Ulm,357.6,persons per km2,2024
+DE27A,Lindau (Bodensee),289.9,persons per km2,2024
+DE27B,Ostallgäu,103.3,persons per km2,2024
+DE27C,Unterallgäu,119.2,persons per km2,2024
+DE27D,Donau-Ries,106.4,persons per km2,2024
+DE27E,Oberallgäu,101.6,persons per km2,2024
+DE300,Berlin,4342.6,persons per km2,2024
+DE401,"Brandenburg an der Havel, Kreisfreie Stadt",377.7,persons per km2,2024
+DE402,"Cottbus, Kreisfreie Stadt",575.5,persons per km2,2024
+DE403,"Frankfurt (Oder), Kreisfreie Stadt",396.4,persons per km2,2024
+DE404,"Potsdam, Kreisfreie Stadt",1079.1,persons per km2,2024
+DE405,Barnim,134.9,persons per km2,2024
+DE406,Dahme-Spreewald,80.7,persons per km2,2024
+DE407,Elbe-Elster,52.2,persons per km2,2024
+DE408,Havelland,99.8,persons per km2,2024
+DE409,Märkisch-Oderland,93,persons per km2,2024
+DE40A,Oberhavel,122.7,persons per km2,2024
+DE40B,Oberspreewald-Lausitz,92.8,persons per km2,2024
+DE40C,Oder-Spree,81.7,persons per km2,2024
+DE40D,Ostprignitz-Ruppin,40.1,persons per km2,2024
+DE40E,Potsdam-Mittelmark,86.6,persons per km2,2024
+DE40F,Prignitz,35.8,persons per km2,2024
+DE40G,Spree-Neiße,67.6,persons per km2,2024
+DE40H,Teltow-Fläming,85,persons per km2,2024
+DE40I,Uckermark,39.4,persons per km2,2024
+DE501,"Bremen, Kreisfreie Stadt",1888.1,persons per km2,2024
+DE502,"Bremerhaven, Kreisfreie Stadt",1462.5,persons per km2,2024
+DE600,Hamburg,2615.6,persons per km2,2024
+DE711,"Darmstadt, Kreisfreie Stadt",1360.1,persons per km2,2024
+DE712,"Frankfurt am Main, Kreisfreie Stadt",3072.7,persons per km2,2024
+DE713,"Offenbach am Main, Kreisfreie Stadt",3006.7,persons per km2,2024
+DE714,"Wiesbaden, Kreisfreie Stadt",1447.5,persons per km2,2024
+DE715,Bergstraße,385.8,persons per km2,2024
+DE716,Darmstadt-Dieburg,459.2,persons per km2,2024
+DE717,Groß-Gerau,606.6,persons per km2,2024
+DE718,Hochtaunuskreis,500.3,persons per km2,2024
+DE719,Main-Kinzig-Kreis,301.3,persons per km2,2024
+DE71A,Main-Taunus-Kreis,1080,persons per km2,2024
+DE71B,Odenwaldkreis,150.7,persons per km2,2024
+DE71C,"Offenbach, Landkreis",1012.2,persons per km2,2024
+DE71D,Rheingau-Taunus-Kreis,232.3,persons per km2,2024
+DE71E,Wetteraukreis,282.9,persons per km2,2024
+DE721,"Gießen, Landkreis",314.5,persons per km2,2024
+DE722,Lahn-Dill-Kreis,238.7,persons per km2,2024
+DE723,Limburg-Weilburg,235.8,persons per km2,2024
+DE724,Marburg-Biedenkopf,192.5,persons per km2,2024
+DE725,Vogelsbergkreis,69.5,persons per km2,2024
+DE731,"Kassel, Kreisfreie Stadt",1859.9,persons per km2,2024
+DE732,Fulda,161.2,persons per km2,2024
+DE733,Hersfeld-Rotenburg,107.3,persons per km2,2024
+DE734,"Kassel, Landkreis",178.6,persons per km2,2024
+DE735,Schwalm-Eder-Kreis,117.4,persons per km2,2024
+DE736,Waldeck-Frankenberg,84.6,persons per km2,2024
+DE737,Werra-Meißner-Kreis,95.8,persons per km2,2024
+DE803,"Rostock, Kreisfreie Stadt",1139.6,persons per km2,2024
+DE804,"Schwerin, Kreisfreie Stadt",1032.4,persons per km2,2024
+DE80J,Mecklenburgische Seenplatte,48.2,persons per km2,2024
+DE80K,Landkreis Rostock,64.8,persons per km2,2024
+DE80L,Vorpommern-Rügen,67.8,persons per km2,2024
+DE80M,Nordwestmecklenburg,76.1,persons per km2,2024
+DE80N,Vorpommern-Greifswald,57.8,persons per km2,2024
+DE80O,Ludwigslust-Parchim,44.8,persons per km2,2024
+DE911,"Braunschweig, Kreisfreie Stadt",1319,persons per km2,2024
+DE912,"Salzgitter, Kreisfreie Stadt",475.2,persons per km2,2024
+DE913,"Wolfsburg, Kreisfreie Stadt",634.6,persons per km2,2024
+DE914,Gifhorn,112.3,persons per km2,2024
+DE916,Goslar,132.7,persons per km2,2024
+DE917,Helmstedt,134.2,persons per km2,2024
+DE918,Northeim,99.5,persons per km2,2024
+DE91A,Peine,257.5,persons per km2,2024
+DE91B,Wolfenbüttel,163.8,persons per km2,2024
+DE91C,Göttingen,187.6,persons per km2,2024
+DE922,Diepholz,111.9,persons per km2,2024
+DE923,Hameln-Pyrmont,189.1,persons per km2,2024
+DE925,Hildesheim,222.5,persons per km2,2024
+DE926,Holzminden,95,persons per km2,2024
+DE927,Nienburg (Weser),87.5,persons per km2,2024
+DE928,Schaumburg,233.2,persons per km2,2024
+DE929,Region Hannover,503.9,persons per km2,2024
+DE931,Celle,111.6,persons per km2,2024
+DE932,Cuxhaven,97.7,persons per km2,2024
+DE933,Harburg,214.1,persons per km2,2024
+DE934,Lüchow-Dannenberg,38.4,persons per km2,2024
+DE935,"Lüneburg, Landkreis",136.5,persons per km2,2024
+DE936,Osterholz,176,persons per km2,2024
+DE937,Rotenburg (Wümme),80,persons per km2,2024
+DE938,Heidekreis,75.2,persons per km2,2024
+DE939,Stade,174.8,persons per km2,2024
+DE93A,Uelzen,62.7,persons per km2,2024
+DE93B,Verden,176.6,persons per km2,2024
+DE941,"Delmenhorst, Kreisfreie Stadt",1315.7,persons per km2,2024
+DE942,"Emden, Kreisfreie Stadt",453.7,persons per km2,2024
+DE943,"Oldenburg (Oldenburg), Kreisfreie Stadt",1729.7,persons per km2,2024
+DE944,"Osnabrück, Kreisfreie Stadt",1382.3,persons per km2,2024
+DE945,"Wilhelmshaven, Kreisfreie Stadt",729.6,persons per km2,2024
+DE946,Ammerland,176.1,persons per km2,2024
+DE947,Aurich,147.7,persons per km2,2024
+DE948,Cloppenburg,124.9,persons per km2,2024
+DE949,Emsland,116.4,persons per km2,2024
+DE94A,Friesland (DE),165.7,persons per km2,2024
+DE94B,Grafschaft Bentheim,147.2,persons per km2,2024
+DE94C,Leer,158.5,persons per km2,2024
+DE94D,"Oldenburg, Landkreis",124.2,persons per km2,2024
+DE94E,"Osnabrück, Landkreis",167.9,persons per km2,2024
+DE94F,Vechta,179.9,persons per km2,2024
+DE94G,Wesermarsch,110.6,persons per km2,2024
+DE94H,Wittmund,85.5,persons per km2,2024
+DEA11,"Düsseldorf, Kreisfreie Stadt",2997.6,persons per km2,2024
+DEA12,"Duisburg, Kreisfreie Stadt",2349.2,persons per km2,2024
+DEA13,"Essen, Kreisfreie Stadt",2774.8,persons per km2,2024
+DEA14,"Krefeld, Kreisfreie Stadt",1710.4,persons per km2,2024
+DEA15,"Mönchengladbach, Kreisfreie Stadt",1573.2,persons per km2,2024
+DEA16,"Mülheim an der Ruhr, Kreisfreie Stadt",1900.8,persons per km2,2024
+DEA17,"Oberhausen, Kreisfreie Stadt",2773.7,persons per km2,2024
+DEA18,"Remscheid, Kreisfreie Stadt",1539.8,persons per km2,2024
+DEA19,"Solingen, Kreisfreie Stadt",1842.8,persons per km2,2024
+DEA1A,"Wuppertal, Kreisfreie Stadt",2133.3,persons per km2,2024
+DEA1B,Kleve,266.4,persons per km2,2024
+DEA1C,Mettmann,1216.7,persons per km2,2024
+DEA1D,Rhein-Kreis Neuss,807.8,persons per km2,2024
+DEA1E,Viersen,532.5,persons per km2,2024
+DEA1F,Wesel,455.5,persons per km2,2024
+DEA22,"Bonn, Kreisfreie Stadt",2371.4,persons per km2,2024
+DEA23,"Köln, Kreisfreie Stadt",2640.5,persons per km2,2024
+DEA24,"Leverkusen, Kreisfreie Stadt",2213.4,persons per km2,2024
+DEA26,Düren,298.6,persons per km2,2024
+DEA27,Rhein-Erft-Kreis,681.7,persons per km2,2024
+DEA28,Euskirchen,162.6,persons per km2,2024
+DEA29,Heinsberg,420,persons per km2,2024
+DEA2A,Oberbergischer Kreis,301.1,persons per km2,2024
+DEA2B,Rheinisch-Bergischer Kreis,655.8,persons per km2,2024
+DEA2C,Rhein-Sieg-Kreis,529.2,persons per km2,2024
+DEA2D,Städteregion Aachen,829.7,persons per km2,2024
+DEA31,"Bottrop, Kreisfreie Stadt",1187.2,persons per km2,2024
+DEA32,"Gelsenkirchen, Kreisfreie Stadt",2548.6,persons per km2,2024
+DEA33,"Münster, Kreisfreie Stadt",1018.8,persons per km2,2024
+DEA34,Borken,268,persons per km2,2024
+DEA35,Coesfeld,204.4,persons per km2,2024
+DEA36,Recklinghausen,826.1,persons per km2,2024
+DEA37,Steinfurt,251.2,persons per km2,2024
+DEA38,Warendorf,214.3,persons per km2,2024
+DEA41,"Bielefeld, Kreisfreie Stadt",1280.2,persons per km2,2024
+DEA42,Gütersloh,375.9,persons per km2,2024
+DEA43,Herford,565.6,persons per km2,2024
+DEA44,Höxter,116,persons per km2,2024
+DEA45,Lippe,279.2,persons per km2,2024
+DEA46,Minden-Lübbecke,281.6,persons per km2,2024
+DEA47,Paderborn,254.8,persons per km2,2024
+DEA51,"Bochum, Kreisfreie Stadt",2467.9,persons per km2,2024
+DEA52,"Dortmund, Kreisfreie Stadt",2151.4,persons per km2,2024
+DEA53,"Hagen, Kreisfreie Stadt",1198.2,persons per km2,2024
+DEA54,"Hamm, Kreisfreie Stadt",795,persons per km2,2024
+DEA55,"Herne, Kreisfreie Stadt",3058.9,persons per km2,2024
+DEA56,Ennepe-Ruhr-Kreis,773,persons per km2,2024
+DEA57,Hochsauerlandkreis,133.5,persons per km2,2024
+DEA58,Märkischer Kreis,386.4,persons per km2,2024
+DEA59,Olpe,188,persons per km2,2024
+DEA5A,Siegen-Wittgenstein,242.5,persons per km2,2024
+DEA5B,Soest,228,persons per km2,2024
+DEA5C,Unna,727.5,persons per km2,2024
+DEB11,"Koblenz, Kreisfreie Stadt",1133.6,persons per km2,2024
+DEB12,Ahrweiler,165.3,persons per km2,2024
+DEB13,Altenkirchen (Westerwald),205.8,persons per km2,2024
+DEB14,Bad Kreuznach,190.6,persons per km2,2024
+DEB15,Birkenfeld,106.5,persons per km2,2024
+DEB17,Mayen-Koblenz,269,persons per km2,2024
+DEB18,Neuwied,305.1,persons per km2,2024
+DEB1A,Rhein-Lahn-Kreis,161.9,persons per km2,2024
+DEB1B,Westerwaldkreis,210.7,persons per km2,2024
+DEB1C,Cochem-Zell,86.7,persons per km2,2024
+DEB1D,Rhein-Hunsrück-Kreis,111,persons per km2,2024
+DEB21,"Trier, Kreisfreie Stadt",913.7,persons per km2,2024
+DEB22,Bernkastel-Wittlich,97.8,persons per km2,2024
+DEB23,Eifelkreis Bitburg-Prüm,61.7,persons per km2,2024
+DEB24,Vulkaneifel,65.2,persons per km2,2024
+DEB25,Trier-Saarburg,136.3,persons per km2,2024
+DEB31,"Frankenthal (Pfalz), Kreisfreie Stadt",1119.2,persons per km2,2024
+DEB32,"Kaiserslautern, Kreisfreie Stadt",717.8,persons per km2,2024
+DEB33,"Landau in der Pfalz, Kreisfreie Stadt",580.8,persons per km2,2024
+DEB34,"Ludwigshafen am Rhein, Kreisfreie Stadt",2353.6,persons per km2,2024
+DEB35,"Mainz, Kreisfreie Stadt",2360.8,persons per km2,2024
+DEB36,"Neustadt an der Weinstraße, Kreisfreie Stadt",451.5,persons per km2,2024
+DEB37,"Pirmasens, Kreisfreie Stadt",650.3,persons per km2,2024
+DEB38,"Speyer, Kreisfreie Stadt",1308.4,persons per km2,2024
+DEB39,"Worms, Kreisfreie Stadt",824.6,persons per km2,2024
+DEB3A,"Zweibrücken, Kreisfreie Stadt",469.6,persons per km2,2024
+DEB3B,Alzey-Worms,224.3,persons per km2,2024
+DEB3C,Bad Dürkheim,225.7,persons per km2,2024
+DEB3D,Donnersbergkreis,115.9,persons per km2,2024
+DEB3E,Germersheim,292.3,persons per km2,2024
+DEB3F,"Kaiserslautern, Landkreis",166,persons per km2,2024
+DEB3G,Kusel,121.2,persons per km2,2024
+DEB3H,Südliche Weinstraße,176.7,persons per km2,2024
+DEB3I,Rhein-Pfalz-Kreis,529.6,persons per km2,2024
+DEB3J,Mainz-Bingen,349.1,persons per km2,2024
+DEB3K,Südwestpfalz,94.4,persons per km2,2024
+DEC01,Regionalverband Saarbrücken,809.7,persons per km2,2024
+DEC02,Merzig-Wadern,196.9,persons per km2,2024
+DEC03,Neunkirchen,533.7,persons per km2,2024
+DEC04,Saarlouis,448.9,persons per km2,2024
+DEC05,Saarpfalz-Kreis,345.2,persons per km2,2024
+DEC06,St. Wendel,185.5,persons per km2,2024
+DED21,"Dresden, Kreisfreie Stadt",1740.6,persons per km2,2024
+DED2C,Bautzen,127.5,persons per km2,2024
+DED2D,Görlitz,118.9,persons per km2,2024
+DED2E,Meißen,166.9,persons per km2,2024
+DED2F,Sächsische Schweiz-Osterzgebirge,148.7,persons per km2,2024
+DED41,"Chemnitz, Kreisfreie Stadt",1110.3,persons per km2,2024
+DED42,Erzgebirgskreis,175.9,persons per km2,2024
+DED43,Mittelsachsen,140.6,persons per km2,2024
+DED44,Vogtlandkreis,156.7,persons per km2,2024
+DED45,Zwickau,324.9,persons per km2,2024
+DED51,"Leipzig, Kreisfreie Stadt",2081.7,persons per km2,2024
+DED52,Leipzig,162.1,persons per km2,2024
+DED53,Nordsachsen,100.2,persons per km2,2024
+DEE01,"Dessau-Roßlau, Kreisfreie Stadt",315.6,persons per km2,2024
+DEE02,"Halle (Saale), Kreisfreie Stadt",1695.5,persons per km2,2024
+DEE03,"Magdeburg, Kreisfreie Stadt",1267.8,persons per km2,2024
+DEE04,Altmarkkreis Salzwedel,35.1,persons per km2,2024
+DEE05,Anhalt-Bitterfeld,108.2,persons per km2,2024
+DEE06,Jerichower Land,56.7,persons per km2,2024
+DEE07,Börde,71.3,persons per km2,2024
+DEE08,Burgenlandkreis,123.6,persons per km2,2024
+DEE09,Harz,98.4,persons per km2,2024
+DEE0A,Mansfeld-Südharz,90.1,persons per km2,2024
+DEE0B,Saalekreis,130.2,persons per km2,2024
+DEE0C,Salzlandkreis,129,persons per km2,2024
+DEE0D,Stendal,44.6,persons per km2,2024
+DEE0E,Wittenberg,64.1,persons per km2,2024
+DEF01,"Flensburg, Kreisfreie Stadt",1690.9,persons per km2,2024
+DEF02,"Kiel, Kreisfreie Stadt",2155.6,persons per km2,2024
+DEF03,"Lübeck, Kreisfreie Stadt",1142,persons per km2,2024
+DEF04,"Neumünster, Kreisfreie Stadt",1137.6,persons per km2,2024
+DEF05,Dithmarschen,95.5,persons per km2,2024
+DEF06,Herzogtum Lauenburg,168.2,persons per km2,2024
+DEF07,Nordfriesland,82.8,persons per km2,2024
+DEF08,Ostholstein,148.2,persons per km2,2024
+DEF09,Pinneberg,507,persons per km2,2024
+DEF0A,Plön,132.1,persons per km2,2024
+DEF0B,Rendsburg-Eckernförde,129.9,persons per km2,2024
+DEF0C,Schleswig-Flensburg,99.6,persons per km2,2024
+DEF0D,Segeberg,212.6,persons per km2,2024
+DEF0E,Steinburg,130.5,persons per km2,2024
+DEF0F,Stormarn,322.8,persons per km2,2024
+DEG01,"Erfurt, Kreisfreie Stadt",820.9,persons per km2,2024
+DEG02,"Gera, Kreisfreie Stadt",629.3,persons per km2,2024
+DEG03,"Jena, Kreisfreie Stadt",955.7,persons per km2,2024
+DEG05,"Weimar, Kreisfreie Stadt",782.6,persons per km2,2024
+DEG06,Eichsfeld,109.4,persons per km2,2024
+DEG07,Nordhausen,114.4,persons per km2,2024
+DEG09,Unstrut-Hainich-Kreis,97.7,persons per km2,2024
+DEG0A,Kyffhäuserkreis,69.6,persons per km2,2024
+DEG0C,Gotha,146.3,persons per km2,2024
+DEG0D,Sömmerda,84.7,persons per km2,2024
+DEG0E,Hildburghausen,64.5,persons per km2,2024
+DEG0G,Weimarer Land,102.8,persons per km2,2024
+DEG0J,Saale-Holzland-Kreis,102.7,persons per km2,2024
+DEG0K,Saale-Orla-Kreis,68.4,persons per km2,2024
+DEG0L,Greiz,111.8,persons per km2,2024
+DEG0M,Altenburger Land,154.7,persons per km2,2024
+DEG0Q,Schmalkalden-Meiningen,97.1,persons per km2,2024
+DEG0R,Wartburgkreis,114.8,persons per km2,2024
+DEG0S,"Suhl, Kreisfreie Stadt",251.7,persons per km2,2024
+DEG0T,Ilm-Kreis,133.9,persons per km2,2024
+DEG0U,Saalfeld-Rudolstadt,101,persons per km2,2024
+DEG0V,Sonneberg,121.4,persons per km2,2024
