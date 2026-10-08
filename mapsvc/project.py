@@ -319,13 +319,18 @@ def extent_rings(geometries) -> list:
     """The rings per feature that are allowed to define the viewport.
 
     Applies both filters described in `extent_of`: substantial/nearby rings,
-    and nothing that was clipped at the antimeridian.
+    and, for a regional collection, nothing clipped at the antimeridian. A
+    single selected unit must keep its clipped ring: Natural Earth's Russia
+    mainland ends at 180E, and dropping it leaves only islands and exclaves to
+    define the projected bounds.
     """
+    geometries = list(geometries)
+    keep_clipped = len(geometries) == 1
     kept = []
     for geometry in geometries:
         for ring in _extent_candidates(geometry):
             lons = [lon for lon, _ in unwrap_ring(ring, 0.0)]
-            if any(abs(lon) >= ANTIMERIDIAN_EPS for lon in lons):
+            if not keep_clipped and any(abs(lon) >= ANTIMERIDIAN_EPS for lon in lons):
                 continue
             if max(lons) - min(lons) > 180.0:
                 continue
@@ -369,13 +374,15 @@ def extent_of(geometries) -> Extent:
       the main part count. This keeps Newfoundland alongside Labrador and
       nearby islands, while excluding small distant parts such as French
       Guiana, Svalbard and the Azores from the main frame.
-    * Rings cut at the antimeridian are skipped. Natural Earth files all of
-      Russia under CONTINENT='Europe' and clips its ring against the 180th
-      meridian, leaving vertices sitting exactly on it; letting that define the
-      viewport stretches a map of Europe out to 180 degrees east. Such features
-      are still drawn and still coloured -- they are just clipped by the viewport
-      rather than defining it.
+    * Rings cut at the antimeridian are skipped in a collection of units.
+      Natural Earth files all of Russia under CONTINENT='Europe' and clips its
+      ring against the 180th meridian; letting that define a map of Europe
+      stretches it to 180 degrees east. When that country is the only selected
+      unit, however, its clipped ring must define the viewport or the mainland
+      disappears from the fit.
     """
+    geometries = list(geometries)
+    keep_clipped = len(geometries) == 1
     min_lon = min_lat = float("inf")
     max_lon = max_lat = float("-inf")
     fallback: list = []
@@ -388,7 +395,8 @@ def extent_of(geometries) -> Extent:
             lons = [lon for lon, _ in unwrap_ring(ring, 0.0)]
             lats = [lat for _, lat in ring]
             cut_at_antimeridian = any(abs(lon) >= ANTIMERIDIAN_EPS for lon in lons)
-            if cut_at_antimeridian or max(lons) - min(lons) > 180.0:
+            if ((not keep_clipped and cut_at_antimeridian)
+                    or max(lons) - min(lons) > 180.0):
                 fallback.append((min(lons), min(lats), max(lons), max(lats)))
                 continue
             min_lon, max_lon = min(min_lon, min(lons)), max(max_lon, max(lons))

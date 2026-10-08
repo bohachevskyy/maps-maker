@@ -106,6 +106,25 @@ def test_extent_falls_back_when_every_feature_is_a_crosser():
     assert project.extent_of([russia]) == (30, 50, 180, 70)
 
 
+def test_a_single_antimeridian_unit_frames_its_clipped_mainland():
+    """Natural Earth's Russia mainland is clipped at 180E. It must frame a
+    Russia-only map instead of being discarded in favour of small islands."""
+    mainland = [[27, 54], [41, 41], [131.88, 43.11], [180, 65],
+                [180, 78], [60, 78], [27, 54]]
+    kaliningrad = [[19, 54], [23, 54], [23, 56], [19, 56], [19, 54]]
+    kuril = [[145, 43], [146, 43], [146, 44], [145, 44], [145, 43]]
+    russia = {"type": "MultiPolygon",
+              "coordinates": [[mainland], [kaliningrad], [kuril]]}
+
+    extent = project.extent_of([russia])
+    projector = project.make(project.choose(extent), extent)
+    bounds = project.viewport_bounds([russia], projector, extent)
+
+    for place in ((20.5, 54.7), (105.0, 53.5), (131.88, 43.11)):
+        x, y = projector(*place)
+        assert bounds[0] <= x <= bounds[2] and bounds[1] <= y <= bounds[3]
+
+
 def test_mollweide_maps_the_two_edges_of_the_world_to_opposite_sides():
     projector = project.make("mollweide", (-180, -90, 180, 90))
     east, _ = projector(180, 0)
