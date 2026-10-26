@@ -114,6 +114,8 @@ evals/           prompts and the manifests they should produce. Costs money.
   expired certificate (the 2022 table is vendored); OWID's bare
   `electricity-mix` is total TWh -- the renewables share is that slug plus
   query parameters, so view ids keep them.
+  Overture keeps only its last few releases on S3: the pinned 2026-08-19.0
+  vanished in 2026-10, so the release is read from STAC's `latest`.
 
 - **Overpass is slower still, and moody.** Measured 2026-10-07: France's
   LGVs, 145-180 s and 11 MB uncached; one attempt hit the 180 s server
