@@ -275,6 +275,14 @@ LOG_DECADES = 1.5
 # to keep within MAX_CLASSES.
 SERIES = ((1.0, 2.0, 5.0), (1.0, 3.0), (1.0,))
 FINE_SERIES = (1.0, 1.5, 2.0, 3.0, 4.0, 5.0, 7.0)
+# Even steps (2, 4, 6, 10, 20 ...): the ladder of a margin or a rate that runs
+# a few units either side, where 4-5-7 would be the odd one out.
+EVEN_SERIES = (1.0, 2.0, 4.0, 6.0)
+# Steps either side of zero when both sides run about as far: 5, 10, 20, 30
+# points, so the battlegrounds a point or two apart do not share one class
+# with a state forty points out.
+SYMMETRIC_SERIES = (1.0, 2.0, 3.0, 5.0)
+SYMMETRIC_RATIO = 3.0
 # Per side of a diverging map: a ramp of 2 x 5 classes is the most ColorBrewer
 # holds (RdBu 10/11), and the innermost class keeps about this share of the
 # side, so +0.1% and +9% are not split for the sake of a round number.
@@ -324,12 +332,12 @@ def nice(values: list[float], percent: bool = False) -> Classification:
         k = len(set(s))
         return Classification("graded", k, breaks=quantile(s, k))
     if substantially_diverging(s):
-        return _nice_diverging(s)
+        return _nice_diverging(s, symmetric=True)
     if percent and lo >= 0 and hi <= 100 and hi - lo >= PERCENT_MIN_SPAN:
         return Classification("graded", len(PERCENT_STEPS) - 1, breaks=list(PERCENT_STEPS),
                               scheme="fixed 0–100 scale in 9 rounded classes")
     if lo > 0 and math.log10(hi / lo) > LOG_DECADES:
-        edges = _log_edges(lo, hi)
+        edges = _tail_step(s, _log_edges(lo, hi))
         if len(edges) >= MIN_CLASSES - 1:
             return _open(s, edges, "rounded log breaks (1-2-5 series)")
     return _open(s, _rounded_natural(s), "natural breaks (Jenks) rounded to 2 significant figures")
@@ -346,6 +354,26 @@ def _log_edges(lo: float, hi: float) -> list[float]:
     return best[:MAX_CLASSES - 1]
 
 
+def _tail_step(s: list[float], edges: list[float]) -> list[float]:
+    """A 3 step into a top class that is more than twice as wide as its floor.
+
+    The 1-2-5 ladder jumps from 2,000 to 5,000; a map whose densest districts
+    reach 4,800 (Munich) would put all 26 districts above 2,000 in one class.
+    One more edge at 3 x 10^n, when it still leaves two or more units on each
+    side of it, tells the dense cores apart.
+    """
+    if not edges or len(edges) + 1 > MAX_CLASSES - 1 or s[-1] < 2.0 * edges[-1]:
+        return edges
+    e = math.floor(math.log10(edges[-1]))
+    for c in (3.0 * 10.0 ** e, 3.0 * 10.0 ** (e + 1)):
+        if edges[-1] < c < s[-1]:
+            above = sum(v >= c for v in s)
+            if above >= END_CLASS_MIN and sum(edges[-1] <= v < c for v in s) >= END_CLASS_MIN:
+                return edges + [c]
+            break
+    return edges
+
+
 def _rounded_natural(s: list[float]) -> list[float]:
     """Interior Jenks edges for JENKS_K classes, rounded and deduplicated.
 
@@ -355,8 +383,8 @@ def _rounded_natural(s: list[float]) -> list[float]:
     ordinary ones. Rounding can merge two edges, push one onto the min or
     max, or leave a class with no value in it; all three are dropped.
     """
-    k = min(JENKS_K, len(set(s)))
-    edges = sorted({round_sig(e) for e in jenks(s, k)[1:-1]})
+    k = min(JENKS_K + (1 if len(s) >= 40 else 0), len(set(s)))
+    edges = sorted({_roundest_between(s, e) for e in jenks(s, k)[1:-1]})
     edges = [e for e in edges if s[0] < e <= s[-1]]
     kept: list[float] = []
     for e in edges:
@@ -372,6 +400,29 @@ def _rounded_natural(s: list[float]) -> list[float]:
     while kept and sum(v < kept[0] for v in s) < END_CLASS_MIN:
         kept.pop(0)
     return kept
+
+
+def _roundest_between(s: list[float], edge: float) -> float:
+    """The roundest number a class edge can be without moving a unit.
+
+    A Jenks edge is the first value of its class. Any number above the last
+    value of the class below and at or under that one puts the same units in
+    the same classes, so the edge is free to be 10 rather than 19.3: the
+    legend then does not claim a class reaches 19 when it stops at 9.2.
+    """
+    below = max((v for v in s if v < edge), default=None)
+    if below is None:
+        return round_sig(edge)
+    lo, hi = below, edge
+    middle = (lo + hi) / 2.0
+    for sig, multiple in ((1, 1), (2, 5), (2, 1), (3, 5), (3, 1)):
+        step = 10.0 ** (math.floor(math.log10(hi)) - sig + 1) * multiple
+        first = math.floor(lo / step + 1e-9) + 1
+        found = [round_sig(i * step, 3) for i in range(first, int(hi / step + 1e-9) + 1)]
+        found = [v for v in found if lo < v <= hi]
+        if found:
+            return min(found, key=lambda v: (abs(v - middle), v))
+    return round_sig(edge)
 
 
 def _open(s: list[float], edges: list[float], scheme: str) -> Classification:
@@ -395,11 +446,16 @@ def _side_edges(magnitudes: list[float]) -> list[float]:
             candidates.append(edges[:SIDE_MAX - 1])
         if target - 1 <= len(edges) <= SIDE_MAX - 1:
             return edges
+    edges = ladder(inner, outer, EVEN_SERIES)
+    if outer < 5.0 * inner and edges and max(2, target - 2) <= len(edges) <= SIDE_MAX - 1:
+        return edges
     edges = ladder(inner, outer, FINE_SERIES)
     if edges:
         candidates.append(edges[-(SIDE_MAX - 1):])
         if len(edges) >= target - 1:
             return edges[-(SIDE_MAX - 1):]
+    if len(set(m)) <= 3:
+        return []       # a side of two or three values is one class, not a split
     # A narrow side can contain several distinct observations but no useful
     # ladder number (Canada's two declining provinces are -1.7 and -1.8%).
     # Quantile ranks retain those distinctions; rounding is kept only where it
@@ -415,11 +471,64 @@ def _side_edges(magnitudes: list[float]) -> list[float]:
     return max(candidates, key=len, default=[])
 
 
-def _nice_diverging(s: list[float]) -> Classification:
-    below = _side_edges([-v for v in s if v < 0])
-    above = _side_edges([v for v in s if v > 0])
+def _symmetric_edges(s: list[float]) -> tuple[list[float], list[float]] | None:
+    """The same round steps on both sides of zero, when both run as far.
+
+    A margin of victory is read as D+10 against R+10, so the legend should
+    not put its edges at -30 on one side and +15 on the other. The steps
+    start at the largest round number at or under the 20th percentile of
+    the magnitudes, so the closest results keep a class of their own.
+    """
+    neg = sorted(-v for v in s if v < 0)
+    pos = sorted(v for v in s if v > 0)
+    if len(set(neg)) < 5 or len(set(pos)) < 5:
+        return None
+    if not (1.0 / SYMMETRIC_RATIO <= neg[-1] / pos[-1] <= SYMMETRIC_RATIO):
+        return None
+    pooled = sorted(neg + pos)
+    inner = _rank(pooled, SIDE_INNER_SHARE)
+    outer = max(neg[-1], pos[-1])
+    rungs = [round_sig(m * 10.0 ** e, 3) for e in range(-3, 8) for m in SYMMETRIC_SERIES]
+    rungs = sorted(r for r in set(rungs) if r < outer)
+    at = max((i for i, r in enumerate(rungs) if r <= inner), default=0)
+    steps = rungs[at:at + SIDE_MAX - 1]
+    below = [e for e in steps if e < neg[-1]]
+    above = [e for e in steps if e < pos[-1]]
+    return (below, above) if below and above else None
+
+
+def _prune_empty(s: list[float], breaks: list[float], zero_at: int | None):
+    """Drop interior edges that leave a class with no value in it."""
+    breaks = list(breaks)
+    i = 0
+    while i < len(breaks) - 1:
+        lo, hi = breaks[i], breaks[i + 1]
+        last = i == len(breaks) - 2
+        if not any(lo <= v < hi or (last and v == hi) for v in s) and len(breaks) > 3:
+            # Merge the empty class into a neighbour, keeping the zero edge.
+            drop = i + 1 if not last else i
+            if zero_at is not None and drop == zero_at:
+                drop = i if drop == i + 1 and i > 0 else drop
+            if drop == 0 or drop == len(breaks) - 1:
+                drop = i + 1 if i + 1 < len(breaks) - 1 else i
+            if zero_at is not None and drop == zero_at:
+                i += 1
+                continue
+            del breaks[drop]
+            if zero_at is not None and drop < zero_at:
+                zero_at -= 1
+            continue
+        i += 1
+    return breaks, zero_at
+
+
+def _nice_diverging(s: list[float], symmetric: bool = False) -> Classification:
+    sides = _symmetric_edges(s) if symmetric else None
+    below, above = sides or (_side_edges([-v for v in s if v < 0]),
+                             _side_edges([v for v in s if v > 0]))
     breaks = [s[0]] + [-e for e in reversed(below)] + [0.0] + above + [s[-1]]
     zero_at = len(below) + 1
+    breaks, zero_at = _prune_empty(s, breaks, zero_at)
     return Classification("graded", len(breaks) - 1, breaks=breaks, zero_at=zero_at,
                           scheme="round breaks either side of zero", open_ends=True)
 

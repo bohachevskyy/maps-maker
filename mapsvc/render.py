@@ -134,6 +134,7 @@ class Frame:
         self.scale = local(1.0, 0.0)[0] - local(0.0, 0.0)[0]
         self.insets: list = []
         self.legend_box: tuple | None = None    # a legend floated over the map
+        self.table_box: tuple | None = None     # the ranked table, likewise
 
     def xy(self, lon: float, lat: float) -> tuple[float, float]:
         return self.transform(*self.projector(lon, lat))
@@ -262,6 +263,7 @@ def render(manifest: Manifest, result: HarvestResult) -> str:
         body.append(f'<g font-family="{FONT}">' + "".join(art.labels) + "</g>")
 
     legend_band = 0.0
+    table_svg = ""
     placer = art.placer if art is not None else None
     labels_svg = ""
     if encoding.mode != "basemap":
@@ -272,11 +274,33 @@ def render(manifest: Manifest, result: HarvestResult) -> str:
                                       bool(drawn_missing) or inset_missing)
         if not has_overlays:
             placer = _placer(frame, encoding)
-            labels_svg = _feature_labels(rows, insets, drawn_missing, frame, encoding,
-                                         land, placer, len(every_row),
-                                         bool(p.get("change")),
-                                         lambda: _placer(frame, encoding))
+            labels_svg, unlabelled = _feature_labels(
+                rows, insets, drawn_missing, frame, encoding, land, placer,
+                len(every_row), bool(p.get("change")), lambda: _placer(frame, encoding))
+            table = _ranked_table(every_row, rows + [r for i in insets for r in i.rows],
+                                  encoding) if unlabelled else None
+            if table is not None:
+                # Units the callouts could not reach are not left nameless:
+                # the highest and lowest are ranked in a table, beside the
+                # map if there is room, else under it.
+                w, h, draw = table
+                spot, hidden, covered = _least_covered(
+                    frame, land, [u for u in units if u], w, h,
+                    avoid=[frame.legend_box] + [(i.box[0], i.box[1], i.box[0] + i.box[2], i.box[1] + i.box[3])
+                              for i in frame.insets])
+                if not frame.is_world and hidden == 0 and covered <= 0.02:
+                    frame.table_box = (spot[0], spot[1], spot[0] + w, spot[1] + h)
+                    table_svg = draw(*spot, True)
+                    placer = _placer(frame, encoding)
+                    labels_svg, unlabelled = _feature_labels(
+                        rows, insets, drawn_missing, frame, encoding, land, placer,
+                        len(every_row), bool(p.get("change")),
+                        lambda: _placer(frame, encoding))
+                else:
+                    table_svg = draw(PAD, frame.bottom + legend_band + 12, False)
+                    legend_band += h - 20 + 12 + 6
         body.append(legend)
+        body.append(table_svg)
     if placer is None:
         placer = _placer(frame, encoding)
     context_svg, context_credits = _context_labels(result, rows, frame, encoding, manifest,
@@ -1502,21 +1526,26 @@ CALLOUT_DIRECTIONS = ((1, 0), (-1, 0), (1, -0.5), (1, 0.5), (-1, -0.5), (-1, 0.5
                       (1, -1), (1, 1), (-1, -1), (-1, 1), (0.5, -1), (0.5, 1),
                       (-0.5, -1), (-0.5, 1))
 # A last-resort callout may cover this much mapped land; a normal one none.
-CALLOUT_MAX_COVER = 0.25
+CALLOUT_MAX_COVER = 0.08
 # With names only (no code to fall back on), a middling unit's callout may
 # cover this much land before the unit goes unlabelled.
-CALLOUT_NAMES_COVER = 0.6
+CALLOUT_NAMES_COVER = 0.12
 # Callouts whose units lie within this distance of each other share a stack.
 STACK_NEAR = 64.0
 # A leader longer than this crosses too much of the map to be followed: the
 # unit tries its code inside, and a code callout, before a longer leader.
-LEADER_MAX = 90.0
+LEADER_MAX = 70.0
 # A name on a leader this short beats a code inside the unit.
-LEADER_SHORT = 80.0
-# No leader is ever longer than this: past it a middling unit goes unlabelled.
-LEADER_LIMIT = 110.0
-# With names only, a last-resort callout may reach this far.
-LEADER_FAR = 170.0
+LEADER_SHORT = 60.0
+# No leader is ever longer than this, on any map: past it the unit goes
+# unlabelled, and is listed in the ranked table if it is one of the extremes.
+LEADER_LIMIT = 70.0
+# (Kept for the names-only pass; the cap above is hard.)
+LEADER_FAR = 70.0
+# A leader may cross its own unit and unmapped land, never another unit's:
+# the reader would follow it through the wrong place. This much is forgiven
+# (page px) for a leader clipping a corner.
+LEADER_LAND_SLACK = 3.0
 STACK_GAP = 1.5
 # A stack's column moves out from the land in these steps, and the whole
 # stack up or down by these, until every label is in free space.
@@ -1718,7 +1747,9 @@ class _Target:
     """One unit to be labelled, wherever its label ends up."""
 
     def __init__(self, gid, x, y, ring, holes, name, value, code, rank,
-                 inset=None, r=0.0):
+                 inset=None, r=0.0, primary=False):
+        self.primary = primary      # worth a leader across a neighbour: the one highest
+        # or lowest, or any unit of a map that names only a chosen few
         self.gid, self.x, self.y, self.ring, self.holes = gid, x, y, ring, holes
         self.name, self.value, self.code = name, value, code
         self.rank = rank            # sort key: smaller is more important
@@ -1810,6 +1841,26 @@ class _Space:
         self.cache[key] = out
         return out
 
+    def crossed(self, seg, ring, stop: float = LEADER_LAND_SLACK) -> float:
+        """Length (px) of a leader over mapped land that is not its own unit's.
+
+        `ring` is the unit's outline: leaving it and meeting land again is
+        crossing another unit.
+        """
+        sx, sy, ex, ey = seg
+        length = math.hypot(ex - sx, ey - sy)
+        n = max(2, int(length / 2.0))
+        over = 0.0
+        for k in range(n + 1):
+            x = sx + (ex - sx) * k / n
+            y = sy + (ey - sy) * k / n
+            if any(a <= x <= b for a, b in self.intervals(y)) and not (
+                    ring and project.point_in_ring(x, y, ring)):
+                over += length / n
+                if over > stop:
+                    break
+        return over
+
     def _rows(self, box):
         y0, y1 = box[1], box[3]
         n = max(2, int(math.ceil((y1 - y0) / 2.5)))
@@ -1845,6 +1896,8 @@ def _placer(frame: Frame, encoding: Encoding):
     placer = overlay_render.Labels({"pad": PAD, "map_w": MAP_W, "map_top": MAP_TOP}, frame)
     if frame.legend_box:
         placer.block(*frame.legend_box)
+    if frame.table_box:
+        placer.block(*frame.table_box)
     for x, y, r, _ in encoding.circles:
         placer.block(x - r, y - r, x + r, y + r)
     return placer
@@ -1870,7 +1923,7 @@ def _missing_label(result, drawn_missing: list, insets: list) -> str:
 
 def _feature_labels(rows: list, insets: list, missing: list, frame: Frame,
                     encoding: Encoding, land: list, placer, every: int,
-                    change: bool = False, fresh=None) -> str:
+                    change: bool = False, fresh=None) -> tuple[str, list]:
     """Name the units, each with its value. Greedy, deterministic.
 
     Name and value always print together, never one without the other:
@@ -1926,11 +1979,11 @@ def _feature_labels(rows: list, insets: list, missing: list, frame: Frame,
     else:
         out, unlabelled = attempt(placer, True)
     if not out:
-        return ""
+        return "", unlabelled
     dropped = " ".join(sorted(unlabelled))
     return (f'<g font-family="{FONT}" class="feature-labels" '
             f'data-labels-dropped="{len(unlabelled)}" data-unlabelled={quoteattr(dropped)}>'
-            + "".join(out) + "</g>")
+            + "".join(out) + "</g>"), unlabelled
 
 
 def _number(value) -> float | None:
@@ -2084,7 +2137,8 @@ def _choropleth_labels(rows, insets, frame, encoding, names, placer, out,
         targets.append(_Target(gid, x, y, ring, holes, names[gid],
                                _value_text(row["value"], encoding),
                                _abbreviation(row) if codes else None,
-                               rank(row, piece), inset=inset))
+                               rank(row, piece), inset=inset,
+                               primary=extremes_only or order.get(gid) in (0, len(valued) - 1)))
     pending = []
     insets_here = list(insets)
     for t in sorted(targets, key=lambda t: (-t.area, t.gid)):
@@ -2208,7 +2262,7 @@ def _callouts(targets, placer, space, frame, out, leaders, unlabelled, insets=()
         # goes unlabelled rather than have its name sit on a neighbour.
         # Without codes to fall back on (one name style), a middling unit may
         # also be called out over a little land.
-        covers = ((CALLOUT_MAX_COVER, 1.0) if t.rank[0] == 0
+        covers = ((CALLOUT_MAX_COVER,) if t.rank[0] == 0
                   else (CALLOUT_MAX_COVER, CALLOUT_NAMES_COVER) if not codes else ())
         for cover in covers:
             for line in t.lines():
@@ -2216,6 +2270,17 @@ def _callouts(targets, placer, space, frame, out, leaders, unlabelled, insets=()
                     break
                 placed = _radial(t, line, cover, placer, space, out, leaders,
                                  LEADER_LIMIT if codes or t.rank[0] == 0 else LEADER_FAR)
+        if not placed and t.primary and t.r <= 0:
+            # The single highest and lowest unit are worth a leader across a
+            # neighbour or two, still within the cap and crossing no label.
+            for use_code in ((False, True) if t.code else (False,)):
+                line = _Line(t.code if use_code else t.name, t.value)
+                spot = _nearest_spot(t, line, placer, space, cross=True)
+                if spot is not None and not _stack([t], spot[0], placer, space, frame, out,
+                                                   leaders, LEADER_LIMIT, use_code=use_code,
+                                                   cross=True):
+                    placed = True
+                    break
         if not placed:
             unlabelled.append(t.gid)
 
@@ -2260,7 +2325,7 @@ def _runs(group) -> list:
     return runs
 
 
-def _nearest_spot(t, line, placer, space):
+def _nearest_spot(t, line, placer, space, cross=False):
     """(side, distance) of the nearest box in free space for this label."""
     for reach in CALLOUT_REACH:
         for dx, dy in CALLOUT_DIRECTIONS:
@@ -2270,7 +2335,9 @@ def _nearest_spot(t, line, placer, space):
             ex, ey = t.x + dx / norm * (t.r + reach), t.y + dy / norm * (t.r + reach)
             side = 1 if dx > 0 else -1
             box = line.box(ex + side * 2.0, ey - line.h / 2, side)
-            if placer.fits(box) and space.free(box):
+            if placer.fits(box) and space.free(box) and (
+                    cross or t.r > 0
+                    or space.crossed((t.x, t.y, ex, ey), t.ring) <= LEADER_LAND_SLACK):
                 return side, reach
     return None
 
@@ -2351,7 +2418,7 @@ def _uncross(members, ends) -> list:
 
 
 def _stack(group, side, placer, space, frame, out, leaders, max_leader=None,
-           use_code=False, dry=False, start=None) -> list:
+           use_code=False, dry=False, start=None, cross=False) -> list:
     """Lay a group of callouts out as one column in free space.
 
     The column starts where the nearest member's label first fits and moves
@@ -2414,6 +2481,9 @@ def _stack(group, side, placer, space, frame, out, leaders, max_leader=None,
                 continue
             if any(_leader_blocked(seg, placer.taken + boxes, leaders) for seg in segs):
                 continue
+            if not cross and any(t.r <= 0 and space.crossed(seg, t.ring) > LEADER_LAND_SLACK
+                                 for seg, t in zip(segs, members)):
+                continue
             score = sum(math.hypot(s[2] - s[0], s[3] - s[1]) for s in segs)
             if best is None or score < best[0] - 1e-9:
                 best = (score, cx, tops, slots, boxes, segs)
@@ -2427,7 +2497,7 @@ def _stack(group, side, placer, space, frame, out, leaders, max_leader=None,
         if dry:
             return [weakest]
         shed = _stack([t for t in members if t is not weakest], side, placer, space, frame,
-                      out, leaders, max_leader, use_code, start=start)
+                      out, leaders, max_leader, use_code, start=start, cross=cross)
         return shed + [weakest]
 
     if dry:
@@ -2451,7 +2521,7 @@ def _leader_svg(seg, t) -> str:
 
 
 def _radial(t, line, max_cover, placer, space, out, leaders,
-            limit: float = None) -> bool:
+            limit: float = None, cross: bool = False) -> bool:
     """A single callout, nearest first, over at most `max_cover` mapped land."""
     limit = LEADER_LIMIT if limit is None else limit
     for reach in (r for r in CALLOUT_REACH if r <= limit):
@@ -2467,6 +2537,8 @@ def _radial(t, line, max_cover, placer, space, out, leaders,
                 continue
             seg = (*_leader_start(t, ex, ey), ex, ey)
             if _leader_blocked(seg, placer.taken, leaders):
+                continue
+            if not cross and t.r <= 0 and space.crossed(seg, t.ring) > LEADER_LAND_SLACK:
                 continue
             placer.block(*box)
             leaders.append(seg)
@@ -2989,7 +3061,8 @@ def _legend(encoding: Encoding, frame: Frame, land: list, units: list,
     return draw(PAD, frame.bottom + 12), h + 12
 
 
-def _least_covered(frame: Frame, land: list, units: list, w: float, h: float):
+def _least_covered(frame: Frame, land: list, units: list, w: float, h: float,
+                   avoid: list = ()):
     """The candidate spot hiding the fewest units, then the least land.
 
     Land is sampled on a grid inside each candidate box rather than by counting
@@ -3010,6 +3083,8 @@ def _least_covered(frame: Frame, land: list, units: list, w: float, h: float):
     best, best_score = candidates[0], None
     for x, y in candidates:
         if y < MAP_TOP or x < PAD:
+            continue
+        if any(a and _overlaps((x, y, x + w, y + h), a) for a in avoid):
             continue
         hidden = sum(1 for u in units if _hidden(u, x, y, w, h))
         score = (hidden, round(_land_share(frame, land, x, y, w, h), 6))
@@ -3278,6 +3353,58 @@ def _band(encoding: Encoding, has_missing: bool):
         out.append("</g>")
         return "".join(out)
     return h, draw
+
+
+TABLE_ROWS = 5
+TABLE_PITCH = 14.0
+
+
+def _ranked_table(every_row: list, rows: list, encoding: Encoding):
+    """A "Highest / Lowest" table of the extremes: (w, h, draw(x, y, boxed)).
+
+    For a map whose callouts could not name every unit: the reader still
+    gets the extremes, with their values, in a column of their own. None
+    unless the variable is a number on a choropleth with enough units.
+    """
+    if encoding.mode != "choropleth":
+        return None
+    valued = sorted(((v, str(r["id"])) for r in rows
+                     if (v := _number(r["value"])) is not None))
+    n = min(TABLE_ROWS, len(valued) // 2)
+    if n < 3:
+        return None
+    by_id = {str(r["id"]): r for r in rows}
+    names = _label_names(rows)
+    columns = []
+    for title, picked in (("Highest", valued[::-1][:n]), ("Lowest", valued[:n])):
+        items = [(names.get(gid, _short_name(by_id[gid])), _value_text(by_id[gid]["value"], encoding))
+                 for _, gid in picked]
+        left = max(_text_w(name, 10.5) for name, _ in items)
+        right = max(_text_w(value, 10.5) for _, value in items)
+        columns.append((title, items, max(96.0, left + 14.0 + right)))
+    gap = 26.0
+    w = sum(c[2] for c in columns) + gap
+    h = 16.0 + n * TABLE_PITCH + 4.0
+
+    def draw(x, y, boxed):
+        out = [f'<g font-family="{FONT}" class="ranked-table">']
+        ox, oy = (x + 10, y + 10) if boxed else (x, y)
+        if boxed:
+            out.append(_box(x, y, w + 20, h + 20))
+        cx = ox
+        for title, items, cw in columns:
+            out.append(f'<text x="{_num(cx)}" y="{_num(oy + 11)}" font-size="11" '
+                       f'font-weight="600" fill="{colors.TEXT}">{title}</text>')
+            for i, (name, value) in enumerate(items):
+                ty = oy + 16 + (i + 1) * TABLE_PITCH - 3
+                out.append(f'<text x="{_num(cx)}" y="{_num(ty)}" font-size="10.5" '
+                           f'fill="#333333">{escape(name)}</text>')
+                out.append(f'<text x="{_num(cx + cw)}" y="{_num(ty)}" font-size="10.5" '
+                           f'text-anchor="end" fill="#333333">{escape(value)}</text>')
+            cx += cw + gap
+        out.append("</g>")
+        return "".join(out)
+    return w + 20, h + 20, draw
 
 
 def _nested_circles(encoding: Encoding, refs, labels, cx: float, base: float) -> list[str]:

@@ -187,21 +187,49 @@ def test_few_distinct_values_get_a_class_each():
     assert scheme.k == 3
 
 
-def test_long_tailed_election_margin_uses_steps_for_both_extremes():
+def test_election_margin_uses_the_same_round_steps_either_side_of_zero():
     values = [-84, -32, -29, -25, -20, -16, -12, -8, -5, -3, -1,
               1, 2, 4, 6, 9, 12, 15, 20, 23, 30, 36, 46]
     scheme = classify.nice(values)
-    assert 7 <= scheme.k <= 10
-    assert scheme.bin_of(30) < scheme.bin_of(46)
-    assert scheme.bin_of(-84) < scheme.bin_of(-32)
+    zero = scheme.zero_at
+    below = [-b for b in reversed(scheme.breaks[1:zero])]
+    above = scheme.breaks[zero + 1:-1]
+    assert below == above and len(below) == 4
+    assert all(e in (1.0, 2.0, 3.0, 5.0, 10.0, 20.0, 30.0, 50.0) for e in below)
+    # The close results are not lumped into one class with a state 15 out.
+    assert scheme.bin_of(2) != scheme.bin_of(12) != scheme.bin_of(23)
+    assert scheme.bin_of(-84) == scheme.bin_of(-32) == 0
 
 
-def test_small_diverging_set_still_separates_supported_steps():
-    values = [-1.8, -1.7, 3.1, 3.8, 4.6, 4.8, 5.0, 5.0, 5.2, 5.8, 6.0, 7.4, 12.1]
+def test_a_lopsided_diverging_set_keeps_each_side_on_its_own_steps():
+    # Growth runs to +360 and decline stops at -34: not mirror images.
+    shrinking = [-34.0, -28.0, -24.0, -21.0, -18.0, -15.0, -13.0, -12.0, -11.0,
+                 -9.0, -8.0, -6.0]
+    growing = [1.0, 4.0, 8.0, 12.0, 15.0, 18.0, 22.0, 26.0, 30.0, 35.0, 55.0, 95.0,
+               127.0, 205.0, 362.0]
+    scheme = classify.nice(shrinking + growing)
+    zero = scheme.zero_at
+    assert [-b for b in reversed(scheme.breaks[1:zero])] != scheme.breaks[zero + 1:-1]
+
+
+def test_small_diverging_set_gets_round_even_steps_and_one_class_below_zero():
+    # Canada's provinces: two shrank by 1.7-1.8%. They share one class
+    # rather than being split at a data-derived -1.71.
+    values = [-1.76, -1.71, 2.54, 3.11, 3.82, 4.13, 4.81, 4.96, 4.99, 5.77, 7.59, 7.99, 12.15]
     scheme = classify.nice(values)
-    assert scheme.zero_at == 2
-    assert scheme.k >= 6
-    assert scheme.bin_of(4.8) != scheme.bin_of(5.8)
+    assert scheme.zero_at == 1
+    assert scheme.breaks[1:-1] == [0.0, 4.0, 6.0, 10.0]
+    assert all(_counts(scheme, values))
+
+
+def test_a_class_edge_is_the_roundest_number_that_moves_no_unit():
+    # Jenks cuts at 19.3 (the first of three outliers); 10 puts the same
+    # states in the same classes and does not claim the class reaches 19.
+    values = [0.97, 2.3, 2.4, 2.6, 2.9, 3.1, 3.2, 3.4, 3.5, 3.7, 3.9, 4.1, 4.3, 4.4,
+              4.6, 4.9, 5.3, 5.8, 6.2, 6.5, 7.0, 7.4, 7.8, 8.3, 9.2, 19.3, 19.6, 23.2]
+    scheme = classify.nice(values)
+    assert scheme.breaks[-2] == 10.0
+    assert all(_counts(scheme, values))
 
 
 def test_nonzero_anchor_is_a_diverging_edge_without_signed_labels():
@@ -220,3 +248,14 @@ def test_nice_label_abbreviates():
     assert classify.nice_label(20.0, signed=True) == "+20"
     assert classify.nice_label(0.25) == "0.25"
     assert classify.nice_label(130000.0) == "130k"
+
+
+def test_a_log_ladder_adds_a_3_step_into_a_wide_top_class():
+    # Densities to 4,800 per km2: the 1-2-5 ladder alone leaves 2,000-4,800
+    # as one class holding every dense core.
+    values = [float(v) for v in
+              (36, 60, 80, 90, 110, 130, 150, 180, 240, 300, 420, 600, 900, 1200,
+               1500, 1900, 2300, 2600, 2900, 3100, 3500, 4300, 4830)]
+    scheme = classify.nice(values)
+    assert 3000.0 in scheme.breaks
+    assert scheme.bin_of(2900) != scheme.bin_of(3100)
