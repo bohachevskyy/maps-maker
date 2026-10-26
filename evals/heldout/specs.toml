@@ -66,7 +66,7 @@ prompt = "GDP per inhabitant in Italy's regions"
 truth = "Eurostat nama_10r_2gdp, PPS_EU27_2020_HAB, NUTS 2, latest year"
 units = [21, 21]
 contains = [[9.19, 45.46], [12.50, 41.90], [15.08, 37.50], [9.11, 39.22]]
-excludes = [[6.14, 46.20], [14.51, 46.05]]
+excludes = [[6.14, 46.20], [16.37, 48.21]]          # Geneva, Vienna (Ljubljana sits inside Italy's own extent)
 spot = ["ITC4>ITF6", "ITH1>ITF4"]   # Lombardia > Calabria; Bolzano > Puglia (verify)
 must = [
   "21 NUTS-2 regions including the two autonomous provinces of Trentino-Alto Adige",
@@ -111,7 +111,7 @@ prompt = "Tracks of the 2024 western Pacific typhoon season"
 truth = "NOAA IBTrACS v04, WP basin, season 2024, named storms"
 units = [15, 35]
 contains = [[121.0, 14.6], [110.8, 19.6], [139.7, 35.7]]
-spot = ["count=26±30%", "line_near=110.8,19.6"]   # Yagi landfall, Hainan (verify)
+spot = ["count=26±30%", "line_near=110.8,19.9"]   # Yagi landfall fix, 6 Sep 2024 (IBTrACS)
 must = [
   "one line per storm coloured by intensity along the track",
   "the strongest landfalling storms named",
@@ -126,7 +126,7 @@ truth = "KATOTTH codifier, settlements in UA-21, cross-checked with OpenStreetMa
 units = [500, 750]
 contains = [[22.29, 48.62], [22.72, 48.44], [23.03, 48.17]]
 excludes = [[24.03, 49.84], [24.71, 48.92]]
-spot = ["count=609±12%", "event_near=22.29,48.62"]   # Uzhhorod (verify count)
+spot = ["count=604±5%", "event_near=22.29,48.62"]   # KATOTTH: 11 cities + 20 selyshcha + 573 villages; Uzhhorod
 must = [
   "every settlement as a point inside Zakarpattia oblast only",
   "cities > selyshcha > villages distinguished by symbol",
