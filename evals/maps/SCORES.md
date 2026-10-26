@@ -194,3 +194,7 @@ refusal is now challenged with real search hits) and tokyo run-03 (Overpass outa
 reported as 503). Counting both as 1: 3.92 over 63.
 Variance came from look-only agent choices (bbox beside within, overture vs census for US states,
 admin_0 vs admin_1 under an overlay) -- being made derived (fix/determinism).
+
+## Round 9 (2026-10-26): 21 maps x 3 repeats, determinism + search-before-refusal
+
+62/63 runs produced a map; mean 4.05, lowest 3. 16/21 maps byte-identical to round 8 in all 3 runs. No-map runs: tokyo_subway/run-02 (Overpass outage, upstream). Variants: volyn run-03 dropped to 3 (agent filtered place=town|village, losing Lutsk); others held their scores.
