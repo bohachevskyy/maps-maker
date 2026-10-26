@@ -43,7 +43,7 @@ import build as base  # noqa: E402
 from build import (  # noqa: E402
     CACHE_DIR, HALO, HATCH, INK, LAND, MUTED, NODATA, PAPER, WATER, WIDTH_IN,
     Canvas, check_window, classify, fetch, jsonstat_rows, latest_rows, iso_rows,
-    load_world, plot_classes, plot_missing, project_points, ramp, spec, variable_column,
+    load_world, plot_classes, plot_missing, project_points, ramp, reassign_crimea, spec, variable_column,
     write_csv, write_md,
 )
 
@@ -546,6 +546,7 @@ def build_texas_county_unemployment() -> pd.DataFrame:
     states[states.STUSPS.isin(["NM", "OK", "AR", "LA", "CO", "KS", "MO", "MS"])].to_crs(crs).plot(
         ax=ax, color=LAND, edgecolor="white", linewidth=0.8, zorder=1)
     admin1 = gpd.read_file(fetch(NE_ADMIN1_URL, "s2c_ne_10m_admin_1_states_provinces.zip"))
+    admin1 = reassign_crimea(admin1)
     mexico = admin1[admin1.adm0_a3 == "MEX"].to_crs(crs).union_all().buffer(4_000)  # closes slivers on the Rio Grande
     gpd.GeoSeries([mexico], crs=crs).plot(ax=ax, color=LAND, edgecolor="none", zorder=0.9)
     plot_classes(ax, merged, "value", edges, colors, edgecolor="white", linewidth=0.3)
@@ -778,6 +779,7 @@ def build_canada_population_change() -> pd.DataFrame:
 
     crs = "+proj=aea +lat_0=40 +lon_0=-96 +lat_1=50 +lat_2=70 +datum=NAD83 +units=m +no_defs"
     admin1 = gpd.read_file(fetch(NE_ADMIN1_URL, "s2c_ne_10m_admin_1_states_provinces.zip"))
+    admin1 = reassign_crimea(admin1)
     provinces = admin1[admin1.adm0_a3 == "CAN"][["iso_3166_2", "name", "geometry"]].rename(columns={"iso_3166_2": "key"})
     if set(provinces.key) != set(truth.key):
         raise ValueError(f"Natural Earth Canada mismatch: {set(provinces.key) ^ set(truth.key)}")

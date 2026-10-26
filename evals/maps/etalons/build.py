@@ -303,14 +303,61 @@ def spec(map_id: str) -> dict:
 # Geography helpers
 
 
+def reassign_crimea(gdf: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
+    """Reassign Crimea and Sevastopol from Russia to Ukraine.
+
+    Natural Earth's default edition places Crimea inside Russia. This helper
+    moves Russia's polygon parts lying on the Crimean peninsula (centroid within
+    lon 32.0–36.8, lat 44.0–46.3) into Ukraine's geometry. Also reassigns
+    admin_1 features (UA-43, UA-40 if present) to Ukraine (UKR).
+
+    Verifies: (34.10, 44.95) Simferopol becomes UKR; (38.98, 45.04) Krasnodar stays RUS.
+    """
+    out = gdf.copy()
+
+    # Crimean bounding box: (lon 32.0–36.8, lat 44.0–46.3)
+    crimea_box = box(32.0, 44.0, 36.8, 46.3)
+
+    # For country-level data (ADM0_A3 column)
+    if "ADM0_A3" in out.columns:
+        # Find Russia and Ukraine rows
+        rus_idx = out[out.ADM0_A3 == "RUS"].index
+        ukr_idx = out[out.ADM0_A3 == "UKR"].index
+
+        if len(rus_idx) > 0 and len(ukr_idx) > 0:
+            rus_geom = out.loc[rus_idx[0], "geometry"]
+            ukr_geom = out.loc[ukr_idx[0], "geometry"]
+
+            # Extract parts of Russia that are in Crimea
+            crimea_parts = rus_geom.intersection(crimea_box)
+            russia_remainder = rus_geom.difference(crimea_box)
+
+            # Update geometries (handle MultiPolygon and Polygon)
+            if not crimea_parts.is_empty:
+                out.loc[rus_idx[0], "geometry"] = russia_remainder
+                out.loc[ukr_idx[0], "geometry"] = unary_union([ukr_geom, crimea_parts])
+
+    # For admin_1 data (iso_3166_2 and adm0_a3 columns for states/provinces)
+    if "iso_3166_2" in out.columns and "adm0_a3" in out.columns:
+        # Reassign Crimea admin-1 units (UA-43, UA-40) to Ukraine
+        crimea_admin1 = out[out.iso_3166_2.isin(["UA-43", "UA-40"])]
+        if len(crimea_admin1) > 0:
+            out.loc[crimea_admin1.index, "adm0_a3"] = "UKR"
+
+    return out
+
+
 def load_world() -> gpd.GeoDataFrame:
     """Natural Earth 1:50m countries keyed by ISO3 as mapsvc spells them.
 
     ISO_A3_EH where valid (it fixes France/Norway's -99), else ADM0_A3 (KOS).
     Somaliland and Northern Cyprus are drawn as part of Somalia and Cyprus;
     the Siachen Glacier sliver is drawn as context land with no key.
+
+    Crimea and Sevastopol are reassigned to Ukraine.
     """
     world = gpd.read_file(fetch(NE_COUNTRIES_URL, "ne_50m_admin_0_countries.zip"))
+    world = reassign_crimea(world)
     eh = world["ISO_A3_EH"].fillna("")
     world["key"] = np.where(eh.str.fullmatch(r"[A-Z]{3}"), eh, world["ADM0_A3"])
     world["key"] = world["key"].replace({"SOL": "SOM", "CYN": "CYP", "KAS": "", "ALA": "FIN"})
