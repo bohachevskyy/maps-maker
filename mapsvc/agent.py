@@ -591,11 +591,25 @@ def describe(prompt: str) -> tuple[Manifest, dict, str]:
     last_error: ManifestError | None = None
     offered: set[str] | None = None
     overlays_searched = False
+    challenged = False
     repairs = 0
 
     for attempt in range(REPAIR_ATTEMPTS + 2):
         answer = _ask(conversation)
 
+        if not answer.get("mappable", False) and not challenged and offered is None:
+            # Measured 2026-10-26: one of three runs of "population density by
+            # German district" refused without searching, though Eurostat's
+            # search returns demo_r_d3dens first. A refusal is only accepted
+            # after the searchable sources have been searched; the service
+            # searches on the model's behalf and asks once more.
+            challenged = True
+            found = _search_all(prompt.strip())
+            if found:
+                offered = {c.id for _, items in found for c in items}
+                conversation.append({"role": "assistant", "content": json.dumps(answer)})
+                conversation.append({"role": "user", "content": _challenge_prompt(found)})
+                continue
         if not answer.get("mappable", False):
             raise AgentRefusal(
                 answer.get("refusal") or "this request cannot be mapped from the "
@@ -773,6 +787,27 @@ def _check_per(per: dict | None) -> None:
         raise ManifestError(
             f"variable.per {per['source']}/{per.get('id')!r} was not offered; "
             f"{per['source']} offers these divisors: {offered}", "variable.per.id")
+
+
+def _search_all(query: str) -> list[tuple[str, list]]:
+    """Search every searchable statistics source with the user's own words."""
+    results = []
+    for capabilities in statistics.all_capabilities():
+        if capabilities.searchable:
+            items = _search(capabilities.source, query)[:5]
+            if items:
+                results.append((capabilities.source, items))
+    return results
+
+
+def _challenge_prompt(found: list[tuple[str, list]]) -> str:
+    listed = "\n".join(f"  [{source}] {c.as_prompt_line()}"
+                       for source, items in found for c in items)
+    return ("Before refusing: the searchable sources returned these real "
+            f"candidates for the request:\n{listed}\n\n"
+            "If one of them measures what was asked, reply with the full manifest "
+            "using that source and exactly that variable.id (search_query empty). "
+            "If none does, refuse again and say why.")
 
 
 def _search(source: str, query: str) -> list:

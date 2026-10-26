@@ -212,7 +212,8 @@ def test_codex_timeout_is_an_agent_error(monkeypatch):
 
 # --- refusal --------------------------------------------------------------
 
-def test_an_unmappable_request_is_refused_not_substituted(stub):
+def test_an_unmappable_request_is_refused_not_substituted(stub, monkeypatch):
+    monkeypatch.setattr(agent, "_search_all", lambda query: [])   # nothing found
     stub(reply(mappable=False,
                refusal="nothing here measures rainfall; available: GDP_MD, POP_EST"))
     with pytest.raises(agent.AgentError) as excinfo:
@@ -221,7 +222,8 @@ def test_an_unmappable_request_is_refused_not_substituted(stub):
     assert "rainfall" in str(excinfo.value)
 
 
-def test_a_refusal_without_a_reason_still_fails_cleanly(stub):
+def test_a_refusal_without_a_reason_still_fails_cleanly(stub, monkeypatch):
+    monkeypatch.setattr(agent, "_search_all", lambda query: [])
     stub(reply(mappable=False, refusal=None))
     with pytest.raises(agent.AgentError):
         agent.describe("the mood of each country")
@@ -426,3 +428,33 @@ def test_the_instructions_explain_keys_and_derived_variables():
     for needle in ("JOIN KEYS", "census", "gisco", "variable.per", "variable.change",
                    "TPOPP", "median household income", "FIPS", "NUTS"):
         assert needle in text, needle
+
+
+class _Hit:
+    def __init__(self, id):
+        self.id = id
+
+    def as_prompt_line(self):
+        return f"{self.id}: a real search hit"
+
+
+def test_a_first_refusal_is_challenged_with_real_search_hits(stub, monkeypatch):
+    """Measured: a run refused German district density without searching,
+    though Eurostat returns demo_r_d3dens first. The service searches and asks
+    once more; a second refusal stands."""
+    monkeypatch.setattr(agent, "_search_all",
+                        lambda query: [("owid", [_Hit("some-chart")])])
+    client = stub(reply(mappable=False, refusal="no source"),
+                  reply(mappable=False, refusal="none of those measure it"))
+    with pytest.raises(agent.AgentError) as excinfo:
+        agent.describe("population density by German district")
+    assert "none of those" in str(excinfo.value)
+    assert not client.responses.replies              # both turns were used
+
+
+def test_no_challenge_when_search_finds_nothing(stub, monkeypatch):
+    monkeypatch.setattr(agent, "_search_all", lambda query: [])
+    client = stub(reply(mappable=False, refusal="no source"))
+    with pytest.raises(agent.AgentError):
+        agent.describe("the mood of each country")
+    assert not client.responses.replies
