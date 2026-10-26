@@ -1,0 +1,5 @@
+- URL/API: https://earthquake.usgs.gov/fdsnws/event/1/query?format=geojson&starttime=2024-01-01&endtime=2025-01-01&minmagnitude=5&minlatitude=24&maxlatitude=46&minlongitude=125&maxlongitude=150&orderby=time-asc
+- Vintage: USGS ComCat as of 2026-10-26; events 2024-01-01T00:00Z <= t < 2025-01-01T00:00Z, magnitude >= 5.0, in the box 24-46N, 125-150E (Japan and its surrounding seas: Ryukyu, Izu-Bonin, Kuril-Japan trench; excludes Taiwan, Korea and Primorye).
+- Licence: U.S. Geological Survey Earthquake Hazards Program, U.S. government work (public domain). Plate boundaries: Bird (2003) PB2002 via github.com/fraxen/tectonicplates (ODC-BY 1.0). Land: Natural Earth (public domain).
+- Rows: 96 events — id, UTC time, lon, lat, depth_km, mag, magType, place. M7.5 Noto Peninsula (1 Jan 2024, 07:10 UTC) is the largest; 14 of the events are the Noto sequence of January 2024; Hyuganada M7.1 on 8 Aug.
+- Caveat: the region is a rectangle, not a boundary, so it includes some events nearer Russia/Korea than Japan only if they fall in the box (none stated as such by USGS 'place'); ComCat revises and adds events, so the count can drift by a few. The spec's `count=110±40%` passes.

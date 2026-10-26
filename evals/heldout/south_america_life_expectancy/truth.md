@@ -1,5 +1,5 @@
 - URL/API: https://ourworldindata.org/grapher/life-expectancy.csv (Our World in Data Grapher CSV, 'Life expectancy at birth'; UN World Population Prospects 2024 estimates); latest non-missing year per country; geometry https://naturalearth.s3.amazonaws.com/50m_cultural/ne_50m_admin_0_map_units.zip.
-- Vintage: OWID series ends 2023; every row is 2023. OWID file downloaded 2026-10-25.
+- Vintage: OWID series ends 2023; every row is 2023. OWID file downloaded 2026-10-26.
 - Licence: OWID data CC BY 4.0 (UN WPP, CC BY 3.0 IGO). Boundaries: Natural Earth 1:50m map units (public domain).
 - Rows: 14 — the 12 sovereign states of South America plus French Guiana (GUF) and the Falkland Islands (FLK), which OWID reports separately. Columns: key (ISO3), name, value, unit, year, status.
 - Caveat: both values for the territories are UN WPP estimates for the territory, not for France or the UK. Natural Earth draws French Guiana inside France's country polygon; the 'map units' edition is used so it can be coloured on its own. The Galapagos Islands (Ecuador) fall outside the frame.
