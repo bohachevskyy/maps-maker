@@ -154,3 +154,33 @@ Set 1 4.00, set 2 3.45, overall 3.71. Below 3: us_election_2024, tokyo_subway.
 | volyn_settlements | 3 | 3 |
 
 Set 1 4.00, set 2 3.64, overall 3.81. None below 3. At 3: europe_largest_cities, tokyo_subway, volcanoes_holocene, volyn_settlements.
+
+## Round 8 (2026-10-26): 21 maps, terra -- TARGET MET on a single run
+
+Crimea drawn as Ukraine (UN GA 68/262); callouts capped at 70 px with ranked side tables.
+
+| map | r7 | r8 |
+|---|---|---|
+| africa_internet | 4 | 4 |
+| atlantic_hurricanes_2024 | 4 | 4 |
+| ca_county_income | 4 | 5 |
+| canada_population_change | 4 | 4 |
+| eu_nuts2_gdp | 4 | 4 |
+| eu_renewables | 4 | 4 |
+| europe_largest_cities | 3 | 4 |
+| france_lgv | 4 | 4 |
+| gdp_world | 4 | 4 |
+| germany_density_nuts3 | 4 | 4 |
+| napoleon_1812 | 4 | 4 |
+| population_change | 4 | 4 |
+| quakes_2025 | 4 | 4 |
+| texas_county_unemployment | 4 | 4 |
+| tokyo_subway | 3 | 3 |
+| trans_siberian | 4 | 4 |
+| ukraine_oblast_population | 4 | 5 |
+| us_diesel | 4 | 4 |
+| us_election_2024 | 4 | 4 |
+| volcanoes_holocene | 3 | 4 |
+| volyn_settlements | 3 | 4 |
+
+Set 1 4.20, set 2 3.91, overall 4.05; lowest 3. Auto checks 21/21 (Trans-Siberian after a runner fix). Stability over --repeat 3: pending.
