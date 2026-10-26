@@ -197,7 +197,7 @@ def test_redundant_bbox_over_four_times_within_extent_is_dropped(monkeypatch, tm
     assert "clips no selected unit" in dropped["reason"]
 
 
-def test_bbox_at_or_below_four_times_within_extent_is_kept(monkeypatch, tmp_path):
+def test_bbox_holding_every_within_unit_is_dropped_even_when_snug(monkeypatch, tmp_path):
     from mapsvc.cartography import Boundaries
 
     monkeypatch.setenv("MAPSVC_CACHE", str(tmp_path))
@@ -209,8 +209,92 @@ def test_bbox_at_or_below_four_times_within_extent_is_kept(monkeypatch, tmp_path
                               variable_source=None, variable_id=None)
     result = H.harvest(manifest)
 
-    assert result.provenance["bbox"] == [-0.5, -0.5, 1.5, 1.5]
+    assert result.provenance["bbox"] is None
+    assert result.effective.bbox is None
+    assert "holds the within units' whole extent" in \
+        result.provenance["bbox_dropped"]["reason"]
+
+
+def test_bbox_zooming_into_a_within_unit_is_kept(monkeypatch, tmp_path):
+    from mapsvc.cartography import Boundaries
+
+    monkeypatch.setenv("MAPSVC_CACHE", str(tmp_path))
+    boundaries = Boundaries(units=[{"id": "AAA", "name": "A", "geometry": BOX}],
+                            provenance={})
+    monkeypatch.setattr(H.cartography, "load", lambda *args, **kwargs: boundaries)
+
+    manifest = build_manifest(bbox=(0.2, 0.2, 0.8, 0.8), within=("AAA",),
+                              variable_source=None, variable_id=None)
+    result = H.harvest(manifest)
+
+    assert result.provenance["bbox"] == [0.2, 0.2, 0.8, 0.8]
     assert "bbox_dropped" not in result.provenance
+
+
+def _line_layer(coords):
+    return {"kind": "lines", "features": [{"coords": coords}], "provenance": {}}
+
+
+def test_oversized_bbox_on_an_overlay_map_frames_on_the_overlay(monkeypatch, tmp_path):
+    monkeypatch.setenv("MAPSVC_CACHE", str(tmp_path))
+    layers = [_line_layer([[10.0, 40.0], [14.0, 44.0]])]
+    monkeypatch.setattr(H, "_load_overlay_layers", lambda specs, window: layers)
+    monkeypatch.setattr(H, "_add_physical_context", lambda m, r, extent: None)
+    monkeypatch.setattr(H, "_base", lambda m, b=None: H.HarvestResult(provenance={}))
+    monkeypatch.setattr(H, "context_places", lambda *a, **k: [])
+    wide = build_manifest(bbox=(-180, -90, 180, 90), variable_source=None,
+                          variable_id=None, overlays=(("web", "https://x/y.csv"),))
+    bare = build_manifest(bbox=None, variable_source=None, variable_id=None,
+                          overlays=(("web", "https://x/y.csv"),))
+
+    a, b = H.harvest(wide), H.harvest(bare)
+
+    assert a.provenance["overlay_bbox"] == b.provenance["overlay_bbox"]
+    assert a.effective.bbox is None
+
+
+def test_bbox_clipping_an_overlay_feature_is_kept(monkeypatch, tmp_path):
+    monkeypatch.setenv("MAPSVC_CACHE", str(tmp_path))
+    layers = [_line_layer([[10.0, 40.0], [14.0, 44.0]])]
+    monkeypatch.setattr(H, "_load_overlay_layers", lambda specs, window: layers)
+    assert not H._bbox_swamps_overlays((11.0, 39.0, 20.0, 50.0), layers)
+    assert not H._bbox_swamps_overlays((9.0, 39.0, 15.0, 45.0), layers)   # under 4x
+    assert H._bbox_swamps_overlays((-180, -90, 180, 90), layers)
+
+
+def test_us_units_derive_the_census_basemap_and_say_so():
+    manifest = build_manifest(within=("USA",), level="admin_1",
+                              variable_source=None, variable_id=None,
+                              basemap_source="overture")
+    derived, notes = H.derive_manifest(manifest)
+    assert derived.basemap_source == "census"
+    assert "replaced by census" in notes[0]
+    state = build_manifest(within=("US-TX",), level="admin_2", variable_source=None,
+                           variable_id=None, basemap_source="overture")
+    assert H.derive_manifest(state)[0].basemap_source == "census"
+
+
+def test_non_us_or_unsupported_level_keeps_the_chosen_basemap():
+    other = build_manifest(within=("CAN",), level="admin_1", variable_source=None,
+                           variable_id=None, basemap_source="overture")
+    assert H.derive_manifest(other) == (other, ())
+    country = build_manifest(within=("USA",), level="admin_0", variable_source=None,
+                             variable_id=None, basemap_source="natural_earth")
+    assert H.derive_manifest(country) == (country, ())
+
+
+def test_single_country_overlay_map_gets_admin_1_interior_lines():
+    for level in ("admin_0", "admin_1"):
+        manifest = build_manifest(within=("RUS",), level=level, variable_source=None,
+                                  variable_id=None, basemap_source="natural_earth",
+                                  overlays=(("overpass", "route=railway"),))
+        derived, _, notes = H._interior_context_level(manifest, None)
+        assert derived.level == "admin_1"
+        assert bool(notes) == (level == "admin_0")
+    several = build_manifest(within=("RUS", "UKR"), level="admin_0",
+                             variable_source=None, variable_id=None,
+                             overlays=(("overpass", "route=railway"),))
+    assert H._interior_context_level(several, None)[0].level == "admin_0"
 
 
 def test_pipeline_renders_without_a_bbox_that_harvest_dropped(monkeypatch):
