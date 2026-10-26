@@ -110,7 +110,7 @@ WATER = "#dfeaf1"
 LAKE_FILL = "#dbeaf2"
 LAKE_STROKE = "#9bbdce"
 RIVER = "#7da9c0"
-PLATE = "#a65f52"
+PLATE = "#c9a9a1"
 # Neighbouring land around a `within` map: there, unshaded, never data. Once it
 # is drawn the sea can be tinted honestly, because no land is missing.
 CONTEXT_LAND = "#f0eee9"

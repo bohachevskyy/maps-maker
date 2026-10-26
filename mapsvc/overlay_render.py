@@ -47,6 +47,8 @@ LINE_W = 1.9
 POINT_R = 2.6                 # a point with no size attribute
 DENSE_POINT_R = 1.65          # categorical point clouds above DENSE_POINT_COUNT
 DENSE_POINT_COUNT = 500
+DENSE_POINT_RADII = (2.7, 2.3, 1.9, 1.6, 1.35)   # by how many marks sit within CROWD_PX
+CROWD_PX = 5.0
 MAG_R0 = 2.6                  # radius of the smallest magnitude drawn
 SQRT_R_MAX = 0.035            # largest sqrt-scaled circle, share of sqrt(area)
 FLOW_W_MAX = 0.075            # widest band, share of map height...
@@ -108,6 +110,8 @@ def _palette(category: dict | None, kind: str) -> dict:
     if not category:
         return {}
     values = [c["value"] for c in category["classes"]]
+    if category.get("colours"):
+        return {v: category["colours"].get(v, ORDERED[3]) for v in values}
     if kind == "flow":
         cycle = FLOW
     elif category.get("ordered"):
@@ -375,28 +379,40 @@ def _points(layer, frame, labels, anchors, layout):
     default = ORDERED[0]
     placed = []
     dense = len(layer["features"]) >= DENSE_POINT_COUNT and not layer.get("size")
-    for f in layer["features"]:
+    triangle = layer.get("marker") == "triangle"
+    crowd = _crowding([_xy(frame, f["lon"], f["lat"]) for f in layer["features"]]) if dense else None
+    for i, f in enumerate(layer["features"]):
         x, y = _xy(frame, f["lon"], f["lat"])
         if not frame.visible(x, y):
             continue
-        r = radius(f["size"]) if f.get("size") is not None else (
-            DENSE_POINT_R if dense else POINT_R)
+        if f.get("size") is not None:
+            r = radius(f["size"])
+        elif dense:
+            # Density-aware: an isolated volcano is a full mark, one in a
+            # chain of fifty a small one, so the chain stays countable.
+            r = DENSE_POINT_RADII[min(crowd[i], len(DENSE_POINT_RADII) - 1)]
+        else:
+            r = POINT_R
         if r <= 0:
             continue
         placed.append((r, f["id"], x, y, f))
     # Smallest first: the large ones are translucent, the small ones stay
     # visible through them rather than vanishing underneath.
     placed.sort(key=lambda t: (t[0], t[1]))
-    opacity = "0.58" if dense else "0.78"
-    stroke_width = "0.35" if dense else "0.6"
+    opacity = "0.7" if dense else "0.78"
+    # A white halo on every mark turns a chain of them into a ribbon of white.
+    stroke_width = "0.25" if dense else "0.6"
     out = [f'<g fill-opacity="{opacity}" stroke="#ffffff" '
-           f'stroke-width="{stroke_width}">']
+           f'stroke-width="{stroke_width}" stroke-opacity="0.8">']
     for r, fid, x, y, f in placed:
         fill = colours.get(f.get("category"), default)
         value = "" if f.get("size") is None else f' data-value={quoteattr(_stat(f["size"]))}'
-        out.append(f'<circle cx="{_num(x)}" cy="{_num(y)}" r="{_num(r)}" fill="{fill}" '
-                   f'data-fid={quoteattr(str(fid))}{value} '
-                   f'data-lon="{f["lon"]}" data-lat="{f["lat"]}"/>')
+        attrs = (f'fill="{fill}" data-fid={quoteattr(str(fid))}{value} '
+                 f'data-lon="{f["lon"]}" data-lat="{f["lat"]}"')
+        if triangle:
+            out.append(f'<path d="{_triangle(x, y, r)}" {attrs}/>')
+        else:
+            out.append(f'<circle cx="{_num(x)}" cy="{_num(y)}" r="{_num(r)}" {attrs}/>')
         anchors.append((x, y))
         labels.block(x - r, y - r, x + r, y + r)
     out.append("</g>")
@@ -418,7 +434,8 @@ def _points(layer, frame, labels, anchors, layout):
         legend.append(_size_block(layer, radius, floor))
     if layer.get("category"):
         present = {t[4].get("category") for t in placed}
-        legend.append(_swatch_block(layer["category"], colours, present, "dot"))
+        legend.append(_swatch_block(layer["category"], colours, present,
+                                    "triangle" if triangle else "dot"))
     elif not size:
         legend.append(_swatch_block({"label": layer.get("label") or "", "classes": [
             {"value": None, "label": layer.get("label") or "Feature"}]},
@@ -426,7 +443,34 @@ def _points(layer, frame, labels, anchors, layout):
     return "".join(out), legend
 
 
-NOTABLE_APART = 60.0          # px between two named points of a crowded layer
+def _triangle(x, y, r) -> str:
+    """An upward triangle of about the visual weight of a circle of radius r."""
+    h = r * 1.35
+    return (f"M{_num(x)},{_num(y - h)}L{_num(x + h * 0.95)},{_num(y + h * 0.62)}"
+            f"L{_num(x - h * 0.95)},{_num(y + h * 0.62)}Z")
+
+
+def _crowding(points) -> list:
+    """For each pixel point, how many others lie within CROWD_PX (bucketed)."""
+    cell = CROWD_PX
+    grid: dict = {}
+    for i, (x, y) in enumerate(points):
+        grid.setdefault((int(x // cell), int(y // cell)), []).append(i)
+    out = []
+    for i, (x, y) in enumerate(points):
+        cx, cy = int(x // cell), int(y // cell)
+        n = 0
+        for ix in (cx - 1, cx, cx + 1):
+            for iy in (cy - 1, cy, cy + 1):
+                for j in grid.get((ix, iy), ()):
+                    if j != i and (points[j][0] - x) ** 2 + (points[j][1] - y) ** 2 \
+                            <= cell * cell:
+                        n += 1
+        out.append(0 if n == 0 else 1 if n <= 2 else 2 if n <= 5 else 3 if n <= 9 else 4)
+    return out
+
+
+NOTABLE_APART = 20.0          # px between two named points of a crowded layer
 
 
 def _name_notable(placed, labels, top) -> None:
@@ -721,6 +765,9 @@ def _swatch_block(category, colours, present, mark, dashed=frozenset(), columns=
             x = x0 + offsets[i][0]
             if mark == "dot":
                 out.append(f'<circle cx="{_num(x + 6)}" cy="{_num(cy)}" r="5" '
+                           f'fill="{colour}" fill-opacity="0.85"/>')
+            elif mark == "triangle":
+                out.append(f'<path d="{_triangle(x + 6, cy + 0.5, 4.6)}" '
                            f'fill="{colour}" fill-opacity="0.85"/>')
             elif mark == "line":
                 dash = (f' stroke-dasharray="{TRACK_DASH}"'

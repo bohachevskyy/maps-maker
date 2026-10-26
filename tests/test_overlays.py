@@ -129,9 +129,28 @@ def test_dense_categorical_points_are_smaller_and_translucent(mini_geojson):
     ], "category": {"classes": [{"value": "cone", "label": "Cone"}]},
         "provenance": {}}
     svg = _overlay_map(mini_geojson, [layer])
-    assert 'fill-opacity="0.58"' in svg
-    assert 'stroke-width="0.35"' in svg
-    assert 'r="1.65"' in svg
+    assert 'fill-opacity="0.7"' in svg
+    assert 'stroke-width="0.25"' in svg
+    # Density-aware: a crowded cloud is drawn with the smaller marks.
+    assert any(f'r="{r}"' in svg for r in (1.6, 1.35, 1.9))
+    assert 'r="2.7"' not in svg
+
+
+def test_crowding_counts_neighbours_within_a_few_pixels():
+    from mapsvc import overlay_render as o
+
+    lone = o._crowding([(0, 0), (100, 100)])
+    assert lone == [0, 0]
+    pack = o._crowding([(i * 1.0, 0.0) for i in range(12)])
+    assert min(pack) >= 2 and max(pack) == 4
+
+
+def test_renown_rewards_recent_eruptions_over_old_islands():
+    from mapsvc.overlays import web
+
+    assert web._renown(150, 2020) > web._renown(150, 1750) > web._renown(150, 200)
+    assert web._renown(150, 2020) > web._renown(150, None)
+    assert web._renown(140, None) < web._renown(70, 2020)
 
 
 def test_overlay_only_footer_omits_pipeline_boilerplate_and_urls(mini_geojson):

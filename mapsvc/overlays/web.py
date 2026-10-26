@@ -249,10 +249,26 @@ CATALOGUE = (
                             "other": "Type not recorded"},
         "category_other": "other",
         "label": "Holocene volcanoes", "label_top": 15, "noun": "volcanoes",
-        "map_title": "Holocene volcanoes of the world (active in the last ~11,700 years)",
+        "map_title": "Holocene volcanoes of the world",
+        "marker": "triangle",
+        # Hues far enough apart to tell at 3 px: red, orange, purple, blue,
+        # green and brown; the unrecorded grey.
+        "category_colours": {"strato": "#c8372d", "shield": "#ee8a1e",
+                             "caldera": "#7a4aa3", "field": "#2f7fc1",
+                             "fissure": "#2e9e5b", "small": "#8a5a2b",
+                             "other": "#8c8c8c"},
+        "summary_note": "active within the last ~11,700 years (the Holocene, "
+                        "the Global Volcanism Program's definition, a little "
+                        "longer than 10,000)",
         "note": "Holocene volcanoes are those with eruptions or unrest since the "
                 "last ice age (~11,700 years); the best-documented are named, "
                 "ranked by what each record reports of its consequences",
+        "note_fame": "Holocene volcanoes are those with eruptions or unrest since "
+                     "the last ice age (~11,700 years); the 15 named are the "
+                     "best known, ranked by how many Wikipedia language editions "
+                     "describe the volcano (Wikidata, CC0), weighted by how "
+                     "recently it erupted",
+        "fame": {"id": "Volcano_Number", "property": "P1886"},
         "notability": {"text": "Geological_Summary", "year": "Last_Eruption_Year",
                        "size": "Elevation"},
         "theme": "seismic", "category_counts": True,
@@ -488,12 +504,66 @@ def check(overlay_id: str) -> None:
 
 def load(overlay_id: str, window: Window) -> dict:
     payload = fetch_bytes(overlay_id)
-    return layer_from_bytes(payload, overlay_id, window)
+    entry = _BY_URL.get(split(overlay_id)[0], {})
+    fame = _fame(entry["fame"]) if entry.get("fame") else None
+    return layer_from_bytes(payload, overlay_id, window, fame)
 
 
-def layer_from_bytes(payload: bytes, overlay_id: str, window: Window) -> dict:
+WIKIDATA = "https://query.wikidata.org/sparql"
+
+
+def _fame(spec: dict) -> dict | None:
+    """Wikipedia language editions per item, by an external id: how well known
+    each row is, from Wikidata (CC0). {id: sitelinks}; None when Wikidata
+    cannot be reached -- the map is then named by its own records instead.
+
+    One query for every item that carries the identifier property, cached
+    like any download: sitelink counts move by a few a year.
+    """
+    query = (f"SELECT ?id ?links WHERE {{ ?item wdt:{spec['property']} ?id . "
+             "?item wikibase:sitelinks ?links }")
+    url = WIKIDATA + "?" + urllib.parse.urlencode({"query": query, "format": "json"})
+    name = hashlib.sha256(url.encode()).hexdigest()[:16]
+    try:
+        payload = fetch.cached(url, "overlays", "web", f"fame-{name}.json",
+                               accept="application/sparql-results+json")
+        bindings = json.loads(payload)["results"]["bindings"]
+    except (OSError, ValueError, KeyError):
+        return None
+    out: dict = {}
+    for binding in bindings:
+        try:
+            ident, links = binding["id"]["value"], int(binding["links"]["value"])
+        except (KeyError, ValueError):
+            continue
+        out[ident] = max(out.get(ident, 0), links)
+    return out or None
+
+
+def _renown(links: int, year) -> float:
+    """Fame from Wikipedia editions (log scale, 0-1 at ~150) weighted by the
+    eruption record: erupted since 1900 counts in full, in the 1700s a little
+    less, in the historical era half, long ago or unknown a fraction -- an
+    island that was a volcano once is not the volcano a map needs named."""
+    if year is None:
+        recency = 0.1
+    elif year >= 1900:
+        recency = 1.0
+    elif year >= 1700:
+        recency = 0.85
+    elif year >= 0:
+        recency = 0.5
+    else:
+        recency = 0.15
+    return round(min(1.0, math.log1p(links) / math.log1p(150)) * (0.4 + 0.6 * recency), 4)
+
+
+def layer_from_bytes(payload: bytes, overlay_id: str, window: Window,
+                     fame: dict | None = None) -> dict:
     url, filters = split(overlay_id)
     entry = _BY_URL.get(url, {})
+    if fame is not None and entry.get("note_fame"):
+        entry = {**entry, "note": entry["note_fame"]}
     payload = _unzip(payload, url)
     text = payload.decode("utf-8-sig", errors="replace")
     host = urllib.parse.urlsplit(url).hostname
@@ -532,7 +602,10 @@ def layer_from_bytes(payload: bytes, overlay_id: str, window: Window) -> dict:
         raise OverlayError(
             f"{url} has no recognisable longitude/latitude columns (found "
             f"{', '.join(columns[:12])})", "overlays.id")
-    rows, bad = _rows(records, roles, entry)
+    rows, bad = _rows(records, roles, entry, fame)
+    if fame is not None:
+        provenance["attribution"] += "; renown: Wikidata sitelink counts (CC0)"
+        provenance["license"] += "; Wikidata CC0"
     if not rows:
         raise OverlayError(f"{url} has no rows with numeric coordinates", "overlays.id")
     if len(rows) > MAX_ROWS:
@@ -766,7 +839,7 @@ def _numeric_share(records, column) -> float:
     return sum(_number(v) is not None for v in values) / max(1, len(values))
 
 
-def _rows(records, roles, entry=None):
+def _rows(records, roles, entry=None, fame=None):
     rows, bad = [], 0
     for i, record in enumerate(records):
         lon, lat = _number(record.get(roles["lon"])), _number(record.get(roles["lat"]))
@@ -796,6 +869,12 @@ def _rows(records, roles, entry=None):
         notability = (entry or {}).get("notability")
         if notability:
             row["notable"] = _notability(record, notability)
+            if fame is not None:
+                links = fame.get(str(record.get(entry["fame"]["id"]) or ""), 0)
+                year = _number(record.get(notability["year"]))
+                # Renown first; the record's own prose breaks ties.
+                row["notable"] = round(
+                    10.0 * _renown(links, year) + 0.1 * row["notable"], 3)
         rows.append(row)
     return rows, bad
 
@@ -968,9 +1047,14 @@ def _points_layer(base, rows, roles, entry, excluded, window):
                  else "circle area ∝ 10^(M/2)" if size else
                  f"colour = {category['label'].lower()}" if category else "one dot per row")
     noun = entry.get("noun") or "points"
+    if category and entry.get("category_colours"):
+        category["colours"] = dict(entry["category_colours"])
+    summary = (f"{len(features):,} {noun} {entry['summary_note']} · {size_text}"
+               if entry.get("summary_note") else f"{len(features):,} {noun} · {size_text}")
     return {**base, "kind": "points", "size": size, "category": category,
+            **({"marker": entry["marker"]} if entry.get("marker") else {}),
             "features": features, "stats": {"count": len(features)},
-            "summary": f"{len(features):,} {noun} · {size_text}",
+            "summary": summary,
             "encoding": (size_text[:1].upper() + size_text[1:]
                          + (f". {entry['note']}" if entry.get("note") else "")),
             "excluded": excluded,
