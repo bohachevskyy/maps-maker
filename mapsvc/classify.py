@@ -340,7 +340,7 @@ def nice(values: list[float], percent: bool = False) -> Classification:
         edges = _tail_step(s, _log_edges(lo, hi))
         if len(edges) >= MIN_CLASSES - 1:
             return _open(s, edges, "rounded log breaks (1-2-5 series)")
-    return _open(s, _rounded_natural(s), "natural breaks (Jenks) rounded to 2 significant figures")
+    return _open(s, _rounded_natural(s), "natural breaks (Jenks), edges set to round numbers between neighbouring values")
 
 
 def _log_edges(lo: float, hi: float) -> list[float]:

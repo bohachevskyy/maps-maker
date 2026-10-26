@@ -134,6 +134,7 @@ class Frame:
         # sphere, so an inset drawn at this scale is at the same scale.
         self.scale = local(1.0, 0.0)[0] - local(0.0, 0.0)[0]
         self.insets: list = []
+        self._visible: dict = {}
         self.legend_box: tuple | None = None    # a legend floated over the map
         self.table_box: tuple | None = None     # the ranked table, likewise
 
@@ -152,7 +153,16 @@ class Frame:
     def visible(self, x: float, y: float) -> bool:
         if not (PAD <= x <= PAD + MAP_W and MAP_TOP <= y <= self.bottom):
             return False
-        return self.outline is None or project.point_in_ring(x, y, self.outline)
+        if self.outline is None:
+            return True
+        # Label placement asks this hundreds of thousands of times, at points
+        # on a half-pixel grid: remember the answers.
+        key = (round(x * 2.0), round(y * 2.0))
+        seen = self._visible.get(key)
+        if seen is None:
+            seen = self._visible[key] = project.point_in_ring(
+                key[0] / 2.0, key[1] / 2.0, self.outline)
+        return seen
 
 
 def _shift(point: tuple[float, float]) -> tuple[float, float]:
@@ -2160,7 +2170,8 @@ def _choropleth_labels(rows, insets, frame, encoding, names, placer, out,
                                _value_text(row["value"], encoding),
                                _abbreviation(row) if codes else None,
                                rank(row, piece), inset=inset,
-                               primary=extremes_only or order.get(gid) in (0, len(valued) - 1)))
+                               primary=(extremes_only and not frame.is_world)
+                               or order.get(gid) in (0, len(valued) - 1)))
     pending = []
     insets_here = list(insets)
     for t in sorted(targets, key=lambda t: (-t.area, t.gid)):
