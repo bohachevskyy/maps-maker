@@ -126,3 +126,31 @@ Automatic checks 20/21 (Texas after the BLS fix).
 | volyn_settlements | 3 | 3 |
 
 Set 1 4.00, set 2 3.45, overall 3.71. Below 3: us_election_2024, tokyo_subway.
+
+## Round 7 (2026-10-25): 21 maps, terra; auto checks 21/21 (5 Overture maps re-run after the release fix)
+
+| map | r6 | r7 |
+|---|---|---|
+| africa_internet | 4 | 4 |
+| atlantic_hurricanes_2024 | 4 | 4 |
+| ca_county_income | 4 | 4 |
+| canada_population_change | 4 | 4 |
+| eu_nuts2_gdp | 4 | 4 |
+| eu_renewables | 4 | 4 |
+| europe_largest_cities | 4 | 3 |
+| france_lgv | 4 | 4 |
+| gdp_world | 4 | 4 |
+| germany_density_nuts3 | 4 | 4 |
+| napoleon_1812 | 4 | 4 |
+| population_change | 4 | 4 |
+| quakes_2025 | 4 | 4 |
+| texas_county_unemployment | 4 | 4 |
+| tokyo_subway | 2 | 3 |
+| trans_siberian | 4 | 4 |
+| ukraine_oblast_population | 4 | 4 |
+| us_diesel | 4 | 4 |
+| us_election_2024 | 2 | 4 |
+| volcanoes_holocene | 3 | 3 |
+| volyn_settlements | 3 | 3 |
+
+Set 1 4.00, set 2 3.64, overall 3.81. None below 3. At 3: europe_largest_cities, tokyo_subway, volcanoes_holocene, volyn_settlements.
