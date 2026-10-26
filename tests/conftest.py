@@ -1,4 +1,5 @@
 import json
+import os
 import pathlib
 
 import pytest
@@ -8,6 +9,9 @@ from mapsvc.manifest import Manifest
 from mapsvc.models import HarvestResult
 
 FIXTURES = pathlib.Path(__file__).parent / "fixtures"
+
+# The suite is offline: never ask Overture's STAC catalog which release is latest.
+os.environ.setdefault("OVERTURE_RELEASE", "2026-10-21.0")
 
 
 @pytest.fixture

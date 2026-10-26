@@ -125,3 +125,37 @@ def test_iso2_to_iso3_prefers_the_country_that_owns_the_code(monkeypatch):
         assert iso.to_alpha2("ATC") == "AU"
     finally:
         iso._tables.cache_clear()
+
+
+def test_overture_release_pin_wins(monkeypatch):
+    from mapsvc.cartography import overture
+
+    overture.release.cache_clear()
+    monkeypatch.setenv("OVERTURE_RELEASE", "2099-01-01.0")
+    try:
+        assert overture.release() == "2099-01-01.0"
+    finally:
+        overture.release.cache_clear()
+
+
+def test_overture_release_follows_stac_latest_and_falls_back(monkeypatch):
+    import io
+    import json as _json
+    import urllib.request
+
+    from mapsvc.cartography import overture
+
+    monkeypatch.delenv("OVERTURE_RELEASE", raising=False)
+    overture.release.cache_clear()
+    monkeypatch.setattr(urllib.request, "urlopen",
+                        lambda *a, **k: io.BytesIO(_json.dumps({"latest": "2030-01-01.0"}).encode()))
+    try:
+        assert overture.release() == "2030-01-01.0"
+        overture.release.cache_clear()
+
+        def down(*a, **k):
+            raise OSError("catalog unreachable")
+        monkeypatch.setattr(urllib.request, "urlopen", down)
+        assert overture.release() == overture.FALLBACK_RELEASE
+    finally:
+        overture.release.cache_clear()

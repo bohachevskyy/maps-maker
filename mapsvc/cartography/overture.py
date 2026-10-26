@@ -16,7 +16,30 @@ import os
 
 from mapsvc.cartography import Boundaries, CartographyError, iso
 
-RELEASE = os.environ.get("OVERTURE_RELEASE", "2026-08-19.0")
+# Overture keeps only its last few releases on S3: 2026-08-19.0, pinned here
+# until 2026-10, vanished and every Overture map failed with "No files found".
+# The release is therefore discovered from Overture's STAC catalog (its
+# `latest` field) and remembered for the process; OVERTURE_RELEASE pins one.
+STAC_CATALOG = "https://stac.overturemaps.org/catalog.json"
+FALLBACK_RELEASE = "2026-10-21.0"     # last measured latest, used if STAC is down
+STAC_TIMEOUT = 10
+
+
+@functools.lru_cache(maxsize=1)
+def release() -> str:
+    pinned = os.environ.get("OVERTURE_RELEASE")
+    if pinned:
+        return pinned
+    import urllib.request
+
+    try:
+        request = urllib.request.Request(STAC_CATALOG,
+                                         headers={"User-Agent": "mapsvc/0.1"})
+        with urllib.request.urlopen(request, timeout=STAC_TIMEOUT) as response:
+            latest = json.load(response).get("latest")
+    except (OSError, ValueError):
+        latest = None
+    return latest if isinstance(latest, str) and latest else FALLBACK_RELEASE
 S3_REGION = "us-west-2"
 DIVISION_AREA = (
     "s3://overturemaps-us-west-2/release/{release}"
@@ -208,7 +231,7 @@ def _where(level: str, bbox, within: str | None = None) -> str:
 def count(level: str, bbox, within: str | None = None) -> int:
     """Units a load would return. Cheap: no geometry leaves S3."""
     sql = (f"SELECT count(*) FROM read_parquet("
-           f"'{DIVISION_AREA.format(release=RELEASE)}', hive_partitioning=1) "
+           f"'{DIVISION_AREA.format(release=release())}', hive_partitioning=1) "
            f"WHERE {_where(level, bbox, within)}")
     try:
         return _connection().execute(sql).fetchone()[0]
@@ -227,7 +250,7 @@ def load(level: str, bbox, detail: str = "simplified",
                names.common['en']              AS name_en,
                names.primary                   AS name_primary,
                ST_AsGeoJSON(geometry)          AS geometry
-        FROM read_parquet('{DIVISION_AREA.format(release=RELEASE)}',
+        FROM read_parquet('{DIVISION_AREA.format(release=release())}',
                           hive_partitioning=1)
         WHERE {_where(level, bbox, within)}
     """
@@ -288,7 +311,7 @@ def load(level: str, bbox, detail: str = "simplified",
         "source": "Overture Maps",
         "license": LICENSE,
         "attribution": ATTRIBUTION,
-        "release": RELEASE,
+        "release": release(),
         "level": level,
         "detail": "full",  # Overture publishes one resolution
         "scale": "divisions theme",

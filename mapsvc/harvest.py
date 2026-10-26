@@ -151,7 +151,7 @@ def cache_key(manifest: Manifest) -> str:
         # served under it.
         from mapsvc.cartography import overture
 
-        keyed["overture_release"] = overture.RELEASE
+        keyed["overture_release"] = overture.release()
     canonical = json.dumps(keyed, sort_keys=True, separators=(",", ":"))
     return hashlib.sha256(canonical.encode()).hexdigest()[:16]
 
