@@ -36,7 +36,7 @@ NO_DATA = {-99, "-99", "", None}
 # Bump when the shape of a cached HarvestResult changes -- new provenance keys,
 # a different join, altered drop reasons. Without it a code change silently
 # keeps serving rows written in the old format.
-CACHE_VERSION = 24
+CACHE_VERSION = 25
 
 # Physical context is derived from the overlay and its window, never requested
 # in the manifest. These files are fetched here and cached with the other input
@@ -328,6 +328,7 @@ def _administrative_labels(result: HarvestResult) -> dict:
     p = result.provenance
     return {
         "source": "cartography", "id": "derived-admin-labels", "kind": "places",
+        "area": True,
         "title": "Administrative districts", "label": "Administrative districts",
         "size": None, "category": None, "features": features,
         "stats": {}, "summary": "",
@@ -763,7 +764,8 @@ def _place(manifest: Manifest, result: HarvestResult) -> str | None:
             code = str(props.get(key) or "").upper()
             if code and code != "-99":
                 by_code.setdefault(code, props)
-    unit_names = {str(u["id"]).upper(): u.get("name") for u in result.rows + result.dropped}
+    unit_names = {str(u["id"]).upper(): u.get("name")
+                  for u in result.rows + result.dropped + list(result.hierarchy)}
 
     names, continents = [], []
     for code in manifest.within:

@@ -243,7 +243,8 @@ def draw(layers: list, places: list, frame, layout: dict, physical: list = ()) -
     labels = Labels(layout, frame)
     blocks: list = []
     order = {"flow": 0, "lines": 1, "points": 2, "places": 3, "temperature": 4}
-    indexed = sorted(enumerate(layers), key=lambda t: (order.get(t[1]["kind"], 9), t[0]))
+    indexed = sorted(enumerate(layers), key=lambda t: (
+        -1 if t[1].get("area") else order.get(t[1]["kind"], 9), t[0]))
     anchors: list[tuple] = []         # pixel points the overlays pass through
     # Placed after every layer's own labels: numbers written beside a flow
     # must not sit on the flow, but town names along it come first.
@@ -269,6 +270,8 @@ def draw(layers: list, places: list, frame, layout: dict, physical: list = ()) -
             body, legend = _lines(layer, frame, anchors, labels)
         elif kind == "flow":
             body, legend = _flow(layer, frame, labels, anchors, deferred, layout)
+        elif kind == "places" and layer.get("area"):
+            body, legend = _area_labels(layer, frame, labels)
         elif kind == "places":
             body, legend = _dataset_places(layer, frame, labels)
         elif kind == "temperature":
@@ -1005,11 +1008,14 @@ def _station_block():
 SETTLEMENT_STYLE = {
     "city": (4.6, "#ffffff", 1.7, 12.0, "700", TEXT),
     "town": (3.0, TEXT, 0.0, 10.0, "600", TEXT),
+    # Ukraine's selyshche (former urban-type settlement): an open circle,
+    # between a city's ring and a village's dot, named in italics.
+    "selyshche": (2.7, "#ffffff", 1.1, 8.5, None, TEXT),
     "suburb": (2.0, "#46525a", 0.0, 8.5, None, MUTED),
     "village": (1.55, "#5d6870", 0.0, 7.5, None, MUTED),
     "hamlet": (1.0, "#98a2a8", 0.0, 0.0, None, MUTED),
 }
-SETTLEMENT_RANK = ("city", "town", "suburb", "village", "hamlet")
+SETTLEMENT_RANK = ("city", "town", "selyshche", "suburb", "village", "hamlet")
 # Villages are tried for a label in order of population, only this many.
 VILLAGE_LABEL_TRIES = 400
 DENSE_POINTS = 100            # more symbols than this and villages go unnamed
@@ -1062,11 +1068,19 @@ def _settlements(layer, frame, labels, anchors):
         r, _, _, size, weight, _ = _settlement_style(f["category"])
         if not labels._try(f["name"], x, y, r + 1.5, size, f' font-weight="{weight}"'):
             labels.callout(f["name"], x, y, r, bold=True)
-    block([t for t in placed if not major(t[0])])
+    # Selyshcha are named in italics, like cities before the villages' dots
+    # fill the page; a name may sit over a village's dot (the halo keeps both
+    # legible) but not over another name.
+    block([t for t in placed if t[0]["category"] == "selyshche"])
+    for f, x, y in (t for t in order if t[0]["category"] == "selyshche"):
+        r, _, _, size, _, _ = _settlement_style("selyshche")
+        if not labels._try(f["name"], x, y, r + 1.5, size, ' font-style="italic"'):
+            labels.callout(f["name"], x, y, r, italic=True)
+    block([t for t in placed if not major(t[0]) and t[0]["category"] != "selyshche"])
     # A page of a thousand villages named is a page of text: past
     # DENSE_POINTS symbols only the cities and towns are named, and the few
     # villages the data ranks (by population) -- none if it ranks none.
-    minor = [t for t in order if not major(t[0])]
+    minor = [t for t in order if not major(t[0]) and t[0]["category"] != "selyshche"]
     tries = VILLAGE_LABEL_TRIES
     if len(placed) > DENSE_POINTS:
         minor = [t for t in minor if t[0].get("population")]
@@ -1091,6 +1105,7 @@ def _settlement_block(category, present):
         out = [_heading(heading, x, y + 11)] if heading else []
         for i, (place, text) in enumerate(rows):
             r, fill, stroke, *_ = _settlement_style(place)
+            r = max(r, 2.2)         # a key must be visible even where the map's dot is a speck
             cy = y + 18 + 16 * i + 6
             ring = f' stroke="{TEXT}" stroke-width="{stroke}"' if stroke else ""
             out.append(f'<circle cx="{_num(x + 6)}" cy="{_num(cy)}" r="{r}" '
@@ -1177,6 +1192,33 @@ def _band_block(layer, width, vmax):
             cy += max(bw, 10) + 6
         return "".join(out)
     return w, h, draw
+
+
+def _area_labels(layer, frame, labels):
+    """District names as quiet letter-spaced capitals at each district's interior
+    point. They are the base of the settlement hierarchy, so they are placed
+    first, may sit under the dots (a dense map has no free ground) and are
+    blocked so that the names which follow keep clear of them."""
+    out = []
+    for f in sorted(layer["features"], key=lambda f: f["id"]):
+        x, y = _xy(frame, f["lon"], f["lat"])
+        if not frame.visible(x, y) or not f.get("name"):
+            continue
+        words = str(f["name"]).upper().split()
+        lines = ([" ".join(words[:-1]), words[-1]] if len(words) > 1 else words)
+        size, spacing = 11.0, 1.4
+        widths = [_text_w(t, size) + spacing * len(t) for t in lines]
+        top = y - (len(lines) - 1) * size * 0.6
+        for i, text in enumerate(lines):
+            labels.out.append(
+                f'<text x="{_num(x)}" y="{_num(top + i * size * 1.2 + size * 0.35)}" '
+                f'font-size="{size:g}" text-anchor="middle" font-weight="600" '
+                f'letter-spacing="{spacing}" fill="#8a8272" {HALO} '
+                f'data-district={quoteattr(str(f["name"]))}>{escape(text)}</text>')
+        w = max(widths)
+        labels.block(x - w / 2, top - size * 0.6, x + w / 2,
+                     top + (len(lines) - 1) * size * 1.2 + size * 0.5)
+    return "", []
 
 
 def _dataset_places(layer, frame, labels):

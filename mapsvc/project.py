@@ -57,9 +57,9 @@ def frame_box(box: Extent) -> Extent:
     # A fixed 0.3 degrees is useful for a lone point, but it more than doubles
     # a city-scale network's frame. Let a non-zero dataset set its own scale;
     # continental routes still reach the same 0.3-degree cap.
-    base = 0.3 if span <= 1e-9 else min(0.3, max(0.02, span * 0.1))
-    dx = (east - west) * 0.08 + base
-    dy = (north - south) * 0.08 + base
+    base = 0.3 if span <= 1e-9 else min(0.3, max(0.02, span * 0.05))
+    dx = (east - west) * 0.04 + base
+    dy = (north - south) * 0.04 + base
     west, east, south, north = west - dx, east + dx, south - dy, north + dy
     ground = (east - west) * math.cos(math.radians((south + north) / 2))
     if north - south < ground / 3:

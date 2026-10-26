@@ -777,7 +777,9 @@ def _settlements(nodes: list, spec: Filter, what: str, where: str,
     excluded = []
     if official and official["missing"]:
         excluded.append({"count": official["missing"],
-                         "reason": "KATOTTH settlements without a matched OSM place node"})
+                         "reason": "KATOTTH settlements without a matched OSM place node"
+                                   + (f" ({', '.join(official['unmatched'][:3])})"
+                                      if official["unmatched"] else "")})
     if official and official["fallback"]:
         excluded.append({"count": official["fallback"],
                          "reason": "OSM place nodes unmatched to KATOTTH (OSM category fallback)"})
@@ -792,7 +794,10 @@ def _settlements(nodes: list, spec: Filter, what: str, where: str,
         "category": {"field": "place", "label": category_label,
                      "ordered": True, "classes": classes},
         "features": features, "stats": stats,
-        "summary": f"{len(features):,} settlements in OpenStreetMap: {breakdown}",
+        "summary": (f"{official['total'] or len(features):,} settlements in Ukraine's "
+                    f"official codifier (KATOTTH) · {len(features):,} drawn at OpenStreetMap "
+                    f"positions: {breakdown}" if official else
+                    f"{len(features):,} settlements in OpenStreetMap: {breakdown}"),
         "encoding": ("One symbol per OSM place node, sized by its place tag; "
                      "cities and towns named, villages only on sparse maps"),
         "excluded": excluded, "provenance": provenance,
@@ -826,15 +831,20 @@ def _apply_katotth(features: list, provenance: dict) -> dict | None:
     # when every tagged node belongs to the same one.
     prefixes = {code[:4] for code in codes}
     official_total = None
+    unmatched = []
     if len(prefixes) == 1:
         prefix = next(iter(prefixes))
         official_total = sum(code.startswith(prefix) for code in catalogue)
+        seen = {str(feature.get("katotth") or "") for feature in features}
+        unmatched = sorted(row["name"] for code, row in catalogue.items()
+                           if code.startswith(prefix) and code not in seen)
     fallback = len(features) - matched
     provenance["attribution"] += f"; settlement categories: {katotth.ATTRIBUTION}"
     provenance["license"] += f"; KATOTTH is an {katotth.LICENSE}"
     provenance["vintage"] += f"; KATOTTH {katotth.VINTAGE}"
     return {"matched": matched, "fallback": fallback,
-            "missing": max(0, (official_total or matched) - matched)}
+            "missing": max(0, (official_total or matched) - matched),
+            "total": official_total, "unmatched": unmatched}
 
 
 # ----------------------------------------------------------------- routes ---
