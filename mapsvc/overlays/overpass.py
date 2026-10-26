@@ -536,14 +536,14 @@ def _ordered_endpoints(deadline: float) -> tuple[list[str], list[str]]:
 # Descriptions for the commonest filters; anything else is described by its
 # tags, which is accurate if plain.
 _NOUNS = {
-    ("railway", "rail"): "railway lines", ("railway", "subway"): "metro lines",
+    ("railway", "rail"): "railway lines", ("railway", "subway"): "subway lines",
     ("railway", "light_rail"): "light-rail lines", ("railway", "tram"): "tram lines",
     ("railway", "station"): "railway stations",
     ("highway", "motorway"): "motorways", ("highway", "trunk"): "trunk roads",
     ("waterway", "river"): "rivers", ("waterway", "canal"): "canals",
     ("power", "line"): "power lines", ("aeroway", "aerodrome"): "airports",
     ("amenity", "hospital"): "hospitals",
-    ("route", "subway"): "metro lines", ("route", "train"): "train routes",
+    ("route", "subway"): "subway lines", ("route", "train"): "train routes",
     ("route", "railway"): "railway lines", ("route", "tram"): "tram routes",
     ("route", "light_rail"): "light-rail lines", ("route", "bus"): "bus routes",
     ("route", "trolleybus"): "trolleybus routes", ("route", "ferry"): "ferry routes",

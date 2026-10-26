@@ -216,7 +216,8 @@ def _framed_on_overlays(manifest: Manifest) -> HarvestResult:
     result.overlays = layers
     result.provenance["overlay_bbox"] = list(box)
     _add_physical_context(manifest, result, box)
-    brings_places = any(layer["kind"] == "places" or layer.get("own_labels")
+    brings_places = any((layer["kind"] == "places" and not layer.get("area"))
+                        or layer.get("own_labels")
                         for layer in layers)
     if box[2] - box[0] <= PLACES_MAX_SPAN and not brings_places:
         result.places = context_places(box, None)
@@ -292,7 +293,12 @@ def _add_overlays(manifest: Manifest, result: HarvestResult) -> None:
             and "KATOTTH" in str((layer.get("category") or {}).get("label") or "")
             for layer in result.overlays)):
         result.overlays.append(_administrative_labels(result))
-    brings_places = any(layer["kind"] == "places" or layer.get("own_labels")
+    elif (4 <= len(result.rows) <= 120 and extent[2] - extent[0] < 2.0
+          and any(layer.get("style") == "routes" for layer in result.overlays)):
+        # City-scale transit: the municipalities beneath it, named quietly.
+        result.overlays.append(_administrative_labels(result, "last"))
+    brings_places = any((layer["kind"] == "places" and not layer.get("area"))
+                        or layer.get("own_labels")
                         for layer in result.overlays)
     if manifest.bbox is None and geometries:
         # Labels for what will be framed: the units near the overlay, not
@@ -313,12 +319,19 @@ def _add_overlays(manifest: Manifest, result: HarvestResult) -> None:
     _add_physical_context(manifest, result, extent)
 
 
-def _administrative_labels(result: HarvestResult) -> dict:
+def _administrative_labels(result: HarvestResult, placed: str = "first") -> dict:
     """Named anchors for the few districts beneath a dense settlement map."""
     features = []
+    areas = {}
+    for row in result.rows:
+        rings = project.outer_rings(row["geometry"])
+        areas[str(row["id"])] = sum(project.planar_area(r) for r in rings) if rings else 0.0
+    ordered = sorted(areas.values())
+    median = ordered[len(ordered) // 2] if ordered else 0.0
     for row in sorted(result.rows, key=lambda item: str(item["id"])):
         rings = project.outer_rings(row["geometry"])
-        if not rings:
+        # A sliver (Tokyo's "unassigned" reclaimed land) is no district to name.
+        if not rings or areas[str(row["id"])] < 0.1 * median:
             continue
         ring = max(rings, key=project.planar_area)
         lon, lat = project.pole_of_inaccessibility(ring, precision=0.01)
@@ -328,7 +341,7 @@ def _administrative_labels(result: HarvestResult) -> dict:
     p = result.provenance
     return {
         "source": "cartography", "id": "derived-admin-labels", "kind": "places",
-        "area": True,
+        "area": placed,
         "title": "Administrative districts", "label": "Administrative districts",
         "size": None, "category": None, "features": features,
         "stats": {}, "summary": "",
@@ -381,6 +394,9 @@ def _add_physical_context(manifest: Manifest, result: HarvestResult,
             for source, _ in manifest.overlays)
             or any(layer.get("theme") == "seismic" for layer in result.overlays)):
         kinds.append("tectonic_plates")
+    if (manifest.basemap_source == "overture" and manifest.bbox is not None
+            and extent[2] - extent[0] < SHORELINE_MAX_SPAN):
+        kinds.append("shoreline")
     for kind in kinds:
         try:
             result.physical.extend(load_physical_context(kind, extent))
@@ -410,6 +426,8 @@ def load_physical_context(kind: str, extent: tuple) -> list:
                 "license": "ODC-By 1.0",
             },
         }]
+    if kind == "shoreline":
+        return _shoreline(extent)
     if kind != "hydrography":
         raise ValueError(f"unknown physical context {kind!r}")
 
@@ -453,6 +471,34 @@ def load_physical_context(kind: str, extent: tuple) -> list:
             },
         },
     ]
+
+
+SHORELINE_MAX_SPAN = 2.5       # degrees: city scale, where division edges are visibly ragged
+
+
+def _shoreline(extent: tuple) -> list:
+    """The sea from OSM's coastline over a city-scale window (see overlays/coast)."""
+    from mapsvc.overlays import coast
+
+    west, south, east, north = extent
+    pad_x, pad_y = (east - west) * 0.05, (north - south) * 0.05
+    box = (round(west - pad_x, 5), round(south - pad_y, 5),
+           round(east + pad_x, 5), round(north + pad_y, 5))
+    rings = coast.sea_rings(coast.fetch_ways(box), box)
+    if not rings:
+        return []
+    return [{
+        "kind": "polygons", "class": "sea",
+        "features": [{"id": "sea", "name": "",
+                      "geometry": {"type": "Polygon",
+                                   "coordinates": [[list(p) for p in ring + ring[:1]]
+                                                   for ring in rings]}}],
+        "provenance": {
+            "name": "OpenStreetMap natural=coastline, closed along the window",
+            "publisher": "© OpenStreetMap contributors",
+            "license": "ODbL 1.0",
+        },
+    }]
 
 
 def _physical_geojson(filename: str) -> dict:

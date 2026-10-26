@@ -231,7 +231,10 @@ def render(manifest: Manifest, result: HarvestResult) -> str:
                           stroke_width=unit_stroke,
                           plain=_visible_area(parts) < MIN_VISIBLE_AREA))
     body.append("</g>")
-    body.append(_hierarchy(result.hierarchy, frame, land))
+    # Parent outlines follow the generalised coast; where a true shoreline is
+    # drawn they would run through the sea beside it.
+    if not any(layer.get("class") == "sea" for layer in result.physical):
+        body.append(_hierarchy(result.hierarchy, frame, land))
     body.append(_physical_context(result.physical, frame))
     if frame.outline is not None:
         body.append(f'<path d="{_d([frame.outline])}" fill="none" '
@@ -846,7 +849,17 @@ def _physical_context(layers: list, frame: Frame) -> str:
                 parts = _project(feature["geometry"], frame)
                 paths.append(_d([ring for part in parts for ring in part]))
             d = "".join(paths)
-            if d:
+            if d and css_class == "sea":
+                # Over the land and its borders: a water-coloured edge hides
+                # the coarser outline running along the shore, then a thin
+                # shoreline is drawn on the true coast.
+                out.append(f'<path d="{d}" class="sea" fill="{colors.WATER}" '
+                           f'stroke="{colors.WATER}" stroke-width="3" '
+                           'stroke-linejoin="round" fill-rule="evenodd"/>')
+                out.append(f'<path d="{d}" class="shore" fill="none" '
+                           f'stroke="{colors.LAKE_STROKE}" stroke-width="0.6" '
+                           'stroke-linejoin="round" fill-rule="evenodd"/>')
+            elif d:
                 out.append(f'<path d="{d}" class="{escape(css_class)}" '
                            f'fill="{colors.LAKE_FILL}" stroke="{colors.LAKE_STROKE}" '
                            'stroke-width="0.45" fill-rule="evenodd"/>')

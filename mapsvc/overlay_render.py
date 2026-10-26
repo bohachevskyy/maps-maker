@@ -140,7 +140,7 @@ def overlay_extent(layers: list) -> tuple | None:
                     coords = active or coords
                 lons.extend(c[0] for c in coords)
                 lats.extend(c[1] for c in coords)
-        elif layer["kind"] in ("points", "places", "flow"):
+        elif layer["kind"] in ("points", "places", "flow") and not layer.get("area"):
             lons.extend(f["lon"] for f in layer["features"])
             lats.extend(f["lat"] for f in layer["features"])
     if not lons or max(lons) - min(lons) > 180.0:
@@ -182,7 +182,7 @@ def centre_lon(layers: list, geometries: list = ()) -> float | None:
     """
     lons = []
     for layer in layers or []:
-        if layer["kind"] in ("points", "places"):
+        if layer["kind"] in ("points", "places") and not layer.get("area"):
             lons.extend(f["lon"] for f in layer["features"])
         elif layer["kind"] == "lines":
             lons.extend(f["coords"][0][0] for f in layer["features"] if f["coords"])
@@ -243,8 +243,11 @@ def draw(layers: list, places: list, frame, layout: dict, physical: list = ()) -
     labels = Labels(layout, frame)
     blocks: list = []
     order = {"flow": 0, "lines": 1, "points": 2, "places": 3, "temperature": 4}
+    # District names go under a dense dot map (first) or around transit
+    # labels (last), by what the layer says.
     indexed = sorted(enumerate(layers), key=lambda t: (
-        -1 if t[1].get("area") else order.get(t[1]["kind"], 9), t[0]))
+        -1 if t[1].get("area") == "first" else 8 if t[1].get("area")
+        else order.get(t[1]["kind"], 9), t[0]))
     anchors: list[tuple] = []         # pixel points the overlays pass through
     # Placed after every layer's own labels: numbers written beside a flow
     # must not sit on the flow, but town names along it come first.
@@ -788,6 +791,59 @@ def _lines(layer, frame, anchors, labels=None):
     return "".join(out), legend
 
 
+def _operator_groups(category, present) -> list:
+    """[(operator, [(class, short name, km)])] when the lines belong to several
+    networks, else []. A network is named by the words its lines' names share
+    ("Tokyo Metro", "Toei"); each line then needs only its own name."""
+    classes = [c for c in category["classes"] if c["value"] in present]
+    networks: dict = {}
+    for c in classes:
+        networks.setdefault(c.get("network") or "", []).append(c)
+    if len(networks) < 2 or "" in networks:
+        return []
+    groups = []
+    for network, members in networks.items():
+        words = [c["label"].split() for c in members]
+        shared = 0
+        while (len(members) > 1 and all(len(w) > shared + 1 for w in words)
+               and len({w[shared] for w in words}) == 1):
+            shared += 1
+        heading = " ".join(words[0][:shared]) or network
+        groups.append((heading, [(c, " ".join(w[shared:]) or c["label"], c.get("km"))
+                                 for c, w in zip(members, words)]))
+    return groups
+
+
+def _operator_block(category, colours, groups):
+    """Lines under their operator, each with its length: a column per operator."""
+    heading = category.get("label") or ""
+    name_w = max(_text_w(n, 10) for _, rows in groups for _, n, _ in rows)
+    col_w = 28 + name_w + 46
+    rows_max = max(len(rows) for _, rows in groups)
+    w = max(_text_w(heading, 11.5), col_w * len(groups) + 22 * (len(groups) - 1))
+    h = 18 + 18 + 16 * rows_max
+
+    def draw(x0, y):
+        out = [_heading(heading, x0, y + 11)] if heading else []
+        for g, (operator, rows) in enumerate(groups):
+            x = x0 + g * (col_w + 22)
+            out.append(f'<text x="{_num(x)}" y="{_num(y + 30)}" font-size="10" '
+                       f'font-weight="600" fill="{MUTED}">{escape(operator)}</text>')
+            for i, (c, name, km) in enumerate(rows):
+                cy = y + 36 + 16 * i + 6
+                out.append(f'<line x1="{_num(x)}" y1="{_num(cy)}" x2="{_num(x + 20)}" '
+                           f'y2="{_num(cy)}" stroke="{colours.get(c["value"], ORDERED[0])}" '
+                           f'stroke-width="{LINE_W + 0.6}" stroke-linecap="round"/>')
+                out.append(f'<text x="{_num(x + 28)}" y="{_num(cy + 3.5)}" font-size="10" '
+                           f'fill="{TEXT}">{escape(name)}</text>')
+                if km is not None:
+                    out.append(f'<text x="{_num(x + col_w)}" y="{_num(cy + 3.5)}" '
+                               f'font-size="10" text-anchor="end" fill="{MUTED}">'
+                               f'{km:.1f} km</text>')
+        return "".join(out)
+    return w, h, draw
+
+
 def _facts_block(heading: str, facts: list):
     """A small table of numbers: [(label, value), ...]."""
     w = max([_text_w(heading, 11.5)] + [_text_w(a, 10) + _text_w(b, 10) + 24
@@ -889,8 +945,11 @@ def _routes(layer, frame, labels, anchors, places=()):
         extra = ' font-weight="600"' if bold else ""
         # A station's name may cross another line, halo first, as on any
         # transit map; it may not cover another name or a station.
-        if labels.place(st["name"], x, y, bold=bold) or _place_over_lines(
-                labels, st["name"], x, y, 4.0, LABEL_SIZE, extra):
+        # Only a major hub's name may cross another line (halo first, as on
+        # any transit map); the rest take free ground or a leader, or go
+        # unnamed rather than sit on a stroke.
+        if labels.place(st["name"], x, y, bold=bold) or (bold and _place_over_lines(
+                labels, st["name"], x, y, 4.0, LABEL_SIZE, extra)):
             named += 1
         elif named_hubs < HUB_CALLOUTS and labels.callout_lines(
                 [(st["name"], True)], x, y, 3.0,
@@ -899,9 +958,9 @@ def _routes(layer, frame, labels, anchors, places=()):
         named_hubs += 1
 
     present = {v for v, d in paths.items() if d}
-    legend = [_swatch_block(layer["category"], colours, present, "line")]
-    if layer.get("facts"):
-        legend.append(_facts_block(layer.get("facts_label") or "", layer["facts"]))
+    grouped = _operator_groups(layer["category"], present)
+    legend = [_operator_block(layer["category"], colours, grouped) if grouped
+              else _swatch_block(layer["category"], colours, present, "line")]
     if stations and any(standing[st["name"]] >= INTERCHANGE_STANDING for st, _, _ in stations):
         legend.append(_station_block())
     return "".join(out), legend
@@ -1196,28 +1255,33 @@ def _band_block(layer, width, vmax):
 
 def _area_labels(layer, frame, labels):
     """District names as quiet letter-spaced capitals at each district's interior
-    point. They are the base of the settlement hierarchy, so they are placed
-    first, may sit under the dots (a dense map has no free ground) and are
-    blocked so that the names which follow keep clear of them."""
-    out = []
+    point. Under a dense dot map they come first, may sit under the dots (there
+    is no free ground) and are blocked so later names keep clear of them; around
+    transit labels they come last and are dropped where they would collide."""
+    first = layer.get("area") == "first"
+    many = len(layer["features"]) > 12
+    size, spacing = (8.0, 0.8) if many else (11.0, 1.4)
     for f in sorted(layer["features"], key=lambda f: f["id"]):
         x, y = _xy(frame, f["lon"], f["lat"])
         if not frame.visible(x, y) or not f.get("name"):
             continue
         words = str(f["name"]).upper().split()
-        lines = ([" ".join(words[:-1]), words[-1]] if len(words) > 1 else words)
-        size, spacing = 11.0, 1.4
-        widths = [_text_w(t, size) + spacing * len(t) for t in lines]
+        lines = ([" ".join(words[:-1]), words[-1]]
+                 if len(words) > 1 and not many else [" ".join(words)])
+        widths = [(0.72 * size + spacing) * len(t) for t in lines]
         top = y - (len(lines) - 1) * size * 0.6
+        w = max(widths)
+        box = (x - w / 2, top - size * 0.6, x + w / 2,
+               top + (len(lines) - 1) * size * 1.2 + size * 0.5)
+        if not first and not labels.fits(box):
+            continue
         for i, text in enumerate(lines):
             labels.out.append(
                 f'<text x="{_num(x)}" y="{_num(top + i * size * 1.2 + size * 0.35)}" '
                 f'font-size="{size:g}" text-anchor="middle" font-weight="600" '
                 f'letter-spacing="{spacing}" fill="#8a8272" {HALO} '
                 f'data-district={quoteattr(str(f["name"]))}>{escape(text)}</text>')
-        w = max(widths)
-        labels.block(x - w / 2, top - size * 0.6, x + w / 2,
-                     top + (len(lines) - 1) * size * 1.2 + size * 0.5)
+        labels.block(*box)
     return "", []
 
 
