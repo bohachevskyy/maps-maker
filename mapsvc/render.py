@@ -125,6 +125,7 @@ class Frame:
         self.map_h = int(min(MAP_H_MAX, max(MAP_H_MIN, round(ideal))))
         if min_height is not None:
             self.map_h = min(MAP_H_MAX, max(self.map_h, min_height))
+        self.core_h = self.map_h     # the map proper; insets below it add to map_h
         local = project.fit(bounds, MAP_W, self.map_h, margin)
         self.transform = lambda x, y: _shift(local(x, y))
         self.outline = (None if outline is None
@@ -142,6 +143,11 @@ class Frame:
     @property
     def bottom(self) -> float:
         return MAP_TOP + self.map_h
+
+    @property
+    def core_bottom(self) -> float:
+        """Where the map proper ends: an inset band below it is not map."""
+        return MAP_TOP + self.core_h
 
     def visible(self, x: float, y: float) -> bool:
         if not (PAD <= x <= PAD + MAP_W and MAP_TOP <= y <= self.bottom):
@@ -2707,7 +2713,8 @@ def _context_labels(result, rows, frame, encoding, manifest, placer, land) -> tu
     seas = _sea_labels(result.names, frame, placer, water, out)
     if seas:
         credits.append(f"Sea names: {result.provenance.get('names_source') or 'Natural Earth'}.")
-    reach = max((box[3] for box, _ in land), default=frame.bottom) + 60.0
+    reach = min(max((box[3] for box, _ in land), default=frame.bottom) + 60.0,
+                frame.core_bottom)
     _country_labels(result, rows, frame, encoding, manifest, placer, mapped, out, reach)
     aliases: dict = {}
     for layer in result.overlays:
@@ -2751,7 +2758,8 @@ def _sea_labels(names, frame, placer, water, out) -> int:
                     (box[0], box[1]), (box[2], box[1]), (box[0], box[3]),
                     (box[2], box[3]), (cx, cy))):
                 continue
-            if not (placer.fits(box) and water.free(box, pad=4.0)):
+            if box[3] > frame.core_bottom or not (
+                    placer.fits(box) and water.free(box, pad=4.0)):
                 continue
             placer.block(*box)
             spans = []
@@ -3305,7 +3313,12 @@ def _band(encoding: Encoding, has_missing: bool):
     # Graded: a continuous strip of swatches with each break written under the
     # edge it marks -- the conventional classed-choropleth legend.
     k = scheme.k
-    cell = min(84.0, (MAP_W - 160) / k)
+    # The keys after the strip (no data, uninhabited ...) must stay on the
+    # page: a long label, or many classes, narrows the strip rather than
+    # running its last key off the edge.
+    keys_w = sum(38 + _text_w(label, 10.5) + 22
+                 for _, label in _plain_keys(encoding, has_missing))
+    cell = min(84.0, (MAP_W - 160) / k, max(34.0, (MAP_W - 28 - keys_w + 22) / k))
     if scheme.scheme == "quantile":
         edges = [classify.format_value(b) for b in scheme.breaks]
     else:
@@ -3376,12 +3389,17 @@ def _ranked_table(every_row: list, rows: list, encoding: Encoding):
     by_id = {str(r["id"]): r for r in rows}
     names = _label_names(rows)
     columns = []
-    for title, picked in (("Highest", valued[::-1][:n]), ("Lowest", valued[:n])):
+    top, bottom = ("Highest", "Lowest")
+    if encoding.end_captions:
+        # A margin or a change reads from one end to the other: name the ends.
+        bottom, top = encoding.end_captions[0], encoding.end_captions[1]
+    for title, picked in ((top, valued[::-1][:n]), (bottom, valued[:n])):
         items = [(names.get(gid, _short_name(by_id[gid])), _value_text(by_id[gid]["value"], encoding))
                  for _, gid in picked]
         left = max(_text_w(name, 10.5) for name, _ in items)
         right = max(_text_w(value, 10.5) for _, value in items)
-        columns.append((title, items, max(96.0, left + 14.0 + right)))
+        columns.append((title, items, max(96.0, left + 14.0 + right,
+                                          _text_w(title, 11) * 1.08)))
     gap = 26.0
     w = sum(c[2] for c in columns) + gap
     h = 16.0 + n * TABLE_PITCH + 4.0
@@ -3624,7 +3642,8 @@ def _footer(manifest, frame: Frame, encoding: Encoding, result, top: float,
     p = result.provenance
 
     scale = p.get("scale") or registry.scale_for(manifest.level)
-    vintage = _without_idle_notes(p.get("vintage") or registry.SOURCE_VINTAGE, result)
+    vintage = _without_idle_notes(p.get("vintage") or registry.SOURCE_VINTAGE, result,
+                                 manifest.variable_id is not None)
     source = f"{_boundary_credit(p)}, {vintage}, {scale}"
     context_source = p.get("context_source")
     if (context_source and result.context
@@ -3696,14 +3715,15 @@ def _footer(manifest, frame: Frame, encoding: Encoding, result, top: float,
 _SAHARA = "Western Sahara shown as a non-self-governing territory (UN)"
 
 
-def _without_idle_notes(vintage: str, result) -> str:
+def _without_idle_notes(vintage: str, result, variable: bool = True) -> str:
     """The boundary note about Western Sahara says something only on a map
-    that draws Western Sahara or Morocco; on one of Europe it is noise."""
+    that colours Morocco or Western Sahara with a variable; on a map of
+    quakes, of Europe, or with them as grey context, it is noise."""
     if _SAHARA not in vintage:
         return vintage
     ids = {str(item.get("id") or "").upper()
-           for item in list(result.rows) + list(result.dropped) + list(result.context)}
-    if ids & {"ESH", "SAH", "MAR"}:
+           for item in list(result.rows) + list(result.dropped)}
+    if variable and ids & {"ESH", "SAH", "MAR"}:
         return vintage
     return "; ".join(part for part in vintage.split("; ") if part != _SAHARA)
 
