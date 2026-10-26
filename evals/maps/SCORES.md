@@ -184,3 +184,13 @@ Crimea drawn as Ukraine (UN GA 68/262); callouts capped at 70 px with ranked sid
 | volyn_settlements | 3 | 4 |
 
 Set 1 4.20, set 2 3.91, overall 4.05; lowest 3. Auto checks 21/21 (Trans-Siberian after a runner fix). Stability over --repeat 3: pending.
+
+## Stability, round-8 code x 3 repeats (2026-10-26)
+59/63 runs passed the automatic checks; 12 maps byte-identical to round 8 in all 3 runs.
+Runs whose SVG matched round 8 inherit its score; the 13 that differed were critiqued.
+Mean over the 61 runs that produced a map: 4.02, none below 3 (two 3s: tokyo, one us_election run).
+Two runs produced no map: germany run-02 (agent refused without searching -> fixed: a first
+refusal is now challenged with real search hits) and tokyo run-03 (Overpass outage, upstream;
+reported as 503). Counting both as 1: 3.92 over 63.
+Variance came from look-only agent choices (bbox beside within, overture vs census for US states,
+admin_0 vs admin_1 under an overlay) -- being made derived (fix/determinism).
