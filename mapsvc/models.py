@@ -47,6 +47,9 @@ class HarvestResult:
     # Coarser administrative outlines drawn over the mapped units. Harvest
     # fetches these because render is deliberately I/O-free.
     hierarchy: list = field(default_factory=list)
+    # The manifest as harvest drew it: bbox dropped, basemap or level derived.
+    # None when harvest was bypassed; render then uses the manifest it was given.
+    effective: object = None
 
 
 @dataclass(frozen=True)

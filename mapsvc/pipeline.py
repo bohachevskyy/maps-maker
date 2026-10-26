@@ -13,7 +13,9 @@ from mapsvc.render import render
 def draw(manifest: Manifest) -> str:
     """Harvest the data for a validated manifest and render it."""
     result = harvest(manifest)
-    if result.provenance.get("bbox_dropped"):
+    if result.effective is not None:
+        manifest = result.effective
+    elif result.provenance.get("bbox_dropped"):
         manifest = dataclasses.replace(manifest, bbox=None)
     return render(manifest, result)
 

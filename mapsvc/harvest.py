@@ -156,10 +156,21 @@ def cache_key(manifest: Manifest) -> str:
 
 
 def harvest(manifest: Manifest) -> HarvestResult:
+    manifest, notes = derive_manifest(manifest)
     if manifest.overlays and manifest.bbox is None and not manifest.within:
-        return _framed_on_overlays(manifest)
+        return _finish(_framed_on_overlays(manifest), manifest, notes)
+    if _bbox_may_be_redundant_for_overlays(manifest):
+        layers = _load_overlay_layers(manifest.overlays, overlays.Window(
+            bbox=manifest.bbox, within=None, extent=tuple(manifest.bbox)))
+        if _bbox_swamps_overlays(manifest.bbox, layers):
+            unframed = dataclasses.replace(manifest, bbox=None)
+            return _finish(_framed_on_overlays(unframed, layers), unframed, notes)
     effective, boundaries, dropped_bbox = _effective_window(
         _overlay_context_manifest(manifest))
+    if effective.bbox is None:
+        effective, boundaries, level_note = _interior_context_level(
+            effective, boundaries)
+        notes = notes + level_note
     result = (_base(effective) if boundaries is None
               else _base(effective, boundaries))
     if dropped_bbox is not None:
@@ -167,7 +178,60 @@ def harvest(manifest: Manifest) -> HarvestResult:
     _state_derived_basemap_rule(effective, result)
     if effective.overlays:
         _add_overlays(effective, result)
+    return _finish(result, effective, notes)
+
+
+def _finish(result: HarvestResult, effective: Manifest, notes) -> HarvestResult:
+    """Hand render the manifest as harvest actually drew it, and say what changed."""
+    result.effective = effective
+    if notes:
+        result.provenance["derived"] = list(notes)
     return result
+
+
+def derive_manifest(manifest: Manifest) -> tuple:
+    """Choices that change only how a map looks, made the same way every time.
+
+    The agent's wording of a request must not pick between two renderings of it.
+    Offline; returns (manifest, notes) and the notes go to provenance.
+    """
+    notes = []
+    if (manifest.basemap_source != "census" and manifest.within
+            and manifest.level in cartography.levels("census")
+            and all(code == "USA" or code.startswith("US-") for code in manifest.within)
+            and _census_joins(manifest)):
+        notes.append(f"basemap {manifest.basemap_source} replaced by census: "
+                     "public-domain US boundaries with lakes cut out")
+        manifest = dataclasses.replace(manifest, basemap_source="census")
+    return manifest, tuple(notes)
+
+
+def _census_joins(manifest: Manifest) -> bool:
+    """Census must carry the key every statistic in the manifest is joined on."""
+    from mapsvc import statistics
+
+    carried = cartography.keys("census", manifest.level)
+    sources = [manifest.variable_source] if manifest.variable_id else []
+    if manifest.per:
+        sources.append(manifest.per[0])
+    return all(statistics.key_at(source, manifest.level) in carried
+               for source in sources)
+
+
+def _interior_context_level(manifest: Manifest, boundaries):
+    """A single-country overlay map draws that country's interior lines.
+
+    admin_0 under an overlay is one flat polygon; admin_1 is the same land with
+    muted internal lines. Whichever the agent named, the map gets the latter.
+    """
+    if (manifest.variable_id is None and manifest.overlays and manifest.within
+            and len(manifest.within) == 1 and "-" not in manifest.within[0]
+            and manifest.level == "admin_0"
+            and "admin_1" in cartography.levels(manifest.basemap_source)):
+        note = ("level admin_0 replaced by admin_1: interior lines drawn as "
+                "muted context under the overlay")
+        return dataclasses.replace(manifest, level="admin_1"), None, (note,)
+    return manifest, boundaries, ()
 
 
 def _overlay_context_manifest(manifest: Manifest) -> Manifest:
@@ -196,19 +260,40 @@ def _state_derived_basemap_rule(manifest: Manifest, result: HarvestResult) -> No
             result.provenance["vintage"] = f"{vintage}; {note}".lstrip("; ")
 
 
-def _framed_on_overlays(manifest: Manifest) -> HarvestResult:
+def _bbox_may_be_redundant_for_overlays(manifest: Manifest) -> bool:
+    return bool(manifest.overlays and manifest.bbox is not None
+                and not manifest.within and manifest.variable_id is None)
+
+
+def _bbox_swamps_overlays(bbox: tuple, layers: list) -> bool:
+    """True when the bbox clips no overlay feature and is over 4x their frame."""
+    from mapsvc import overlay_render
+
+    extent = overlay_render.overlay_extent(layers)
+    if extent is None:
+        return False
+    west, south, east, north = bbox
+    if not (west <= extent[0] and south <= extent[1]
+            and east >= extent[2] and north >= extent[3]):
+        return False
+    return _bbox_area(bbox) > 4 * _bbox_area(project.frame_box(extent))
+
+
+def _framed_on_overlays(manifest: Manifest, layers=None) -> HarvestResult:
     """No window given: fetch the overlays first and frame the map on them.
 
     The agent cannot see a dataset's extent before it is fetched; asked to
     guess a window for Minard's army it once started it in Paris. The data
-    knows where it is.
+    knows where it is. `layers` are overlays already fetched under a bbox that
+    turned out to be redundant; the frame then comes from them, not the bbox.
     """
     import dataclasses
 
     from mapsvc import overlay_render
 
-    world = overlays.Window(bbox=None, within=None, extent=WORLD_EXTENT)
-    layers = _load_overlay_layers(manifest.overlays, world)
+    if layers is None:
+        world = overlays.Window(bbox=None, within=None, extent=WORLD_EXTENT)
+        layers = _load_overlay_layers(manifest.overlays, world)
     box = overlay_render.overlay_extent(layers)
     box = WORLD_EXTENT if box is None else project.frame_box(box)
     result = _base(dataclasses.replace(manifest, bbox=box))
@@ -938,7 +1023,15 @@ def _effective_window(manifest: Manifest):
     extent = project.extent_of([unit["geometry"] for unit in boundaries.units])
     selected_area = _bbox_area(extent)
     requested_area = _bbox_area(manifest.bbox)
-    if selected_area <= 0 or requested_area <= 4 * selected_area:
+    if selected_area <= 0:
+        return manifest, boundaries, None
+    # A bbox that holds every selected unit whole only adds or trims empty
+    # frame; the units frame the map. The 0.05 degrees forgive a coastline
+    # drawn a hair outside a hand-rounded box.
+    contains = (manifest.bbox[0] <= extent[0] + 0.05 and manifest.bbox[1] <= extent[1] + 0.05
+                and manifest.bbox[2] >= extent[2] - 0.05
+                and manifest.bbox[3] >= extent[3] - 0.05)
+    if not contains and requested_area <= 4 * selected_area:
         return manifest, boundaries, None
 
     ratio = requested_area / selected_area
@@ -946,8 +1039,9 @@ def _effective_window(manifest: Manifest):
         "bbox": list(manifest.bbox),
         "within_extent": [round(float(v), 6) for v in extent],
         "area_ratio": round(ratio, 3),
-        "reason": ("bbox clips no selected unit and its area is more than 4× "
-                   "the within units' extent"),
+        "reason": ("bbox clips no selected unit and " + (
+            "holds the within units' whole extent" if contains
+            else "its area is more than 4× the within units' extent")),
     }
     return dataclasses.replace(manifest, bbox=None), boundaries, note
 
