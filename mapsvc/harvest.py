@@ -36,7 +36,7 @@ NO_DATA = {-99, "-99", "", None}
 # Bump when the shape of a cached HarvestResult changes -- new provenance keys,
 # a different join, altered drop reasons. Without it a code change silently
 # keeps serving rows written in the old format.
-CACHE_VERSION = 25
+CACHE_VERSION = 26
 
 # Physical context is derived from the overlay and its window, never requested
 # in the manifest. These files are fetched here and cached with the other input
@@ -103,11 +103,10 @@ def load_source(level: str = "admin_0") -> dict:
         temporary.write_bytes(payload)
         temporary.replace(path)
     data = json.loads(path.read_text())
-    if level == "admin_0":
-        # Late import avoids harvest <-> cartography's provider import cycle.
-        from mapsvc.cartography.natural_earth import _western_sahara
+    # Late import avoids harvest <-> cartography's provider import cycle.
+    from mapsvc.cartography.natural_earth import recognised_borders
 
-        data["features"] = _western_sahara(data.get("features", []))
+    data["features"] = recognised_borders(data.get("features", []), level)
     return data
 
 

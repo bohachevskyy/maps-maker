@@ -117,3 +117,27 @@ def test_within_accepts_iso3_where_adm0_a3_differs():
     assert ne._belongs(sudan, {"SSD"}, "admin_0")
     assert ne._belongs(sudan, {"SDS"}, "admin_0")
     assert ne._belongs(sahara, {"ESH"}, "admin_0")
+
+
+def test_crimea_moves_from_russia_to_ukraine():
+    from mapsvc.cartography import natural_earth as ne
+
+    square = lambda x, y: [[[x, y], [x + 1, y], [x + 1, y + 1], [x, y + 1], [x, y]]]
+    russia = {"properties": {"ADM0_A3": "RUS"},
+              "geometry": {"type": "MultiPolygon",
+                           "coordinates": [square(40, 55), square(33.5, 44.7)]}}
+    ukraine = {"properties": {"ADM0_A3": "UKR"},
+               "geometry": {"type": "Polygon", "coordinates": square(30, 49)}}
+    fixed = {f["properties"]["ADM0_A3"]: f for f in ne._crimea_admin0([russia, ukraine])}
+    assert fixed["RUS"]["geometry"]["coordinates"] == [square(40, 55)]
+    assert square(33.5, 44.7) in fixed["UKR"]["geometry"]["coordinates"]
+
+
+def test_crimea_admin1_units_belong_to_ukraine():
+    from mapsvc.cartography import natural_earth as ne
+
+    unit = {"properties": {"iso_3166_2": "UA-43", "adm0_a3": "RUS", "admin": "Russia"}}
+    other = {"properties": {"iso_3166_2": "RU-MOW", "adm0_a3": "RUS"}}
+    fixed = ne._crimea_admin1([unit, other])
+    assert fixed[0]["properties"]["adm0_a3"] == "UKR"
+    assert fixed[1]["properties"]["adm0_a3"] == "RUS"

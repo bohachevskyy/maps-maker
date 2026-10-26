@@ -77,6 +77,11 @@ evals/           prompts and the manifests they should produce. Costs money.
   travel with the data: Overture is ODbL, OWID is CC BY 4.0, and both must be
   credited when used.
 - **Missing values are never the bottom bin.** They are hatched.
+- **Borders are the internationally recognised ones, not de facto control.**
+  Ukraine is drawn in its 1991 borders (Crimea and Sevastopol are Ukraine, UN GA
+  68/262); Western Sahara is a non-self-governing territory. Natural Earth's
+  default edition gets both wrong, so `natural_earth.recognised_borders()`
+  corrects every NE load. Overture is already right. The footnote says so.
 - **Nothing about rendering is in the manifest.** Ramp, classification,
   projection and missing-value handling are derived. That is deliberate: it
   makes "nominal variable with a sequential ramp" unrepresentable rather than

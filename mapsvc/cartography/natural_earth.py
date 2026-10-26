@@ -20,6 +20,14 @@ KEYS = {"admin_0": ("ISO3",), "admin_1": ("ISO3166_2",)}
 FULL_CIRCLE = 360.0
 WESTERN_SAHARA_BORDER = 27 + 40 / 60
 WESTERN_SAHARA_NOTE = "Western Sahara shown as a non-self-governing territory (UN)"
+# Natural Earth's default edition draws de facto control, so Crimea and
+# Sevastopol sit inside Russia: measured 2026-10-25, Simferopol, Sevastopol and
+# Kerch all fall in the RUS polygon, and admin_1 files UA-43/UA-40 under RUS.
+# This service draws internationally recognised borders (UN GA 68/262), which
+# is what Overture already does.
+CRIMEA_BOX = (32.0, 44.0, 36.8, 46.3)       # lon/lat window of the peninsula
+CRIMEA_UNITS = {"UA-43", "UA-40"}
+CRIMEA_NOTE = "Crimea shown as part of Ukraine (UN General Assembly resolution 68/262)"
 EARTH_RADIUS_KM = 6371.0088
 
 
@@ -78,6 +86,68 @@ def _clip_geometry(geometry: dict, latitude: float, *, below: bool) -> dict:
                  if (clipped := _clip_ring(ring, latitude, below=below))]
         polygons.append([outer, *holes])
     return {"type": "MultiPolygon", "coordinates": polygons}
+
+
+def recognised_borders(features: list, level: str) -> list:
+    """Every correction that turns Natural Earth's de facto lines into
+    internationally recognised ones. The one place NE features are fixed."""
+    if level == "admin_0":
+        return _crimea_admin0(_western_sahara(features))
+    if level == "admin_1":
+        return _crimea_admin1(features)
+    return features
+
+
+def _crimea_admin0(features: list) -> list:
+    """Move Russia's rings on the Crimean peninsula into Ukraine.
+
+    Crimea is its own ring in NE's RUS MultiPolygon (the Kerch Strait parts it
+    from the mainland), so whole rings move; no clipping is needed.
+    """
+    russia = next((f for f in features
+                   if f.get("properties", {}).get("ADM0_A3") == "RUS"), None)
+    ukraine = next((f for f in features
+                    if f.get("properties", {}).get("ADM0_A3") == "UKR"), None)
+    if russia is None or ukraine is None:
+        return features
+    west, south, east, north = CRIMEA_BOX
+
+    def on_peninsula(polygon) -> bool:
+        ring = polygon[0]
+        lon = sum(c[0] for c in ring) / len(ring)
+        lat = sum(c[1] for c in ring) / len(ring)
+        return west < lon < east and south < lat < north
+
+    polygons = _polygons(russia["geometry"])
+    moved = [p for p in polygons if on_peninsula(p)]
+    if not moved:
+        return features
+    kept = [p for p in polygons if not on_peninsula(p)]
+    corrected = []
+    for feature in features:
+        if feature is russia:
+            corrected.append({**feature, "geometry": {"type": "MultiPolygon",
+                                                      "coordinates": kept}})
+        elif feature is ukraine:
+            corrected.append({**feature, "geometry": {
+                "type": "MultiPolygon",
+                "coordinates": [*_polygons(ukraine["geometry"]), *moved]}})
+        else:
+            corrected.append(feature)
+    return corrected
+
+
+def _crimea_admin1(features: list) -> list:
+    """UA-43 and UA-40 carry Ukrainian codes but Russia as their country."""
+    corrected = []
+    for feature in features:
+        props = feature.get("properties", {})
+        if props.get("iso_3166_2") in CRIMEA_UNITS and props.get("adm0_a3") != "UKR":
+            props = {**props, "adm0_a3": "UKR", "admin": "Ukraine",
+                     "iso_a2": "UA", "geonunit": "Ukraine", "gu_a3": "UKR"}
+            feature = {**feature, "properties": props}
+        corrected.append(feature)
+    return corrected
 
 
 def _western_sahara(features: list) -> list:
@@ -279,10 +349,12 @@ def load(level: str, bbox, detail: str = "simplified",
         "license": "public domain",
         "attribution": "Natural Earth",
         "release": registry.SOURCE_VINTAGE,
-        "note": (WESTERN_SAHARA_NOTE
-                 if level == "admin_0" and any(
-                     unit.get("key") in {"MAR", "ESH"} for unit in units)
-                 else None),
+        "note": "; ".join(note for note, applies in (
+            (WESTERN_SAHARA_NOTE, level == "admin_0" and any(
+                unit.get("key") in {"MAR", "ESH"} for unit in units)),
+            (CRIMEA_NOTE, any(
+                unit.get("key") in {"UKR", "RUS"} | CRIMEA_UNITS for unit in units)),
+        ) if applies) or None,
         "level": level,
         "detail": detail,
         "scale": f"1:{registry.scale_for(level)}",
