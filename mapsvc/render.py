@@ -282,7 +282,8 @@ def render(manifest: Manifest, result: HarvestResult) -> str:
             placer = _placer(frame, encoding)
             labels_svg, unlabelled = _feature_labels(
                 rows, insets, drawn_missing, frame, encoding, land, placer,
-                len(every_row), bool(p.get("change")), lambda: _placer(frame, encoding))
+                len(every_row), bool(p.get("change")), lambda: _placer(frame, encoding),
+                _enclave_ids(rows))
             table = _ranked_table(every_row, rows + [r for i in insets for r in i.rows],
                                   encoding) if unlabelled else None
             if table is not None:
@@ -301,7 +302,7 @@ def render(manifest: Manifest, result: HarvestResult) -> str:
                     labels_svg, unlabelled = _feature_labels(
                         rows, insets, drawn_missing, frame, encoding, land, placer,
                         len(every_row), bool(p.get("change")),
-                        lambda: _placer(frame, encoding))
+                        lambda: _placer(frame, encoding), _enclave_ids(rows))
                 else:
                     table_svg = draw(PAD, frame.bottom + legend_band + 12, False)
                     legend_band += h - 20 + 12 + 6
@@ -1429,6 +1430,31 @@ def _overlaps(a, b) -> bool:
 
 # -------------------------------------------------------------- enclaves ---
 
+def _enclave_ids(rows: list) -> set:
+    """Ids of the units that sit in a hole of another unit (Kyiv city)."""
+    holes = []
+    for row in rows:
+        for part in _parts(row["geometry"]):
+            for hole in part[1:]:
+                if len(hole) >= 4:
+                    holes.append((_lonlat_box(hole), hole, row["id"]))
+    found = set()
+    if not holes:
+        return found
+    for row in rows:
+        rings = [part[0] for part in _parts(row["geometry"]) if len(part[0]) >= 4]
+        if not rings:
+            continue
+        ring = max(rings, key=project.planar_area)
+        box = _lonlat_box(ring)
+        lon, lat = ring[0]
+        if any(owner != row["id"] and _box_within(box, hbox)
+               and project.point_in_ring(lon, lat, hole)
+               for hbox, hole, owner in holes):
+            found.add(row["id"])
+    return found
+
+
 def _enclaves(rows: list, frame: Frame, encoding: Encoding, named: bool = True) -> str:
     """Outline and name units that sit in a hole of another unit.
 
@@ -1438,26 +1464,12 @@ def _enclaves(rows: list, frame: Frame, encoding: Encoding, named: bool = True) 
     name. Only true enclaves qualify -- a unit inside another's hole -- so a
     small unit on a coast or a border is left alone.
     """
-    holes = []
-    for row in rows:
-        for part in _parts(row["geometry"]):
-            for hole in part[1:]:
-                if len(hole) >= 4:
-                    holes.append((_lonlat_box(hole), hole, row["id"]))
-    if not holes:
+    inside_ids = _enclave_ids(rows)
+    if not inside_ids:
         return ""
     out = []
     for row in rows:
-        rings = [part[0] for part in _parts(row["geometry"]) if len(part[0]) >= 4]
-        if not rings:
-            continue
-        ring = max(rings, key=project.planar_area)
-        box = _lonlat_box(ring)
-        lon, lat = ring[0]
-        inside = any(owner != row["id"] and _box_within(box, hbox)
-                     and project.point_in_ring(lon, lat, hole)
-                     for hbox, hole, owner in holes)
-        if not inside:
+        if row["id"] not in inside_ids:
             continue
         parts = _project(row["geometry"], frame)
         d = _d([part[0] for part in parts])
@@ -1753,7 +1765,8 @@ class _Target:
     """One unit to be labelled, wherever its label ends up."""
 
     def __init__(self, gid, x, y, ring, holes, name, value, code, rank,
-                 inset=None, r=0.0, primary=False):
+                 inset=None, r=0.0, primary=False, centre=False):
+        self.centre = centre        # the leader starts at the unit, not the circle's edge
         self.primary = primary      # worth a leader across a neighbour: the one highest
         # or lowest, or any unit of a map that names only a chosen few
         self.gid, self.x, self.y, self.ring, self.holes = gid, x, y, ring, holes
@@ -1929,7 +1942,8 @@ def _missing_label(result, drawn_missing: list, insets: list) -> str:
 
 def _feature_labels(rows: list, insets: list, missing: list, frame: Frame,
                     encoding: Encoding, land: list, placer, every: int,
-                    change: bool = False, fresh=None) -> tuple[str, list]:
+                    change: bool = False, fresh=None,
+                    enclaves: frozenset = frozenset()) -> tuple[str, list]:
     """Name the units, each with its value. Greedy, deterministic.
 
     Name and value always print together, never one without the other:
@@ -1952,7 +1966,9 @@ def _feature_labels(rows: list, insets: list, missing: list, frame: Frame,
     """
     names = _label_names(rows + [r for inset in insets for r in inset.rows]
                          + missing + [m for inset in insets for m in inset.missing])
-    space = _Space(land, frame)
+    # Under circles the units are plain land: a name may sit on it. Only a
+    # colour-filled unit must not be covered by another's callout.
+    space = _Space(land if encoding.mode != "symbols" else [], frame)
     extremes_only = every > LABEL_MAX_UNITS
 
     def attempt(into, codes: bool):
@@ -1960,7 +1976,7 @@ def _feature_labels(rows: list, insets: list, missing: list, frame: Frame,
         unlabelled: list[str] = []
         leaders: list = []
         if encoding.mode == "symbols":
-            pending = _circle_labels(encoding, names, into, out, codes)
+            pending = _circle_labels(encoding, names, into, out, codes, enclaves)
         else:
             pending = _choropleth_labels(rows, insets, frame, encoding, names, into,
                                          out, extremes_only, change, codes)
@@ -2172,8 +2188,12 @@ def _missing_labels(missing, insets, frame, names, placer, out) -> list:
             parts = _project(item["geometry"], where)
             d = _d([part[0] for part in parts])
             if d:
-                out.append(f'<path d="{d}" fill="none" stroke="{colors.TEXT_MUTED}" '
-                           f'stroke-width="0.7" class="missing-outline" '
+                # A unit too small for its hatch (Sevastopol) is drawn plain:
+                # its outline must carry it, in the ink of the labels.
+                tiny = _visible_area(parts) < MIN_VISIBLE_AREA
+                out.append(f'<path d="{d}" fill="none" '
+                           f'stroke="{colors.TEXT if tiny else colors.TEXT_MUTED}" '
+                           f'stroke-width="{1.1 if tiny else 0.7}" class="missing-outline" '
                            f'data-outline-of={quoteattr(gid)}/>')
             t = _Target(gid, x, y, ring, holes, names.get(gid, _short_name(item)),
                         MISSING_TEXT, None, (3, 0.0, -project.planar_area(ring), gid),
@@ -2183,7 +2203,7 @@ def _missing_labels(missing, insets, frame, names, placer, out) -> list:
     return pending
 
 
-def _circle_labels(encoding, names, placer, out, codes=True) -> list:
+def _circle_labels(encoding, names, placer, out, codes=True, enclaves=frozenset()) -> list:
     """Under the circle, else beside it; returns the circles left to call out."""
     pending = []
     circles = sorted(encoding.circles, key=lambda c: (-c[2], str(c[3]["id"])))
@@ -2195,6 +2215,11 @@ def _circle_labels(encoding, names, placer, out, codes=True) -> list:
                  (x + r + 3 + block.w / 2, y - block.h / 2),        # right
                  (x - r - 3 - block.w / 2, y - block.h / 2),        # left
                  (x, y - r - 2.0 - block.h)]                        # over
+        if gid in enclaves:
+            # Its circle hides the small unit beneath: a label beside the
+            # circle would read as the neighbour's. A leader from the unit
+            # itself, through the circle's edge, says whose it is.
+            spots = []
         for cx, top in spots:
             box = block.box(cx, top)
             if placer.fits(box):
@@ -2206,7 +2231,8 @@ def _circle_labels(encoding, names, placer, out, codes=True) -> list:
             pending.append(_Target(gid, x, y, None, [], names.get(gid, _short_name(row)),
                                    _value_text(row["value"], encoding),
                                    _code(row) if codes else None,
-                                   (0 if n == 0 else 1, n, 0.0, gid), r=r))
+                                   (0 if n == 0 else 1, n, 0.0, gid), r=r,
+                                   centre=gid in enclaves))
     return pending
 
 
@@ -2259,9 +2285,15 @@ def _callouts(targets, placer, space, frame, out, leaders, unlabelled, insets=()
         for use_code, limit in attempts:
             line = _Line(t.code, t.value) if use_code else _Line(t.name, t.value)
             spot = _nearest_spot(t, line, placer, space)
-            if spot is not None and not _stack([t], spot[0], placer, space, frame, out,
-                                               leaders, limit, use_code=use_code):
-                placed = True
+            if spot is None:
+                continue
+            # The nearer side first; the other, if that column is blocked.
+            for side in (spot[0], -spot[0]):
+                if not _stack([t], side, placer, space, frame, out, leaders, limit,
+                              use_code=use_code):
+                    placed = True
+                    break
+            if placed:
                 break
         # The last resort, for the highest and lowest only: a callout over a
         # little mapped land, then over as much as it takes. A middling unit
@@ -2393,7 +2425,7 @@ def _stack_tops(desired: list, pitch: float) -> list:
 
 
 def _leader_start(t, ex, ey):
-    if t.r <= 0:
+    if t.r <= 0 or t.centre:
         return t.x, t.y
     norm = math.hypot(ex - t.x, ey - t.y) or 1.0
     return t.x + (ex - t.x) / norm * t.r, t.y + (ey - t.y) / norm * t.r
@@ -2519,7 +2551,7 @@ def _stack(group, side, placer, space, frame, out, leaders, max_leader=None,
 
 def _leader_svg(seg, t) -> str:
     sx, sy, ex, ey = seg
-    dot = ("" if t.r > 0 else
+    dot = ("" if t.r > 0 and not t.centre else
            f'<circle cx="{_num(sx)}" cy="{_num(sy)}" r="1.3" fill="{LEADER}" '
            'stroke="#ffffff" stroke-width="0.5" class="leader-end"/>')
     return (f'<line x1="{_num(sx)}" y1="{_num(sy)}" x2="{_num(ex)}" y2="{_num(ey)}" '
@@ -3488,6 +3520,9 @@ def _label(manifest: Manifest, provenance: dict) -> str:
     label = provenance.get("variable")
     if not label:
         label = str(manifest.variable_id or "").split("?")[0].replace("_", " ")
+    # An agency's own wording ("Present population" is Ukrstat's term for the
+    # people living there now) is not what a reader calls it.
+    label = re.sub(r"^present population\b", "population", str(label), flags=re.I)
     return _human(label)
 
 
@@ -3539,9 +3574,18 @@ def _title(manifest: Manifest, provenance: dict) -> str:
         head = _human(f"{_SCOPE.get(manifest.level, manifest.level)} boundaries")
         place = provenance.get("place")
         return f"{head}, {place}" if place else head
-    place = provenance.get("place")
-    parts = [_label(manifest, provenance), _PLACE_ALIASES.get(place, place),
-             _period(provenance)]
+    place = _PLACE_ALIASES.get(provenance.get("place"), provenance.get("place"))
+    label, period = _label(manifest, provenance), _period(provenance)
+    unit = _UNIT_NAMES.get((provenance.get("place"), manifest.level), "")
+    if place == "World":
+        # "GDP per capita by country, 2025": the world is not a place name.
+        scope = _SCOPE.get(manifest.level)
+        return ", ".join(str(part) for part in
+                         (f"{label} by {scope}" if scope else label, period) if part)
+    if label == "Population" and place and unit and "(" not in unit and not unit.endswith("y"):
+        return ", ".join(str(part) for part in (f"Population of {place}'s {unit}s", period)
+                         if part)
+    parts = [label, place, period]
     return ", ".join(str(part) for part in parts if part)
 
 
@@ -3591,7 +3635,7 @@ def _scope_word(manifest: Manifest, provenance: dict) -> str:
 
 # Source caveats about a count of values ("180 values provisional or estimated")
 # belong to the footnote: in the subtitle they crowd out what the map shows.
-_FOOTNOTE_ONLY = re.compile(r"\bprovisional\b|\bestimated\b", re.I)
+_FOOTNOTE_ONLY = re.compile(r"\bprovisional\b|\bestimated\b|^excludes?\b", re.I)
 
 
 def _subtitle(manifest: Manifest, provenance: dict, encoding: Encoding,
@@ -3618,7 +3662,7 @@ def _subtitle(manifest: Manifest, provenance: dict, encoding: Encoding,
                 f"{direction.get('negative_color', 'red')} = {direction['negative']}; "
                 f"{direction.get('positive_color', 'blue')} = {direction['positive']}")
         else:
-            pieces.append("red = decline; blue = growth")
+            pieces.append("reds = decline; blues = growth")
     exceptions = provenance.get("year_exceptions")
     if exceptions:
         named = sum(len(v) for v in exceptions.values())

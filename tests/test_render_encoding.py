@@ -207,7 +207,7 @@ def test_diverging_subtitle_names_decline_and_growth_colours():
     text = render(build_manifest(bbox=(-1, 38, 21, 46)),
                   HarvestResult(rows=_change_rows(values), provenance=_ratio(unit="% change"),
                                 dropped=[]))
-    assert "red = decline; blue = growth" in text
+    assert "reds = decline; blues = growth" in text
 
 
 def test_election_margin_puts_republican_leads_in_red_and_names_both_signs():
@@ -460,7 +460,11 @@ def test_an_enclave_is_outlined_named_and_its_host_symbol_kept_off_it():
         rows=rows, provenance={"measurement": "count"}, dropped=[])))
     enclaves = [p for p in root.iter(f"{SVG}path") if p.get("class") == "enclave"]
     assert [p.get("data-id") for p in enclaves] == ["UA-30"]
-    assert "Kyiv" in _texts(root)
+    # Named on a leader that starts at the city itself, through its circle.
+    spans = [t.text for t in root.iter(f"{SVG}tspan")]
+    assert "Kyiv" in _texts(root) + spans
+    leaders = [l for l in root.iter(f"{SVG}line") if l.get("class") == "leader"]
+    assert leaders, "the circle hides the city: its label needs a leader"
     circles = {c.get("data-id"): c for c in _circles(root)}
     path = _features(root)["UA-30"].get("d")
     pts = [tuple(map(float, p.split(","))) for p in re.findall(r"-?[\d.]+,-?[\d.]+", path)]
