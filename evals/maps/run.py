@@ -264,7 +264,12 @@ def _point_checks(kind: str, points: list, extent) -> list[dict]:
 
 
 def _extent_for(manifest, result=None):
-    if manifest.bbox is not None:
+    # A bbox is the window only when nothing else frames the map. With `within`
+    # or overlays the renderer frames on the data (and drops a bbox that only
+    # adds empty space), so the manifest's bbox is not what was drawn -- the
+    # Trans-Siberian failed its Beijing exclude on a world bbox the renderer
+    # had ignored.
+    if manifest.bbox is not None and not manifest.within and not getattr(manifest, "overlays", None):
         return manifest.bbox
     result = result or harvest(manifest)
     if result.provenance.get("overlay_bbox"):

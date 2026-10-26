@@ -283,7 +283,7 @@ prompt = "Route of the Trans-Siberian Railway"
 truth = "OpenStreetMap route relation for the Trans-Siberian main line, Moscow Yaroslavsky to Vladivostok"
 units = [1, 20000]                                      # a merged route is 1-2 features; raw OSM ways are ~8,200
 contains = [[37.66, 55.78], [131.88, 43.11]]
-excludes = [[116.4, 39.9]]
+excludes = [[77.21, 28.61]]                             # Delhi. Beijing can sit in a correct frame: fitting Moscow-Vladivostok to the canvas reaches ~30N
 spot = ["total_km=9289±15%", "line_near=82.92,55.03", "line_near=104.28,52.29"]   # Novosibirsk, Irkutsk
 must = [
   "one continuous route from Moscow to Vladivostok, not the whole Russian rail network",
