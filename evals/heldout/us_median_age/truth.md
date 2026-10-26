@@ -1,0 +1,5 @@
+- URL/API: https://www2.census.gov/programs-surveys/acs/summary_file/2024/table-based-SF/data/5YRData/acsdt5y2024-b01002.dat (ACS table-based summary file, table B01002 'Median age by sex', column B01002_E001 = both sexes, rows GEO_ID 0400000US<FIPS>). The keyless api.census.gov call demands a key, so the flat-file release (the same estimates) is used; boundaries https://www2.census.gov/geo/tiger/GENZ2024/shp/cb_2024_us_state_20m.zip.
+- Vintage: American Community Survey 2020–2024 5-year estimates (released January 2026). Median age in years; `moe` is the published 90% margin of error.
+- Licence: U.S. Census Bureau, public domain. Boundaries: Census cartographic boundary file 2024, 1:20M (public domain).
+- Rows: 51 — 50 states plus the District of Columbia, key `US-XX` (ISO 3166-2:US), `fips` 2-digit; Puerto Rico (FIPS 72) is in the file but not in the 50+DC frame and is not drawn. Youngest Utah 32.0, oldest Maine 44.8.
+- Caveat: a 5-year estimate pools 60 months of survey responses; the state margins of error are 0.1–0.4 years (DC 0.2), so neighbouring values in one class are not statistically distinguishable.
