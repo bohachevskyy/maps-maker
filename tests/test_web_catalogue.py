@@ -196,7 +196,7 @@ def test_ranked_points_render_every_label_with_its_value(mini_geojson, iso2):
     window = overlays.Window((-5.0, 35.0, 40.0, 60.0), None, (-5.0, 35.0, 40.0, 60.0))
     layer = web.layer_from_bytes(_geonames_zip(), web._GEONAMES + "#top=4", window)
     svg = _map(mini_geojson, [layer])
-    for label in ("Moscow 10.4M", "London 9.0M", "Ankara 3.5M", "Paris 2.1M"):
+    for label in ("Moscow 10.4M", "London 8.96M", "Ankara 3.52M", "Paris 2.14M"):
         assert f">{label}</text>" in svg
     assert 'data-stat-count="4"' in svg and "data-unlabelled" not in svg
     assert "Population, city proper (circle area)" in svg

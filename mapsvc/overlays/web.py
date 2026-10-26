@@ -992,6 +992,49 @@ def _caveats(entry, kept) -> str:
     return "; caveat: " + "; ".join(parts)
 
 
+def _country_name(alpha2: str) -> str:
+    """Natural Earth's name for an ISO alpha-2 code; the code if unknown."""
+    try:
+        from mapsvc import harvest
+        from mapsvc.cartography import iso
+
+        for feature in harvest.context_countries():
+            props = feature.get("properties") or {}
+            for key in ("ISO_A2_EH", "ISO_A2"):
+                if str(props.get(key) or "").upper() == alpha2.upper():
+                    return str(props.get("NAME") or alpha2)
+    except Exception:       # a name is a courtesy
+        pass
+    return alpha2
+
+
+def _left_out_by_scope(rows: list, window: Window, floor: float, measure: str) -> str:
+    """"; the largest city in a country not drawn is Istanbul (Turkey, 15.7M),
+    so it is not ranked" -- said when a country list leaves out something that
+    would have made the ranking, so the definition of the region is not
+    silent."""
+    codes = [c for c in window.within or () if "-" not in c and len(c) in (2, 3)]
+    if not codes or not rows or "country" not in rows[0]:
+        return ""
+    from mapsvc.cartography import iso
+
+    wanted = {iso.to_alpha2(c) for c in codes} - {None}
+    outside = [r for r in rows if _in_window(r["lon"], r["lat"], window)
+               and iso.to_alpha2(r["country"]) not in wanted
+               and r.get("size") is not None and r["size"] >= floor]
+    if not outside:
+        return ""
+    big = max(outside, key=lambda r: (r["size"], -r["i"]))
+    figure = _short_number(big["size"])
+    return (f"; region as drawn: {big['name']} ({_country_name(big['country'])}, "
+            f"{figure}) is in the window but its country is not in the "
+            f"region, so it is not ranked")
+
+
+def _short_number(v: float) -> str:
+    return f"{v / 1e6:.1f} million" if v >= 1e6 else f"{v:,.0f}"
+
+
 def _ranked_layer(base, rows, roles, entry, excluded, window, n):
     """The N largest by size, within the window and `within`: every one is
     named on the map with its value, so the ranking can be read off it."""
@@ -1019,6 +1062,7 @@ def _ranked_layer(base, rows, roles, entry, excluded, window, n):
              if any(e["reason"].startswith("in countries") for e in scoped)
              or (window.within and "country" in roles) else "the map window")
     definition = entry.get("definition") or size_label
+    left_out = _left_out_by_scope(rows, window, kept[-1]["size"], measure)
     return {**base, "kind": "points", "rank": True,
             "title": f"The {len(kept)} largest {noun}{where} by {measure}",
             "size": {"field": roles["size"], "label": size_label, "unit": "",
@@ -1029,7 +1073,8 @@ def _ranked_layer(base, rows, roles, entry, excluded, window, n):
             "summary": f"{definition[:1].upper()}{definition[1:]}",
             "encoding": (f"{measure[:1].upper()}{measure[1:]}: {definition}. "
                          f"Circle area ∝ {measure}; ranked within {scope}; every "
-                         f"one labelled with its {measure}{_caveats(entry, kept)}"),
+                         f"one labelled with its {measure}{_caveats(entry, kept)}"
+                         f"{left_out}"),
             "excluded": excluded, "label_top": len(features), "noun": noun}
 
 

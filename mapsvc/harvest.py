@@ -260,6 +260,7 @@ def _base(manifest: Manifest, boundaries=None) -> HarvestResult:
 # overlay carries its own labels and city names would only compete with it.
 PLACES_MAX_SPAN = 60.0
 PLACES_KEEP = 80
+CITY_SCALE_SPAN = 1.5       # degrees of longitude: below this a window is named for its largest place
 PLACES_URL = ("https://raw.githubusercontent.com/nvkelso/natural-earth-vector/"
               "master/geojson/ne_10m_populated_places_simple.geojson")
 
@@ -270,7 +271,14 @@ def _add_overlays(manifest: Manifest, result: HarvestResult) -> None:
     extent = tuple(manifest.bbox or (project.extent_of(geometries) if geometries
                                      else WORLD_EXTENT))
     place = _place_name(manifest.within)
-    if place is None and manifest.bbox is not None:
+    if place is None and manifest.within:
+        # Several countries: the name the title already uses ("Europe"), never
+        # the largest city that happens to sit in the window.
+        place = result.provenance.get("place")
+    elif (place is None and manifest.bbox is not None
+          and manifest.bbox[2] - manifest.bbox[0] <= CITY_SCALE_SPAN):
+        # Only a city-scale window is "in" its largest place; a continent
+        # window named for Moscow is wrong on its face.
         try:
             candidates = context_places(extent, None, keep=1)
         except OSError:

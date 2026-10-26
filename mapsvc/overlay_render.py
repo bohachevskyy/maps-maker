@@ -443,8 +443,10 @@ def _name_notable(placed, labels, top) -> None:
 
 def _short(v: float) -> str:
     """A population on a label: 10.4M, 873k."""
-    if v >= 1e6:
+    if v >= 1e7:
         return f"{v / 1e6:.1f}M"
+    if v >= 1e6:
+        return f"{v / 1e6:.2f}M"
     if v >= 1e3:
         return f"{v / 1e3:.0f}k"
     return f"{v:,.0f}"
