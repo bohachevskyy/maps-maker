@@ -144,6 +144,12 @@ uv run python -m evals.run --repeat 3   # live model, costs a few cents
 set; `MAPSVC_LLM=codex|openai` overrides that choice. `POST /map` needs no LLM.
 Both agent backends default to `gpt-5.6-terra`; override with `MAPSVC_CODEX_MODEL` or `OPENAI_MODEL`.
 
+**Held-out evals (`evals/heldout/`) measure generalisation and are never used for
+tuning.** Workers that change `mapsvc` must not be shown that directory, its maps
+or its critiques; results are reported as scores only, at checkpoints. A defect
+seen there is not patched directly -- if it reveals a general bug it goes to
+Dmytro first. Run it with `--specs evals/heldout/specs.toml`.
+
 Use `--repeat` before trusting a green eval run — the model is
 non-deterministic, and that flag is how a case that passed once but works only
 two times in three was found.

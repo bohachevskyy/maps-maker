@@ -26,6 +26,9 @@ from mapsvc.pipeline import draw
 
 HERE = pathlib.Path(__file__).resolve().parent
 SPECS = HERE / "specs.toml"
+# Truth and references live next to the specs file: evals/maps/<id>/ for the
+# tuning set, evals/heldout/<id>/ for the held-out set (--specs).
+REFS = HERE
 SVG_NS = "{http://www.w3.org/2000/svg}"
 RSVG_TIMEOUT = 120
 _NUMBER = r"[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?"
@@ -438,7 +441,7 @@ def run_one(spec: dict, destination: pathlib.Path) -> dict:
             "spots": [evaluate_spot(item, values, geometry)
                       for item in spec.get("spot", [])],
             "footnote": _footnote_check(text),
-            "truth": _truth_check(HERE / spec["id"] / "truth.csv", features, values),
+            "truth": _truth_check(REFS / spec["id"] / "truth.csv", features, values),
         }
         auto["checks"] = checks
         if png_error := _make_png(svg_path, destination / "map.png"):
@@ -467,7 +470,13 @@ def main() -> int:
     parser.add_argument("ids", nargs="*", help="map ids from specs.toml (default: all)")
     parser.add_argument("--repeat", type=int, default=1, help="runs per map")
     parser.add_argument("--out", type=pathlib.Path, help="artifact root")
+    parser.add_argument("--specs", type=pathlib.Path,
+                        help="specs file (default: evals/maps/specs.toml); truth is read "
+                             "from <its directory>/<id>/truth.csv")
     args = parser.parse_args()
+    if args.specs:
+        global SPECS, REFS
+        SPECS, REFS = args.specs.resolve(), args.specs.resolve().parent
     if args.repeat < 1:
         parser.error("--repeat must be at least 1")
 

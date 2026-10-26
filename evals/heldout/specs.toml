@@ -1,0 +1,166 @@
+# HELD-OUT SET -- measures generalisation; never used for tuning.
+#
+# Rules (CLAUDE.md, "Held-out evals"):
+#   - Workers that change mapsvc never see this directory, its maps or critiques.
+#   - Results are reported as scores only. A defect seen here is not fixed
+#     directly; if it reveals a general bug, it goes to Dmytro first.
+#   - Score it at checkpoints, not every round, so it stays unseen.
+#
+# Same keys and rubric as evals/maps/specs.toml. Spot values marked (verify)
+# were written from memory; the reference builder checks them against truth.csv
+# and a FAIL means the spec is corrected, not the data.
+
+[rubric]
+data        = "Values are right: spot checks pass, vintage stated, nothing silently dropped."
+geography   = "The right units and only them; window framed tightly; no stray features, no antimeridian artefacts."
+cartography = "Projection suits the extent; encoding suits the variable (counts are never a raw choropleth); legend readable with units; title says what the map shows."
+provenance  = "Footnote names every source, licence, vintage, projection, classification and exclusions."
+fidelity    = "The agent understood the prompt: right measure, right place, right granularity."
+
+[[map]]
+id = "south_america_life_expectancy"
+prompt = "Life expectancy at birth across South America"
+truth = "OWID life-expectancy (UN WPP), latest year per country"
+units = [12, 15]
+contains = [[-74.07, 4.71], [-58.38, -34.60], [-77.04, -12.05], [-38.5, -3.7]]
+excludes = [[-99.13, 19.43]]
+spot = ["CHL>BOL", "CHL>78", "BOL<72"]   # (verify)
+must = [
+  "the 12 South American states (French Guiana/Falklands may appear as territories, stated)",
+  "years as the unit, latest year stated",
+  "equal-area projection for the continent",
+]
+reference = ["https://ourworldindata.org/grapher/life-expectancy"]
+
+[[map]]
+id = "poland_voivodeship_population"
+prompt = "Population of every voivodeship in Poland"
+truth = "Statistics Poland (GUS) or Eurostat/Wikidata population by voivodeship, latest year; keys ISO 3166-2 PL-xx"
+units = [16, 16]
+contains = [[21.01, 52.23], [19.94, 50.06], [18.65, 54.35], [14.55, 53.43]]
+excludes = [[13.40, 52.52], [24.11, 56.95]]
+spot = ["PL-14>PL-08", "PL-14>5000000", "PL-08<1100000"]   # Mazowieckie, Lubuskie (verify)
+must = [
+  "all 16 voivodeships",
+  "a count shown as proportional symbols or density, never a raw-count choropleth",
+  "vintage and source stated",
+]
+reference = ["https://stat.gov.pl/en/"]
+
+[[map]]
+id = "us_median_age"
+prompt = "Median age by US state"
+truth = "US Census ACS 5-year, B01002_001E, by state"
+units = [51, 51]
+contains = [[-77.0, 38.9], [-149.9, 61.2], [-157.9, 21.3]]
+spot = ["US-ME>US-UT", "US-ME>43", "US-UT<33"]   # (verify)
+must = [
+  "50 states plus DC, Alaska and Hawaii as insets",
+  "years as the unit, ACS vintage stated",
+]
+reference = ["https://data.census.gov"]
+
+[[map]]
+id = "italy_gdp_regions"
+prompt = "GDP per inhabitant in Italy's regions"
+truth = "Eurostat nama_10r_2gdp, PPS_EU27_2020_HAB, NUTS 2, latest year"
+units = [21, 21]
+contains = [[9.19, 45.46], [12.50, 41.90], [15.08, 37.50], [9.11, 39.22]]
+excludes = [[6.14, 46.20], [14.51, 46.05]]
+spot = ["ITC4>ITF6", "ITH1>ITF4"]   # Lombardia > Calabria; Bolzano > Puglia (verify)
+must = [
+  "21 NUTS-2 regions including the two autonomous provinces of Trentino-Alto Adige",
+  "purchasing-power standards, year stated",
+  "© EuroGeographics credited",
+]
+reference = ["https://ec.europa.eu/eurostat/web/regions"]
+
+[[map]]
+id = "japan_quakes_2024"
+prompt = "Earthquakes of magnitude 5 or more in and around Japan in 2024"
+truth = "USGS FDSN event service, 2024, minmagnitude 5, Japan region"
+units = [40, 250]
+contains = [[139.69, 35.69], [137.27, 37.49], [130.40, 33.59]]
+excludes = [[116.4, 39.9]]
+spot = ["event_near=137.27,37.49", "count=110±40%"]   # Noto, 1 Jan 2024 (verify count)
+must = [
+  "points sized by magnitude, depth or time distinguished",
+  "Japan framed with the Pacific margin; the Noto sequence legible",
+  "USGS credited",
+]
+reference = ["https://earthquake.usgs.gov/earthquakes/map/"]
+
+[[map]]
+id = "london_underground"
+prompt = "The London Underground network"
+truth = "OpenStreetMap route=subway relations, network London Underground, with colour tags"
+units = [9, 16]
+contains = [[-0.124, 51.530], [-0.089, 51.513], [-0.158, 51.523]]
+excludes = [[-1.26, 51.75]]
+spot = ["count=11±25%", "line_near=-0.124,51.530", "line_near=-0.089,51.513"]
+must = [
+  "each line in its own official colour, named in the legend",
+  "central London framed; boroughs as muted context",
+  "OpenStreetMap ODbL credited",
+]
+reference = ["https://tfl.gov.uk/maps/track/tube"]
+
+[[map]]
+id = "pacific_typhoons_2024"
+prompt = "Tracks of the 2024 western Pacific typhoon season"
+truth = "NOAA IBTrACS v04, WP basin, season 2024, named storms"
+units = [15, 35]
+contains = [[121.0, 14.6], [110.8, 19.6], [139.7, 35.7]]
+spot = ["count=26±30%", "line_near=110.8,19.6"]   # Yagi landfall, Hainan (verify)
+must = [
+  "one line per storm coloured by intensity along the track",
+  "the strongest landfalling storms named",
+  "NOAA credited",
+]
+reference = ["https://www.ncei.noaa.gov/products/international-best-track-archive"]
+
+[[map]]
+id = "zakarpattia_settlements"
+prompt = "Every town and village in Zakarpattia oblast"
+truth = "KATOTTH codifier, settlements in UA-21, cross-checked with OpenStreetMap place nodes"
+units = [500, 750]
+contains = [[22.29, 48.62], [22.72, 48.44], [23.03, 48.17]]
+excludes = [[24.03, 49.84], [24.71, 48.92]]
+spot = ["count=609±12%", "event_near=22.29,48.62"]   # Uzhhorod (verify count)
+must = [
+  "every settlement as a point inside Zakarpattia oblast only",
+  "cities > selyshcha > villages distinguished by symbol",
+  "raions drawn and named as context",
+  "sources credited",
+]
+reference = ["https://www.minregion.gov.ua/"]
+
+[[map]]
+id = "asia_coal_electricity"
+prompt = "Share of electricity generated from coal across Asia"
+truth = "OWID share-electricity-coal (Ember, Energy Institute), latest year"
+units = [40, 52]
+contains = [[77.2, 28.6], [116.4, 39.9], [106.9, 47.9], [44.4, 33.3]]
+excludes = [[2.35, 48.85], [151.2, -33.9]]
+spot = ["IND>60", "MNG>80", "NPL<5"]   # (verify)
+must = [
+  "Asian countries chosen by name, not by box",
+  "0-100% scale",
+  "projection suited to Asia",
+]
+reference = ["https://ourworldindata.org/grapher/share-electricity-coal"]
+
+[[map]]
+id = "europe_nuclear_plants"
+prompt = "Operating nuclear power plants in Europe, sized by capacity"
+truth = "OpenStreetMap power=plant + plant:source=nuclear (plant:output:electricity), or Global Energy Monitor's nuclear tracker; operating plants only"
+units = [50, 120]
+contains = [[34.59, 47.51], [2.11, 51.01], [26.10, 45.27]]
+spot = ["event_near=34.59,47.51", "event_near=2.11,51.01"]   # Zaporizhzhia, Gravelines
+must = [
+  "points sized by net capacity (MW)",
+  "decommissioned plants excluded or clearly distinguished",
+  "Europe framed (conic/azimuthal)",
+  "source and licence credited",
+]
+reference = ["https://globalenergymonitor.org/projects/global-nuclear-power-tracker/"]

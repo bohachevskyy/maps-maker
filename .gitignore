@@ -9,3 +9,5 @@ out/
 evals/maps/results/
 evals/maps/etalons/.cache/
 .DS_Store
+evals/heldout/results/
+evals/heldout/etalons/.cache/

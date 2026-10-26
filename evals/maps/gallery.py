@@ -14,6 +14,7 @@ import tomllib
 
 HERE = pathlib.Path(__file__).parent
 RESULTS = HERE / "results"
+SPECS = HERE / "specs.toml"
 
 
 def _rounds() -> list[pathlib.Path]:
@@ -40,13 +41,13 @@ def _cell(image: pathlib.Path, caption: str) -> str:
 
 
 def build() -> pathlib.Path:
-    specs = tomllib.loads((HERE / "specs.toml").read_text())["map"]
+    specs = tomllib.loads(SPECS.read_text())["map"]
     rounds = _rounds()
     head = "".join(f"<th>{r.name}</th>" for r in rounds)
     rows = []
     for spec in specs:
         map_id = spec["id"]
-        cells = [_cell(HERE / map_id / "reference.png", "reference")]
+        cells = [_cell(SPECS.parent / map_id / "reference.png", "reference")]
         for run in rounds:
             png, svg = run / map_id / "map.png", run / map_id / "map.svg"
             auto = run / map_id / "auto.json"
@@ -75,4 +76,8 @@ th.row{{width:160px;text-align:left}} td.empty{{color:#aaa;text-align:center;wid
 
 
 if __name__ == "__main__":
+    import sys
+    if len(sys.argv) > 1:                      # e.g. evals/heldout/specs.toml
+        SPECS = pathlib.Path(sys.argv[1]).resolve()
+        RESULTS = SPECS.parent / "results"
     print(build())
