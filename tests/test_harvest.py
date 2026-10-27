@@ -379,6 +379,54 @@ def test_every_explicit_within_country_is_drawn_or_hatched(monkeypatch):
     assert "1 of 2 features excluded" in svg
 
 
+def test_ledger_accounts_for_both_sides_of_the_join(monkeypatch):
+    from mapsvc.cartography import Boundaries
+    from mapsvc.statistics import Values
+
+    units = [
+        {"id": "AAA", "name": "Alpha", "keys": {"ISO3": "AAA"}, "geometry": BOX},
+        {"id": "BBB", "name": "Beta", "keys": {"ISO3": "BBB"}, "geometry": BOX},
+        {"id": "CCC", "name": "Gamma", "keys": {"ISO3": "CCC"}, "geometry": BOX},
+        {"id": "ATA", "name": "Antarctica", "keys": {"ISO3": "ATA"}, "geometry": BOX},
+    ]
+    boundaries = Boundaries(units=units, keys=("ISO3",), provenance={})
+    monkeypatch.setattr(H, "_check_granularity", lambda manifest: None)
+    monkeypatch.setattr(H.cartography, "load", lambda *args, **kwargs: boundaries)
+    monkeypatch.setattr(H.derive, "values", lambda manifest: Values(
+        values={"AAA": 42.0, "ATA": None, "DDD": 7.0, "EEE": None},
+        missing={"BBB": "not_estimated"},
+        provenance={"level": "ratio"}))
+
+    result = H._build(build_manifest(bbox=(-180, -90, 180, 90),
+                                     variable_source="owid", variable_id="x"))
+
+    assert [(item["id"], item["status"]) for item in result.ledger] == [
+        ("AAA", "drawn_with_value"),
+        ("ATA", "filtered_out"),
+        ("BBB", "drawn_hatched"),
+        ("CCC", "geometry_without_data"),
+        ("DDD", "data_without_geometry"),
+        ("EEE", "filtered_out"),
+    ]
+    assert len({item["id"] for item in result.ledger}) == len(result.ledger)
+
+
+def test_overlay_features_and_aggregate_filters_enter_the_ledger():
+    result = H.HarvestResult(rows=[{"id": "land", "value": None}])
+    result.overlays = [{
+        "source": "example", "id": "places", "features": [
+            {"id": "p2", "name": "Second"}, {"id": "p1", "name": "First"}],
+        "excluded": [{"count": 1, "reason": "outside the map window"},
+                     {"count": 1, "reason": "outside the requested date"}],
+    }]
+    H._account_overlay_units(result)
+    statuses = [item["status"] for item in result.ledger]
+    assert statuses.count("drawn_with_value") == 3
+    assert statuses.count("outside_frame") == 1
+    assert statuses.count("filtered_out") == 1
+    assert [item["id"] for item in result.ledger] == sorted(item["id"] for item in result.ledger)
+
+
 def test_missing_explicit_within_country_is_an_error(monkeypatch):
     from mapsvc.cartography import Boundaries
 

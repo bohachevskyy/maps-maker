@@ -37,7 +37,7 @@ NO_DATA = {-99, "-99", "", None}
 # Bump when the shape of a cached HarvestResult changes -- new provenance keys,
 # a different join, altered drop reasons. Without it a code change silently
 # keeps serving rows written in the old format.
-CACHE_VERSION = 27
+CACHE_VERSION = 28
 
 # Physical context is derived from the overlay and its window, never requested
 # in the manifest. These files are fetched here and cached with the other input
@@ -299,6 +299,7 @@ def _framed_on_overlays(manifest: Manifest, layers=None) -> HarvestResult:
     box = WORLD_EXTENT if box is None else project.frame_box(box)
     result = _base(dataclasses.replace(manifest, bbox=box))
     result.overlays = layers
+    _account_overlay_units(result)
     result.provenance["overlay_bbox"] = list(box)
     _add_physical_context(manifest, result, box)
     brings_places = any((layer["kind"] == "places" and not layer.get("area"))
@@ -322,6 +323,7 @@ def _base(manifest: Manifest, boundaries=None) -> HarvestResult:
     if cached.exists():
         stored = json.loads(cached.read_text())
         return HarvestResult(stored["rows"], stored["provenance"], stored["dropped"],
+                             ledger=stored.get("ledger", []),
                              context=stored.get("context", []),
                              names=stored.get("names", []),
                              hierarchy=stored.get("hierarchy", []))
@@ -332,7 +334,8 @@ def _base(manifest: Manifest, boundaries=None) -> HarvestResult:
     result.provenance["place"] = _place(manifest, result)
     cached.parent.mkdir(parents=True, exist_ok=True)
     payload = {"rows": result.rows, "provenance": result.provenance,
-               "dropped": result.dropped, "context": result.context,
+               "dropped": result.dropped, "ledger": result.ledger,
+               "context": result.context,
                "names": result.names, "hierarchy": result.hierarchy}
     temporary = cached.with_suffix(".part")
     temporary.write_text(json.dumps(payload, sort_keys=True))
@@ -402,6 +405,39 @@ def _add_overlays(manifest: Manifest, result: HarvestResult) -> None:
         result.places = overlay_render.places_along(
             context_places(extent, manifest.within, keep=None), routes)[:PLACES_KEEP]
     _add_physical_context(manifest, result, extent)
+    _account_overlay_units(result)
+
+
+def _account_overlay_units(result: HarvestResult) -> None:
+    """Put every fetched overlay feature and provider-declared omission in the ledger.
+
+    Overlay providers already scope their results to the requested window. Some
+    can report only an aggregate count for rejected input rows; stable synthetic
+    ids preserve that count without pretending the provider supplied identities.
+    Derived cartographic label layers are presentation, not requested data.
+    """
+    for layer_index, layer in enumerate(result.overlays):
+        if layer.get("source") == "cartography":
+            continue
+        prefix = f"overlay:{layer_index}:{layer.get('source')}:{layer.get('id')}"
+        for feature_index, feature in enumerate(layer.get("features") or []):
+            feature_id = feature.get("id")
+            if feature_id is None:
+                feature_id = f"{prefix}:feature:{feature_index}"
+            result.ledger.append(_ledger(
+                {"id": feature_id, "name": feature.get("name")}, "drawn_with_value"))
+        for group_index, excluded in enumerate(layer.get("excluded") or []):
+            reason = str(excluded.get("reason") or "filtered by the data source")
+            status = ("outside_frame" if "outside the map window" in reason.casefold()
+                      else "filtered_out")
+            for item_index in range(int(excluded.get("count") or 0)):
+                item = _ledger(
+                    {"id": f"{prefix}:excluded:{group_index}:{item_index}"},
+                    status, reason)
+                item["anonymous"] = True
+                result.ledger.append(item)
+    result.ledger.sort(key=lambda item: (str(item["id"]), item["status"],
+                                         str(item.get("reason") or "")))
 
 
 def _administrative_labels(result: HarvestResult, placed: str = "first") -> dict:
@@ -1096,7 +1132,12 @@ def _build(manifest: Manifest, boundaries=None) -> HarvestResult:
         rows = [{"id": u["id"], "geometry": u["geometry"], "value": None,
                  "name": u.get("name")} for u in boundaries.units]
         hierarchy = _hierarchy(manifest, provenance)
-        return HarvestResult(rows=rows, provenance=provenance, dropped=[],
+        ledger = [_ledger(unit, "drawn_with_value") for unit in boundaries.units]
+        ledger.extend(_ledger({"id": code}, "filtered_out",
+                              "basemap has no shape for selected unit")
+                      for code in absent_members)
+        ledger.sort(key=lambda item: (str(item["id"]), item["status"]))
+        return HarvestResult(rows=rows, provenance=provenance, dropped=[], ledger=ledger,
                              hierarchy=hierarchy)
 
     statistics_key = statistics.key_at(manifest.variable_source, manifest.level)
@@ -1149,6 +1190,8 @@ def _build(manifest: Manifest, boundaries=None) -> HarvestResult:
     keys_of: dict = {}
     rows: list[dict] = []
     dropped: list[dict] = []
+    ledger: list[dict] = []
+    boundary_value_keys: set[str] = set()
 
     for unit in boundaries.units:
         entry = {"id": unit["id"], "geometry": unit["geometry"]}
@@ -1163,15 +1206,19 @@ def _build(manifest: Manifest, boundaries=None) -> HarvestResult:
             raw_key = unit.get("key")
         key = str(raw_key).upper() if raw_key else None
         keys_of[unit["id"]] = key
+        if key is not None:
+            boundary_value_keys.add(key)
 
         if key is not None and key in values.missing:
             # The source covers this unit and says why it has no value.
             dropped.append({**entry, "reason": values.missing[key]})
+            ledger.append(_ledger(entry, "drawn_hatched", values.missing[key]))
             continue
         if key is None or key not in values.values:
             # The polygon exists but this source has no row for it. Common when
             # boundaries and statistics come from different providers.
             dropped.append({**entry, "reason": "no_join"})
+            ledger.append(_ledger(entry, "geometry_without_data", "no_join"))
             continue
 
         value = values.values[key]
@@ -1179,12 +1226,14 @@ def _build(manifest: Manifest, boundaries=None) -> HarvestResult:
             value, "ratio" if values.provenance.get("zero_is_data") else value_level)
         if reason:
             dropped.append({**entry, "reason": reason})
+            ledger.append(_ledger(entry, "drawn_hatched", reason))
             continue
 
         if value_level == "count" or isinstance(value, (int, float)):
             value = float(value)
 
         rows.append({**entry, "value": value})
+        ledger.append(_ledger(entry, "drawn_with_value"))
         if key in values.years:
             joined_years.add(values.years[key])
             drawn_years.append((entry.get("name") or str(unit["id"]), values.years[key]))
@@ -1198,16 +1247,71 @@ def _build(manifest: Manifest, boundaries=None) -> HarvestResult:
     if plain:
         dropped = [d for d in dropped if d not in plain]
         provenance["plain_land"] = sorted(str(d.get("name") or d["id"]) for d in plain)
+        plain_ids = {str(d["id"]) for d in plain}
+        ledger = [item for item in ledger if str(item["id"]) not in plain_ids]
+        ledger.extend(_ledger(d, "filtered_out", "no permanent population") for d in plain)
+
+    # A statistics row cannot vanish merely because the chosen basemap has no
+    # matching shape. Scope world/admin-0 selections exactly; for descendant
+    # levels use the common prefix of the returned boundary keys (DE NUTS,
+    # California FIPS, Canadian ISO subdivisions). A non-world bbox cannot
+    # locate a source-only key, so it does not imply one without geometry.
+    source_keys = {str(key).upper() for key in set(values.values) | set(values.missing)}
+    for key in sorted(source_keys - boundary_value_keys):
+        if _source_key_is_in_scope(key, manifest, boundary_value_keys, statistics_key):
+            reason = values.missing.get(key)
+            if reason is None:
+                reason = _no_data_reason(
+                    values.values[key],
+                    "ratio" if values.provenance.get("zero_is_data") else value_level)
+            if reason is None:
+                ledger.append(_ledger({"id": key}, "data_without_geometry",
+                                      "basemap has no shape for source key"))
+            else:
+                ledger.append(_ledger({"id": key}, "filtered_out", reason))
+
+    known = {str(item["id"]).upper() for item in ledger}
+    for code in absent_members:
+        if str(code).upper() not in known:
+            ledger.append(_ledger(
+                {"id": code}, "filtered_out",
+                "basemap has no shape and statistics source returned no usable value"))
     _state_what_is_drawn(provenance, values, dropped, joined_years,
                          joined_divisor_years, drawn_years)
     _check_year_spread(manifest, provenance, joined_years)
     rows.sort(key=lambda r: str(r["id"]))
     dropped.sort(key=lambda r: (str(r["id"]), r["reason"]))
+    ledger.sort(key=lambda item: (str(item["id"]), item["status"],
+                                  str(item.get("reason") or "")))
     context = [{"id": str(d["id"]), "geometry": d["geometry"]}
                for d in sorted(plain, key=lambda d: str(d["id"]))]
     hierarchy = _hierarchy(manifest, provenance)
-    return HarvestResult(rows=rows, provenance=provenance, dropped=dropped,
+    return HarvestResult(rows=rows, provenance=provenance, dropped=dropped, ledger=ledger,
                          context=context, hierarchy=hierarchy)
+
+
+def _ledger(item: dict, status: str, reason: str | None = None) -> dict:
+    entry = {"id": str(item["id"]), "status": status}
+    if item.get("name"):
+        entry["name"] = str(item["name"])
+    if reason is not None:
+        entry["reason"] = str(reason)
+    return entry
+
+
+def _source_key_is_in_scope(key: str, manifest: Manifest, boundary_keys: set[str],
+                            namespace: str) -> bool:
+    """Whether a source-only key is one of the units the request implies."""
+    if manifest.within:
+        selected = {str(code).upper() for code in manifest.within}
+        if namespace == "ISO3":
+            return key in selected
+        prefix = os.path.commonprefix(sorted(boundary_keys)) if boundary_keys else ""
+        return len(prefix) >= 2 and key.startswith(prefix)
+    if manifest.bbox is None:
+        return True
+    west, south, east, north = manifest.bbox
+    return west <= -180 and south <= -90 and east >= 180 and north >= 90
 
 
 MAX_YEAR_SPREAD = 5

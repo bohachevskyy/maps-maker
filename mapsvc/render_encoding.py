@@ -240,10 +240,16 @@ def _outside_keys(result) -> list[tuple[str, str]]:
     land with no permanent population (Antarctica) is named as such. Both
     are one swatch when a map draws both.
     """
-    if not result.context:
+    filtered = [item for item in result.ledger
+                if item.get("status") == "filtered_out"]
+    if not result.context and not filtered:
         return []
     p = result.provenance
     plain = [str(n) for n in p.get("plain_land") or []]
+    if not plain and any(item.get("reason") == "no permanent population"
+                         for item in filtered):
+        plain = [str(item.get("name") or item["id"]) for item in filtered
+                 if item.get("reason") == "no permanent population"]
     neighbours = bool(p.get("context_source"))
     if neighbours and plain:
         label = "Outside the set, or uninhabited"

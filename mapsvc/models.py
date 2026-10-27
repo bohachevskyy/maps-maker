@@ -13,6 +13,9 @@ class HarvestResult:
     provenance {source, vintage, scale, region, variable, unit, year, normalize,
                 normalize_unit} -- everything the mandatory footnote needs.
     dropped    [{"id": "ATA", "reason": "no_data", "geometry": {...}}, ...]
+    ledger     One entry for every unit implied by the request. Each entry has
+               exactly one of drawn_with_value, drawn_hatched, outside_frame,
+               data_without_geometry, geometry_without_data, or filtered_out.
 
                Dropped rows keep their geometry: `missing: "hatch"` and
                `missing: "grey"` have to draw the features they exclude, and a
@@ -27,6 +30,7 @@ class HarvestResult:
     rows: list = field(default_factory=list)
     provenance: dict = field(default_factory=dict)
     dropped: list = field(default_factory=list)
+    ledger: list = field(default_factory=list)
     # Feature layers drawn above the polygons, one dict per manifest overlay
     # (see mapsvc/overlays/__init__.py for the shape).
     overlays: list = field(default_factory=list)
@@ -50,6 +54,33 @@ class HarvestResult:
     # The manifest as harvest drew it: bbox dropped, basemap or level derived.
     # None when harvest was bypassed; render then uses the manifest it was given.
     effective: object = None
+
+    def __post_init__(self):
+        """Keep hand-built renderer fixtures honest without duplicating policy.
+
+        Harvest supplies the complete ledger. Renderer tests and third-party
+        callers historically construct only ``rows`` and ``dropped``; derive
+        the subset that can be known from those fields so the footer still has
+        one accounting source.
+        """
+        if self.ledger:
+            return
+        entries = []
+        for row in self.rows:
+            entries.append(_ledger_entry(row, "drawn_with_value"))
+        for row in self.dropped:
+            status = ("geometry_without_data" if row.get("reason") == "no_join"
+                      else "drawn_hatched")
+            entries.append(_ledger_entry(row, status))
+        self.ledger = sorted(entries, key=lambda item: (str(item["id"]), item["status"]))
+
+
+def _ledger_entry(item: dict, status: str) -> dict:
+    entry = {"id": str(item["id"]), "status": status}
+    for key in ("name", "reason"):
+        if item.get(key) is not None:
+            entry[key] = item[key]
+    return entry
 
 
 @dataclass(frozen=True)

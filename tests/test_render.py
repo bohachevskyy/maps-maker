@@ -91,6 +91,33 @@ def test_footnote_states_everything_required(mini_geojson):
     assert "2 of 5 features excluded" in footnote        # dropped count
 
 
+def test_exclusion_sentence_comes_only_from_every_ledger_status():
+    from mapsvc.models import HarvestResult
+    from mapsvc.render_footer import _exclusions
+
+    statuses = [
+        ("drawn_with_value", None),
+        ("drawn_hatched", "no_data"),
+        ("outside_frame", "outside requested frame"),
+        ("data_without_geometry", "basemap has no shape"),
+        ("geometry_without_data", "no_join"),
+        ("filtered_out", "privacy filter"),
+    ]
+    ledger = [{"id": chr(65 + i), "name": f"Unit {i}", "status": status,
+               **({"reason": reason} if reason else {})}
+              for i, (status, reason) in enumerate(statuses)]
+    # Deliberately contradictory legacy fields: neither may influence the text.
+    result = HarvestResult(rows=[], provenance={},
+                           dropped=[{"id": "legacy", "reason": "no_data"}],
+                           ledger=ledger)
+    text = _exclusions(result)
+    assert text.startswith("5 of 6 features excluded:")
+    for phrase in ("drawn hatched", "outside the frame", "data rows without basemap geometry",
+                   "basemap geometries without source data", "filtered out"):
+        assert phrase in text
+    assert "legacy" not in text
+
+
 @pytest.mark.parametrize(("provenance", "credit"), [
     ({"source": "Natural Earth", "license": "public domain"},
      "Natural Earth (public domain)"),

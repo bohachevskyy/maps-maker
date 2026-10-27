@@ -252,7 +252,7 @@ def _footer(manifest, frame: Frame, encoding: Encoding, result, top: float,
         # Where the map is drawn is one paragraph: boundaries, projection and
         # the physical layers under the data.
         lines[0] = " ".join([lines[0], f"Projection: {_projection_label(frame)}.",
-                             *_physical_credits(result.physical)])
+                             f"{excluded}.", *_physical_credits(result.physical)])
     else:
         lines.extend([
             f"Variable: {variable}.",
@@ -384,27 +384,38 @@ def _variable_line(manifest: Manifest, p: dict) -> str:
     return variable
 
 def _exclusions(result, tiny: int = 0) -> str:
-    """How many units are hatched, and why, in words -- naming them when few."""
-    dropped = result.dropped
-    if not dropped:
+    """Account for every omitted unit from harvest's canonical ledger."""
+    excluded = [item for item in result.ledger
+                if item.get("status") != "drawn_with_value"]
+    if not excluded:
         return "0 features excluded"
     meanings = {**_REASONS, **(result.provenance.get("drop_reasons") or {})}
-    by_reason: dict[str, list] = {}
-    for item in dropped:
-        by_reason.setdefault(item.get("reason", "unknown"), []).append(item)
+    status_labels = {
+        "drawn_hatched": "drawn hatched",
+        "outside_frame": "outside the frame",
+        "data_without_geometry": "data rows without basemap geometry",
+        "geometry_without_data": "basemap geometries without source data, drawn hatched",
+        "filtered_out": "filtered out",
+    }
+    grouped: dict[tuple[str, str], list] = {}
+    for item in excluded:
+        grouped.setdefault((item.get("status", "filtered_out"),
+                            item.get("reason", "unknown")), []).append(item)
     parts = []
-    for reason, items in sorted(by_reason.items()):
-        part = f"{len(items)} {meanings.get(reason, reason.replace('_', ' '))}"
-        names = sorted({str(i["name"]) for i in items if i.get("name")})
+    for (status, reason), items in sorted(grouped.items()):
+        explanation = meanings.get(reason, reason.replace("_", " "))
+        part = f"{len(items)} {status_labels.get(status, status.replace('_', ' '))}: {explanation}"
+        names = sorted({str(i.get("name") or i["id"]) for i in items
+                        if not i.get("anonymous")})
         if 0 < len(items) <= NAMED_DROPS and len(names) == len(items):
             part += f" — {', '.join(names)}"
         parts.append(part)
-    total = len(dropped) + len(result.rows)
-    text = (f"{len(dropped)} of {total} features excluded, hatched as no data: "
-            + "; ".join(parts))
+    text = f"{len(excluded)} of {len(result.ledger)} features excluded: " + "; ".join(parts)
     if tiny:
-        text += (f" ({tiny} of them too small to show the hatching at this scale)"
-                 if tiny != len(dropped) else " (all too small to show the hatching at this scale)")
+        hatched = sum(item.get("status") in ("drawn_hatched", "geometry_without_data")
+                      for item in excluded)
+        text += (f" ({tiny} of {hatched} hatched features too small to show at this scale)"
+                 if tiny != hatched else " (all hatched features too small to show at this scale)")
     return text
 
 def _plain_land_note(p: dict) -> str:
