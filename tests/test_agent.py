@@ -37,6 +37,9 @@ def stub(monkeypatch, tmp_path):
     monkeypatch.setenv("MAPSVC_CACHE", str(tmp_path))
     monkeypatch.setenv("MAPSVC_LLM", "openai")
     monkeypatch.setenv("OPENAI_API_KEY", "test-key")
+    # The freshness preflight harvests (cached data, possibly a download); the
+    # tests for it live in test_discovery.py with a stubbed harvest.
+    monkeypatch.setattr(agent, "_preflight_freshness", lambda manifest: None)
 
     def install(*replies):
         client = FakeClient(replies)

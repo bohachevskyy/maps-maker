@@ -64,8 +64,8 @@ def test_value_lists_become_an_anchored_alternation():
 def test_taginfo_checks_each_vocabulary_value_not_names():
     spec = overpass.parse_filter("route=subway;network=東京メトロ|都営地下鉄")
     assert spec.vocabulary() == [("route", "subway")]
-    assert overpass.parse_filter("place=town|village").vocabulary() == [
-        ("place", "town"), ("place", "village")]
+    assert overpass.parse_filter("place=city|town|village").vocabulary() == [
+        ("place", "city"), ("place", "town"), ("place", "village")]
 
 
 # ----------------------------------------------------------------- routes ---

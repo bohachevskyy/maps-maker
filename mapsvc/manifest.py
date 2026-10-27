@@ -111,6 +111,7 @@ def validate(raw: dict) -> Manifest:
                 f"{', '.join(sorted(VARIABLE_KEYS))}", f"variable.{key}")
         variable_source, variable_id = _reference(variable, "variable", level)
         _check_join(variable_source, basemap_source, level, "variable.source")
+        _check_source_quality(variable_source, variable_id, level, within)
 
         if variable.get("per") is not None:
             per_raw = variable["per"]
@@ -242,6 +243,24 @@ def _check_join(source: str, basemap: str, level: str, field: str) -> None:
         f"{level} boundaries carry {', '.join(carried) or 'no join key'}{hint}",
         "basemap.source" if field == "variable.source" else field,
     )
+
+
+def _check_source_quality(source: str, variable_id: str, level: str,
+                          within: tuple | None) -> None:
+    """Reject Wikidata when a scoped official table answers the same question."""
+    if source != "wikidata" or variable_id != "population" or level != "admin_1":
+        return
+    codes = tuple(within or ())
+    choices = (
+        ("UKR", "UA-", "ukrstat", "present_population"),
+        ("CAN", "CA-", "statcan", "population"),
+        ("USA", "US-", "census_acs", "B01003_001E"),
+    )
+    for country, prefix, official, official_id in choices:
+        if codes and all(code == country or code.startswith(prefix) for code in codes):
+            raise ManifestError(
+                f"prefer the official statistics source {official}/{official_id} "
+                f"over Wikidata population for {country}", "variable.source")
 
 
 def _change(value, source: str, per: tuple | None) -> tuple[int, int]:

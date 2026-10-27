@@ -13,6 +13,7 @@ loop, with one repair attempt when it objects.
 
 import functools
 import json
+import re
 import os
 import pathlib
 import shutil
@@ -23,6 +24,7 @@ from mapsvc import overlays, registry, statistics
 from mapsvc.manifest import Manifest, ManifestError, validate
 from mapsvc.overlays.overpass import UpstreamUnavailable
 from mapsvc.statistics import StatisticsError
+from mapsvc.statistics import regions
 
 DEFAULT_MODEL = "gpt-5.6-terra"
 MAX_OUTPUT_TOKENS = 2000
@@ -282,24 +284,21 @@ names real places, because it gives exact borders and no neighbours.
 
   "Ukraine's oblasts"      within ["UKR"],  level admin_1   -> 27 units
   "the raions of Volyn"    within ["UA-07"], level admin_2  -> exactly 4
-  "the Balkans"            within ["ALB","BIH","BGR","HRV","GRC","KOS","MNE",
-                                   "MKD","ROU","SRB","SVN"]
-  "Scandinavia"            within ["NOR","SWE","DNK"] (add FIN, ISL if the
-                           request means the Nordics rather than Scandinavia)
-  "Europe"                 within ["AUT","BEL","BGR","HRV","CYP","CZE","DNK",
-                                   "EST","FIN","FRA","DEU","GRC","HUN","IRL",
-                                   "ITA","LVA","LTU","LUX","MLT","NLD","POL",
-                                   "PRT","ROU","SVK","SVN","ESP","SWE","ISL",
-                                   "LIE","NOR","CHE","GBR","ALB","BIH","KOS",
-                                   "MNE","MKD","SRB","UKR","MDA","BLR"]
+  "Asia", "Africa", "Europe", "the EU", "the Balkans", "Scandinavia", "the Middle East"
+                           -> level admin_0, within = your best country list
 
-An informal region has no code, so you supply the member list yourself. Say in \
-reasoning which countries you counted, since reasonable people draw the Balkans \
-and Scandinavia differently. For Europe, use the list above: EU27 + EFTA + the \
-UK + the Western Balkans + Ukraine, Moldova and Belarus. Exclude Russia, Turkey \
-and the Caucasus unless the user asks for them.
+A named world region is looked up by the service, not trusted to you: when the \
+request names a UN M49 region or sub-region (Asia, Africa, South America, \
+Eastern Europe, Southeast Asia, ...), the EU27, or one of the documented informal \
+regions (Balkans, Scandinavia, Nordics, Middle East, Latin America, North \
+America), your `within` list is REPLACED by the table's, including separately \
+coded territories (Taiwan, Hong Kong, Macao, French Guiana, the Falklands). The \
+convention is UN M49's -- Russia is Europe, Turkey is Asia -- and the footnote \
+states it, so do not argue with it in `within`. A region the table lacks (the Horn \
+of Africa, Benelux) is yours to list. A request that excludes members ("Europe \
+except Russia") is also yours to list.
 
-Named political regions use `within` only. Do not also put a bounding box around \
+Named political regions are expanded to `within` only. Do not also put a bounding box around \
 Europe, the EU, the Balkans, or another named region: a box admits unwanted \
 neighbours and can clip legitimate islands and outermost regions. The renderer \
 derives the extent and insets from the selected units. In particular, "EU \
@@ -421,6 +420,14 @@ For GDP comparisons across countries or regions, prefer purchasing-power \
 standards per inhabitant over nominal currency: for Eurostat regional GDP choose \
 unit=PPS_EU27_2020_HAB, not unit=EUR_HAB. This makes living-standard comparisons \
 meaningful across different price levels.
+
+SOURCE QUALITY AND FRESHNESS: prefer a national or supranational official \
+statistics office (Ukrstat, Statistics Canada, Census/ACS, BLS, Eurostat, EIA) \
+over Wikidata whenever both publish the requested measure for the requested \
+units. Do not use a latest-per-unit series whose oldest and newest observations \
+are more than five years apart when another source can answer. The service \
+checks and records the spread; Wikidata is a last resort when no official source \
+covers all requested units.
 
 When a derived ratio is needed, the divisor must be a fixed source's listed id, \
 or one of the divisors a searchable source lists above -- never a guessed id. \
@@ -550,7 +557,20 @@ For `web`, never invent data and never paste values: either search the curated \
 catalogue (empty id, a search_query) and pick returned URLs, or give an https \
 URL of a CSV/GeoJSON you are confident exists. The service fetches it and \
 rejects it if it does not load or has no coordinates. Leave search_query empty \
-for usgs and overpass.
+for usgs.
+
+For `overpass`, do not guess tags. Whenever the request is about a KIND of \
+physical feature ("nuclear power plants", "ski lifts", "lighthouses", "wind \
+farms"), leave id empty and put the plain-English feature phrase in search_query. \
+The service asks Taginfo and returns real key=value candidates with usage counts, \
+wiki descriptions and related-tag hints; pick exactly one candidate, and add a \
+related qualifier when it narrows the kind (power=plant;plant:source=nuclear -- \
+power=plant alone is every power station). Attributes such as \
+plant:output:electricity are only hints about what the data carries. Write an id \
+directly only for the fixed grammars (route relations with a network, place=...). \
+Settlements: "towns and villages", "settlements" or "populated places" mean \
+every settlement, so the filter is place=city|town|village|hamlet; a place= \
+filter without city is rejected.
 
 Web filters say WHICH rows to show, after a '#' on the URL: a year or season \
 the catalogue entry offers (`#season=1998`), or `#top=N` for "the N largest / \
@@ -617,6 +637,7 @@ def describe(prompt: str) -> tuple[Manifest, dict, str]:
             )
 
         raw = dict(answer["manifest"])
+        _expand_region(raw, prompt)
         query = (raw.get("variable") or {}).get("search_query") or ""
         chosen = (raw.get("variable") or {}).get("id") or ""
         source = (raw.get("variable") or {}).get("source")
@@ -712,9 +733,18 @@ def _overlay_candidates(source: str, query: str) -> str:
     except overlays.OverlayError:
         found = []
     if not found:
+        if source == "overpass":
+            return (f"Taginfo returned no OSM tags for {query!r}. Refuse unless "
+                    "another overlay source can answer it; do not invent a tag.")
         return (f"The {source} overlay catalogue has nothing for {query!r}. Give an "
                 "https URL of a CSV or GeoJSON you are confident exists, or refuse.")
     listed = "\n".join(f"  {c.as_prompt_line()}" for c in found)
+    if source == "overpass":
+        return (f"Taginfo returned these real OSM tags for {query!r}:\n{listed}\n\n"
+                "Reply with the full manifest, setting the overpass id to exactly "
+                "one candidate key=value and search_query empty. You may append a "
+                "related tag shown in that candidate's hint. A settlement filter "
+                "must include city (normally place=city|town|village|hamlet).")
     return (f"The {source} overlay catalogue returned these datasets for {query!r}:\n"
             f"{listed}\n\nReply with the full manifest, one overlay per file you "
             "want (source web, id = the URL exactly, plus any filters after '#' "
@@ -730,6 +760,33 @@ def _strip_overlays(raw: dict) -> None:
         return
     raw["overlays"] = [{"source": item.get("source"), "id": item.get("id")}
                        for item in items]
+
+
+_EXCLUSION = re.compile(r"\b(except|excluding|exclude|without|apart from|other than|minus)\b")
+
+
+def _expand_region(raw: dict, prompt: str) -> None:
+    """Replace the agent's country list with the table's for a named region.
+
+    The agent only counts countries by memory (Measured: it dropped Taiwan and
+    Hong Kong from "Asia" and put Russia in or out at random), so when the
+    request names a region the membership comes from statistics/regions.py.
+    Only country-level maps are touched: "oblasts of Ukraine in Europe" keeps
+    its own `within`, and a request that excludes something ("Europe except
+    Russia") is the agent's to list.
+    """
+    if "within" not in raw or raw.get("level") != "admin_0":
+        return
+    current = [str(code) for code in raw.get("within") or []]
+    if any("-" in code or len(code) != 3 for code in current):
+        return          # sub-national or special selectors are not region lists
+    lowered = " " + " ".join(re.sub(r"[^a-z0-9. ]", " ", prompt.lower()).split()) + " "
+    if _EXCLUSION.search(lowered):
+        return
+    matches = [name for name in (*regions.names(), *regions.ALIASES)
+               if f" {name.replace('-', ' ')} " in lowered]
+    if matches and (region := regions.get(max(matches, key=len))):
+        raw["within"] = list(region.members)
 
 
 def _preflight(manifest: Manifest) -> None:
@@ -748,6 +805,8 @@ def _preflight(manifest: Manifest) -> None:
     except harvest.HarvestError as exc:
         raise ManifestError(str(exc), exc.field) from None
 
+    _preflight_freshness(manifest)
+
     for i, (source, overlay_id) in enumerate(manifest.overlays):
         try:
             if source == "web":
@@ -760,6 +819,22 @@ def _preflight(manifest: Manifest) -> None:
                 overpass.load(overlay_id, window)
         except overlays.OverlayError as exc:
             raise ManifestError(str(exc), f"overlays[{i}].id") from None
+
+
+def _preflight_freshness(manifest: Manifest) -> None:
+    """Reject a mixed-vintage series when a fresher source is known."""
+    if manifest.variable_source not in ("natural_earth", "wikidata"):
+        return
+    import dataclasses
+    from mapsvc import harvest
+
+    try:
+        result = harvest.harvest(dataclasses.replace(manifest, overlays=()))
+    except Exception:   # noqa: BLE001 -- availability is not manifest feedback
+        return          # the real harvest reports its own failure, with its field
+    problem = harvest.stale_series(manifest, result.provenance)
+    if problem:
+        raise ManifestError(problem, "variable.source")
 
 
 def _strip_derivations(variable: dict) -> None:

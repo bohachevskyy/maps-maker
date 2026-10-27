@@ -64,7 +64,7 @@ def test_area_is_converted_to_square_kilometres(recorded):
 def test_density_is_population_per_area(recorded):
     manifest = validate({"within": ["UKR"], "level": "admin_1",
                          "basemap": {"source": "natural_earth"},
-                         "variable": {"source": "wikidata", "id": "population",
+                         "variable": {"source": "ukrstat", "id": "present_population",
                                       "per": {"source": "wikidata", "id": "area"}}})
     values = derive.values(manifest)
     assert values.values["UA-30"] == pytest.approx(2952301 / 839)
