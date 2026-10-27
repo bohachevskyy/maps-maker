@@ -420,8 +420,8 @@ prompt = "All towns and villages of Lviv oblast"
 truth = "KATOTTH codifier, settlements in UA-46, cross-checked with OpenStreetMap place nodes"
 units = [1700, 2100]
 contains = [[24.03, 49.84], [23.0, 49.5], [24.6, 50.3]]
-excludes = [[25.33, 50.75], [24.71, 48.92]]
-spot = ["count=1900±10%", "event_near=24.03,49.84"]   # (verify count)
+excludes = [[25.33, 50.75], [26.25, 50.62]]             # Lutsk, Rivne (Ivano-Frankivsk lies inside Lviv oblast's bbox)
+spot = ["count=1928±5%", "event_near=24.03,49.84"]   # KATOTTH: 1,928 settlements
 must_include = ["Lviv", "Drohobych", "Sambir"]
 must = ["every settlement inside Lviv oblast only", "cities > selyshcha > villages by symbol", "raions named"]
 reference = ["https://www.minregion.gov.ua/"]
@@ -443,7 +443,7 @@ prompt = "Tracks of the 2023 North Indian Ocean cyclone season"
 truth = "NOAA IBTrACS v04, NI basin, season 2023, named storms"
 units = [5, 12]
 contains = [[90.4, 23.8], [68.97, 22.47], [88.0, 15.0]]
-spot = ["count=8±40%", "line_near=92.3,20.8"]   # Mocha landfall, Myanmar coast (verify)
+spot = ["count=6±40%", "line_near=92.9,20.4"]   # 6 named storms; Mocha landfall near Sittwe (IBTrACS)
 must = ["one line per storm coloured by intensity", "landfalling storms named", "NOAA credited"]
 reference = ["https://www.ncei.noaa.gov/products/international-best-track-archive"]
 
@@ -453,7 +453,7 @@ prompt = "GDP per capita across Africa"
 truth = "OWID gdp-per-capita-worldbank, latest year; Africa per UN M49"
 units = [50, 58]
 contains = [[3.38, 6.52], [31.24, 30.04], [18.42, -33.92], [57.5, -20.16]]
-excludes = [[-3.70, 40.42], [46.7, 24.7]]
+excludes = [[-3.70, 40.42], [77.2, 28.6]]              # Madrid, Delhi (Riyadh lies between Cairo and Mauritius)
 spot = ["SYC>BDI", "MUS>10000", "BDI<1500"]   # (verify)
 must_include = ["SYC", "MUS", "CPV"]
 must = ["skewed values classed so the low end is differentiated", "one naming style, no unexplained codes", "Western Sahara hatched or neutral, never Morocco's colour"]
@@ -466,7 +466,7 @@ truth = "Eurostat demo_r_pjanind2, PC_Y65_MAX, NUTS 2, latest year"
 units = [230, 250]
 contains = [[2.35, 48.85], [23.7, 37.98], [25.0, 60.2]]
 excludes = [[-74.0, 40.7]]
-spot = ["ITC3>20", "FRY4<15"]   # Liguria high; Guyane? (verify codes/values)
+spot = ["ITC3>20", "FRY3<15"]   # Liguria 29.2%; Guyane 7.7% (Eurostat 2025)
 must = ["NUTS 2 regions, outermost regions as insets", "percent scale with balanced classes", "© EuroGeographics credited"]
 reference = ["https://ec.europa.eu/eurostat/web/regions"]
 
@@ -474,9 +474,9 @@ reference = ["https://ec.europa.eu/eurostat/web/regions"]
 id = "norway_lighthouses"
 prompt = "Lighthouses along the coast of Norway"
 truth = "OpenStreetMap man_made=lighthouse within Norway (mainland; Svalbard stated)"
-units = [300, 2500]
+units = [150, 300]
 contains = [[5.32, 60.39], [10.40, 63.43], [18.96, 69.65]]
-excludes = [[18.07, 59.33]]
-spot = ["count=1500±50%"]   # (verify)
+excludes = [[12.57, 55.68]]                              # Copenhagen (Stockholm lies inside Norway's own bbox)
+spot = ["count=230±25%"]   # measured: 230 mainland man_made=lighthouse features
 must = ["the long coastline framed without wasting space (insets or conic)", "points readable along fjords", "OpenStreetMap ODbL credited"]
 reference = ["https://www.openstreetmap.org/"]
