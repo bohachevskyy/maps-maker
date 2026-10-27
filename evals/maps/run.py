@@ -1,12 +1,14 @@
 """Run the reference-map evaluations and keep every artifact.
 
     uv run python -m evals.maps.run [ids...] [--repeat N] [--out DIR]
+    uv run python -m evals.maps.run [ids...] --recheck DIR
 
 This is a live runner, not part of pytest.  Its parsing and automatic checks are
 kept as pure functions so their unit tests remain offline.
 """
 
 import argparse
+import collections
 import csv
 import datetime as dt
 import json
@@ -21,6 +23,7 @@ import xml.etree.ElementTree as ET
 from mapsvc import project
 from mapsvc.agent import AgentRefusal, AgentUnavailable, backend_name, describe
 from mapsvc.harvest import harvest
+from mapsvc.manifest import validate
 from mapsvc.pipeline import draw
 
 
@@ -41,6 +44,15 @@ _COMPARISON = re.compile(r"^\s*([^<>=±]+?)\s*([<>])\s*([^<>=±]+?)\s*$")
 _NEAR = re.compile(rf"^\s*(event_near|line_near)\s*=\s*({_NUMBER})\s*,\s*({_NUMBER})\s*$")
 NEAR_KM = {"event_near": 100.0, "line_near": 20.0}
 _ISO_3166_2 = re.compile(r"^[A-Z]{2}-(.+)$", re.IGNORECASE)
+_YEAR = re.compile(r"(?<!\d)((?:18|19|20)\d{2})(?!\d)")
+_YEAR_RANGE = re.compile(
+    r"(?<!\d)((?:18|19|20)\d{2})\s*[-\N{EN DASH}\N{RIGHTWARDS ARROW}]\s*"
+    r"((?:18|19|20)\d{2})(?!\d)"
+)
+_EXCLUDED = re.compile(
+    r"(?:\b([\d,]+)\s+(?:of\s+[\d,]+\s+)?features?\s+excluded\b|"
+    r"\bexcluded\s*:\s*([\d,]+)\b)", re.IGNORECASE,
+)
 
 
 def parse_spot(expression: str) -> dict:
@@ -234,6 +246,238 @@ def _svg_facts(svg: str) -> tuple[set[str], dict[str, str], str]:
     return features, values, text
 
 
+def _svg_root(svg: str) -> ET.Element:
+    return ET.fromstring(svg)
+
+
+def _all_rendered_ids(root: ET.Element) -> set[str]:
+    return {element.get("data-id") for element in root.iter()
+            if element.get("data-id") is not None}
+
+
+def _must_include_check(spec: dict, root: ET.Element) -> dict:
+    required = spec.get("must_include", [])
+    if not required:
+        return {"status": "pass", "required": [],
+                "reason": "the spec has no must_include entries"}
+    ids = _all_rendered_ids(root)
+    # Overlay renderers put feature names in labels rather than on the point or
+    # line itself. Keep individual text nodes so a requirement cannot be made
+    # by joining unrelated words from the title and footnote.
+    labels = [" ".join("".join(node.itertext()).split())
+              for node in root.iter(f"{SVG_NS}text")
+              if node.get("fill", "").lower() != "#595959"]
+    found, missing = [], []
+    for item in required:
+        present = item in ids or any(
+            re.search(rf"(?<!\w){re.escape(item)}(?!\w)", label)
+            for label in labels
+        )
+        (found if present else missing).append(item)
+    result = {
+        "status": "pass" if not missing else "fail",
+        "required": required, "found": found, "missing": missing,
+    }
+    if missing:
+        result["reason"] = "required rendered IDs or overlay feature names are absent"
+    else:
+        result["reason"] = "all required rendered IDs or overlay feature names are present"
+    return result
+
+
+def _read_truth(path: pathlib.Path) -> tuple[list[dict[str, str]] | None,
+                                             dict[str, str] | None, str | None]:
+    if not path.exists():
+        return None, None, "truth.csv is absent"
+    try:
+        with path.open(newline="", encoding="utf-8-sig") as handle:
+            reader = csv.DictReader(handle)
+            fields = reader.fieldnames or []
+            rows = list(reader)
+    except (OSError, csv.Error) as exc:
+        return None, None, f"could not read truth.csv: {exc}"
+    return rows, {name.lower(): name for name in fields}, None
+
+
+def _terminal_years(text: str) -> list[int]:
+    """Return vintage endpoints, treating 2000-2023 as one 2023 vintage."""
+    ranges = list(_YEAR_RANGE.finditer(text))
+    covered = [range(match.start(), match.end()) for match in ranges]
+    years = [int(match.group(2)) for match in ranges]
+    for match in _YEAR.finditer(text):
+        if not any(match.start() in span for span in covered):
+            years.append(int(match.group(1)))
+    return years
+
+
+def _vintage_check(spec: dict, root: ET.Element, truth_path: pathlib.Path) -> dict:
+    rows, fields, error = _read_truth(truth_path)
+    if error:
+        return {"status": "unevaluable", "reason": error}
+    year_field = fields.get("year") if fields else None
+    if year_field is None:
+        return {"status": "unevaluable", "reason": "truth.csv has no year column"}
+    truth_years = [year for row in rows for year in _terminal_years(row.get(year_field, ""))]
+    if not truth_years:
+        return {"status": "unevaluable", "reason": "truth.csv's year column has no parseable years"}
+
+    provenance = " ".join("".join(node.itertext())
+                          for node in root.iter(f"{SVG_NS}text"))
+    variable = re.search(r"\bVariable:(.*?)(?:\bProjection:|$)", provenance, re.DOTALL)
+    overlay = re.search(r"\bOverlay:(.*?)(?:\bProjection:|$)", provenance, re.DOTALL)
+    stated = " ".join(filter(None, [
+        root.get("aria-label", ""),
+        " ".join("".join(node.itertext()) for node in root.iter(f"{SVG_NS}title")),
+        variable.group(1).split("[")[0] if variable else "",
+        overlay.group(1).split("[")[0] if overlay else "",
+        " ".join(value for element in root.iter() for name, value in element.attrib.items()
+                 if name in ("data-year", "data-vintage")),
+    ]))
+    map_years = _terminal_years(stated)
+    if not map_years:
+        return {"status": "unevaluable", "reason": "the SVG states no parseable data year"}
+    # Titles also contain base-price years ("constant 2021 dollars") and
+    # classification reference years ("EU27 from 2020"). When the SVG states
+    # years that actually occur in truth's vintage column, those are the data
+    # vintages; retain unmatched years only when every stated year is stale.
+    matching_years = [year for year in map_years if year in set(truth_years)]
+    if matching_years:
+        map_years = matching_years
+
+    tolerance = spec.get("vintage_tolerance", 2)
+    max_span = spec.get("vintage_max_span", 3)
+    age = max(truth_years) - max(map_years)
+    span = max(map_years) - min(map_years)
+    reasons = []
+    if age > tolerance:
+        reasons.append(f"map vintage is {age} years older than truth (tolerance {tolerance})")
+    if span > max_span:
+        reasons.append(f"map mixes stated vintages across {span} years (maximum {max_span})")
+    result = {
+        "status": "fail" if reasons else "pass",
+        "map_years": sorted(set(map_years)),
+        "truth_years": sorted(set(truth_years)),
+        "age_years": age, "tolerance_years": tolerance,
+        "map_span_years": span, "max_span_years": max_span,
+    }
+    if reasons:
+        result["reason"] = "; ".join(reasons)
+    else:
+        result["reason"] = "stated vintage is within the age and mixed-year tolerances"
+    return result
+
+
+def _effective_fill(element: ET.Element, parents: dict[ET.Element, ET.Element]) -> str | None:
+    current = element
+    while current is not None:
+        if current.get("fill") is not None:
+            return current.get("fill")
+        current = parents.get(current)
+    return None
+
+
+def _class_balance_check(root: ET.Element) -> dict:
+    parents = {child: parent for parent in root.iter() for child in parent}
+    valued: dict[str, tuple[str, str]] = {}
+    for element in root.iter():
+        key, value = element.get("data-id"), element.get("data-value")
+        fill = _effective_fill(element, parents)
+        if key is not None and value is not None and fill and not fill.startswith("url("):
+            valued.setdefault(key, (value, fill))
+    if not valued:
+        return {"status": "unevaluable", "severity": "warning",
+                "reason": "the SVG has no valued units"}
+    legend_fills = {element.get("fill") for element in root.iter(f"{SVG_NS}rect")
+                    if element.get("fill")}
+    classes = collections.Counter(fill for _, fill in valued.values() if fill in legend_fills)
+    if len(classes) < 2:
+        return {"status": "unevaluable", "severity": "warning",
+                "reason": "fewer than two legend classes could be matched to valued units"}
+    total = sum(classes.values())
+    dominant_fill, dominant_count = classes.most_common(1)[0]
+    share = dominant_count / total
+    dominant_values = collections.Counter(
+        value for value, fill in valued.values() if fill == dominant_fill
+    )
+    tied = max(dominant_values.values()) / len(valued) > 0.35
+    failed = share > 0.35 and not tied
+    result = {
+        "status": "fail" if failed else "pass", "severity": "warning",
+        "valued_units": total, "class_counts": dict(sorted(classes.items())),
+        "largest_class_fill": dominant_fill,
+        "largest_class_fraction": share, "maximum_fraction": 0.35,
+        "tied_values_exception": tied,
+    }
+    if failed:
+        result["reason"] = f"one legend class contains {dominant_count}/{total} valued units"
+    elif tied and share > 0.35:
+        result["reason"] = "the largest class exceeds 35% only because values are tied"
+    else:
+        result["reason"] = "no legend class contains more than 35% of valued units"
+    return result
+
+
+def _hatched_ids(root: ET.Element, parents: dict[ET.Element, ET.Element]) -> set[str]:
+    result = set()
+    for element in root.iter():
+        key = element.get("data-id")
+        fill = _effective_fill(element, parents)
+        if key is not None and fill and ("hatch" in fill.lower() or "nodata" in fill.lower()):
+            result.add(key)
+    return result
+
+
+def _footnote_consistency_check(root: ET.Element, truth_path: pathlib.Path,
+                                scope: frozenset = frozenset()) -> dict:
+    rows, fields, error = _read_truth(truth_path)
+    if error:
+        return {"status": "unevaluable", "reason": error}
+    fields = fields or {}
+    key_field = next((fields[name] for name in ("key", "id", "data-id") if name in fields), None)
+    if key_field is None:
+        return {"status": "unevaluable", "reason": "truth.csv has no key/id/data-id column"}
+    truth_keys = {row.get(key_field, "").strip() for row in rows if row.get(key_field, "").strip()}
+    # Reference tables occasionally carry one aggregate alongside hundreds of
+    # geographic rows (EU27_2020 beside four-character NUTS 2 codes). It is a
+    # comparison value, not a unit the SVG could draw. Ignore non-modal key
+    # lengths only when the table's unit-key shape is overwhelmingly uniform.
+    lengths = collections.Counter(map(len, truth_keys))
+    ignored_truth_keys: set[str] = set()
+    if truth_keys and lengths:
+        modal_length, modal_count = lengths.most_common(1)[0]
+        if modal_count / len(truth_keys) >= 0.9:
+            ignored_truth_keys = {key for key in truth_keys if len(key) != modal_length}
+            truth_keys -= ignored_truth_keys
+    rendered = _all_rendered_ids(root)
+    missing = {key for key in truth_keys if _resolve_key(key, rendered) is None}
+    # A `within` list scopes the map: a truth row outside it (Russia on a
+    # Europe map whose list leaves Russia out) is not an omission. Only applied
+    # when truth keys share the scope's namespace (ISO3 within, ISO3 keys).
+    if scope and truth_keys & scope:
+        missing &= scope
+    parents = {child: parent for parent in root.iter() for child in parent}
+    hatched = _hatched_ids(root, parents)
+    observed = len(missing) + len(hatched)
+    text = " ".join("".join(node.itertext()) for node in root.iter(f"{SVG_NS}text"))
+    claims = [int((left or right).replace(",", ""))
+              for left, right in _EXCLUDED.findall(text)]
+    if not claims:
+        return {"status": "unevaluable", "reason": "the SVG footnote has no parseable exclusion count",
+                "observed_excluded": observed}
+    claimed = claims[-1]
+    result = {
+        "status": "fail" if claimed < observed else "pass",
+        "claimed_excluded": claimed, "observed_excluded": observed,
+        "absent_truth_keys": sorted(missing), "hatched_ids": sorted(hatched),
+        "ignored_non_unit_truth_keys": sorted(ignored_truth_keys),
+    }
+    if claimed < observed:
+        result["reason"] = f"footnote claims {claimed} excluded but at least {observed} are absent or hatched"
+    else:
+        result["reason"] = "footnote exclusion claim covers all absent truth keys and hatched units"
+    return result
+
+
 def _check_units(spec: dict, features: set[str]) -> dict:
     low, high = spec["units"]
     actual = len(features)
@@ -406,7 +650,24 @@ def _checks_pass(checks: dict) -> bool:
     required.extend(checks["contains"])
     required.extend(checks["excludes"])
     required.extend(checks["spots"])
-    return all(item.get("status") == "pass" for item in required)
+    if not all(item.get("status") == "pass" for item in required):
+        return False
+    # These checks are not applicable to every map kind (for example a route
+    # overlay has neither valued polygon classes nor a keyed truth vintage).
+    # Unevaluable is recorded with a reason; an observed defect still gates.
+    added = (checks["must_include"], checks["vintage"],
+             checks["class_balance"], checks["footnote_consistency"])
+    return all(item.get("status") != "fail" for item in added)
+
+
+def _added_checks(spec: dict, root: ET.Element, truth_path: pathlib.Path,
+                  scope: frozenset = frozenset()) -> dict:
+    return {
+        "must_include": _must_include_check(spec, root),
+        "vintage": _vintage_check(spec, root, truth_path),
+        "class_balance": _class_balance_check(root),
+        "footnote_consistency": _footnote_consistency_check(root, truth_path, scope),
+    }
 
 
 def run_one(spec: dict, destination: pathlib.Path) -> dict:
@@ -436,6 +697,7 @@ def run_one(spec: dict, destination: pathlib.Path) -> dict:
         svg_path = destination / "map.svg"
         svg_path.write_text(svg, encoding="utf-8")
         features, values, text = _svg_facts(svg)
+        root = _svg_root(svg)
         harvested = harvest(manifest)        # cached by now; draw() just ran it
         extent = _extent_for(manifest, harvested)
         geometry = overlay_geometry(harvested) if manifest.overlays else None
@@ -448,6 +710,8 @@ def run_one(spec: dict, destination: pathlib.Path) -> dict:
             "footnote": _footnote_check(text),
             "truth": _truth_check(REFS / spec["id"] / "truth.csv", features, values),
         }
+        checks.update(_added_checks(spec, root, REFS / spec["id"] / "truth.csv",
+                                    frozenset(manifest.within or ())))
         auto["checks"] = checks
         if png_error := _make_png(svg_path, destination / "map.png"):
             errors.append(png_error)
@@ -457,6 +721,70 @@ def run_one(spec: dict, destination: pathlib.Path) -> dict:
 
     auto["error"] = "; ".join(errors) or None
     _write_json(destination / "auto.json", auto)
+    return auto
+
+
+def _previous_extent(previous: dict, kind: str):
+    for item in previous.get("checks", {}).get(kind, []):
+        if item.get("extent") is not None:
+            return tuple(item["extent"])
+    return None
+
+
+def recheck_one(spec: dict, destination: pathlib.Path) -> dict:
+    """Re-run artifact-only checks without describing, drawing, or harvesting."""
+    auto_path = destination / "auto.json"
+    try:
+        previous = json.loads(auto_path.read_text(encoding="utf-8")) if auto_path.exists() else {}
+    except (OSError, json.JSONDecodeError):
+        previous = {}
+    auto = {
+        "id": spec["id"], "prompt": spec["prompt"], "refused": False,
+        "error": None, "checks": {}, "passed": False, "rechecked": True,
+    }
+    errors = []
+    try:
+        svg = (destination / "map.svg").read_text(encoding="utf-8")
+        raw = json.loads((destination / "manifest.json").read_text(encoding="utf-8"))
+        manifest = validate(raw)
+        features, values, text = _svg_facts(svg)
+        root = _svg_root(svg)
+        if manifest.bbox is not None and not manifest.within and not manifest.overlays:
+            extent = manifest.bbox
+        else:
+            extent = (_previous_extent(previous, "contains")
+                      or _previous_extent(previous, "excludes"))
+        previous_spots = {
+            item.get("expression"): item
+            for item in previous.get("checks", {}).get("spots", [])
+        }
+        spots = []
+        for expression in spec.get("spot", []):
+            try:
+                is_near = parse_spot(expression)["kind"] == "near"
+            except ValueError:
+                is_near = False
+            if is_near and expression in previous_spots:
+                spots.append(previous_spots[expression])
+            else:
+                spots.append(evaluate_spot(expression, values))
+        truth_path = REFS / spec["id"] / "truth.csv"
+        checks = {
+            "units": _check_units(spec, features),
+            "contains": _point_checks("contains", spec.get("contains", []), extent),
+            "excludes": _point_checks("excludes", spec.get("excludes", []), extent),
+            "spots": spots,
+            "footnote": _footnote_check(text),
+            "truth": _truth_check(truth_path, features, values),
+        }
+        checks.update(_added_checks(spec, root, truth_path,
+                                    frozenset(getattr(manifest, "within", None) or ())))
+        auto["checks"] = checks
+        auto["passed"] = _checks_pass(checks)
+    except Exception as exc:
+        errors.append(f"{type(exc).__name__}: {exc}")
+    auto["error"] = "; ".join(errors) or None
+    _write_json(auto_path, auto)
     return auto
 
 
@@ -475,6 +803,9 @@ def main() -> int:
     parser.add_argument("ids", nargs="*", help="map ids from specs.toml (default: all)")
     parser.add_argument("--repeat", type=int, default=1, help="runs per map")
     parser.add_argument("--out", type=pathlib.Path, help="artifact root")
+    parser.add_argument("--recheck", type=pathlib.Path,
+                        help="re-run checks on existing map.svg/manifest.json artifacts; "
+                             "never calls the agent or redraws maps")
     parser.add_argument("--specs", type=pathlib.Path,
                         help="specs file (default: evals/maps/specs.toml); truth is read "
                              "from <its directory>/<id>/truth.csv")
@@ -484,8 +815,32 @@ def main() -> int:
         SPECS, REFS = args.specs.resolve(), args.specs.resolve().parent
     if args.repeat < 1:
         parser.error("--repeat must be at least 1")
+    if args.recheck and (args.repeat != 1 or args.out):
+        parser.error("--recheck cannot be combined with --repeat or --out")
 
     cases = _load_specs(args.ids)
+    if args.recheck:
+        artifact_root = args.recheck.resolve()
+        jobs = []
+        for spec in cases:
+            case_root = artifact_root / spec["id"]
+            jobs.extend((spec, svg.parent) for svg in sorted(case_root.rglob("map.svg")))
+        if not jobs:
+            parser.error(f"no map.svg artifacts found under {artifact_root}")
+        print(f"{len(jobs)} existing artifact(s); agent=disabled; recheck={artifact_root}")
+        rows = []
+        for spec, destination in jobs:
+            result = recheck_one(spec, destination)
+            checks = result.get("checks", {})
+            units = checks.get("units", {}).get("actual", "-")
+            spots = checks.get("spots", [])
+            spot_summary = (f"{sum(s.get('status') == 'pass' for s in spots)}/{len(spots)}"
+                            if spots else "-")
+            status = "PASS" if result["passed"] else "FAIL"
+            label = str(destination.relative_to(artifact_root))
+            rows.append((label, status, units, spot_summary, destination))
+        return _print_summary(rows)
+
     output = (args.out or _default_output()).resolve()
     output.mkdir(parents=True, exist_ok=True)
     try:
@@ -508,6 +863,10 @@ def main() -> int:
             label = spec["id"] if args.repeat == 1 else f"{spec['id']}#{run}"
             rows.append((label, status, units, spot_summary, destination))
 
+    return _print_summary(rows)
+
+
+def _print_summary(rows: list[tuple]) -> int:
     widths = [max(len(str(row[index])) for row in (["map", "status", "units", "spots", "output"], *rows))
               for index in range(5)]
     header = ("map", "status", "units", "spots", "output")
