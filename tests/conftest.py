@@ -12,6 +12,9 @@ FIXTURES = pathlib.Path(__file__).parent / "fixtures"
 
 # The suite is offline: never ask Overture's STAC catalog which release is latest.
 os.environ.setdefault("OVERTURE_RELEASE", "2026-10-21.0")
+# ...and never fall back to Overture when a test makes Overpass fail; the
+# fallback tests switch it on with recorded rows.
+os.environ["MAPSVC_OVERTURE_FALLBACK"] = "0"
 
 
 @pytest.fixture

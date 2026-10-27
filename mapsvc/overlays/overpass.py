@@ -559,13 +559,17 @@ def load(overlay_id: str, window: Window) -> dict:
     elif target.exists() and _UNAVAILABLE_UNTIL.get(str(target), 0) > time.monotonic():
         payload = target.read_bytes()
         stale_fallback = True
+    elif _UNAVAILABLE_UNTIL.get(str(target), 0) > time.monotonic():
+        # Overpass just failed this exact query and nothing is cached: do not
+        # spend another budget before asking Overture.
+        return _overture_or_raise(f, window, target, None)
     else:
         started = time.monotonic()
         try:
             payload = _post(ql)
-        except UpstreamUnavailable:
+        except UpstreamUnavailable as exc:
             if not target.exists():
-                raise
+                return _overture_or_raise(f, window, target, exc)
             _UNAVAILABLE_UNTIL[str(target)] = time.monotonic() + RETRY_AFTER_S
             payload = target.read_bytes()
             stale_fallback = True
@@ -587,6 +591,19 @@ def load(overlay_id: str, window: Window) -> dict:
         _state_stale_fallback(layer, data, target)
     if elapsed is not None:
         layer["fetch_seconds"] = round(elapsed, 1)
+    return layer
+
+
+def _overture_or_raise(f: Filter, window: Window, target, exc):
+    """Overpass is down and nothing is cached: try Overture for the filter
+    families it answers faithfully, else surface the outage."""
+    from mapsvc.overlays import overture
+
+    _UNAVAILABLE_UNTIL[str(target)] = time.monotonic() + RETRY_AFTER_S
+    layer = overture.load(f, window)
+    if layer is None:
+        raise exc or UpstreamUnavailable(
+            "Overpass is unavailable and Overture cannot answer this filter", ())
     return layer
 
 
