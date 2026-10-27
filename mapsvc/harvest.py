@@ -21,6 +21,7 @@ import urllib.request
 from mapsvc import cartography, derive, overlays, project, registry, statistics
 from mapsvc.manifest import Manifest
 from mapsvc.models import HarvestResult
+from mapsvc.statistics import regions
 
 __all__ = ["HarvestResult", "HarvestError", "harvest", "load_source",
            "select_region", "validate_window"]
@@ -36,7 +37,7 @@ NO_DATA = {-99, "-99", "", None}
 # Bump when the shape of a cached HarvestResult changes -- new provenance keys,
 # a different join, altered drop reasons. Without it a code change silently
 # keeps serving rows written in the old format.
-CACHE_VERSION = 26
+CACHE_VERSION = 27
 
 # Physical context is derived from the overlay and its window, never requested
 # in the manifest. These files are fetched here and cached with the other input
@@ -883,6 +884,9 @@ def _place(manifest: Manifest, result: HarvestResult) -> str | None:
     if not manifest.within:
         return "World" if manifest.bbox is not None and tuple(manifest.bbox) == \
             project.WORLD_EXTENT else None
+    named_region = regions.identify(manifest.within)
+    if named_region:
+        return named_region.name
     try:
         countries = context_countries()
     except OSError:
@@ -1054,7 +1058,7 @@ def _build(manifest: Manifest, boundaries=None) -> HarvestResult:
         boundaries = cartography.load(manifest.basemap_source, manifest.level,
                                       manifest.bbox, manifest.basemap_detail,
                                       manifest.within)
-    _require_named_units(manifest, boundaries)
+    absent_members = _require_named_units(manifest, boundaries)
     provenance = {
         "bbox": None if manifest.bbox is None else list(manifest.bbox),
         "within": manifest.within,
@@ -1067,12 +1071,25 @@ def _build(manifest: Manifest, boundaries=None) -> HarvestResult:
         "vintage": boundaries.provenance.get("release"),
         "variable": None, "unit": None, "year": None,
     }
+    if manifest.within:
+        named_region = regions.identify(manifest.within)
+        if named_region:
+            provenance["region_name"] = named_region.name
+            provenance["region_convention"] = named_region.convention
+            if absent_members:
+                provenance["region_unavailable"] = absent_members
     boundary_note = boundaries.provenance.get("note")
     if boundary_note:
         provenance["vintage"] = (
             f"{provenance['vintage']}; {boundary_note}"
             if provenance.get("vintage") else boundary_note
         )
+    if provenance.get("region_convention"):
+        notes = [regions.identify(manifest.within).footnote]
+        if provenance.get("region_unavailable"):
+            notes.append("not in the basemap: "
+                         + ", ".join(provenance["region_unavailable"]))
+        provenance["vintage"] = "; ".join(filter(None, [provenance.get("vintage"), *notes]))
 
     if manifest.variable_id is None:
         # A base map: cartography with nothing painted on it.
@@ -1183,6 +1200,7 @@ def _build(manifest: Manifest, boundaries=None) -> HarvestResult:
         provenance["plain_land"] = sorted(str(d.get("name") or d["id"]) for d in plain)
     _state_what_is_drawn(provenance, values, dropped, joined_years,
                          joined_divisor_years, drawn_years)
+    _check_year_spread(manifest, provenance, joined_years)
     rows.sort(key=lambda r: str(r["id"]))
     dropped.sort(key=lambda r: (str(r["id"]), r["reason"]))
     context = [{"id": str(d["id"]), "geometry": d["geometry"]}
@@ -1190,6 +1208,49 @@ def _build(manifest: Manifest, boundaries=None) -> HarvestResult:
     hierarchy = _hierarchy(manifest, provenance)
     return HarvestResult(rows=rows, provenance=provenance, dropped=dropped,
                          context=context, hierarchy=hierarchy)
+
+
+MAX_YEAR_SPREAD = 5
+
+
+def _check_year_spread(manifest: Manifest, provenance: dict,
+                       years: set[int]) -> None:
+    """Record how far apart the drawn units' observation years are.
+
+    Recording never fails a hand-written manifest -- a world GDP map from Natural
+    Earth is honest about its 2009-2025 vintages in the footnote.  The agent
+    path asks `stale_series` and repairs.
+    """
+    provenance["year_spread"] = (max(years) - min(years)) if years else 0
+    if years:
+        provenance["year_range"] = [min(years), max(years)]
+
+
+def stale_series(manifest: Manifest, provenance: dict) -> str | None:
+    """Why this series should be replaced, or None.
+
+    A series whose per-unit years span more than MAX_YEAR_SPREAD years is a
+    mixed-vintage comparison.  It is rejected only when a fresher alternative is
+    known; a source with none is accepted and the spread stays in provenance.
+    """
+    spread = provenance.get("year_spread") or 0
+    if spread <= MAX_YEAR_SPREAD:
+        return None
+    broad = manifest.level == "admin_0" and (
+        not manifest.within or len(manifest.within) > 3
+        or bool(regions.identify(manifest.within)))
+    alternative = None
+    if manifest.variable_source == "natural_earth" and broad:
+        alternative = {"POP_EST": "OWID population", "GDP_MD": "OWID GDP"}.get(
+            manifest.variable_id)
+    elif manifest.variable_source == "wikidata" and manifest.level == "admin_0":
+        alternative = "Natural Earth POP_EST or a searched OWID series"
+    if alternative is None:
+        return None
+    low, high = provenance.get("year_range") or ("?", "?")
+    return (f"the {manifest.variable_source} series spans {spread} years across the "
+            f"drawn units ({low}-{high}), a mixed-vintage comparison; use "
+            f"{alternative}, whose time series gives every unit the same year")
 
 
 def _hierarchy(manifest: Manifest, provenance: dict) -> list:
@@ -1219,7 +1280,7 @@ def _hierarchy(manifest: Manifest, provenance: dict) -> list:
 UNINHABITED = {"ATA", "ATF", "HMD", "BVT", "SGS"}
 
 
-def _require_named_units(manifest: Manifest, boundaries) -> None:
+def _require_named_units(manifest: Manifest, boundaries) -> list[str]:
     """An explicitly named country may not disappear before the value join.
 
     Descendant selectors (CAN at admin_1, US-CA at admin_2, EU at NUTS) do not
@@ -1228,7 +1289,7 @@ def _require_named_units(manifest: Manifest, boundaries) -> None:
     selector is the unit itself, so absence is unambiguous and must be loud.
     """
     if manifest.level != "admin_0" or not manifest.within:
-        return
+        return []
     aliases = set()
     for unit in boundaries.units:
         aliases.add(str(unit.get("id") or "").upper())
@@ -1239,10 +1300,15 @@ def _require_named_units(manifest: Manifest, boundaries) -> None:
     special = {"EU", "EU27", "EU27_2020", "WORLD"}
     missing = sorted(code for code in manifest.within
                      if code.upper() not in aliases and code.upper() not in special)
+    if missing and regions.identify(manifest.within):
+        # A named region lists every member the table knows, including small
+        # territories a basemap may not carry; that is a stated gap, not an error.
+        return missing
     if missing:
         raise HarvestError(
             "the boundary source did not return explicitly selected unit(s): "
             + ", ".join(missing), "within")
+    return []
 
 
 def _plain_land(dropped: list, keys_of: dict, statistics_key: str,

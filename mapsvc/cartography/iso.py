@@ -11,6 +11,15 @@ import functools
 from mapsvc import registry
 
 
+# ISO 3166-1 territories Natural Earth folds into a sovereign (or omits) but
+# the region table (statistics/regions.py) lists under their own codes.
+SUPPLEMENT = {
+    "BES": "BQ", "BVT": "BV", "CCK": "CC", "CXR": "CX", "GIB": "GI",
+    "GLP": "GP", "GUF": "GF", "MTQ": "MQ", "MYT": "YT", "REU": "RE",
+    "SJM": "SJ", "TKL": "TK", "UMI": "UM",
+}
+
+
 @functools.lru_cache(maxsize=1)
 def _tables() -> tuple[dict, dict]:
     from mapsvc.harvest import load_source  # late: avoids an import cycle
@@ -49,7 +58,7 @@ def to_alpha2(code: str) -> str | None:
     code = code.strip().upper()
     if len(code) == 2:
         return code
-    return _tables()[0].get(code)
+    return _tables()[0].get(code) or SUPPLEMENT.get(code)
 
 
 def to_alpha3(code: str) -> str | None:
