@@ -1,0 +1,125 @@
+# HELD-OUT SET 2 (2026-10-27) -- measures generalisation; never used for tuning.
+# Same rules as evals/heldout/ (CLAUDE.md, "Held-out evals"). Created after
+# held-out set 1 was partly burned (its critiques informed the fix plan).
+# Spot values marked (verify) are from memory; the reference builder checks them.
+
+[rubric]
+data        = "Values are right: spot checks pass, vintage stated, nothing silently dropped."
+geography   = "The right units and only them; window framed tightly; no stray features, no antimeridian artefacts."
+cartography = "Projection suits the extent; encoding suits the variable (counts are never a raw choropleth); legend readable with units; title says what the map shows."
+provenance  = "Footnote names every source, licence, vintage, projection, classification and exclusions."
+fidelity    = "The agent understood the prompt: right measure, right place, right granularity."
+
+[[map]]
+id = "south_asia_literacy"
+prompt = "Adult literacy rate across South Asia"
+truth = "OWID literacy-rate (UNESCO/World Bank), latest year; UN M49 Southern Asia"
+units = [8, 9]
+contains = [[77.2, 28.6], [90.4, 23.8], [73.5, 4.2]]
+excludes = [[116.4, 39.9]]
+spot = ["LKA>AFG", "AFG<50"]   # (verify)
+must_include = ["MDV", "BTN"]
+must = ["UN M49 Southern Asia members, Maldives visible", "percent scale, vintage per country stated"]
+reference = ["https://ourworldindata.org/grapher/literacy-rate-adults"]
+
+[[map]]
+id = "german_states_population"
+prompt = "Population of the German federal states"
+truth = "Destatis or Eurostat (NUTS 1) population, latest year; 16 Länder"
+units = [16, 16]
+contains = [[13.40, 52.52], [11.58, 48.14], [8.8, 53.08]]
+excludes = [[16.37, 48.21]]
+spot = ["DE-NW>DE-HB", "DE-NW>17000000", "DE-HB<800000"]   # (verify)
+must_include = ["DE-HB", "DE-BE", "DE-HH"]
+must = ["16 Länder incl. city-states Berlin, Hamburg, Bremen visible", "counts as proportional symbols or density", "single recent official vintage"]
+reference = ["https://www.destatis.de/EN/"]
+
+[[map]]
+id = "turkey_quakes_2023"
+prompt = "Earthquakes of magnitude 4.5 or more in Turkey and Syria in 2023"
+truth = "USGS FDSN event service, 2023, minmagnitude 4.5, Turkey-Syria region"
+units = [100, 600]
+contains = [[37.04, 37.17], [36.16, 36.2], [32.85, 39.93]]
+excludes = [[2.35, 48.85]]
+spot = ["event_near=37.04,37.17"]   # 6 Feb Mw 7.8 (verify)
+must = ["the 6 February sequence legible (inset if dense)", "sized by magnitude", "USGS credited"]
+reference = ["https://earthquake.usgs.gov/earthquakes/map/"]
+
+[[map]]
+id = "madrid_metro"
+prompt = "The Madrid Metro network"
+truth = "OpenStreetMap route=subway relations, network Metro de Madrid, colour tags (12 lines + Ramal)"
+units = [11, 15]
+contains = [[-3.7038, 40.4168], [-3.689, 40.4532]]
+excludes = [[-4.0, 40.0]]
+spot = ["count=13±20%", "line_near=-3.7038,40.4168"]
+must = ["each line in its colour and number", "centre readable", "OpenStreetMap ODbL credited"]
+reference = ["https://www.metromadrid.es/en"]
+
+[[map]]
+id = "ivano_frankivsk_settlements"
+prompt = "Every town and village in Ivano-Frankivsk oblast"
+truth = "KATOTTH codifier, settlements in UA-26, cross-checked with OpenStreetMap place nodes"
+units = [700, 900]
+contains = [[24.71, 48.92], [24.55, 48.53], [25.04, 48.38]]
+excludes = [[24.03, 49.84], [25.94, 48.29]]
+spot = ["count=800±10%", "event_near=24.71,48.92"]   # (verify count)
+must_include = ["Ivano-Frankivsk", "Kolomyia", "Kalush"]
+must = ["every settlement inside the oblast only", "cities > selyshcha > villages by symbol", "raions named"]
+reference = ["https://www.minregion.gov.ua/"]
+
+[[map]]
+id = "spain_solar_plants"
+prompt = "Solar power plants in Spain"
+truth = "OpenStreetMap power=plant + plant:source=solar within Spain"
+units = [200, 3000]
+contains = [[-3.70, 40.42], [-6.0, 37.4], [-1.13, 37.98]]
+excludes = [[2.35, 48.85]]
+spot = ["count=900±60%"]   # (verify)
+must = ["points (or areas) sized by capacity where tagged", "Canaries/Balearics handled (insets)", "OpenStreetMap ODbL credited"]
+reference = ["https://openinframap.org/"]
+
+[[map]]
+id = "atlantic_hurricanes_2017"
+prompt = "Tracks of the 2017 Atlantic hurricane season"
+truth = "NOAA IBTrACS v04, NA basin, season 2017, named storms"
+units = [15, 22]
+contains = [[-66.1, 18.47], [-80.19, 25.76], [-95.37, 29.76]]
+spot = ["count=17±25%", "line_near=-97.1,28.0"]   # Harvey landfall, Rockport TX (verify)
+must = ["coloured by category along track", "Harvey, Irma, Maria named", "NOAA credited"]
+reference = ["https://www.ncei.noaa.gov/products/international-best-track-archive"]
+
+[[map]]
+id = "latin_america_fertility"
+prompt = "Fertility rate across Latin America and the Caribbean"
+truth = "OWID fertility-rate (UN WPP), latest year; UN M49 Latin America and the Caribbean"
+units = [30, 50]
+contains = [[-99.13, 19.43], [-58.38, -34.60], [-61.51, 10.65]]
+excludes = [[-74.0, 40.7], [-3.70, 40.42]]
+spot = ["GTM>KOR", "BOL>CHL"]   # (verify; KOR intentionally absent -> unevaluable is fine)
+must_include = ["JAM", "TTO", "BRB"]
+must = ["Caribbean small states visible (insets/markers)", "children per woman as unit", "classes differentiate the low end"]
+reference = ["https://ourworldindata.org/grapher/fertility-rate"]
+
+[[map]]
+id = "spain_unemployment_regions"
+prompt = "Unemployment rate in Spain's regions"
+truth = "Eurostat lfst_r_lfu3rt, NUTS 2, latest year (19 regions incl. Ceuta, Melilla)"
+units = [17, 19]
+contains = [[-3.70, 40.42], [-5.98, 37.39], [2.17, 41.39], [-15.43, 28.12]]
+excludes = [[2.35, 48.85]]
+spot = ["ES61>ES51", "ES63>ES24"]   # Andalucía > Cataluña; Ceuta > Aragón (verify)
+must_include = ["ES70", "ES63", "ES64"]
+must = ["Canaries as an inset", "Ceuta and Melilla visible", "percent, vintage stated"]
+reference = ["https://ec.europa.eu/eurostat/web/regions"]
+
+[[map]]
+id = "iceland_volcanoes"
+prompt = "Active volcanoes of Iceland"
+truth = "Smithsonian GVP Holocene volcanoes within Iceland"
+units = [25, 40]
+contains = [[-19.05, 63.63], [-17.32, 64.42], [-22.0, 63.9]]
+excludes = [[-0.13, 51.51]]
+spot = ["count=33±20%", "event_near=-19.62,63.63"]   # Eyjafjallajökull (verify)
+must = ["volcanoes named where space allows", "Iceland framed tightly", "GVP credited"]
+reference = ["https://volcano.si.edu/"]

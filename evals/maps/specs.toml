@@ -360,3 +360,123 @@ must = [
   "source credited",
 ]
 reference = ["https://www.minregion.gov.ua/"]
+
+# ======================================================================
+# Set 3 (2026-10-27): exercises the general weaknesses the first held-out
+# checkpoint exposed -- region membership, data vintage, dense cores, framing
+# on events, settlement completeness, OSM tag discovery, other storm basins,
+# skewed classes, naming. Spots marked (verify) are from memory.
+# ======================================================================
+
+[[map]]
+id = "southeast_asia_life_expectancy"
+prompt = "Life expectancy across Southeast Asia"
+truth = "OWID life-expectancy (UN WPP), latest year; region = UN M49 South-eastern Asia (11 states)"
+units = [11, 11]
+contains = [[100.5, 13.75], [106.8, -6.2], [103.85, 1.29], [125.57, -8.56]]
+excludes = [[77.2, 28.6], [116.4, 39.9]]
+spot = ["SGP>LAO", "SGP>80", "MMR<72"]   # (verify)
+must_include = ["SGP", "TLS", "BRN"]
+must = ["all 11 M49 South-eastern Asia states incl. Timor-Leste, Brunei, Singapore", "small states visible (inset or marker)", "years as unit, latest year stated"]
+reference = ["https://ourworldindata.org/grapher/life-expectancy"]
+
+[[map]]
+id = "france_regions_population"
+prompt = "Population of each region of metropolitan France"
+truth = "INSEE regional population estimates, latest year (13 metropolitan regions); keys ISO 3166-2 FR-xxx"
+units = [13, 13]
+contains = [[2.35, 48.85], [5.37, 43.3], [-1.68, 48.11], [9.15, 42.04]]
+excludes = [[-61.0, 14.6], [55.5, -21.1]]
+spot = ["FR-IDF>FR-COR", "FR-IDF>12000000", "FR-COR<400000"]   # Île-de-France, Corse (verify)
+must_include = ["FR-IDF", "FR-COR"]
+must = ["13 metropolitan regions incl. Corsica", "counts as proportional symbols or density", "official source (INSEE or Eurostat) with a single recent vintage"]
+reference = ["https://www.insee.fr/en/statistiques"]
+
+[[map]]
+id = "indonesia_quakes_2025"
+prompt = "Earthquakes of magnitude 5 or more around Indonesia in 2025"
+truth = "USGS FDSN event service, 2025, minmagnitude 5, Indonesia region"
+units = [40, 300]
+contains = [[106.8, -6.2], [125.0, 1.5], [140.7, -2.5]]
+excludes = [[2.35, 48.85]]
+spot = ["count=150±50%"]   # (verify)
+must = ["points sized by magnitude, depth distinguished", "frame fits the events, not an arbitrary box", "dense clusters readable (inset if needed)", "USGS credited"]
+reference = ["https://earthquake.usgs.gov/earthquakes/map/"]
+
+[[map]]
+id = "paris_metro"
+prompt = "The Paris Métro network"
+truth = "OpenStreetMap route=subway relations, network Métro de Paris (16 lines incl. 3bis, 7bis), colour tags"
+units = [14, 18]
+contains = [[2.347, 48.858], [2.295, 48.874], [2.373, 48.844]]
+excludes = [[2.12, 48.80]]
+spot = ["count=16±15%", "line_near=2.347,48.858"]
+must = ["each line in its official colour with its number", "central Paris readable (inset if needed)", "OpenStreetMap ODbL credited"]
+reference = ["https://www.ratp.fr/en/plans-lignes/metro"]
+
+[[map]]
+id = "lviv_settlements"
+prompt = "All towns and villages of Lviv oblast"
+truth = "KATOTTH codifier, settlements in UA-46, cross-checked with OpenStreetMap place nodes"
+units = [1700, 2100]
+contains = [[24.03, 49.84], [23.0, 49.5], [24.6, 50.3]]
+excludes = [[25.33, 50.75], [24.71, 48.92]]
+spot = ["count=1900±10%", "event_near=24.03,49.84"]   # (verify count)
+must_include = ["Lviv", "Drohobych", "Sambir"]
+must = ["every settlement inside Lviv oblast only", "cities > selyshcha > villages by symbol", "raions named"]
+reference = ["https://www.minregion.gov.ua/"]
+
+[[map]]
+id = "germany_wind_turbines"
+prompt = "Wind turbines in Germany"
+truth = "OpenStreetMap power=generator + generator:source=wind within Germany"
+units = [20000, 40000]
+contains = [[9.0, 54.5], [12.0, 52.5], [8.5, 50.5]]
+excludes = [[2.35, 48.85]]
+spot = ["count=30000±30%", "event_near=8.70,54.30"]   # (verify)
+must = ["point density readable (heatmap/hexbin or small dots)", "Länder borders as context", "OpenStreetMap ODbL credited"]
+reference = ["https://openinframap.org/"]
+
+[[map]]
+id = "north_indian_cyclones_2023"
+prompt = "Tracks of the 2023 North Indian Ocean cyclone season"
+truth = "NOAA IBTrACS v04, NI basin, season 2023, named storms"
+units = [5, 12]
+contains = [[90.4, 23.8], [68.97, 22.47], [88.0, 15.0]]
+spot = ["count=8±40%", "line_near=92.3,20.8"]   # Mocha landfall, Myanmar coast (verify)
+must = ["one line per storm coloured by intensity", "landfalling storms named", "NOAA credited"]
+reference = ["https://www.ncei.noaa.gov/products/international-best-track-archive"]
+
+[[map]]
+id = "africa_gdp_per_capita"
+prompt = "GDP per capita across Africa"
+truth = "OWID gdp-per-capita-worldbank, latest year; Africa per UN M49"
+units = [50, 58]
+contains = [[3.38, 6.52], [31.24, 30.04], [18.42, -33.92], [57.5, -20.16]]
+excludes = [[-3.70, 40.42], [46.7, 24.7]]
+spot = ["SYC>BDI", "MUS>10000", "BDI<1500"]   # (verify)
+must_include = ["SYC", "MUS", "CPV"]
+must = ["skewed values classed so the low end is differentiated", "one naming style, no unexplained codes", "Western Sahara hatched or neutral, never Morocco's colour"]
+reference = ["https://ourworldindata.org/grapher/gdp-per-capita-worldbank"]
+
+[[map]]
+id = "eu_elderly_share_nuts2"
+prompt = "Share of the population aged 65 or over in EU regions"
+truth = "Eurostat demo_r_pjanind2, PC_Y65_MAX, NUTS 2, latest year"
+units = [230, 250]
+contains = [[2.35, 48.85], [23.7, 37.98], [25.0, 60.2]]
+excludes = [[-74.0, 40.7]]
+spot = ["ITC3>20", "FRY4<15"]   # Liguria high; Guyane? (verify codes/values)
+must = ["NUTS 2 regions, outermost regions as insets", "percent scale with balanced classes", "© EuroGeographics credited"]
+reference = ["https://ec.europa.eu/eurostat/web/regions"]
+
+[[map]]
+id = "norway_lighthouses"
+prompt = "Lighthouses along the coast of Norway"
+truth = "OpenStreetMap man_made=lighthouse within Norway (mainland; Svalbard stated)"
+units = [300, 2500]
+contains = [[5.32, 60.39], [10.40, 63.43], [18.96, 69.65]]
+excludes = [[18.07, 59.33]]
+spot = ["count=1500±50%"]   # (verify)
+must = ["the long coastline framed without wasting space (insets or conic)", "points readable along fjords", "OpenStreetMap ODbL credited"]
+reference = ["https://www.openstreetmap.org/"]
