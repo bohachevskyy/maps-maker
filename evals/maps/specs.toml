@@ -31,6 +31,7 @@ id = "gdp_world"
 prompt = "GDP per capita for every country in the world"
 truth = "OWID gdp-per-capita-worldbank (Eurostat, OECD, IMF, World Bank via OWID; PPP constant 2021 int-$), latest year per country"
 units = [180, 250]
+must_include = ["USA", "CHN", "IND"]
 contains = [[-74.0, 40.7], [139.7, 35.7], [151.2, -33.9], [18.4, -33.9]]
 spot = ["LUX=126000±15%", "BDI<1500", "USA=74000±10%", "IND=9000±15%"]
 must = [
@@ -109,6 +110,7 @@ id = "population_change"
 prompt = "How much did each country's population change between 2000 and 2023, in percent?"
 truth = "OWID population (UN WPP), percent change 2000->2023 per country"
 units = [180, 250]
+must_include = ["USA", "CHN", "IND"]
 spot = ["ARE>150", "QAT>150", "BGR<-10", "LVA<-15", "NER>100"]
 must = [
   "diverging colour scheme centred on zero: growth and decline are different hues",
@@ -171,6 +173,7 @@ id = "eu_renewables"
 prompt = "Share of electricity from renewables across Europe"
 truth = "OWID share-electricity-renewables (Ember, Energy Institute), latest year"
 units = [35, 50]
+must_include = ["FRA", "DEU", "GBR"]
 contains = [[10.75, 59.9], [21.0, 52.2], [-3.7, 40.4], [-21.9, 64.1]]
 excludes = [[-74.0, 40.7], [44.5, 40.2]]
 spot = ["NOR>90", "ISL>95", "POL<40", "ALB>90"]
@@ -298,6 +301,7 @@ id = "africa_internet"
 prompt = "Share of people using the internet across Africa"
 truth = "OWID share-of-individuals-using-the-internet (ITU), latest year per country"
 units = [50, 58]
+must_include = ["NGA", "ZAF", "EGY"]
 contains = [[31.24, 30.04], [3.38, 6.52], [18.42, -33.92], [-23.51, 14.93], [57.50, -20.16]]
 excludes = [[-3.70, 40.42], [28.98, 41.01]]            # Madrid, Istanbul (Riyadh sits inside a frame reaching Mauritius)
 spot = ["MAR>NER", "SYC>50", "NER<40"]   # (verify)
@@ -328,6 +332,7 @@ id = "europe_largest_cities"
 prompt = "Europe's 30 largest cities by population"
 truth = "GeoNames cities15000 (CC BY 4.0), city-proper population; Europe = the continent incl. European Russia; Istanbul accepted either way"
 units = [28, 32]
+must_include = ["Moscow", "London", "Berlin", "Madrid", "Kyiv"]
 contains = [[37.62, 55.75], [-0.13, 51.51], [13.40, 52.52], [-3.70, 40.42], [30.52, 50.45]]
 spot = ["event_near=37.62,55.75", "event_near=-0.13,51.51", "event_near=13.40,52.52"]
 must = [
@@ -343,6 +348,7 @@ id = "volyn_settlements"
 prompt = "All towns and villages of Volyn oblast"
 truth = "KATOTTH, Ukraine's codifier of administrative-territorial units (Ministry of Communities and Territories Development), settlements in UA-07; cross-checked with OpenStreetMap place=city/town/village/hamlet"
 units = [950, 1200]
+must_include = ["Lutsk", "Kovel", "Volodymyr"]
 contains = [[25.33, 50.75], [24.72, 51.21], [24.32, 50.85], [23.95, 51.55]]
 excludes = [[26.25, 50.62], [24.03, 49.84]]
 spot = ["count=1087±8%", "event_near=25.33,50.75", "event_near=24.72,51.21"]   # KATOTTH 07-07-2026: 12 M + 21 X + 1,054 C
