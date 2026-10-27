@@ -218,7 +218,8 @@ def test_small_diverging_set_gets_round_even_steps_and_one_class_below_zero():
     values = [-1.76, -1.71, 2.54, 3.11, 3.82, 4.13, 4.81, 4.96, 4.99, 5.77, 7.59, 7.99, 12.15]
     scheme = classify.nice(values)
     assert scheme.zero_at == 1
-    assert scheme.breaks[1:-1] == [0.0, 4.0, 6.0, 10.0]
+    # 4-6 held five of thirteen provinces; it is split at the round 5.
+    assert scheme.breaks[1:-1] == [0.0, 4.0, 5.0, 6.0, 10.0]
     assert all(_counts(scheme, values))
 
 
@@ -259,3 +260,21 @@ def test_a_log_ladder_adds_a_3_step_into_a_wide_top_class():
     scheme = classify.nice(values)
     assert 3000.0 in scheme.breaks
     assert scheme.bin_of(2900) != scheme.bin_of(3100)
+
+
+def test_no_class_holds_more_than_a_third_unless_values_are_tied():
+    import random
+    rng = random.Random(3)
+    for n in (13, 30, 60, 200):
+        data = [round(rng.lognormvariate(1, 0.6), 2) for _ in range(n)]
+        scheme = classify.nice(data)
+        counts = _counts(scheme, data)
+        assert min(counts) > 0
+        assert max(counts) <= max(1, int(0.35 * n)), (n, counts, scheme.breaks)
+        assert scheme.k <= classify.MAX_CLASSES + 1
+
+
+def test_balance_leaves_tied_values_alone():
+    data = [5.0] * 20 + [1.0, 2.0, 3.0, 4.0, 6.0, 7.0, 8.0, 9.0, 10.0, 11.0]
+    scheme = classify.nice(data)
+    assert max(_counts(scheme, data)) >= 20
