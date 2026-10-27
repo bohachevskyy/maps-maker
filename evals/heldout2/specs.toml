@@ -72,10 +72,10 @@ reference = ["https://www.minregion.gov.ua/"]
 id = "spain_solar_plants"
 prompt = "Solar power plants in Spain"
 truth = "OpenStreetMap power=plant + plant:source=solar within Spain"
-units = [200, 3000]
+units = [200, 4500]
 contains = [[-3.70, 40.42], [-6.0, 37.4], [-1.13, 37.98]]
 excludes = [[2.35, 48.85]]
-spot = ["count=900±60%"]   # (verify)
+spot = ["count=3400±20%"]   # measured: 3,369 power=plant + plant:source=solar (2026-10-27)
 must = ["points (or areas) sized by capacity where tagged", "Canaries/Balearics handled (insets)", "OpenStreetMap ODbL credited"]
 reference = ["https://openinframap.org/"]
 
@@ -85,7 +85,7 @@ prompt = "Tracks of the 2017 Atlantic hurricane season"
 truth = "NOAA IBTrACS v04, NA basin, season 2017, named storms"
 units = [15, 22]
 contains = [[-66.1, 18.47], [-80.19, 25.76], [-95.37, 29.76]]
-spot = ["count=17±25%", "line_near=-97.1,28.0"]   # Harvey landfall, Rockport TX (verify)
+spot = ["count=17±25%", "line_near=-97.1,28.2"]   # Harvey landfall fix, Rockport TX (IBTrACS)
 must = ["coloured by category along track", "Harvey, Irma, Maria named", "NOAA credited"]
 reference = ["https://www.ncei.noaa.gov/products/international-best-track-archive"]
 
@@ -96,17 +96,17 @@ truth = "OWID fertility-rate (UN WPP), latest year; UN M49 Latin America and the
 units = [30, 50]
 contains = [[-99.13, 19.43], [-58.38, -34.60], [-61.51, 10.65]]
 excludes = [[-74.0, 40.7], [-3.70, 40.42]]
-spot = ["GTM>KOR", "BOL>CHL"]   # (verify; KOR intentionally absent -> unevaluable is fine)
+spot = ["GTM>CHL", "BOL>CHL"]   # OWID 2023: GTM 2.31, BOL 2.55, CHL 1.17
 must_include = ["JAM", "TTO", "BRB"]
 must = ["Caribbean small states visible (insets/markers)", "children per woman as unit", "classes differentiate the low end"]
-reference = ["https://ourworldindata.org/grapher/fertility-rate"]
+reference = ["https://ourworldindata.org/grapher/children-born-per-woman"]
 
 [[map]]
 id = "spain_unemployment_regions"
 prompt = "Unemployment rate in Spain's regions"
 truth = "Eurostat lfst_r_lfu3rt, NUTS 2, latest year (19 regions incl. Ceuta, Melilla)"
 units = [17, 19]
-contains = [[-3.70, 40.42], [-5.98, 37.39], [2.17, 41.39], [-15.43, 28.12]]
+contains = [[-3.70, 40.42], [-5.98, 37.39], [2.17, 41.39], [-0.38, 39.47]]   # the Canaries are an inset, outside the main window
 excludes = [[2.35, 48.85]]
 spot = ["ES61>ES51", "ES63>ES24"]   # Andalucía > Cataluña; Ceuta > Aragón (verify)
 must_include = ["ES70", "ES63", "ES64"]
