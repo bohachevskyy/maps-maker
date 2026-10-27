@@ -43,6 +43,7 @@ class Encoding:
         self.missing_label = "no data"   # what the hatch means, in the legend
         # (fill, label) keys after the hatch: neutral land drawn but not mapped.
         self.extra_keys: list = []
+        self.label_note: str | None = None   # what the unit labels are, when not names
         # (left, right) words under a diverging strip: who leads on each side.
         self.end_captions: tuple | None = None
         self.decimals: int | None = None    # the source's own precision, if it has one

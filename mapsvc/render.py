@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import dataclasses
 import math
+import re
 from xml.sax.saxutils import escape, quoteattr
 
 from mapsvc import colors, overlay_render, project, registry
@@ -32,6 +33,7 @@ from mapsvc.render_frame import (
     _d,
     _defs,
     _draw_insets,
+    density_inset_labels,
     _enclave_ids,
     _enclaves,
     _hierarchy,
@@ -269,6 +271,13 @@ def render(manifest: Manifest, result: HarvestResult) -> str:
     if art is not None and art.legend_h:
         body.append(art.legend(PAD, frame.bottom + legend_band + 16))
         legend_band += art.legend_h + 16
+
+    for i, chunk in enumerate(body):
+        if "<!--density-labels:" in chunk:
+            body[i] = re.sub(
+                r"<!--density-labels:(\d+)-->",
+                lambda m: density_inset_labels(frame.density_insets[int(m.group(1))], encoding),
+                chunk)
 
     title = _title(manifest, p)
     subtitle = _subtitle(manifest, p, encoding, _aggregate_note(every_row, p, encoding))

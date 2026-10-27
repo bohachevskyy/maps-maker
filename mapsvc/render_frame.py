@@ -1011,7 +1011,11 @@ def _draw_insets(insets: list, frame: Frame, encoding: Encoding, water: bool,
             svg, _ = _symbols(inset.rows, inset, encoding)
             out.append(svg.replace('clip-path="url(#map-clip)"', f'clip-path="url(#{clip})"'))
         if getattr(inset, "density", False):
-            out.append(_density_inset_labels(inset, encoding))
+            # Written after the map's labels, once the naming style is known.
+            inset.label_rows = list(inset.rows)
+            out.append(f"<!--density-labels:{n}-->")
+            frame.density_insets = getattr(frame, "density_insets", {})
+            frame.density_insets[n] = inset
         out.append("</g>")
         out.append(_inset_scale_bar(inset, x0, y0, w, h))
         out.append(f'<text x="{_num(x0 + 5)}" y="{_num(y0 + 11)}" font-size="9.5" '
@@ -1030,26 +1034,22 @@ def _draw_insets(insets: list, frame: Frame, encoding: Encoding, water: bool,
     return "".join(out), has_missing
 
 
-def _density_inset_labels(inset: InsetFrame, encoding: Encoding) -> str:
+def density_inset_labels(inset: InsetFrame, encoding: Encoding) -> str:
+    """Name and value of every unit of a dense-core inset, in the map's one
+    naming style: short names, or subdivision codes when the map uses codes."""
+    from mapsvc.render_labels import _code, _label_names, _value_text
+    rows = inset.label_rows
+    names = _label_names(rows)
+    codes = bool(getattr(encoding, "label_note", None))
     out = [f'<g class="density-inset-labels" font-family="{FONT}" '
            'text-anchor="middle" fill="#1f2a30" paint-order="stroke" '
            'stroke="#ffffff" stroke-width="2.4" stroke-linejoin="round">']
-    for row in inset.rows:
+    for row in rows:
         anchor = _anchor(row["geometry"], inset)
         if anchor is None:
             continue
-        name = _short_name(row)
-        value = row.get("value")
-        displayed = (float(value) * encoding.value_scale
-                     if value is not None and encoding.value_scale != 1.0 else value)
-        if displayed is None:
-            value_text = "no data"
-        elif encoding.unit in ("%", "percent"):
-            value_text = f"{displayed:.0f}%"
-        elif "$" in encoding.unit or "dollar" in encoding.unit.lower():
-            value_text = f"${displayed / 1000:.3g}k" if abs(displayed) >= 1000 else f"${displayed:g}"
-        else:
-            value_text = f"{displayed:.3g}" + (f" {encoding.unit}" if encoding.unit else "")
+        name = (_code(row) if codes else None) or names[str(row["id"])]
+        value_text = _value_text(row.get("value"), encoding) or "no data"
         x, y = anchor
         out.append(f'<text x="{_num(x)}" y="{_num(y - 1)}" font-size="8.5" '
                    f'font-weight="600">{escape(name)}</text>'

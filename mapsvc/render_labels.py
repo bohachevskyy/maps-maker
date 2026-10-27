@@ -104,8 +104,20 @@ _KIND_SUFFIXES = (", Kreisfreie Stadt", ", Stadtkreis", ", Landkreis", ", Kreis"
                   ", Landeshauptstadt", ", Universitätsstadt", ", Stadt", ", Hansestadt",
                   ", Wissenschaftsstadt", ", Große Kreisstadt", ", Regionalverband")
 
-_COUNTRY_SHORT = {"United Arab Emirates": "UAE", "United States of America": "United States",
-                  "Prince Edward Island": "P.E.I.", "District of Columbia": "D.C."}
+_COUNTRY_SHORT = {
+    "United Arab Emirates": "UAE", "United States of America": "United States",
+    "Prince Edward Island": "P.E.I.", "District of Columbia": "D.C.",
+    "Central African Republic": "C. African Rep.", "Central African Rep.": "C. African Rep.",
+    "Democratic Republic of the Congo": "DR Congo", "Dem. Rep. Congo": "DR Congo",
+    "Republic of the Congo": "Congo", "Republic of Congo": "Congo",
+    "Bosnia and Herzegovina": "Bosnia & Herz.", "Bosnia and Herz.": "Bosnia & Herz.",
+    "Czech Republic": "Czechia", "Dominican Republic": "Dominican Rep.",
+    "Equatorial Guinea": "Eq. Guinea", "South Sudan": "S. Sudan",
+    "Western Sahara": "W. Sahara", "North Macedonia": "N. Macedonia",
+    "São Tomé and Principe": "São Tomé & Príncipe",
+    "Saint Vincent and the Grenadines": "St Vincent & Gren.",
+    "Antigua and Barbuda": "Antigua & Barbuda", "Trinidad and Tobago": "Trinidad & Tobago",
+}
 
 MISSING_TEXT = "no data"
 
@@ -478,35 +490,47 @@ def _feature_labels(rows: list, insets: list, missing: list, frame: Frame,
     space = _Space(land if encoding.mode != "symbols" else [], frame)
     extremes_only = every > LABEL_MAX_UNITS
 
-    def attempt(into, codes: bool):
+    def attempt(into, labels: dict):
         out: list[str] = []
         unlabelled: list[str] = []
         leaders: list = []
         if encoding.mode == "symbols":
-            pending = _circle_labels(encoding, names, into, out, codes, enclaves)
+            pending = _circle_labels(encoding, labels, into, out, False, enclaves)
         else:
-            pending = _choropleth_labels(rows, insets, frame, encoding, names, into,
-                                         out, extremes_only, change, codes)
+            pending = _choropleth_labels(rows, insets, frame, encoding, labels, into,
+                                         out, extremes_only, change, False)
         if not extremes_only:
-            pending += _missing_labels(missing, insets, frame, names, into, out)
-        _callouts(pending, into, space, frame, out, leaders, unlabelled, insets, codes)
+            pending += _missing_labels(missing, insets, frame, labels, into, out)
+        _callouts(pending, into, space, frame, out, leaders, unlabelled, insets, False)
         return out, unlabelled
 
-    # One name style per map. Codes (WV, MS, ARE) are the fallback of a
-    # crowded label, and a map that mixes "Maryland" with "RI" reads as
-    # careless: try it with names only, and keep that unless it must drop
-    # units the mixed form could label.
+    # One naming style per map, never a mixture of "Maryland" and "RI". Names
+    # (short forms where the table has them) are the default, and a unit
+    # that cannot be named is left off. The whole map switches to subdivision
+    # codes only when names would leave a tenth of it or more unlabelled and
+    # codes recover at least half of those; the footnote then says what the
+    # codes are.
+    encoding.label_note = None
+    everyone = rows + [r for inset in insets for r in inset.rows] + missing + [
+        m for inset in insets for m in inset.missing]
+    coded = {str(r["id"]): _code(r) for r in everyone}
     if fresh is not None:
-        plain_placer, mixed_placer = fresh(), fresh()
-        plain = attempt(plain_placer, False)
-        mixed = attempt(mixed_placer, True)
-        if len(plain[1]) <= len(mixed[1]):
-            (out, unlabelled), chosen = plain, plain_placer
-        else:
-            (out, unlabelled), chosen = mixed, mixed_placer
+        plain_placer = fresh()
+        out, unlabelled = plain = attempt(plain_placer, names)
+        chosen = plain_placer
+        if (everyone and all(coded.values()) and len(set(coded.values())) == len(coded)
+                and len(unlabelled) >= max(3, 0.1 * len(everyone))):
+            codes_placer = fresh()
+            coded_out = attempt(codes_placer, coded)
+            if len(coded_out[1]) * 2 <= len(unlabelled):
+                (out, unlabelled), chosen = coded_out, codes_placer
+                sample = min(everyone, key=lambda r: str(r["id"]))
+                encoding.label_note = (
+                    "Labels are ISO 3166-2 subdivision codes without the country prefix "
+                    f"({coded[str(sample['id'])]} = {_short_name(sample)}).")
         placer.__dict__.update(chosen.__dict__)
     else:
-        out, unlabelled = attempt(placer, True)
+        out, unlabelled = attempt(placer, names)
     if not out:
         return "", unlabelled
     dropped = " ".join(sorted(unlabelled))

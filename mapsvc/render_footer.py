@@ -261,6 +261,8 @@ def _footer(manifest, frame: Frame, encoding: Encoding, result, top: float,
         ])
     if not overlay_only:
         lines.extend(_physical_credits(result.physical))
+    if getattr(encoding, "label_note", None):
+        lines.append(encoding.label_note)
     lines.extend(_merge_label_credits(extra))
 
     # Attribution can make a line longer than the canvas. There is no text
