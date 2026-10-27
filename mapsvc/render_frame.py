@@ -544,6 +544,12 @@ INSET_MAX_ZOOM = 4.0
 
 INSET_RING_SHARE = 0.08
 
+DENSITY_RADIUS_PX = 40.0
+DENSITY_MIN_UNITS = 3
+DENSITY_EXPECTED_FACTOR = 4.0
+DENSITY_SMALL_AREA_PX2 = 900.0
+DENSITY_MAX_INSETS = 2
+
 INSET_PAD, INSET_LABEL_H, INSET_GAP_PX = 6.0, 14.0, 8.0
 
 KM_PER_DEGREE = 111.32
@@ -558,10 +564,13 @@ def _split_insets(manifest: Manifest, rows: list, missing: list):
     to it becomes an inset. Nothing here names a place.
     """
     items = [("row", r) for r in rows] + [("missing", m) for m in missing]
+    density = (_density_insets(rows, missing)
+               if (manifest.variable_id is not None and not manifest.overlays
+                   and manifest.bbox is None) else [])
     if manifest.bbox is not None or manifest.overlays or len(items) < 2:
         # An overlay map frames on the units near its features (Réunion is
         # not on a map of LGVs); boxing the far ones would bring them back.
-        return rows, missing, []
+        return rows, missing, density
     reps = []
     for _, item in items:
         rings = project.outer_rings(item["geometry"])
@@ -592,7 +601,7 @@ def _split_insets(manifest: Manifest, rows: list, missing: list):
         if reps[i]:
             groups.setdefault(find(i), []).append(i)
     if len(groups) < 2:
-        return rows, missing, []
+        return rows, missing, density
     area = {g: sum(reps[i][2] for i in members) for g, members in groups.items()}
     core = max(groups, key=lambda g: (area[g], -g))
     core_box = _union_box([reps[i][0] for i in groups[core]])
@@ -634,7 +643,7 @@ def _split_insets(manifest: Manifest, rows: list, missing: list):
         if gap > INSET_GAP * diagonal:
             far.append(members)
     if not far or len(far) > INSET_MAX:
-        return rows, missing, []
+        return rows, missing, density
 
     moved = {i for members in far for i in members}
     insets = []
@@ -652,7 +661,79 @@ def _split_insets(manifest: Manifest, rows: list, missing: list):
     keep_rows = [it for i, (kind, it) in enumerate(items) if kind == "row" and i not in moved]
     keep_missing = [it for i, (kind, it) in enumerate(items)
                     if kind == "missing" and i not in moved]
-    return keep_rows, keep_missing, insets
+    return keep_rows, keep_missing, insets + density
+
+
+def _density_insets(rows: list, missing: list) -> list:
+    """Magnified copies of locally crowded, small polygon units.
+
+    Density is measured in an approximate main-map pixel space.  A core must
+    contain at least three units, be four times denser than uniform placement,
+    and consist mainly of units too small to carry a normal two-line label.
+    Up to two substantially disjoint cores are kept.  The units remain on the
+    overview; these insets are a second reading, unlike far-flung atlas insets.
+    """
+    items = list(rows) + list(missing)
+    if len(items) < DENSITY_MIN_UNITS * 2:
+        return []
+    geometries = [item["geometry"] for item in items]
+    extent = project.extent_of(geometries)
+    projector = project.make(project.choose(extent), extent)
+    bounds = project.viewport_bounds(geometries, projector, extent)
+    transform = project.fit(bounds, MAP_W, 600.0, 10.0)
+    observations = []
+    for index, item in enumerate(items):
+        rings = [ring for ring in project.outer_rings(item["geometry"]) if len(ring) >= 4]
+        if not rings:
+            continue
+        ring = max(rings, key=project._ring_area)
+        points = [transform(*projector(lon, lat)) for lon, lat in ring]
+        area = project.planar_area(points)
+        # The mean is stable for the small, ordinary administrative polygons
+        # eligible here; islands and far-flung multipart units are handled by
+        # the atlas-inset path above.
+        lon = sum(p[0] for p in ring) / len(ring)
+        lat = sum(p[1] for p in ring) / len(ring)
+        observations.append((index, transform(*projector(lon, lat)), area))
+    expected = (len(observations) * math.pi * DENSITY_RADIUS_PX ** 2
+                / (MAP_W * 600.0))
+    candidates = []
+    for _, centre, _ in observations:
+        near = [entry for entry in observations
+                if math.hypot(entry[1][0] - centre[0], entry[1][1] - centre[1])
+                <= DENSITY_RADIUS_PX]
+        if len(near) < DENSITY_MIN_UNITS \
+                or len(near) < DENSITY_EXPECTED_FACTOR * expected:
+            continue
+        areas = sorted(entry[2] for entry in near)
+        median_area = areas[len(areas) // 2]
+        if median_area > DENSITY_SMALL_AREA_PX2:
+            continue
+        members = frozenset(entry[0] for entry in near)
+        score = len(near) / max(0.1, expected) * DENSITY_SMALL_AREA_PX2 / max(1.0, median_area)
+        candidates.append((score, len(near), members))
+
+    chosen = []
+    for _, _, members in sorted(candidates, key=lambda item: (-item[0], -item[1],
+                                                               tuple(sorted(item[2])))):
+        if any(len(members & old) > 0.25 * min(len(members), len(old)) for old in chosen):
+            continue
+        chosen.append(members)
+        if len(chosen) >= DENSITY_MAX_INSETS:
+            break
+    out = []
+    row_count = len(rows)
+    for detail_index, members in enumerate(chosen):
+        inset_rows = [rows[i] for i in sorted(members) if i < row_count]
+        inset_missing = [missing[i - row_count] for i in sorted(members) if i >= row_count]
+        inset = InsetFrame(inset_rows, inset_missing,
+                           sum(observations_item[2] for observations_item in observations
+                               if observations_item[0] in members))
+        inset.density = True
+        inset.key = chr(ord("A") + detail_index)
+        inset.label = f"{inset.key} · dense core: " + inset.label
+        out.append(inset)
+    return out
 
 def _ground_area(ring) -> float:
     lat = sum(p[1] for p in ring) / len(ring)
@@ -723,7 +804,8 @@ class InsetFrame:
         span_x = max(self.bounds[2] - self.bounds[0], 1e-9) * scale
         span_y = max(self.bounds[3] - self.bounds[1], 1e-9) * scale
         room_w, room_h = max_w - 2 * INSET_PAD, max_h - 2 * INSET_PAD - INSET_LABEL_H
-        self.factor = min(1.0, room_w / span_x, room_h / span_y)
+        ceiling = 3.0 if getattr(self, "density", False) else 1.0
+        self.factor = min(ceiling, room_w / span_x, room_h / span_y)
         min_w = max(INSET_MIN_W, _text_w(self.caption, 9.5) + 12)
         fill_w, fill_h = min_w - 2 * INSET_PAD, INSET_MIN_H - 2 * INSET_PAD - INSET_LABEL_H
         if self.factor == 1.0 and span_x < fill_w and span_y < fill_h:
@@ -808,7 +890,11 @@ def _draw_insets(insets: list, frame: Frame, encoding: Encoding, water: bool,
     if not insets:
         return "", False
     max_w, max_h = INSET_MAX_W * MAP_W, INSET_MAX_H * frame.map_h
-    sizes = [inset.size(frame.scale, max_w, max_h) for inset in insets]
+    sizes = [inset.size(
+        frame.scale,
+        (0.30 * MAP_W if getattr(inset, "density", False) else max_w),
+        (0.40 * frame.map_h if getattr(inset, "density", False) else max_h),
+    ) for inset in insets]
     grid = len(insets) >= 3
     if grid:
         # EU outermost regions read as one system: equal boxes in a west-to-east
@@ -885,6 +971,19 @@ def _draw_insets(insets: list, frame: Frame, encoding: Encoding, water: bool,
     for n, (inset, (x0, y0, w, h)) in enumerate(zip(insets, layout)):
         inset.place(x0, y0, w, h)
         clip = f"inset-clip-{n}"
+        if getattr(inset, "density", False):
+            west, south, east, north = project.frame_box(inset.extent)
+            source = [(west, south), (east, south), (east, north),
+                      (west, north), (west, south)]
+            points = [frame.xy(lon, lat) for lon, lat in source]
+            d = "M" + "L".join(f"{_num(x)},{_num(y)}" for x, y in points) + "Z"
+            out.append(f'<g class="dense-core-key" data-key="{inset.key}">'
+                       f'<path d="{d}" fill="none" stroke="{colors.TEXT}" '
+                       'stroke-width="1" stroke-dasharray="4 3"/>'
+                       f'<text x="{_num(points[3][0] + 3)}" '
+                       f'y="{_num(points[3][1] + 11)}" font-size="10" '
+                       f'font-weight="700" fill="{colors.TEXT}" font-family="{FONT}">'
+                       f'{inset.key}</text></g>')
         out.append(f'<g class="inset" data-inset={quoteattr(inset.label)}>'
                    f'<clipPath id="{clip}"><rect x="{_num(x0)}" y="{_num(y0)}" '
                    f'width="{_num(w)}" height="{_num(h)}"/></clipPath>'
@@ -911,6 +1010,8 @@ def _draw_insets(insets: list, frame: Frame, encoding: Encoding, water: bool,
         if encoding.mode == "symbols":
             svg, _ = _symbols(inset.rows, inset, encoding)
             out.append(svg.replace('clip-path="url(#map-clip)"', f'clip-path="url(#{clip})"'))
+        if getattr(inset, "density", False):
+            out.append(_density_inset_labels(inset, encoding))
         out.append("</g>")
         out.append(_inset_scale_bar(inset, x0, y0, w, h))
         out.append(f'<text x="{_num(x0 + 5)}" y="{_num(y0 + 11)}" font-size="9.5" '
@@ -920,7 +1021,42 @@ def _draw_insets(insets: list, frame: Frame, encoding: Encoding, water: bool,
         if n in band:
             ring = [(x0, y0), (x0 + w, y0), (x0 + w, y0 + h), (x0, y0 + h)]
             land.append(((x0, y0, x0 + w, y0 + h), ring))
+        if getattr(inset, "density", False):
+            # The detail is already fully drawn and labelled.  From here on,
+            # feature labelling and ranked tables must see each unit once, not
+            # once on the overview and again in its magnified copy.
+            inset.rows = []
+            inset.missing = []
     return "".join(out), has_missing
+
+
+def _density_inset_labels(inset: InsetFrame, encoding: Encoding) -> str:
+    out = [f'<g class="density-inset-labels" font-family="{FONT}" '
+           'text-anchor="middle" fill="#1f2a30" paint-order="stroke" '
+           'stroke="#ffffff" stroke-width="2.4" stroke-linejoin="round">']
+    for row in inset.rows:
+        anchor = _anchor(row["geometry"], inset)
+        if anchor is None:
+            continue
+        name = _short_name(row)
+        value = row.get("value")
+        displayed = (float(value) * encoding.value_scale
+                     if value is not None and encoding.value_scale != 1.0 else value)
+        if displayed is None:
+            value_text = "no data"
+        elif encoding.unit in ("%", "percent"):
+            value_text = f"{displayed:.0f}%"
+        elif "$" in encoding.unit or "dollar" in encoding.unit.lower():
+            value_text = f"${displayed / 1000:.3g}k" if abs(displayed) >= 1000 else f"${displayed:g}"
+        else:
+            value_text = f"{displayed:.3g}" + (f" {encoding.unit}" if encoding.unit else "")
+        x, y = anchor
+        out.append(f'<text x="{_num(x)}" y="{_num(y - 1)}" font-size="8.5" '
+                   f'font-weight="600">{escape(name)}</text>'
+                   f'<text x="{_num(x)}" y="{_num(y + 8)}" font-size="8">'
+                   f'{escape(value_text)}</text>')
+    out.append("</g>")
+    return "".join(out)
 
 def _inset_scale_bar(inset: InsetFrame, x0: float, y0: float,
                      w: float, h: float) -> str:
