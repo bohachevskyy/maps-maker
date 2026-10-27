@@ -67,6 +67,12 @@ _NE = "https://raw.githubusercontent.com/nvkelso/natural-earth-vector/master/geo
 _MINARD_TEMP_URL = _RDATASETS + "HistData/Minard.temp.csv"
 _IBTRACS = ("https://www.ncei.noaa.gov/data/international-best-track-archive-for-"
             "climate-stewardship-ibtracs/v04r01/access/csv/")
+_IBTRACS_ALL = _IBTRACS + "ibtracs.ALL.list.v04r01.csv"
+IBTRACS_BASINS = {
+    "NA": "North Atlantic", "EP": "Eastern North Pacific",
+    "WP": "Western North Pacific", "NI": "North Indian",
+    "SI": "South Indian", "SP": "South Pacific", "SA": "South Atlantic",
+}
 _GEONAMES = "https://download.geonames.org/export/dump/cities15000.zip"
 _GVP = ("https://webservices.volcano.si.edu/geoserver/GVP-VOTW/ows?service=WFS"
         "&request=GetFeature&typeName=GVP-VOTW:Smithsonian_VOTW_Holocene_Volcanoes"
@@ -133,23 +139,28 @@ CATALOGUE = (
         "attribution": _MINARD,
     },
     {
-        "url": _IBTRACS + "ibtracs.NA.list.v04r01.csv",
-        "title": "North Atlantic hurricanes and tropical storms, 1851–present "
+        "url": _IBTRACS_ALL,
+        "title": "Global tropical cyclones by basin, 1842–present "
                  "(NOAA IBTrACS)",
-        "description": "Best tracks of every North Atlantic tropical cyclone, "
+        "description": "Best tracks of every tropical cyclone in any IBTrACS basin, "
                        "three-hourly positions with wind and Saffir-Simpson "
                        "category, one line per storm. Updated weekly, so the "
                        "latest season is included (provisional until NHC's "
                        "post-season review).",
-        "keywords": "hurricane hurricanes storm storms tropical cyclone cyclones "
-                    "atlantic caribbean gulf mexico track tracks wind noaa nhc "
+        "keywords": "hurricane hurricanes typhoon typhoons storm storms tropical cyclone cyclones "
+                    "atlantic pacific indian caribbean gulf mexico track tracks wind noaa nhc "
                     "hurdat ibtracs best track saffir simpson category season "
                     "named landfall",
         "format": "ibtracs",
-        "filters": {"season": {"min": 1851, "max": "this year",
-                               "help": "the storm season, a year"}},
-        "required_filters": ("season",),
-        "max_bytes": 100 * 1024 * 1024,
+        "filters": {"season": {"min": 1842, "max": "this year",
+                               "help": "the storm season, a year"},
+                    "basin": {"choices": tuple(IBTRACS_BASINS),
+                              "help": "IBTrACS basin: NA, EP, WP, NI, SI, SP or SA"}},
+        "required_filters": ("basin", "season"),
+        # Measured in NOAA's 2026-10-25 directory: ALL is 333,098,313 bytes;
+        # the largest basin file is WP at 114,661,893 bytes. Fetching the
+        # selected basin keeps the cap comfortably below the all-basins file.
+        "max_bytes": 128 * 1024 * 1024,
         "label": "Storm tracks",
         "license": "public domain (NOAA)",
         "attribution": "NOAA NCEI, International Best Track Archive for Climate "
@@ -296,6 +307,18 @@ CATALOGUE = (
     },
 )
 _BY_URL = {entry["url"]: entry for entry in CATALOGUE}
+# Backward-compatible direct North Atlantic ids remain valid; discovery offers
+# the general all-basins entry and requires an explicit basin.
+_IBTRACS_NA = _IBTRACS + "ibtracs.NA.list.v04r01.csv"
+_BY_URL[_IBTRACS_NA] = {
+    **next(entry for entry in CATALOGUE if entry["url"] == _IBTRACS_ALL),
+    "url": _IBTRACS_NA,
+    "title": "North Atlantic hurricanes and tropical storms, 1851–present (NOAA IBTrACS)",
+    "filters": {"season": {"min": 1851, "max": "this year",
+                            "help": "the storm season, a year"}},
+    "required_filters": ("season",),
+    "max_bytes": 100 * 1024 * 1024,
+}
 
 
 def companions(url: str) -> tuple[str, ...]:
@@ -309,19 +332,19 @@ def companions(url: str) -> tuple[str, ...]:
 # `top` applies to any points dataset with a size column; the rest are
 # declared by a catalogue entry.
 MAX_TOP = 200
-_FILTER = re.compile(r"([a-z_]{1,20})=([0-9]{1,6})")
+_FILTER = re.compile(r"([a-z_]{1,20})=([A-Za-z0-9_]{1,20})")
 GENERIC_FILTERS = {"top": {"min": 1, "max": MAX_TOP,
                            "help": "keep the N largest by size within the map "
                                    "window and `within`"}}
 
 
 def split(overlay_id: str) -> tuple[str, dict]:
-    """A canonical id's URL and its filters, {name: int}."""
+    """A canonical id's URL and its validated filters."""
     url, _, fragment = overlay_id.partition("#")
     filters = {}
     for part in filter(None, fragment.split(";")):
         name, _, value = part.partition("=")
-        filters[name] = int(value)
+        filters[name] = int(value) if value.isdigit() else value
     return url, filters
 
 
@@ -349,16 +372,26 @@ def parse(overlay_id: str) -> str:
             raise OverlayError(
                 f"web overlay filter {part!r} is not name=integer; this dataset "
                 f"accepts {_filter_help(url)}", "overlays.id")
-        name, value = match.group(1), int(match.group(2))
+        name, raw_value = match.group(1), match.group(2)
         spec = accepted.get(name)
         if spec is None:
             raise OverlayError(
                 f"web overlay filter {name!r} is not one this dataset accepts; "
                 f"it accepts {_filter_help(url)}", "overlays.id")
-        low, high = _bound(spec["min"], this_year), _bound(spec["max"], this_year)
-        if not low <= value <= high:
-            raise OverlayError(f"web overlay filter {name}={value} is outside "
-                               f"{low}-{high}", "overlays.id")
+        if "choices" in spec:
+            value = raw_value.upper()
+            if value not in spec["choices"]:
+                raise OverlayError(f"web overlay filter {name}={raw_value} must be one of "
+                                   f"{', '.join(spec['choices'])}", "overlays.id")
+        else:
+            if not raw_value.isdigit():
+                raise OverlayError(f"web overlay filter {name}={raw_value} must be an integer",
+                                   "overlays.id")
+            value = int(raw_value)
+            low, high = _bound(spec["min"], this_year), _bound(spec["max"], this_year)
+            if not low <= value <= high:
+                raise OverlayError(f"web overlay filter {name}={value} is outside "
+                                   f"{low}-{high}", "overlays.id")
         if name in filters:
             raise OverlayError(f"web overlay filter {name!r} is given twice",
                                "overlays.id")
@@ -375,9 +408,12 @@ def parse(overlay_id: str) -> str:
 
 def _filter_help(url: str) -> str:
     this_year = datetime.date.today().year
-    return "; ".join(
-        f"{name}=<{_bound(spec['min'], this_year)}-{_bound(spec['max'], this_year)}> "
-        f"({spec['help']})" for name, spec in sorted(filters_for(url).items()))
+    parts = []
+    for name, spec in sorted(filters_for(url).items()):
+        accepted = ("|".join(spec["choices"]) if "choices" in spec else
+                    f"{_bound(spec['min'], this_year)}-{_bound(spec['max'], this_year)}")
+        parts.append(f"{name}=<{accepted}> ({spec['help']})")
+    return "; ".join(parts)
 
 
 def _parse_url(url: str) -> str:
@@ -440,13 +476,19 @@ def _download(url: str, limit: int = MAX_BYTES) -> bytes:
 
 def fetch_bytes(url: str) -> bytes:
     """The file at a URL, cached by the URL alone: filters select from it."""
-    url = url.partition("#")[0]
-    digest = hashlib.sha256(url.encode()).hexdigest()[:16]
+    base_url, filters = split(url)
+    download_url = base_url
+    if base_url == _IBTRACS_ALL and filters.get("basin") in IBTRACS_BASINS:
+        # The all-basins CSV is hundreds of MB. NOAA publishes the same schema
+        # split by basin, so stream/cache only the validated basin requested.
+        basin = filters["basin"]
+        download_url = _IBTRACS + f"ibtracs.{basin}.list.v04r01.csv"
+    digest = hashlib.sha256(download_url.encode()).hexdigest()[:16]
     target = fetch.path("overlays", "web", digest)
     if target.exists():
         return target.read_bytes()
     # A curated entry may be larger than an arbitrary URL is allowed to be.
-    payload = _download(url, _BY_URL.get(url, {}).get("max_bytes") or MAX_BYTES)
+    payload = _download(download_url, _BY_URL.get(base_url, {}).get("max_bytes") or MAX_BYTES)
     target.parent.mkdir(parents=True, exist_ok=True)
     temporary = target.with_name(target.name + ".part")
     temporary.write_bytes(payload)
@@ -474,6 +516,13 @@ class Candidate:
 def search(query: str, limit: int = 8) -> list:
     words = set(re.findall(r"[a-z0-9]+", query.lower()))
     scored = []
+    explicit_na = words & {"atlantic", "caribbean", "gulf"}
+    generic_hurricane = ("hurricane" in words or "hurricanes" in words) and not (
+        words & {"global", "world", "pacific", "indian", "typhoon", "typhoons", "cyclone", "cyclones"})
+    if explicit_na or generic_hurricane:
+        # A specifically named basin can use NOAA's smaller per-basin file;
+        # unspecified/global requests get the general entry and basin filter.
+        scored.append((-100, -1, _BY_URL[_IBTRACS_NA]))
     for i, entry in enumerate(CATALOGUE):
         haystack = set(re.findall(r"[a-z0-9]+", " ".join(
             (entry["title"], entry["description"], entry["keywords"])).lower()))
@@ -1325,14 +1374,16 @@ def _ibtracs_layer(base: dict, text: str, filters: dict, window: Window) -> dict
                          "subtropical cyclone (disturbances, invests)"})
     if spur:
         excluded.append({"count": spur, "reason": "positions on alternative (spur) tracks"})
-    vintage = f"season {season}"
+    basin = filters.get("basin")
+    basin_name = IBTRACS_BASINS.get(basin, "North Atlantic")
+    vintage = f"{basin_name} basin; season {season}"
     if provisional:
         vintage += (f"; {provisional} storm{'s' if provisional != 1 else ''} "
                     "provisional (operational data, not yet reanalysed)")
     base["provenance"]["vintage"] = vintage
     present = {c for f in features for c in f["classes"]}
     return {**base, "kind": "lines", "along": True,
-            "title": f"North Atlantic tropical storms and hurricanes, {season}",
+            "title": f"{basin_name} tropical cyclones, {season}",
             "label": "Storm tracks",
             "size": None,
             "category": {"field": "USA_SSHS", "label": "Saffir-Simpson category",
