@@ -110,8 +110,9 @@ CAPABILITIES = Capabilities(
             "tag selects OSM route relations, one feature per line with its "
             "colour: 'route=subway;network=<network name as tagged in OSM>' or "
             "'route=railway;name~Trans-Siberian'. Names (name, network, "
-            "operator, ref) may be any text; name~text matches part of a name "
-            "in any language",
+                "operator, ref) may be any text; name~text matches part of a name "
+                "in any language",
+    searchable=True,
 )
 
 _TOKEN = re.compile(r"[a-z0-9_:]+")
@@ -202,6 +203,13 @@ def parse_filter(overlay_id: str) -> Filter:
             "an overpass filter needs at least one vocabulary tag saying what kind "
             "of feature it is (route=train, railway=rail, place=town); names only "
             "narrow it", "overlays.id")
+    place_values = next((set(values) for key, op, values in terms
+                         if key == "place" and op == "="), set())
+    if place_values & set(SETTLEMENTS) and "city" not in place_values:
+        raise OverlayError(
+            "a settlement place= filter must include city; colloquial towns and "
+            "villages means every settlement, normally "
+            "place=city|town|village|hamlet", "overlays.id")
     derived = _element_for(terms)
     if prefix and derived and prefix != derived:
         raise OverlayError(
@@ -282,6 +290,161 @@ def _taginfo_json(path: str, params: dict) -> dict:
     payload = fetch.cached(url, "overlays", "taginfo", f"{digest}.json",
                            timeout=TAGINFO_TIMEOUT_S, accept="application/json")
     return json.loads(payload)
+
+
+@dataclasses.dataclass(frozen=True)
+class Candidate:
+    id: str
+    title: str
+    subtitle: str = ""
+    count: int = 0
+
+    def as_prompt_line(self) -> str:
+        usage = f" ({self.count:,} uses)" if self.count else ""
+        note = f" — {self.subtitle}" if self.subtitle else ""
+        return f"{self.id}: {self.title}{usage}{note}"
+
+
+def _items(data: dict) -> list[dict]:
+    return [item for item in data.get("data", []) if isinstance(item, dict)]
+
+
+def _description(item: dict) -> str:
+    return str(item.get("description") or item.get("wiki_description") or "").strip()
+
+
+def _count(item: dict) -> int:
+    for field in ("count_all", "count"):
+        try:
+            if int(item.get(field) or 0):
+                return int(item[field])
+        except (TypeError, ValueError):
+            pass
+    return 0
+
+
+_STOP = {"the", "a", "an", "of", "in", "all", "and", "or", "for", "with", "to",
+         "on", "by", "map", "show", "every", "any", "world", "worldwide"}
+MIN_CANDIDATE_USES = 50
+
+
+def _stem(word: str) -> str:
+    if word.endswith("ies") and len(word) > 4:
+        return word[:-3] + "y"
+    if word.endswith("s") and not word.endswith("ss") and len(word) > 3:
+        return word[:-1]
+    return word
+
+
+def _guarded(path: str, params: dict) -> dict:
+    """A taginfo call that degrades to no data (discovery is best effort)."""
+    try:
+        return _taginfo_json(path, params)
+    except (fetch.FetchError, json.JSONDecodeError, TypeError, ValueError):
+        return {}
+
+
+def search(query: str, limit: int = 8) -> list[Candidate]:
+    """Real OSM key=value filters for a plain-English feature phrase.
+
+    Measured 2026-10-26: taginfo's by_keyword matches single words only
+    ("nuclear power plants" -> 0 hits, "nuclear" -> 14), and by_value is mostly
+    operator names.  So the phrase is split into stemmed words, each searched
+    on its own; a pair is scored by how many of the words appear in its key or
+    value (power=plant: power, plant), then each shortlisted pair is looked up
+    with key/values for its real usage count and wiki description.  Key-only
+    hits sharing a root with a candidate become hints -- plant:output:electricity
+    is the size attribute that goes with power=plant.  Everything is cached.
+    """
+    words = []
+    for raw in re.findall(r"[a-z0-9]+", str(query).lower()):
+        word = _stem(raw)
+        if raw not in _STOP and word not in words:
+            words.append(word)
+    words = words[:4]
+    if not words:
+        return []
+
+    pairs: dict[tuple[str, str], int] = {}
+    for word in words:
+        for item in _items(_guarded("search/by_keyword",
+                                    {"query": word, "page": 1, "rp": 100})):
+            key, value = str(item.get("key") or ""), str(item.get("value") or "")
+            if not _TOKEN.fullmatch(key):
+                continue
+            if not value:
+                continue
+            if _VALUE.fullmatch(value) and value != "*" and not _is_text(key):
+                text = f"{key} {value}".lower()
+                pairs[(key, value)] = sum(w in text for w in words)
+    if not pairs:   # a value-only phrase, e.g. a rare value without a keyword hit
+        for word in words:
+            for item in _items(_guarded("search/by_value",
+                                        {"query": word, "page": 1, "rp": 30})):
+                key, value = str(item.get("key") or ""), str(item.get("value") or "")
+                if (_TOKEN.fullmatch(key) and _VALUE.fullmatch(value)
+                        and not _is_text(key) and _count(item) >= MIN_CANDIDATE_USES):
+                    pairs[(key, value)] = sum(w in f"{key} {value}".lower()
+                                              for w in words)
+    # Every word present beats a lone word; lone words only when nothing better.
+    best = max(pairs.values(), default=0)
+    floor = min(best, 2) if len(words) > 1 else 1
+    shortlist = sorted((p for p, n in pairs.items() if n >= max(floor, 1)),
+                       key=lambda p: (-pairs[p], p))[:14]
+
+    found = []
+    for key, value in shortlist:
+        data = _items(_guarded("key/values", {
+            "key": key, "query": value, "page": 1, "rp": 10,
+            "sortname": "count_all", "sortorder": "desc"}))
+        item = next((d for d in data if d.get("value") == value), None)
+        count = _count(item) if item else 0
+        if count >= MIN_CANDIDATE_USES:
+            found.append((key, value, count, _description(item)))
+    found.sort(key=lambda f: (-pairs[(f[0], f[1])], -f[2], f[0], f[1]))
+    found = found[:limit]
+
+    candidates = []
+    for rank, (key, value, count, description) in enumerate(found):
+        hints = []
+        for other_key, other_value, _, _ in found:
+            if other_key != key and (other_key.split(":", 1)[0] in
+                                     {key.split(":", 1)[0], value.split("_")[0]}):
+                hints.append(f"{other_key}={other_value}")
+        if rank < 3:
+            hints.extend(_combination_hints(key, value, words))
+        note = description
+        if hints:
+            unique = list(dict.fromkeys(hints))[:6]
+            note = "; ".join(filter(None, (note, "related tags: " + ", ".join(unique))))
+        candidates.append(Candidate(f"{key}={value}", f"{key}={value}", note, count))
+    return candidates
+
+
+def _combination_hints(key: str, value: str, words: list[str]) -> list[str]:
+    """Secondary tags that co-occur with key=value on real features.
+
+    A qualifier is a pair whose text matches the request (plant:source=nuclear
+    for "nuclear"); an attribute is a key most such features carry, which can
+    size or describe them (plant:output:electricity, height, capacity).
+    """
+    data = _items(_guarded("tag/combinations", {
+        "key": key, "value": value, "page": 1, "rp": 100,
+        "sortname": "together_count", "sortorder": "desc"}))
+    qualifiers, attributes = [], []
+    for item in data:
+        other_key = str(item.get("other_key") or "")
+        other_value = str(item.get("other_value") or "")
+        if not _TOKEN.fullmatch(other_key) or _is_text(other_key):
+            continue
+        if other_value:
+            if (_VALUE.fullmatch(other_value) and other_key != key
+                    and any(w in f"{other_key} {other_value}" for w in words)):
+                qualifiers.append(f"{other_key}={other_value}")
+        elif (float(item.get("from_fraction") or 0) >= 0.2 and ":" in other_key
+              and other_key.split(":", 1)[0] in {key.split(":", 1)[0], value}):
+            attributes.append(f"{other_key} (attribute)")
+    return qualifiers[:2] + attributes[:3]
 
 
 def _suggestions(key: str) -> list[str]:
