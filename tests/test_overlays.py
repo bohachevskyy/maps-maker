@@ -601,6 +601,35 @@ def test_frame_box_does_not_bury_a_city_network_in_fixed_degree_padding():
     assert framed[3] - framed[1] < 0.45
 
 
+def test_overlay_extent_ignores_a_single_isolated_point_but_keeps_a_cluster():
+    features = [{"lon": i * 0.1, "lat": 50 + (i % 3) * 0.1} for i in range(50)]
+    layer = {"kind": "points", "features": features + [{"lon": 80, "lat": 0}]}
+    assert overlay_render.overlay_extent([layer]) == (0.0, 50.0, 4.9, 50.2)
+    layer["features"].extend([{"lon": 80.1, "lat": 0.1}, {"lon": 80.2, "lat": 0}])
+    assert overlay_render.overlay_extent([layer])[2] == 80.2
+
+
+def test_dense_overlay_core_is_detected_from_page_density_not_place_name():
+    class Frame:
+        map_h = 600
+        lon0 = 0
+
+        @staticmethod
+        def xy(lon, lat):
+            return 100 + lon * 10, 100 + lat * 10
+
+        @staticmethod
+        def visible(x, y):
+            return 0 <= x <= 960 and 0 <= y <= 700
+
+    dense = [{"id": i, "lon": (i % 4) * 0.2, "lat": (i // 4) * 0.2}
+             for i in range(12)]
+    sparse = [{"id": 100 + i, "lon": 20 + i * 5, "lat": 20} for i in range(8)]
+    layer = {"kind": "points", "features": dense + sparse}
+    core = overlay_render._dense_core([layer], Frame())
+    assert core is not None and core[3] == len(dense)
+
+
 def test_overlay_labels_keep_off_lines_and_bands():
     """Nimes sat on the Nimes-Montpellier line; Minard's towns on the bands."""
     from mapsvc import overlay_render as O

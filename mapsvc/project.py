@@ -69,6 +69,80 @@ def frame_box(box: Extent) -> Extent:
             round(min(180.0, east), 2), round(min(90.0, north), 2))
 
 
+ROBUST_TRIM_SHARE = 0.02
+ROBUST_MIN_FEATURES = 25
+ROBUST_ISOLATION = 0.08
+ROBUST_NEIGHBOUR_FACTOR = 6.0
+
+
+def robust_feature_extent(boxes: list[Extent], centre_lon: float | None = None) -> Extent | None:
+    """Extent of drawn features, ignoring only isolated fringe observations.
+
+    A percentile bbox is unsafe: it removes the end of every legitimate route
+    and can remove a small cluster.  Instead, at most the outer two percent of
+    *features* are eligible, and then only when their nearest neighbour is much
+    farther away than both the dataset's usual spacing and its overall span.
+    Boxes, rather than vertices, make a long line one observation instead of
+    letting its detailed geometry outvote a point layer.
+
+    Longitudes are put on the branch around ``centre_lon``.  This lets a
+    Pacific point cloud frame across 180 degrees without becoming a Greenwich
+    world map.  A genuinely near-global cloud still snaps to the world.
+    """
+    if not boxes:
+        return None
+    if centre_lon is None:
+        centres = [(box[0] + box[2]) / 2.0 for box in boxes]
+        centre_lon = central_meridian(centres) or 0.0
+
+    moved = []
+    for west, south, east, north in boxes:
+        mid = (west + east) / 2.0
+        shift = 360.0 * round((centre_lon - mid) / 360.0)
+        moved.append((west + shift, south, east + shift, north))
+
+    keep = list(range(len(moved)))
+    if len(keep) >= ROBUST_MIN_FEATURES:
+        limit = max(1, math.ceil(len(keep) * ROBUST_TRIM_SHARE))
+        for _ in range(limit):
+            union = _extent_union([moved[i] for i in keep])
+            lat0 = (union[1] + union[3]) / 2.0
+            cos_lat = max(0.15, math.cos(math.radians(lat0)))
+            centres = {i: (((moved[i][0] + moved[i][2]) / 2.0) * cos_lat,
+                            (moved[i][1] + moved[i][3]) / 2.0) for i in keep}
+            nearest = {}
+            for i in keep:
+                nearest[i] = min((math.hypot(centres[i][0] - centres[j][0],
+                                             centres[i][1] - centres[j][1])
+                                  for j in keep if j != i), default=0.0)
+            typical = sorted(nearest.values())[len(nearest) // 2]
+            diagonal = math.hypot((union[2] - union[0]) * cos_lat,
+                                  union[3] - union[1])
+            threshold = max(ROBUST_NEIGHBOUR_FACTOR * typical,
+                            ROBUST_ISOLATION * diagonal)
+            fringe = [i for i in keep if (moved[i][0] <= union[0]
+                                           or moved[i][1] <= union[1]
+                                           or moved[i][2] >= union[2]
+                                           or moved[i][3] >= union[3])]
+            isolated = [i for i in fringe if nearest[i] > threshold]
+            if not isolated:
+                break
+            # The farthest singleton goes first; ties are geographic and thus
+            # deterministic, never dependent on source order.
+            drop = max(isolated, key=lambda i: (nearest[i], centres[i][0], centres[i][1]))
+            keep.remove(drop)
+
+    extent = _extent_union([moved[i] for i in keep])
+    if extent[2] - extent[0] > 300.0:
+        return WORLD_EXTENT
+    return extent
+
+
+def _extent_union(boxes: list[Extent]) -> Extent:
+    return (min(box[0] for box in boxes), min(box[1] for box in boxes),
+            max(box[2] for box in boxes), max(box[3] for box in boxes))
+
+
 def _mercator(lon0: float):
     def project(lon: float, lat: float) -> tuple[float, float]:
         phi = math.radians(max(-MERCATOR_LAT_LIMIT, min(MERCATOR_LAT_LIMIT, lat)))

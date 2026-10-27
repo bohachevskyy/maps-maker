@@ -127,8 +127,13 @@ FOCUS_PAD = 0.25
 
 
 def overlay_extent(layers: list) -> tuple | None:
-    """lon/lat box of every overlay feature, or None (none, or wraps the globe)."""
-    lons, lats = [], []
+    """Robust lon/lat box of the features that carry the map's message.
+
+    The request bbox is a fetch window.  Once features exist, their boxes set
+    the frame; a tiny number of isolated observations may be left outside it,
+    but a cluster and the ends of a line are never percentile-trimmed.
+    """
+    boxes = []
     for layer in layers or []:
         if layer["kind"] == "lines":
             for f in layer["features"]:
@@ -142,14 +147,19 @@ def overlay_extent(layers: list) -> tuple | None:
                         if category != "other" and i + 1 < len(coords):
                             active.extend((coords[i], coords[i + 1]))
                     coords = active or coords
-                lons.extend(c[0] for c in coords)
-                lats.extend(c[1] for c in coords)
+                if coords:
+                    ring = project.unwrap_ring([tuple(c) for c in coords], 0.0)
+                    lons = [c[0] for c in ring]
+                    lats = [c[1] for c in ring]
+                    boxes.append((min(lons), min(lats), max(lons), max(lats)))
         elif layer["kind"] in ("points", "places", "flow") and not layer.get("area"):
-            lons.extend(f["lon"] for f in layer["features"])
-            lats.extend(f["lat"] for f in layer["features"])
-    if not lons or max(lons) - min(lons) > 180.0:
+            boxes.extend((f["lon"], f["lat"], f["lon"], f["lat"])
+                         for f in layer["features"])
+    if not boxes:
         return None
-    return (min(lons), min(lats), max(lons), max(lats))
+    lons = [(box[0] + box[2]) / 2.0 for box in boxes]
+    centre = project.central_meridian(lons)
+    return project.robust_feature_extent(boxes, centre)
 
 
 def focus(geometries: list, layers: list) -> list:
@@ -196,6 +206,168 @@ def centre_lon(layers: list, geometries: list = ()) -> float | None:
     if centre is None and len(lons) >= SEAM_MIN_POINTS:
         centre = _emptiest_seam(lons, geometries)
     return centre
+
+
+class _DetailFrame:
+    """A small independently projected viewport inside an overlay map."""
+
+    windowed = True
+    is_world = False
+
+    def __init__(self, extent, box):
+        self.extent = project.frame_box(extent)
+        self.projection = project.choose(self.extent)
+        self.projector = project.make(self.projection, self.extent)
+        self.lon0 = (self.extent[0] + self.extent[2]) / 2.0
+        self.lat0 = (self.extent[1] + self.extent[3]) / 2.0
+        self.box = box
+        x0, y0, w, h = box
+        outline = [self.projector(lon, lat) for lon, lat in project.window_outline(self.extent)]
+        xs, ys = [p[0] for p in outline], [p[1] for p in outline]
+        local = project.fit((min(xs), min(ys), max(xs), max(ys)), w, h - 18.0,
+                            DENSE_INSET_PAD)
+        self._transform = lambda x, y: (x0 + local(x, y)[0], y0 + 18.0 + local(x, y)[1])
+        self.scale = local(1.0, 0.0)[0] - local(0.0, 0.0)[0]
+        self.map_h = h
+
+    def xy(self, lon, lat):
+        return self._transform(*self.projector(lon, lat))
+
+    def visible(self, x, y):
+        bx, by, bw, bh = self.box
+        return bx <= x <= bx + bw and by + 18.0 <= y <= by + bh
+
+
+def _dense_core(layers: list, frame):
+    """Return (layer index, geographic core, pixel centre), if one is dense.
+
+    Stations are the observations for a transit network; point features are
+    their own observations.  Settlement carpets are deliberately excluded:
+    their graduated place hierarchy, rather than a single core, is the map.
+    """
+    candidates = []
+    for index, layer in enumerate(layers):
+        if layer.get("kind") == "lines" and layer.get("style") == "routes":
+            features = layer.get("stations") or ()
+        elif layer.get("kind") == "points" and layer.get("style") != "settlements":
+            features = layer.get("features") or ()
+        else:
+            continue
+        points = [(float(f["lon"]), float(f["lat"])) for f in features]
+        pixels = [_xy(frame, lon, lat) for lon, lat in points]
+        visible = [(point, pixel) for point, pixel in zip(points, pixels)
+                   if frame.visible(*pixel)]
+        if len(visible) < DENSE_CORE_MIN:
+            continue
+        expected = (len(visible) * math.pi * DENSE_CORE_RADIUS ** 2
+                    / max(1.0, (frame.map_h * 912.0)))
+        best = []
+        for _, centre in visible:
+            near = [(point, pixel) for point, pixel in visible
+                    if math.hypot(pixel[0] - centre[0], pixel[1] - centre[1])
+                    <= DENSE_CORE_RADIUS]
+            if len(near) > len(best):
+                best = near
+        if (len(best) >= DENSE_CORE_MIN
+                and len(best) >= DENSE_CORE_EXPECTED_FACTOR * max(1.0, expected)):
+            candidates.append((len(best) / max(1.0, expected), len(best), index, best))
+    if not candidates:
+        return None
+    _, _, index, best = max(candidates, key=lambda item: (item[0], item[1], -item[2]))
+    lons = [p[0][0] for p in best]
+    lats = [p[0][1] for p in best]
+    pixels = [p[1] for p in best]
+    extent = (min(lons), min(lats), max(lons), max(lats))
+    centre = (sum(p[0] for p in pixels) / len(pixels),
+              sum(p[1] for p in pixels) / len(pixels))
+    return index, extent, centre, len(best)
+
+
+def _detail_box(frame, centre):
+    w = min(DENSE_INSET_W, 0.36 * 912.0)
+    h = min(DENSE_INSET_H, 0.48 * frame.map_h)
+    left, right = 24.0 + 10.0, 24.0 + 912.0 - w - 10.0
+    top, bottom = 76.0 + 10.0, 76.0 + frame.map_h - h - 10.0
+    middle_x, middle_y = (left + right) / 2.0, (top + bottom) / 2.0
+    spots = [(x, y) for x in (left, middle_x, right) for y in (top, middle_y, bottom)]
+    inside = [p for p in spots if all(frame.visible(x, y) for x, y in (
+        (p[0], p[1]), (p[0] + w, p[1]), (p[0], p[1] + h), (p[0] + w, p[1] + h)))]
+    x, y = max(inside or spots, key=lambda p: (
+        (p[0] + w / 2 - centre[0]) ** 2 + (p[1] + h / 2 - centre[1]) ** 2,
+        -p[1], -p[0]))
+    return x, y, w, h
+
+
+def _core_key(extent, frame, label="A"):
+    west, south, east, north = project.frame_box(extent)
+    ring = [(west, south), (east, south), (east, north), (west, north), (west, south)]
+    pts = [_xy(frame, lon, lat) for lon, lat in ring]
+    d = "M" + "L".join(f"{_num(x)},{_num(y)}" for x, y in pts) + "Z"
+    x, y = pts[3]
+    return (f'<g class="dense-core-key"><path d="{d}" fill="none" stroke="{TEXT}" '
+            f'stroke-width="1" stroke-dasharray="4 3"/>'
+            f'<text x="{_num(x + 3)}" y="{_num(y + 11)}" font-size="10" '
+            f'font-weight="700" fill="{TEXT}" {HALO}>{label}</text></g>')
+
+
+def _dense_inset(layer, places, frame, layout, core):
+    index, extent, centre, count = core
+    box = _detail_box(frame, centre)
+    detail = _DetailFrame(extent, box)
+    x, y, w, h = box
+    local_layout = {"pad": x, "map_w": w, "map_top": y, "font": layout["font"]}
+    labels = Labels(local_layout, detail)
+    labels.block(x, y, x + w, y + 18.0)
+    anchors = []
+    kind = layer["kind"]
+    if kind == "lines" and layer.get("style") == "routes":
+        body, _ = _routes(layer, detail, labels, anchors, places)
+    elif kind == "points" and layer.get("rank"):
+        body, _ = _ranked_points(layer, detail, labels, anchors, local_layout)
+    else:
+        body, _ = _points(layer, detail, labels, anchors, local_layout)
+        _detail_point_labels(layer, detail, labels, local_layout)
+    clip = "dense-core-inset-clip"
+    zoom = detail.scale / max(frame.scale, 1e-9)
+    svg = (_core_key(extent, frame)
+           + f'<g class="dense-core-inset" data-inset="dense-core" data-feature-count="{count}">'
+           f'<clipPath id="{clip}"><rect x="{_num(x)}" y="{_num(y)}" '
+           f'width="{_num(w)}" height="{_num(h)}"/></clipPath>'
+           f'<rect x="{_num(x)}" y="{_num(y)}" width="{_num(w)}" height="{_num(h)}" '
+           f'fill="#f7f7f3" stroke="{TEXT}" stroke-width="0.9"/>'
+           f'<g clip-path="url(#{clip})">{body}</g>'
+           f'<text x="{_num(x + 7)}" y="{_num(y + 12)}" font-size="10" '
+           f'font-weight="700" fill="{TEXT}">A · dense-core detail (×{zoom:.1f})</text>'
+           f'{labels.svg()}</g>')
+    note = (f"Inset A magnifies a dense core containing {count} features at "
+            f"{zoom:.1f}× the main-map scale; its dashed box keys the source area.")
+    return svg, box, note
+
+
+def _detail_point_labels(layer, frame, labels, layout):
+    """Give a point-core inset several independently placed, wrapped names."""
+    existing = "".join(labels.out)
+    radius, _ = _radius_fn(layer, frame, layout)
+    candidates = []
+    for feature in layer.get("features") or ():
+        if not feature.get("name") or feature["name"] in existing:
+            continue
+        x, y = _xy(frame, feature["lon"], feature["lat"])
+        if not frame.visible(x, y):
+            continue
+        r = radius(feature["size"]) if feature.get("size") is not None else POINT_R
+        candidates.append((-(feature.get("size") or 0), str(feature["id"]), x, y, r, feature))
+    placed = 0
+    for _, _, x, y, r, feature in sorted(candidates):
+        parts = [part.strip() for part in str(feature["name"]).split(",") if part.strip()]
+        if len(parts) > 3:
+            parts = parts[:2] + [", ".join(parts[2:])]
+        lines = [(part, i == 0) for i, part in enumerate(parts)]
+        if labels.callout_lines(lines, x, y, r, reaches=(10, 20, 34, 50, 70, 92),
+                                size=8.5):
+            placed += 1
+            if placed >= 3:
+                break
 
 
 # Points spread round the whole globe (1,214 Holocene volcanoes: resultant
@@ -245,6 +417,10 @@ def draw(layers: list, places: list, frame, layout: dict, physical: list = ()) -
     """Draw every layer, then the labels, then lay out the legend band."""
     art = Art()
     labels = Labels(layout, frame)
+    dense_core = _dense_core(layers, frame)
+    if dense_core is not None:
+        bx, by, bw, bh = _detail_box(frame, dense_core[2])
+        labels.block(bx - 3, by - 3, bx + bw + 3, by + bh + 3)
     blocks: list = []
     order = {"flow": 0, "lines": 1, "points": 2, "places": 3, "temperature": 4}
     # District names go under a dense dot map (first) or around transit
@@ -289,6 +465,12 @@ def draw(layers: list, places: list, frame, layout: dict, physical: list = ()) -
             art.svg.append(head + body + "</g>")
         blocks.extend(legend)
 
+    dense_note = None
+    if dense_core is not None:
+        inset_svg, _, dense_note = _dense_inset(
+            layers[dense_core[0]], places, frame, layout, dense_core)
+        art.svg.append(inset_svg)
+
     for obstacle in (d for d in deferred if d[0] == "block"):
         labels.block(*obstacle[1])
     for note in (d for d in deferred if d[0] == "note"):
@@ -308,6 +490,8 @@ def draw(layers: list, places: list, frame, layout: dict, physical: list = ()) -
     credited: set = set()
     for layer in layers:
         art.footer.append(_footer_line(layer, credited))
+    if dense_note:
+        art.footer.append(dense_note)
     if places and labels.context_count:
         art.footer.append("Place labels: Natural Earth populated places 1:10m "
                           "(public domain), largest places near the overlay first.")
@@ -918,6 +1102,15 @@ ROUTE_PALETTE = ("#1f78b4", "#e31a1c", "#33a02c", "#ff7f00", "#6a3d9a", "#b15928
 ROUTE_W = 2.6                 # a network's lines
 ROUTE_W_SINGLE = 3.6          # one route, the whole message of the map
 STATION_LABELS = 30
+
+# A local concentration this strong gets a second, magnified reading.  The
+# radius is in page pixels, so the rule follows legibility rather than degrees
+# or named geography.
+DENSE_CORE_RADIUS = 42.0
+DENSE_CORE_MIN = 10
+DENSE_CORE_EXPECTED_FACTOR = 4.0
+DENSE_INSET_W, DENSE_INSET_H = 330.0, 300.0
+DENSE_INSET_PAD = 12.0
 
 
 def route_colours(classes: list) -> dict:

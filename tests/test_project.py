@@ -87,6 +87,19 @@ def test_extent_skips_features_clipped_at_the_antimeridian():
     assert project.extent_of([europe, russia])[2] == 10
 
 
+def test_robust_feature_extent_drops_only_an_isolated_fringe_feature():
+    cluster = [(i * 0.1, 50 + (i % 3) * 0.1, i * 0.1, 50 + (i % 3) * 0.1)
+               for i in range(50)]
+    assert project.robust_feature_extent(cluster + [(80, 0, 80, 0)]) == (0.0, 50.0, 4.9, 50.2)
+
+
+def test_robust_feature_extent_never_drops_an_outlying_cluster():
+    main = [(i * 0.1, 50, i * 0.1, 50) for i in range(48)]
+    outlying_cluster = [(20, 52, 20, 52), (20.1, 52.1, 20.1, 52.1),
+                        (20.2, 52, 20.2, 52)]
+    assert project.robust_feature_extent(main + outlying_cluster)[2] == 20.2
+
+
 def test_europe_viewport_ignores_russia_antimeridian_edge():
     """Russia is drawn in Europe, but its 180E clip edge must not set the fit."""
     extent = (-25.0, 34.0, 45.0, 72.0)
