@@ -334,13 +334,139 @@ def nice(values: list[float], percent: bool = False) -> Classification:
     if substantially_diverging(s):
         return _nice_diverging(s, symmetric=True)
     if percent and lo >= 0 and hi <= 100 and hi - lo >= PERCENT_MIN_SPAN:
-        return Classification("graded", len(PERCENT_STEPS) - 1, breaks=list(PERCENT_STEPS),
-                              scheme="fixed 0–100 scale in 9 rounded classes")
+        fixed = list(PERCENT_STEPS)
+        if not _overfull(s, fixed):
+            return Classification("graded", len(fixed) - 1, breaks=fixed,
+                                  scheme="fixed 0–100 scale in 9 rounded classes")
+        # One class would hold a third of the map: fall through to breaks
+        # that follow the data.
     if lo > 0 and math.log10(hi / lo) > LOG_DECADES:
         edges = _tail_step(s, _log_edges(lo, hi))
         if len(edges) >= MIN_CLASSES - 1:
-            return _open(s, edges, "rounded log breaks (1-2-5 series)")
-    return _open(s, _rounded_natural(s), "natural breaks (Jenks), edges set to round numbers between neighbouring values")
+            return _balanced(s, _open(s, edges, "rounded log breaks (1-2-5 series)"))
+    edges = _rounded_natural(s)
+    if _skewness(s) > SKEW_QUANTILE and _overfull(s, [s[0]] + edges + [s[-1]]):
+        # Jenks on a long right tail spends its classes on the tail and
+        # lumps the body: use round quantile edges instead.
+        q = _rounded_quantiles(s)
+        if len(q) >= MIN_CLASSES - 1:
+            return _balanced(s, _open(s, q, "quantile breaks, edges set to round numbers between neighbouring values"))
+    return _balanced(s, _open(s, edges, "natural breaks (Jenks), edges set to round numbers between neighbouring values"))
+
+
+# ----------------------------------------------------------- class balance ---
+#
+# No class may hold more than BALANCE_MAX of the valued units unless that is
+# only because they share one value. A map where a third of the units have one
+# colour says little about them. Round breaks are chosen from the data's
+# shape, so balance is a second pass: an over-full class is split at the
+# roundest number between two of its neighbouring values, the one that leaves
+# its larger half smallest; when the legend is already at MAX_CLASSES, the two
+# smallest neighbouring classes are merged first to make room.
+
+BALANCE_MAX = 0.35
+SKEW_QUANTILE = 1.0
+
+
+def _counts(s: list[float], breaks: list[float]) -> list[int]:
+    inner = breaks[1:-1]
+    out = [0] * (len(breaks) - 1)
+    for v in s:
+        out[min(bisect_right(inner, v), len(out) - 1)] += 1
+    return out
+
+
+def _splittable(s: list[float], breaks: list[float], i: int) -> bool:
+    inner = breaks[1:-1]
+    return len({v for v in s if min(bisect_right(inner, v), len(breaks) - 2) == i}) > 1
+
+
+def _overfull(s: list[float], breaks: list[float]) -> bool:
+    cap = max(1, math.floor(BALANCE_MAX * len(s)))
+    return any(c > cap and _splittable(s, breaks, i)
+               for i, c in enumerate(_counts(s, breaks)))
+
+
+def _skewness(s: list[float]) -> float:
+    n = len(s)
+    mean = sum(s) / n
+    sd = math.sqrt(sum((v - mean) ** 2 for v in s) / n)
+    return 0.0 if sd == 0 else sum((v - mean) ** 3 for v in s) / n / sd ** 3
+
+
+def _rounded_quantiles(s: list[float]) -> list[float]:
+    k = min(JENKS_K, len(set(s)))
+    edges = sorted({_roundest_between(s, _rank(s, i / k)) for i in range(1, k)})
+    return [e for e in edges if s[0] < e <= s[-1]]
+
+
+def _sig_figs(v: float) -> int:
+    text = f"{abs(v):.6g}".replace(".", "").lstrip("0").rstrip("0") if "e" not in f"{v:.6g}" else "1"
+    return max(1, len(text))
+
+
+def _split_edge(s: list[float], lo: float | None, hi: float | None, cap: int) -> float | None:
+    """The round edge that splits the units in [lo, hi) so neither half is
+    over `cap`, preferring the roundest number; failing that, the most even."""
+    inside = sorted(v for v in s if (lo is None or v >= lo) and (hi is None or v < hi))
+    options = []
+    for j in range(1, len(inside)):
+        if inside[j] == inside[j - 1]:
+            continue
+        edge = _roundest_between(inside, inside[j])
+        big = max(j, len(inside) - j)
+        options.append((big > cap, _sig_figs(edge) if big <= cap else 0, big,
+                        abs(edge - (inside[j] + inside[j - 1]) / 2), edge))
+    return min(options)[-1] if options else None
+
+
+def balance_breaks(s: list[float], breaks: list[float], zero_at: int | None = None):
+    """Split over-full classes of `breaks` (k+1 edges) at round values.
+
+    Returns (breaks, zero_at). Never creates an empty class or moves the zero
+    edge; stops when nothing over-full can be split.
+    """
+    breaks = list(breaks)
+    cap = max(1, math.floor(BALANCE_MAX * len(s)))
+    for _ in range(4 * MAX_CLASSES):
+        counts = _counts(s, breaks)
+        order = sorted(range(len(counts)), key=lambda i: -counts[i])
+        target = next((i for i in order if counts[i] > cap and _splittable(s, breaks, i)), None)
+        if target is None:
+            break
+        lo = breaks[target] if target > 0 else None
+        hi = breaks[target + 1] if target < len(counts) - 1 else None
+        edge = _split_edge(s, lo, hi, cap)
+        if edge is None:
+            break
+        if len(counts) >= MAX_CLASSES:
+            # Make room: merge the two smallest neighbours, not across zero
+            # and not the class being split.
+            pairs = [i for i in range(len(counts) - 1)
+                     if target not in (i, i + 1) and (zero_at is None or i + 1 != zero_at)]
+            if not pairs:
+                break
+            m = min(pairs, key=lambda i: (counts[i] + counts[i + 1], i))
+            if counts[m] + counts[m + 1] > cap:
+                break
+            del breaks[m + 1]
+            if zero_at is not None and m + 1 < zero_at:
+                zero_at -= 1
+            continue
+        breaks.insert(target + 1, edge)
+        if zero_at is not None and target + 1 <= zero_at:
+            zero_at += 1
+        # A new interior edge on the open-ended outer class changes nothing
+        # else; a split of the first or last class keeps the data min/max.
+    return breaks, zero_at
+
+
+def _balanced(s: list[float], c: "Classification") -> "Classification":
+    breaks, zero_at = balance_breaks(s, c.breaks, c.zero_at)
+    if breaks == c.breaks:
+        return c
+    return Classification("graded", len(breaks) - 1, breaks=breaks, zero_at=zero_at,
+                          center_at=c.center_at, scheme=c.scheme, open_ends=c.open_ends)
 
 
 def _log_edges(lo: float, hi: float) -> list[float]:
@@ -529,6 +655,7 @@ def _nice_diverging(s: list[float], symmetric: bool = False) -> Classification:
     breaks = [s[0]] + [-e for e in reversed(below)] + [0.0] + above + [s[-1]]
     zero_at = len(below) + 1
     breaks, zero_at = _prune_empty(s, breaks, zero_at)
+    breaks, zero_at = balance_breaks(s, breaks, zero_at)
     return Classification("graded", len(breaks) - 1, breaks=breaks, zero_at=zero_at,
                           scheme="round breaks either side of zero", open_ends=True)
 
