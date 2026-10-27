@@ -207,8 +207,28 @@ def evaluate_spot(expression: str, values: dict[str, object],
     }
 
 
+def lint_specs(cases: list[dict]) -> list[str]:
+    """Spec mistakes no correct map can pass. Measured: six excludes so far sat
+    inside the bounding box of their own region's contains points (Las Vegas
+    in California, Riyadh between Cairo and Mauritius, Stockholm in Norway's
+    box...), which no rectangular frame can satisfy."""
+    problems = []
+    for case in cases:
+        pts = case.get("contains", [])
+        if len(pts) < 2:
+            continue
+        lons, lats = [p[0] for p in pts], [p[1] for p in pts]
+        for lon, lat in case.get("excludes", []):
+            if min(lons) <= lon <= max(lons) and min(lats) <= lat <= max(lats):
+                problems.append(f"{case['id']}: exclude {lon},{lat} lies inside the box "
+                                "spanned by its own contains points")
+    return problems
+
+
 def _load_specs(ids: list[str]) -> list[dict]:
     cases = tomllib.loads(SPECS.read_text(encoding="utf-8"))["map"]
+    for problem in lint_specs(cases):
+        print(f"spec lint: {problem}", file=sys.stderr)
     by_id = {case["id"]: case for case in cases}
     if not ids:
         return cases

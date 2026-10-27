@@ -244,3 +244,11 @@ def test_recheck_uses_existing_artifacts_without_drawing(tmp_path, monkeypatch):
     assert result["passed"] is True
     assert result["rechecked"] is True
     assert json.loads((case / "auto.json").read_text())["checks"]["vintage"]["status"] == "pass"
+
+
+def test_lint_flags_an_exclude_inside_its_contains_box():
+    from evals.maps.run import lint_specs
+
+    bad = {"id": "x", "contains": [[0, 0], [10, 10]], "excludes": [[5, 5]]}
+    good = {"id": "y", "contains": [[0, 0], [10, 10]], "excludes": [[20, 5]]}
+    assert len(lint_specs([bad, good])) == 1
