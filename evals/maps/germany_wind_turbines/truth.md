@@ -1,0 +1,5 @@
+- URL/API: Overpass `[out:json][timeout:900]; area["ISO3166-1"="DE"]["admin_level"="2"]->.de; nwr["power"="generator"]["generator:source"="wind"](area.de); out center tags qt;` (overpass-api.de; `out center` gives way centroids).
+- Vintage: OpenStreetMap as of 2026-10-27T10:35:02Z. 30,735 features: 30,547 nodes and 188 ways (centroids), all with power=generator + generator:source=wind.
+- Licence: © OpenStreetMap contributors, ODbL 1.0. Länder: Eurostat/GISCO NUTS 2024 level 1 (© EuroGeographics); neighbouring land Natural Earth.
+- Rows: 30,735 — id, OSM type, lon, lat, generator:method, output_mw (parsed from generator:output:electricity; present on 19,248), name. Features per Land are counted in the map's side table by a point-in-polygon test.
+- Caveat: OSM's Germany area is the land territory: offshore wind farms in the North and Baltic Seas are not in the count. OSM is crowd-sourced: the count is what volunteers have mapped, and a few features may be dismantled turbines still tagged. Windparks mapped as one point per park (rather than per turbine) understate dense sites.

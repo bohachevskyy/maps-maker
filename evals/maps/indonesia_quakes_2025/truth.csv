@@ -1,0 +1,148 @@
+id,time,lon,lat,depth_km,mag,magType,place,country
+us6000ph0e,2025-01-02T05:32:23Z,125.1945,-0.2006,56.271,5.1,mb,"110 km SE of Modisi, Indonesia",Indonesia
+us6000pifl,2025-01-07T17:52:21Z,119.3325,-8.2744,10,5,mb,"38 km NNW of Komodo, Indonesia",Indonesia
+us6000pjp8,2025-01-13T12:54:37Z,139.6574,-2.8165,51.782,5,mb,"111 km WSW of Abepura, Indonesia",Indonesia
+us6000pkwy,2025-01-18T08:37:46Z,126.7355,0.077,57.508,5.1,mb,"106 km SW of Ternate, Indonesia",Indonesia
+us6000pmsr,2025-01-28T14:53:34Z,121.1903,0.4934,99.753,5.4,mww,"208 km W of Gorontalo, Indonesia",Indonesia
+us7000p9qm,2025-01-29T00:50:41Z,121.8691,-3.9642,10.08,5,mww,"71 km W of Kendari, Indonesia",Indonesia
+us7000p9yk,2025-01-30T02:18:23Z,126.848,-2.8186,10,5.1,mb,"128 km SE of Sanana, Indonesia",Indonesia
+us7000pa9d,2025-01-31T11:03:41Z,97.1235,3.2918,53,5.7,mww,"58 km SSE of Blangpidie, Indonesia",Indonesia
+us7000paiv,2025-02-01T00:40:16Z,110.2905,-8.7303,71.742,5,mww,"86 km S of Pundong, Indonesia",Indonesia
+us7000parr,2025-02-02T07:37:21Z,127.0095,-4.6762,10,5.1,mb,"169 km SW of Ambon, Indonesia",Indonesia
+us7000pb3j,2025-02-03T21:35:51Z,128.2254,3.0383,103,5.9,mww,"146 km N of Tobelo, Indonesia",Indonesia
+us7000pbdp,2025-02-05T03:12:30Z,127.118,1.6173,99,5.5,mww,"96 km NNW of Ternate, Indonesia",Indonesia
+us7000pc0e,2025-02-07T04:31:58Z,97.5703,-9.7073,21,5.8,mww,"southwest of Sumatra, Indonesia",Indonesia
+us7000pc9c,2025-02-08T04:44:12Z,93.6213,7.5576,57.805,5.2,mb,"262 km NW of Sabang, Indonesia",Indonesia
+us7000pc9d,2025-02-08T05:00:35Z,103.2994,-6.0081,40.225,5.1,mb,"218 km SW of Kotabumi, Indonesia",Indonesia
+us7000pcn8,2025-02-10T15:15:06Z,119.6374,-9.6398,83.827,5.1,mb,"49 km ESE of Tambolaka, Indonesia",Indonesia
+us7000pdh2,2025-02-13T18:16:21Z,129.1134,-6.4775,10,5,mb,Banda Sea,Indonesia
+us7000pdj1,2025-02-14T00:22:57Z,129.6482,-6.9997,155.573,5,mww,Banda Sea,Indonesia
+us7000pdl8,2025-02-14T12:28:33Z,105.5416,-7.3712,48.79,5.1,mb,"114 km SSW of Labuan, Indonesia",Indonesia
+us7000pemi,2025-02-18T23:39:10Z,131.0386,-3.3656,13,5.7,mww,"148 km WSW of Fakfak, Indonesia",Indonesia
+us7000pevu,2025-02-20T03:19:40Z,94.7394,5.0079,63.661,5.3,mb,"88 km SW of Banda Aceh, Indonesia",Indonesia
+us7000pexm,2025-02-20T11:51:45Z,130.9797,-3.3784,10,5,mb,"154 km WSW of Fakfak, Indonesia",Indonesia
+us7000pfjr,2025-02-23T04:27:13Z,102.2392,-6.522,10,5.1,mb,"297 km SSW of Pagar Alam, Indonesia",Indonesia
+us7000pfk1,2025-02-23T05:16:22Z,102.1738,-6.4752,10,5,mb,"295 km SSW of Pagar Alam, Indonesia",Indonesia
+us7000pfn2,2025-02-23T19:21:16Z,120.3348,-9.4086,45.343,5,mb,"28 km NNE of Waingapu, Indonesia",Indonesia
+us6000pvex,2025-02-25T18:13:49Z,126.5765,2.9535,47.046,5.1,mb,"209 km NW of Tobelo, Indonesia",Indonesia
+us6000pvgx,2025-02-25T22:55:45Z,124.8407,0.3994,21.726,6.1,mww,"45 km E of Modisi, Indonesia",Indonesia
+us6000pvk7,2025-02-26T08:56:51Z,124.9255,0.2983,10,5,mb,"56 km ESE of Modisi, Indonesia",Indonesia
+us6000pw69,2025-02-28T21:58:38Z,130.652,-6.0227,126,5.6,mww,"236 km W of Tual, Indonesia",Indonesia
+us6000pwh1,2025-03-02T18:42:09Z,129.4579,-3.5151,28.891,5.2,mww,"59 km ESE of Masohi, Indonesia",Indonesia
+us6000pxdf,2025-03-07T08:34:03Z,121.0319,-2.4858,10,5,mww,"78 km E of Masamba, Indonesia",Indonesia
+us6000pxef,2025-03-07T12:42:48Z,94.6405,5.4937,65.385,5,mww,"76 km W of Banda Aceh, Indonesia",Indonesia
+us6000pysg,2025-03-14T11:13:32Z,120.2572,1.1243,27.644,5.4,mww,"228 km N of Palu, Indonesia",Indonesia
+us6000pzdn,2025-03-17T17:32:18Z,130.1617,-2.831,18,5.8,mww,"142 km ENE of Masohi, Indonesia",Indonesia
+us6000pzf4,2025-03-17T22:23:36Z,99.1323,1.8751,46.856,5.4,mww,"41 km ENE of Sibolga, Indonesia",Indonesia
+us7000pmgz,2025-03-25T09:50:50Z,130.3559,-6.3052,128.431,5,mb,"275 km WSW of Tual, Indonesia",Indonesia
+us7000pnri,2025-03-30T02:58:33Z,95.3597,5.5006,10,5.1,mb,"5 km SSE of Banda Aceh, Indonesia",Indonesia
+us7000pp13,2025-03-31T15:54:17Z,119.0489,-10.0069,11.867,5.6,mww,"67 km SSW of Tambolaka, Indonesia",Indonesia
+us6000q3iu,2025-04-02T21:03:40Z,126.7258,2.1324,44,5.8,mww,"149 km WNW of Tobelo, Indonesia",Indonesia
+us6000q4lv,2025-04-07T19:49:20Z,96.7622,2.0388,18,5.8,mww,"64 km SE of Sinabang, Indonesia",Indonesia
+us6000q4x6,2025-04-09T15:21:22Z,127.3729,3.5137,31.63,5,mb,"209 km NNW of Tobelo, Indonesia",Indonesia
+us6000q52k,2025-04-10T07:53:23Z,138.6803,-5.9218,35,5.3,mww,"73 km SE of Agats, Indonesia",Indonesia
+us6000q5vw,2025-04-14T01:33:12Z,126.109,0.4878,20.648,5.2,mww,"145 km WSW of Ternate, Indonesia",Indonesia
+us6000q6n2,2025-04-17T00:51:24Z,124.8572,0.3501,21.676,5.5,mww,"48 km ESE of Modisi, Indonesia",Indonesia
+us6000q6ne,2025-04-17T04:34:15Z,115.7634,-11.2696,10,5.1,mww,"279 km SSE of Nusa Dua, Indonesia",Indonesia
+us7000pwmg,2025-04-17T04:35:04Z,115.5206,-10.9801,10,5.4,mb,"243 km S of Nusa Dua, Indonesia",Indonesia
+us6000q7ex,2025-04-20T18:19:50Z,130.9957,-3.3667,10,5.4,mww,"152 km WSW of Fakfak, Indonesia",Indonesia
+us7000pu5z,2025-04-22T10:14:04Z,106.94,-8.1895,41.502,5.2,mww,"122 km SSW of Banjar, Indonesia",Indonesia
+us7000pwvy,2025-05-03T12:51:43Z,121.636,0.5053,92,5.9,mww,"158 km W of Gorontalo, Indonesia",Indonesia
+us7000pxne,2025-05-07T07:09:08Z,97.386,0.8917,10,5.3,mb,"50 km SSW of Gunungsitoli, Indonesia",Indonesia
+us7000pyjn,2025-05-11T08:57:43Z,97.0065,3.7925,85.754,5.7,mww,"19 km ENE of Blangpidie, Indonesia",Indonesia
+us7000pyvj,2025-05-12T17:01:41Z,126.686,2.1092,55.538,5,mww,"153 km WNW of Tobelo, Indonesia",Indonesia
+us7000q08l,2025-05-19T21:36:08Z,111.1236,-11.0787,10,5,mb,"south of Java, Indonesia",Indonesia
+us7000q0w7,2025-05-22T19:52:36Z,102.2539,-3.9908,47,5.7,mww,"21 km S of Bengkulu, Indonesia",Indonesia
+us7000q16a,2025-05-23T19:11:56Z,126.6767,2.0968,41.21,5,mww,"153 km WNW of Tobelo, Indonesia",Indonesia
+us7000q1ni,2025-05-27T00:55:04Z,110.3,-10.2116,10,5.3,mww,"249 km S of Pundong, Indonesia",Indonesia
+us6000qhub,2025-06-04T03:43:06Z,131.0108,-3.447,10,5.2,mww,"154 km WSW of Fakfak, Indonesia",Indonesia
+us6000qkrl,2025-06-17T06:25:34Z,126.583,2.193,64.54,5.1,mb,"166 km WNW of Tobelo, Indonesia",Indonesia
+us7000q9d1,2025-06-28T12:40:43Z,127.3287,2.7565,53.159,5.3,mb,"136 km NNW of Tobelo, Indonesia",Indonesia
+us7000qal5,2025-07-04T05:33:51Z,94.9874,6.0835,10,5.2,mww,"42 km WNW of Sabang, Indonesia",Indonesia
+us7000qavc,2025-07-05T19:42:20Z,95.0881,6.2844,10,5.5,mww,"50 km NNW of Sabang, Indonesia",Indonesia
+us7000qb29,2025-07-06T22:38:03Z,118.3239,-8.5233,133.058,5,mb,"15 km W of Dompu, Indonesia",Indonesia
+us7000qbgp,2025-07-08T23:50:42Z,104.7897,-6.2841,79.767,5.1,mww,"107 km SSW of Bandar Lampung, Indonesia",Indonesia
+us7000qc0q,2025-07-11T12:45:15Z,97.3212,3.1709,59.324,5,mb,"82 km SE of Blangpidie, Indonesia",Indonesia
+us7000qc58,2025-07-11T20:09:46Z,132.5761,-4.3587,10,5.1,mww,"141 km N of Tual, Indonesia",Indonesia
+us7000qcih,2025-07-14T05:39:09Z,126.566,1.3313,35,5.2,mww,"108 km WNW of Ternate, Indonesia",Indonesia
+us7000qcik,2025-07-14T05:49:58Z,131.2331,-6.2201,70.687,6.7,mww,"180 km WSW of Tual, Indonesia",Indonesia
+us7000qcky,2025-07-14T12:52:18Z,120.7279,-2.0582,10,5,mww,"70 km NE of Masamba, Indonesia",Indonesia
+us7000qd6b,2025-07-17T09:04:25Z,119.1925,-10.1195,24,5.6,mww,"76 km S of Tambolaka, Indonesia",Indonesia
+us7000qd9t,2025-07-17T19:02:12Z,99.3304,-0.1668,65.856,5.2,mb,"101 km WNW of Pariaman, Indonesia",Indonesia
+us7000qdrz,2025-07-19T06:53:41Z,123.1922,-0.6856,10,5,mww,"53 km ENE of Luwuk, Indonesia",Indonesia
+us6000qu3r,2025-07-22T08:40:13Z,118.8538,-7.8025,38.505,5,mb,"74 km N of Bima, Indonesia",Indonesia
+us6000qubl,2025-07-23T08:25:29Z,130.2673,-2.9867,10,5.2,mww,"148 km ENE of Masohi, Indonesia",Indonesia
+us6000qugg,2025-07-23T20:50:43Z,122.0874,0.4411,142,6.3,mww,"109 km W of Gorontalo, Indonesia",Indonesia
+us6000qulb,2025-07-24T13:06:57Z,120.7566,-1.9763,10,5.5,mww,"64 km S of Poso, Indonesia",Indonesia
+us6000qulk,2025-07-24T13:08:16Z,120.66,-2.0235,10,5.6,mww,"69 km NNE of Masamba, Indonesia",Indonesia
+us6000quzc,2025-07-25T03:20:11Z,101.2736,-3.233,35,5.1,mb,"126 km WNW of Bengkulu, Indonesia",Indonesia
+us6000qv7n,2025-07-25T21:29:58Z,126.873,2.0241,80,5.8,mww,"130 km WNW of Tobelo, Indonesia",Indonesia
+us6000qv9l,2025-07-26T05:31:46Z,131.5362,-0.3955,10,5.6,mww,"61 km NNE of Sorong, Indonesia",Indonesia
+us6000qves,2025-07-27T02:45:26Z,124.2715,-5.697,609.233,5.3,mww,"186 km E of Baubau, Indonesia",Indonesia
+us6000qvpp,2025-07-28T18:41:50Z,93.0637,6.6907,21,6.4,mww,"264 km WNW of Sabang, Indonesia",Indonesia
+us6000qx3x,2025-07-31T22:13:24Z,123.1429,-0.1296,125.43,5,mb,"74 km S of Gorontalo, Indonesia",Indonesia
+us6000qywa,2025-08-07T15:28:59Z,98.9615,1.3202,95.873,5,mww,"35 km W of Padangsidempuan, Indonesia",Indonesia
+us6000qz2v,2025-08-08T12:22:13Z,127.1031,1.7903,108.684,5,mww,"101 km W of Tobelo, Indonesia",Indonesia
+us6000qzqm,2025-08-11T02:11:41Z,120.5286,-9.7631,81.43,5,mb,"31 km ESE of Waingapu, Indonesia",Indonesia
+us6000r00b,2025-08-12T02:14:10Z,123.2841,0.4341,273.874,5.2,mww,"27 km ESE of Gorontalo, Indonesia",Indonesia
+us6000r01m,2025-08-12T08:24:23Z,138.966,-2.0302,14,6.3,mww,"195 km WNW of Abepura, Indonesia",Indonesia
+us6000r02m,2025-08-12T09:43:26Z,139.1764,-2.1151,10,5,mb,"170 km WNW of Abepura, Indonesia",Indonesia
+us6000r0aj,2025-08-13T08:07:12Z,131.2815,-5.3713,61.865,5,mb,"165 km W of Tual, Indonesia",Indonesia
+us6000r0dl,2025-08-13T16:45:56Z,125.5481,1.1085,73.358,5.3,mww,"59 km SE of Bitung, Indonesia",Indonesia
+us6000r1n3,2025-08-16T22:38:52Z,120.7206,-1.2749,8,5.8,mww,"13 km NNW of Poso, Indonesia",Indonesia
+us6000r1qp,2025-08-17T15:03:12Z,127.1307,2.1675,20.1,5.5,mww,"109 km WNW of Tobelo, Indonesia",Indonesia
+us6000r1qu,2025-08-17T15:31:19Z,127.0014,2.0781,33.991,5,mb,"118 km WNW of Tobelo, Indonesia",Indonesia
+us6000r3bg,2025-08-23T12:24:53Z,96.5997,2.0106,18,5.8,mww,"57 km SSE of Sinabang, Indonesia",Indonesia
+us7000qsk1,2025-08-30T13:35:34Z,103.0418,-4.8112,65.038,5,mb,"89 km SSW of Pagar Alam, Indonesia",Indonesia
+us7000qtdt,2025-09-02T23:53:12Z,120.3686,-0.93,10,5,mww,"55 km E of Palu, Indonesia",Indonesia
+us7000qvd6,2025-09-11T03:14:59Z,112.8724,-9.623,49.654,5,mb,"156 km S of Dampit, Indonesia",Indonesia
+us7000qw63,2025-09-14T14:49:45Z,101.0948,-2.809,75.477,5.3,mb,"89 km SSW of Sungai Penuh, Indonesia",Indonesia
+us7000qx1z,2025-09-18T18:19:49Z,135.4658,-3.5961,28,6,mww,"26 km S of Nabire, Indonesia",Indonesia
+us7000qx58,2025-09-18T22:53:41Z,135.5487,-3.5765,10,5,mb,"24 km SSE of Nabire, Indonesia",Indonesia
+us6000rc4u,2025-09-22T18:31:53Z,130.804,-5.9761,122.091,5,mb,"219 km W of Tual, Indonesia",Indonesia
+us6000rc7c,2025-09-23T01:20:36Z,95.3365,2.8968,10,5.1,mb,"124 km WNW of Sinabang, Indonesia",Indonesia
+us6000rcry,2025-09-25T09:04:11Z,114.4692,-7.8439,10,5.2,mww,"17 km NNE of Wongsorejo, Indonesia",Indonesia
+us6000rdax,2025-09-27T09:08:55Z,129.4774,-2.9387,19.328,5.1,mb,"69 km NE of Masohi, Indonesia",Indonesia
+us6000rdta,2025-09-30T16:49:43Z,114.1844,-7.2032,19.498,6,mww,"31 km ESE of Kalianget, Indonesia",Indonesia
+us6000redb,2025-10-02T22:45:05Z,136.3208,-3.1055,10,5.3,mww,"95 km ENE of Nabire, Indonesia",Indonesia
+us6000reft,2025-10-03T06:02:38Z,136.2627,-3.033,10,5.1,mww,"92 km ENE of Nabire, Indonesia",Indonesia
+us6000reh2,2025-10-03T11:03:19Z,101.266,-3.0811,61.92,5.1,mb,"114 km S of Sungai Penuh, Indonesia",Indonesia
+us6000rg2a,2025-10-10T10:02:51Z,129.5203,-7.0057,159.477,5.4,mb,"Kepulauan Babar, Indonesia",Indonesia
+us6000rgnr,2025-10-12T03:00:35Z,139.3183,-2.7234,44.942,5,mb,"146 km W of Abepura, Indonesia",Indonesia
+us6000rhg5,2025-10-16T05:48:52Z,138.9531,-2.168,18,6.4,mww,"192 km WNW of Abepura, Indonesia",Indonesia
+us6000rhk2,2025-10-16T16:01:45Z,139.1037,-2.2304,35,5,mb,"174 km WNW of Abepura, Indonesia",Indonesia
+us6000rhke,2025-10-16T17:03:01Z,139.1604,-2.1061,33.425,5,mww,"172 km WNW of Abepura, Indonesia",Indonesia
+us6000rhqe,2025-10-17T04:13:07Z,139.0248,-2.2666,46.31,5.1,mww,"182 km WNW of Abepura, Indonesia",Indonesia
+us6000ri7x,2025-10-19T23:35:55Z,129.4134,-2.949,10,5,mb,"62 km NE of Masohi, Indonesia",Indonesia
+us6000ribj,2025-10-20T16:16:48Z,122.4153,-7.2376,535.316,5.1,mww,"154 km N of Maumere, Indonesia",Indonesia
+us6000rimh,2025-10-22T09:07:14Z,126.3719,-3.97,10,5,mb,"203 km W of Ambon, Indonesia",Indonesia
+us6000riuj,2025-10-23T11:46:09Z,130.9239,-6.2493,85,5.6,mww,"213 km WSW of Tual, Indonesia",Indonesia
+us6000rjtw,2025-10-27T23:35:13Z,95.9794,4.9458,10,5.1,mb,"45 km SW of Reuleuet, Indonesia",Indonesia
+us6000rju9,2025-10-28T01:31:20Z,121.784,1.2494,26.445,5.1,mww,"162 km WNW of Gorontalo, Indonesia",Indonesia
+us6000rjx3,2025-10-28T14:40:18Z,129.9887,-6.7001,142,6.4,mww,Banda Sea,Indonesia
+us6000rkbx,2025-10-30T08:04:01Z,139.3141,-2.842,38.481,5,mb,"149 km W of Abepura, Indonesia",Indonesia
+us6000rlev,2025-11-04T15:58:26Z,126.9332,1.8189,65.997,5.2,mww,"120 km W of Tobelo, Indonesia",Indonesia
+us6000rli8,2025-11-04T21:29:35Z,139.0342,-2.1326,35,5,mb,"185 km WNW of Abepura, Indonesia",Indonesia
+us6000rlim,2025-11-04T23:32:22Z,123.0647,-0.1246,114.629,5.9,mww,"73 km S of Gorontalo, Indonesia",Indonesia
+us6000rmuu,2025-11-11T21:23:31Z,133.9041,-5.339,10,5.1,mb,"131 km ENE of Tual, Indonesia",Indonesia
+us6000rn27,2025-11-13T03:31:02Z,127.8816,4.0476,122.899,5.1,mb,"256 km N of Tobelo, Indonesia",Indonesia
+us6000rnql,2025-11-17T12:12:37Z,124.0622,0.0862,110.485,5.3,mww,"58 km SW of Modisi, Indonesia",Indonesia
+us6000rpa3,2025-11-20T04:19:54Z,127.1321,1.5341,132.062,5.1,mb,"86 km NNW of Ternate, Indonesia",Indonesia
+us6000rpai,2025-11-20T06:59:44Z,128.4005,-3.7152,130.856,5.8,mww,"24 km E of Ambon, Indonesia",Indonesia
+us6000rpwf,2025-11-23T03:19:55Z,128.5754,1.2954,10,5.3,mww,"72 km NNE of Maba, Indonesia",Indonesia
+us7000rdzw,2025-11-26T19:54:23Z,96.8752,0.7377,10,5,mb,"102 km SW of Gunungsitoli, Indonesia",Indonesia
+us7000re2g,2025-11-27T04:56:24Z,95.9543,2.7191,17,6.4,mww,"54 km WNW of Sinabang, Indonesia",Indonesia
+us7000rf1l,2025-12-02T13:16:24Z,98.6405,0.337,49.768,5.1,mb,"96 km ESE of Teluk Dalam, Indonesia",Indonesia
+us7000rfg6,2025-12-04T04:23:11Z,125.646,-0.3169,76.161,5,mb,"159 km ESE of Modisi, Indonesia",Indonesia
+us6000rstu,2025-12-05T20:42:19Z,119.2705,-10.5681,16.04,5.1,mb,"126 km S of Tambolaka, Indonesia",Indonesia
+us6000rsuv,2025-12-06T00:44:34Z,127.2482,1.6522,113.578,5.1,mb,"85 km W of Tobelo, Indonesia",Indonesia
+us6000rt26,2025-12-07T04:55:53Z,131.0539,-6.6294,35,5.2,mb,"218 km WSW of Tual, Indonesia",Indonesia
+us6000rtkx,2025-12-09T07:02:53Z,96.0351,2.5932,10,5.2,mww,"40 km WNW of Sinabang, Indonesia",Indonesia
+us6000rur4,2025-12-14T00:58:15Z,101.3683,-3.2368,58.687,5.2,mb,"117 km WNW of Bengkulu, Indonesia",Indonesia
+us6000rut1,2025-12-14T12:03:27Z,126.4277,1.9913,54.045,5.1,mb,"156 km ENE of Bitung, Indonesia",Indonesia
+us6000rvmc,2025-12-18T05:30:17Z,125.7798,1.3857,65.736,5,mb,"72 km E of Bitung, Indonesia",Indonesia
+us6000rw6b,2025-12-20T10:33:26Z,121.9251,0.4908,121.632,5,mww,"126 km W of Gorontalo, Indonesia",Indonesia
+us6000rwa3,2025-12-21T04:02:09Z,131.2933,-6.7507,44.811,5.1,mb,"203 km SW of Tual, Indonesia",Indonesia
+us6000rwbl,2025-12-21T12:21:45Z,126.392,1.4457,44,5.5,mww,"132 km WNW of Ternate, Indonesia",Indonesia
+us7000rkyz,2025-12-27T00:22:34Z,102.3691,-5.5456,25,5.4,mww,"193 km S of Bengkulu, Indonesia",Indonesia
+us7000rkzt,2025-12-27T01:10:11Z,102.2674,-5.5338,10,5.1,mww,"191 km S of Bengkulu, Indonesia",Indonesia

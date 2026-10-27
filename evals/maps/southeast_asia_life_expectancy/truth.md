@@ -1,0 +1,5 @@
+- URL/API: https://ourworldindata.org/grapher/life-expectancy.csv (Grapher CSV; latest non-missing year per ISO3 code; metadata at the same path with `.metadata.json`). Region = the 11 states of UN M49 sub-region 'South-eastern Asia' (BRN KHM IDN LAO MYS MMR PHL SGP THA TLS VNM).
+- Vintage: OWID 'Life expectancy' = UN World Population Prospects 2024 (from 1950; earlier years HMD/Riley/Zijdeman); latest year 2023 for all 11 states. WPP 2024 itself ends at 2023 for observed values (2024+ are projections and are not in this series).
+- Licence: OWID data CC BY 4.0 (UN WPP: CC BY 3.0 IGO). Boundaries: Natural Earth 1:50m and 1:10m (public domain).
+- Rows: 11 — key (ISO3), name (UN M49 short name), value (years, period life expectancy at birth, both sexes), unit, year. Timor-Leste is 'East Timor' in the OWID file.
+- Caveat: period life expectancy is a synthetic cohort measure of that year's mortality, not a forecast of how long people born in 2023 will live; Myanmar's 2023 value reflects conflict and weak registration.

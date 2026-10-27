@@ -1,0 +1,231 @@
+id,type,lon,lat,name,seamark_type,region,place
+31289203,node,7.046673,57.982498,Lindesnes fyr,light_major,mainland,0
+38557306,node,10.995146,65.202039,Sklinna fyr,light_major,mainland,1
+277366315,node,6.165127,62.685099,Ulla fyr,light_major,mainland,2
+282358637,node,5.967328,62.489962,Alnes fyr,landmark,mainland,3
+394039333,node,9.531001,63.726798,Kjeungskjæret fyr,light_major,mainland,4
+439809666,node,11.874925,67.410918,Skomvær fyr,landmark,mainland,5
+496277639,node,5.554272,58.658014,Obrestad fyr,light_major,mainland,6
+506072159,node,8.052815,58.072285,Oksøy fyr,landmark,mainland,7
+656299291,node,4.7104,60.752167,Hellisøy fyr,landmark,mainland,8
+674525262,node,7.307445,58.079236,Replika av Lindesnes Fyr,light_major,mainland,9
+725413326,node,10.829444,59.151188,Strømtangen fyr,,mainland,10
+733230569,node,7.663058,63.114488,Stavneset fyr,light_major,mainland,11
+743240677,node,8.087894,58.081385,Grønningen fyr,light_major,mainland,12
+1115684595,node,10.594039,59.816401,,,mainland,13
+1115684853,node,10.976124,64.754286,Grinna fyr,light_major,mainland,14
+1115684867,node,10.453,64.401679,Buholmråsa fyr,landmark,mainland,15
+1115684936,node,8.226747,63.31028,Kyrhaug fyr,light_major,mainland,16
+1115684949,node,9.148314,58.635789,Lyngør fyr,light_major,mainland,17
+1115684973,node,5.940022,62.550166,Erkna fyr,landmark,mainland,18
+1115684981,node,7.49158,57.968068,Ryvingen fyr,landmark,mainland,19
+1115684989,node,4.831377,61.697139,Kvannhovden fyr,light_major,mainland,20
+1115685013,node,19.499853,70.245522,Torsvåg fyr,light_major,mainland,21
+1115685048,node,10.547591,64.798452,Nordøyan fyr,light_major,mainland,22
+1115685078,node,9.039403,63.493793,Terningen fyr,landmark,mainland,23
+1115685081,node,9.464297,58.836712,Strømtangen fyr,light_major,mainland,24
+1115685108,node,5.923905,62.643045,Storholmen fyr,light_major,mainland,25
+1115685117,node,7.809767,58.014985,Songvår fyr,light_major,mainland,26
+1115685126,node,5.034123,61.964701,Hendanes fyr,light_major,mainland,27
+1115685144,node,20.15351,70.316751,Fugløykalven fyr,light_major,mainland,28
+1115685152,node,12.724441,67.651042,Værøy fyr,,mainland,29
+1115685168,node,5.067256,59.90805,Slåtterøy fyr,landmark,mainland,30
+1115685223,node,9.596369,58.865106,Jomfruland fyr,light_major,mainland,31
+1115685294,node,7.449464,58.003442,Hattholmen fyr,light_major,mainland,32
+1115685317,node,5.123755,62.032539,Skongsneset fyr,light_major,mainland,33
+1115685351,node,30.175363,69.877707,Bøkfjord fyr,light_major,mainland,34
+1115685381,node,14.401413,67.768065,Måløy-Skarholmen fyr,landmark,mainland,35
+1115685408,node,5.009167,60.130661,Marstein fyr,light_major,mainland,36
+1115685419,node,11.28682,65.596703,Bremstein fyr,landmark,mainland,37
+1115685428,node,5.555475,58.922407,Fladholmen fyr,light_major,mainland,38
+1115685457,node,7.96265,63.533241,Haugjegla fyr,landmark,mainland,39
+1115685495,node,6.689151,62.838403,Flatflesa fyr,light_major,mainland,40
+1115685554,node,4.985642,62.034785,Kråkenes fyr,light_major,mainland,41
+1115685575,node,31.156764,70.388736,Vardø fyr,landmark,mainland,42
+1115685622,node,11.687261,66.013289,Ytterholmen fyr,landmark,mainland,43
+1115685701,node,9.936341,58.93808,Tvistein fyr,light_major,mainland,44
+1115685738,node,5.36991,62.177647,Haugsholmen fyr,light_major,mainland,45
+1115685773,node,23.983686,71.093723,Fruholmen fyr,landmark,mainland,46
+1115685779,node,14.648927,68.153044,Skrova fyr,landmark,mainland,47
+1115685783,node,4.649427,60.843013,Holmengrå fyr,landmark,mainland,48
+1115685816,node,12.296644,66.265045,Åsvær fyr,light_major,mainland,49
+1115685850,node,6.815883,62.895661,Bjørnsund fyr,light_major,mainland,50
+1115685889,node,5.582387,62.3156,Flåvær fyr,light_major,mainland,51
+1115685921,node,30.078609,70.706745,Makkaur fyr,light_major,mainland,52
+1115685936,node,4.509909,61.037101,Utvær fyr,landmark,mainland,53
+1115685989,node,11.968347,66.430782,Træna fyr,landmark,mainland,54
+1115686041,node,10.781702,58.996325,Torbjørnskjær fyr,landmark,mainland,55
+1115686051,node,7.235114,63.023022,Kvitholmen fyr,light_major,mainland,56
+1115686142,node,5.267456,62.327598,Svinøy fyr,light_major,mainland,57
+1115686193,node,26.222109,71.061657,Helneset fyr,light_major,mainland,58
+1115686209,node,4.811175,61.269161,Geita fyr,light_major,mainland,59
+1115686329,node,7.492492,63.084547,Hestskjæret fyr,light_major,mainland,60
+1115686367,node,8.790245,58.398851,Torungen fyr,landmark,mainland,61
+1115686418,node,5.58689,62.412943,Runde fyr,landmark,mainland,62
+1115686425,node,29.235753,70.853044,Kjølneset fyr,landmark,mainland,63
+1115686527,node,10.211763,64.464221,Kya fyr,light_major,mainland,64
+1115686531,node,9.771643,63.941922,Asenvågsøya fyr,light_major,mainland,65
+1115686597,node,5.759051,62.430725,Grasøyane fyr,landmark,mainland,66
+1115686613,node,15.170137,69.066442,Anda fyr,light_major,mainland,67
+1115686619,node,13.497772,67.301995,Tennholmen fyr,landmark,mainland,68
+1115686627,node,5.069272,59.451678,Røværsholmen fyr,landmark,mainland,69
+1115686628,node,10.854321,64.726996,Gjæslingan fyr,light_major,mainland,70
+1115686642,node,10.524596,59.026784,Færder fyr,landmark,mainland,71
+1115686644,node,7.609126,63.233873,Grip fyr,landmark,mainland,72
+1115686660,node,5.867622,58.430814,Eigerøy fyr,landmark,mainland,73
+1115687099,node,8.529519,58.253921,Homborsund fyr,light_major,mainland,74
+1115687127,node,28.218263,71.089569,Slettnes fyr,landmark,mainland,75
+1115687136,node,4.955157,61.600694,Stabben fyr,light_major,mainland,76
+1115687140,node,17.829724,69.601549,Hekkingen fyr,light_major,mainland,77
+1208617853,node,11.299636,63.835968,Høsholmen,pile,mainland,78
+1208619444,node,8.262755,63.666033,Slettringen fyr,landmark,mainland,79
+1208624679,node,10.133272,64.230122,Kaura fyr,landmark,mainland,80
+1208635195,node,16.009377,68.411952,Lødingen,light_minor,mainland,81
+1208635317,node,14.405776,68.157646,Moholmen fyr,light_major,mainland,82
+1208635331,node,14.198155,68.146354,,,mainland,83
+1208638854,node,20.261407,69.975453,Lyngstuva,light_minor,mainland,84
+1208639577,node,25.964932,70.977049,Søre Honningsvåg,pile,mainland,85
+1211581961,node,11.024086,59.016059,Homlungen fyr,light_major,mainland,86
+1211582024,node,10.797571,59.181668,Slevik,landmark,mainland,87
+1211582098,node,10.722018,59.899808,Kavringen fyr,landmark,mainland,88
+1211582178,node,10.14788,58.969183,Svenner fyr,landmark,mainland,89
+1211582179,node,10.052276,58.98739,Stavernsodden fyr,landmark,mainland,90
+1211582192,node,9.757082,58.991688,Langøytangen fyr,light_major,mainland,91
+1211582968,node,6.257482,58.322888,Litle Prestskjeret fyr,landmark,mainland,92
+1211585295,node,5.225165,59.526933,Ryvarden fyr,light_major,mainland,93
+1356401724,node,5.242683,59.131478,Geitungen fyr,light_major,mainland,94
+1356457820,node,10.599197,59.175337,Fulehuk fyr,landmark,mainland,95
+1356459063,node,10.741327,59.118167,Struten fyr,,mainland,96
+1871672994,node,13.102406,67.93639,Fiskarskjæret,,mainland,97
+2280537373,node,9.003247,58.540451,Møkkalasset,,mainland,98
+2481293155,node,13.091542,66.913701,Kalsholmen fyr,light_major,mainland,99
+3708911175,node,6.176099,62.636253,Hellevik Lighthouse (Range Rear),,mainland,100
+3955711037,node,8.002248,58.131441,Odderøya Fyr,,mainland,101
+3955720322,node,5.505204,58.826233,Feistein fyr,landmark,mainland,102
+4124088505,node,6.566913,58.10929,Lista fyr,light_major,mainland,103
+5303370121,node,5.400101,59.062031,Kvitsøy fyr,landmark,mainland,104
+5399476580,node,8.791656,58.412038,Lille Torungen fyr,landmark,mainland,105
+5399476581,node,5.681764,58.54405,Kvassheim fyr,,mainland,106
+6009850191,node,7.79463,63.134711,,,mainland,107
+6124922657,node,31.071035,70.404559,,,mainland,108
+6144061899,node,5.136094,61.915999,,,mainland,109
+6385587555,node,13.190276,65.853597,,,mainland,110
+6624582804,node,8.500934,58.266244,,,mainland,111
+6867957904,node,9.111059,64.069223,Finnvær fyr,,mainland,112
+7886289047,node,8.404817,58.231409,Saltfolmen fyr,,mainland,113
+8589485442,node,7.030419,58.092624,,,mainland,114
+8842292434,node,10.760161,59.828165,,,mainland,115
+9643868956,node,9.003259,58.540457,Ytre Møkkalasset fyr,landmark,mainland,98
+9643869184,node,6.840337,58.056915,Søndre Katland fyr,light_major,mainland,117
+9643869185,node,14.380819,67.448078,Landegode fyr,landmark,mainland,118
+9643869189,node,12.476967,66.764529,Myken fyr,light_major,mainland,119
+9643869194,node,4.679994,61.570764,Ytterøyane fyr,landmark,mainland,120
+9643869199,node,15.59887,68.184305,Tranøy fyr,light_major,mainland,121
+9643869200,node,8.452835,63.84752,Sula fyr,landmark,mainland,122
+9643869201,node,9.405838,64.172876,Halten fyr,landmark,mainland,123
+9643869203,node,12.198937,65.472619,Odinskjeret fyr,light_major,mainland,124
+9668568332,node,13.342077,66.822319,Fyret i Småbåthavna,,mainland,125
+9748263560,node,13.357004,68.02909,,,mainland,126
+10236153576,node,5.504295,59.781854,Leirvik Fyr,,mainland,127
+10236153577,node,5.538609,59.798036,Tyneset Fyr,,mainland,128
+10781334386,node,6.405955,61.731123,,,mainland,129
+11031794084,node,7.97164,58.059448,Anstens Fyr,,mainland,130
+11062229172,node,6.911602,62.907262,,,mainland,131
+11069697980,node,19.523139,70.251142,Lighthouse,,mainland,132
+11084213577,node,10.47212,60.428752,,,mainland,133
+11273761839,node,10.488484,59.413874,,,mainland,134
+11999242870,node,17.140518,69.413487,,,mainland,135
+12000577769,node,17.223159,69.466139,,,mainland,136
+12063894504,node,7.373974,61.146681,,,mainland,137
+12068544342,node,7.124111,62.724323,,,mainland,138
+12071251806,node,7.297439,63.014269,,,mainland,139
+12133762301,node,7.141593,62.993602,,,mainland,140
+12659509701,node,18.094003,69.377435,,,mainland,141
+12766811480,node,6.317819,62.704587,Fjørtoft Fyrtårn,,mainland,142
+12854213117,node,23.654834,70.667121,Fyrlykta,,mainland,143
+13091991743,node,14.615108,67.231664,,,mainland,144
+13124635801,node,5.118102,61.927324,,,mainland,145
+13456344067,node,9.243425,58.709421,Stangholmen fyrstasjon,,mainland,146
+13695704703,node,5.628028,62.377859,,,mainland,147
+13701384025,node,13.036307,67.886931,,,mainland,148
+13990067502,node,15.567932,69.105151,,,mainland,149
+14056271674,node,10.379823,59.225566,,light_major,mainland,150
+14071460033,node,15.008053,68.921824,,,mainland,151
+14224901544,node,4.79773,60.605692,,,mainland,152
+37865155,way,16.115915,69.324005,Andenes fyr,landmark,mainland,153
+167169994,way,6.566912,58.10929,Lista fyr,,mainland,103
+183503794,way,5.400105,59.062032,Kvitsøy,,mainland,104
+228886593,way,28.218232,71.089564,Slettnes fyr,,mainland,75
+258896731,way,7.609131,63.233872,Grip fyr,,mainland,72
+296948069,way,5.267508,62.327549,,,mainland,57
+322436906,way,16.621901,68.800538,,,mainland,159
+485416956,way,6.150124,62.474535,Molja fyr,,mainland,160
+485731393,way,9.247663,58.723019,Midtskjær,,mainland,161
+492597729,way,9.23541,58.710453,,,mainland,162
+524642838,way,10.675341,59.486533,Kippenes fyr,,mainland,163
+548001374,way,4.874645,59.306228,,,mainland,164
+548013925,way,4.871239,59.306857,Utsira fyr,landmark,mainland,165
+549536442,way,7.218891,58.033314,,,mainland,166
+592419648,way,10.727366,59.909647,,,mainland,167
+601406958,way,10.062731,59.029105,,,mainland,168
+605510102,way,6.330304,59.64173,,,mainland,169
+658171879,way,13.551393,68.068851,,,mainland,170
+658171880,way,13.583271,68.117687,,,mainland,171
+658171881,way,13.552961,68.12489,,,mainland,172
+658458771,way,14.558095,68.225009,,,mainland,173
+658467810,way,13.836053,68.117174,,,mainland,174
+658467812,way,13.850689,68.118317,,,mainland,175
+666417165,way,14.570062,68.240631,,,mainland,176
+666429022,way,14.490081,68.208379,,,mainland,177
+666438298,way,14.198535,68.147993,,,mainland,178
+666668300,way,14.562494,68.223792,,,mainland,179
+672843102,way,13.859894,68.129979,,,mainland,180
+674491350,way,13.684638,68.310584,,,mainland,181
+676103418,way,13.20301,67.99818,,,mainland,182
+676115437,way,13.228168,68.109038,,,mainland,183
+676130327,way,13.460398,68.139378,,,mainland,184
+681237283,way,6.986807,58.000405,Markøyfyr,,mainland,185
+688406330,way,6.562379,62.362896,,,mainland,186
+698061828,way,10.524639,59.026817,Færder fyr,,mainland,71
+702924731,way,13.885907,68.203065,,,mainland,188
+770984380,way,23.983635,71.093753,Fruholmen fyr,,mainland,46
+770992132,way,19.50004,70.245503,Torsvåg fyr,,mainland,21
+772718915,way,4.710692,60.752086,Hellisøy fyr,,mainland,8
+801712332,way,10.914919,59.055278,Pikesten fyr,,mainland,192
+835665202,way,11.419337,59.04012,Fløberg lykt,,mainland,193
+877965875,way,8.052815,58.072283,Oksøy fyr,,mainland,7
+893983631,way,14.308122,68.593638,,,mainland,195
+939407532,way,10.702083,60.790107,,,mainland,196
+947917802,way,8.94836,58.511961,,,mainland,197
+959834090,way,10.854405,64.727023,Gjæslingan fyr,,mainland,70
+963467236,way,11.193293,64.842372,Nærøysund fyr,,mainland,199
+967462646,way,10.147872,58.969177,Svenner fyr,landmark,mainland,89
+967463822,way,8.992302,58.550412,,,mainland,201
+968578024,way,11.067939,60.788979,,,mainland,202
+969845822,way,10.701297,60.796676,,,mainland,203
+971041126,way,10.8595,60.718922,,,mainland,204
+971041127,way,10.852764,60.722997,,,mainland,205
+971242540,way,10.576703,59.435198,Gullholmen fyr,,mainland,206
+1059867291,way,5.874953,59.337265,Nedstrand,light_minor,mainland,207
+1069597713,way,5.523334,60.046525,,,mainland,208
+1083253670,way,13.111199,67.936079,,,mainland,209
+1108415621,way,11.048138,60.64462,,,mainland,210
+1111882950,way,13.102458,67.936396,,,mainland,97
+1111882953,way,13.037571,67.897452,,,mainland,212
+1111882954,way,13.040258,67.89718,,,mainland,212
+1132417691,way,7.755573,63.1246,,,mainland,214
+1133586774,way,17.356414,68.426245,,,mainland,215
+1138875059,way,14.364372,67.284555,,,mainland,216
+1147721602,way,13.61196,68.148355,,,mainland,217
+1197126860,way,7.757175,63.472153,Skalmen fyr,,mainland,218
+1199295030,way,6.543627,62.8634,Ona fyr,landmark,mainland,219
+1202340093,way,29.789365,70.657056,Skrovnesløkta,,mainland,220
+1279459609,way,6.543385,62.863466,,,mainland,219
+1288760096,way,8.306732,63.666655,,,mainland,222
+1376669678,way,17.95755,69.176815,,light_minor,mainland,223
+1376669679,way,18.005875,69.196297,,light_minor,mainland,224
+1380222663,way,5.034186,61.964672,,,mainland,27
+1412315496,way,10.700653,59.902896,,,mainland,226
+1551601225,way,6.031342,62.463129,Høgsteinen fyr,,mainland,227
+1552789043,way,10.652822,59.429916,,,mainland,228
+1556464518,way,10.40853,59.563287,,,mainland,229
