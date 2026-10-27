@@ -1,0 +1,36 @@
+volcano_number,name,country,lon,lat,elevation_m,primary_type,last_eruption_year,evidence,region
+370010,Snaefellsjokull,Iceland,-23.783,64.8,1446,Stratovolcano,200,Eruption Dated,Atlantic Ocean Volcanic Regions
+370020,Helgrindur,Iceland,-23.283,64.866,986,Volcanic field,,Evidence Credible,Atlantic Ocean Volcanic Regions
+370030,Ljosufjoll,Iceland,-22.483,64.9,1063,Volcanic field,960,Eruption Dated,Atlantic Ocean Volcanic Regions
+371020,Reykjanes,Iceland,-22.717,63.817,140,Crater rows,2025,Eruption Observed,Atlantic Ocean Volcanic Regions
+371022,Eldey,Iceland,-23,63.733,70,Fissure vent,1926,Eruption Observed,Atlantic Ocean Volcanic Regions
+371030,Krysuvik-Trolladyngja,Iceland,-22.067,63.917,360,Crater rows,1340,Eruption Observed,Atlantic Ocean Volcanic Regions
+371032,Fagradalsfjall,Iceland,-22.258,63.895,250,Fissure vent,2023,Eruption Observed,Atlantic Ocean Volcanic Regions
+371040,Brennisteinsfjoll,Iceland,-21.783,63.933,610,Crater rows,1341,Eruption Observed,Atlantic Ocean Volcanic Regions
+371050,Hengill,Iceland,-21.416,64.083,803,Crater rows,150,Eruption Dated,Atlantic Ocean Volcanic Regions
+371051,Hromundartindur,Iceland,-21.333,64.083,550,Stratovolcano,,Evidence Uncertain,Atlantic Ocean Volcanic Regions
+371060,Grimsnes,Iceland,-20.883,64.05,200,Volcanic field,-3500,Eruption Dated,Atlantic Ocean Volcanic Regions
+371070,Prestahnukur,Iceland,-20.666,64.583,1385,Fissure vent(s),-3350,Eruption Dated,Atlantic Ocean Volcanic Regions
+371080,Oddnyjarhnjukur-Langjokull,Iceland,-19.7,64.85,1100,Fissure vent(s),950,Eruption Dated,Atlantic Ocean Volcanic Regions
+371090,Hofsjokull,Iceland,-18.766,64.833,1765,Fissure vent(s),,Evidence Credible,Atlantic Ocean Volcanic Regions
+372010,Vestmannaeyjar,Iceland,-20.266,63.416,283,Fissure vent(s),1973,Eruption Observed,Atlantic Ocean Volcanic Regions
+372020,Eyjafjallajokull,Iceland,-19.633,63.633,1651,Stratovolcano,2010,Eruption Observed,Atlantic Ocean Volcanic Regions
+372030,Katla,Iceland,-19.083,63.633,1490,Fissure vent(s),1918,Eruption Observed,Atlantic Ocean Volcanic Regions
+372040,Tindfjallajokull,Iceland,-19.716,63.783,1464,Stratovolcano,,Evidence Uncertain,Atlantic Ocean Volcanic Regions
+372050,Torfajokull,Iceland,-19.122,63.892,1280,Stratovolcano,1477,Eruption Observed,Atlantic Ocean Volcanic Regions
+372070,Hekla,Iceland,-19.666,63.983,1490,Stratovolcano,2000,Eruption Observed,Atlantic Ocean Volcanic Regions
+373010,Grimsvotn,Iceland,-17.316,64.416,1719,Caldera,2011,Eruption Observed,Atlantic Ocean Volcanic Regions
+373012,Thordarhyrna,Iceland,-17.617,64.267,1650,Stratovolcano,1904,Eruption Observed,Atlantic Ocean Volcanic Regions
+373030,Bardarbunga,Iceland,-17.516,64.633,2000,Stratovolcano,2015,Eruption Observed,Atlantic Ocean Volcanic Regions
+373040,Tungnafellsjokull,Iceland,-17.916,64.75,1523,Stratovolcano,,Evidence Credible,Atlantic Ocean Volcanic Regions
+373050,Kverkfjoll,Iceland,-16.647,64.653,1930,Stratovolcano,1968,Eruption Observed,Atlantic Ocean Volcanic Regions
+373060,Askja,Iceland,-16.783,65.033,1080,Stratovolcano,1961,Eruption Observed,Atlantic Ocean Volcanic Regions
+373070,Fremrinamar,Iceland,-16.666,65.416,970,Stratovolcano,-1200,Eruption Dated,Atlantic Ocean Volcanic Regions
+373080,Krafla,Iceland,-16.728,65.715,800,Caldera,1984,Eruption Observed,Atlantic Ocean Volcanic Regions
+373082,Heidarspordar,Iceland,-16.817,65.583,490,Fissure vent,-300,Eruption Dated,Atlantic Ocean Volcanic Regions
+373090,Theistareykir,Iceland,-16.967,65.883,563,Shield,-900,Eruption Dated,Atlantic Ocean Volcanic Regions
+373100,Tjornes Fracture Zone,Iceland,-17.118,66.309,-75,Fissure vent,1868,Eruption Observed,Atlantic Ocean Volcanic Regions
+374010,Oraefajokull,Iceland,-16.65,64,2010,Stratovolcano,1728,Eruption Observed,Atlantic Ocean Volcanic Regions
+374020,Esjufjoll,Iceland,-16.583,64.25,1620,Stratovolcano,,Unrest / Holocene,Atlantic Ocean Volcanic Regions
+374801,Snaefell,Iceland,-15.56,64.798,1833,Stratovolcano,,Evidence Uncertain,Atlantic Ocean Volcanic Regions
+375010,Kolbeinsey Ridge,Iceland,-18.5,66.67,5,Fissure vent,1755,Eruption Observed,Atlantic Ocean Volcanic Regions

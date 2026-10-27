@@ -1,0 +1,17 @@
+key,name,value,unit,year,nuts,area_km2_gisco,density_per_km2
+DE-BB,Brandenburg,2556747,persons,2025-01-01,DE4,29651,86.2
+DE-BE,Berlin,3685265,persons,2025-01-01,DE3,893,4126.8
+DE-BW,Baden-Württemberg,11245898,persons,2025-01-01,DE1,36011,312.3
+DE-BY,Bayern,13248928,persons,2025-01-01,DE2,70583,187.7
+DE-HB,Bremen,704881,persons,2025-01-01,DE5,403,1749.1
+DE-HE,Hessen,6280793,persons,2025-01-01,DE7,21116,297.4
+DE-HH,Hamburg,1862565,persons,2025-01-01,DE6,743,2506.8
+DE-MV,Mecklenburg-Vorpommern,1573597,persons,2025-01-01,DE8,23086,68.2
+DE-NI,Niedersachsen,8004489,persons,2025-01-01,DE9,47656,168
+DE-NW,Nordrhein-Westfalen,18034454,persons,2025-01-01,DEA,34116,528.6
+DE-RP,Rheinland-Pfalz,4129569,persons,2025-01-01,DEB,19852,208
+DE-SH,Schleswig-Holstein,2959517,persons,2025-01-01,DEF,15618,189.5
+DE-SL,Saarland,1012141,persons,2025-01-01,DEC,2572,393.5
+DE-SN,Sachsen,4042422,persons,2025-01-01,DED,18449,219.1
+DE-ST,Sachsen-Anhalt,2135597,persons,2025-01-01,DEE,20555,103.9
+DE-TH,Thüringen,2100277,persons,2025-01-01,DEG,16201,129.6
