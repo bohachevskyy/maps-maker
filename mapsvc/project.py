@@ -508,6 +508,20 @@ def extent_of(geometries) -> Extent:
         rings = _extent_candidates(geometry)
         if not rings:
             continue
+        # A transcontinental member remains drawable, but does not decide a
+        # multi-member regional frame.  Russia's recognised-border geometry
+        # has a small Far East ring ending near 169E in addition to its ring
+        # clipped at 180E; skipping only the clipped ring still lets Siberia
+        # stretch a Europe map across most of Asia.
+        feature_lons = [lon for ring in rings for lon, _ in unwrap_ring(ring, 0.0)]
+        transcontinental = (not keep_clipped and feature_lons
+                            and max(feature_lons) - min(feature_lons) > 120.0)
+        if transcontinental:
+            for ring in rings:
+                lons = [lon for lon, _ in unwrap_ring(ring, 0.0)]
+                lats = [lat for _, lat in ring]
+                fallback.append((min(lons), min(lats), max(lons), max(lats)))
+            continue
         for ring in rings:
             lons = [lon for lon, _ in unwrap_ring(ring, 0.0)]
             lats = [lat for _, lat in ring]

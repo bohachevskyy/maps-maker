@@ -20,11 +20,11 @@ import sys
 import tomllib
 import xml.etree.ElementTree as ET
 
-from mapsvc import project
 from mapsvc.agent import AgentRefusal, AgentUnavailable, backend_name, describe
 from mapsvc.harvest import harvest
 from mapsvc.manifest import validate
 from mapsvc.pipeline import draw
+from mapsvc.render import frame_extent
 
 
 HERE = pathlib.Path(__file__).resolve().parent
@@ -169,14 +169,14 @@ def evaluate_spot(expression: str, values: dict[str, object],
     if parsed["kind"] == "near":
         distance, reason = _near(parsed, geometry)
         if reason:
-            return {**result, "status": "unevaluable", "reason": reason}
+            return {**result, "status": "fail", "reason": reason}
         return {**result, "status": "pass" if distance <= parsed["km"] else "fail",
                 "nearest_km": round(distance, 1), "tolerance_km": parsed["km"]}
 
     if parsed["kind"] == "approx":
         actual, reason = numeric(parsed["key"])
         if reason:
-            return {**result, "status": "unevaluable", "reason": reason}
+            return {**result, "status": "fail", "reason": reason}
         expected = parsed["expected"]
         tolerance = parsed["tolerance"]
         allowed = abs(expected) * tolerance / 100 if parsed["percent"] else tolerance
@@ -189,7 +189,7 @@ def evaluate_spot(expression: str, values: dict[str, object],
 
     actual_left, reason = numeric(parsed["left"])
     if reason:
-        return {**result, "status": "unevaluable", "reason": reason}
+        return {**result, "status": "fail", "reason": reason}
     right = parsed["right"]
     if "literal" in right:
         actual_right = right["literal"]
@@ -197,7 +197,7 @@ def evaluate_spot(expression: str, values: dict[str, object],
     else:
         actual_right, reason = numeric(right["key"])
         if reason:
-            return {**result, "status": "unevaluable", "reason": reason}
+            return {**result, "status": "fail", "reason": reason}
         right_label = right["key"]
     passed = actual_left > actual_right if parsed["operator"] == ">" else actual_left < actual_right
     return {
@@ -528,24 +528,8 @@ def _point_checks(kind: str, points: list, extent) -> list[dict]:
 
 
 def _extent_for(manifest, result=None):
-    # A bbox is the window only when nothing else frames the map. With `within`
-    # or overlays the renderer frames on the data (and drops a bbox that only
-    # adds empty space), so the manifest's bbox is not what was drawn -- the
-    # Trans-Siberian failed its Beijing exclude on a world bbox the renderer
-    # had ignored.
-    if manifest.bbox is not None and not manifest.within and not getattr(manifest, "overlays", None):
-        return manifest.bbox
     result = result or harvest(manifest)
-    if result.provenance.get("overlay_bbox"):
-        return tuple(result.provenance["overlay_bbox"])
-    geometries = [row["geometry"] for row in result.rows]
-    geometries.extend(item["geometry"] for item in result.dropped if item.get("geometry"))
-    if getattr(result, "overlays", None):
-        # The same framing the renderer uses: the units near the overlay.
-        from mapsvc import overlay_render
-
-        geometries = overlay_render.focus(geometries, result.overlays)
-    return project.extent_of(geometries) if geometries else None
+    return frame_extent(manifest, result)
 
 
 def _footnote_check(text: str) -> dict:

@@ -47,12 +47,12 @@ def test_spot_evaluator_checks_tolerances_keys_and_literals():
     assert evaluate_spot("06085<60000", values)["status"] == "fail"
 
 
-def test_unsupported_or_missing_spots_are_explicitly_unevaluable():
+def test_only_unparseable_spots_are_unevaluable_and_missing_data_fails():
     unsupported = evaluate_spot("total_km~2800", {})
     missing = evaluate_spot("TX>CA", {"TX": "1"})
     assert unsupported["status"] == "unevaluable"
     assert "supported forms" in unsupported["reason"]
-    assert missing["status"] == "unevaluable"
+    assert missing["status"] == "fail"
     assert "CA" in missing["reason"]
 
 
@@ -63,7 +63,9 @@ def test_near_checks_measure_distance_to_overlay_geometry():
     assert evaluate_spot("event_near=160.0,52.5", geometry=geometry, values={})["status"] == "fail"
     near = evaluate_spot("line_near=4.83,45.76", geometry=geometry, values={})
     assert near["status"] == "pass" and near["nearest_km"] < 10
-    assert evaluate_spot("line_near=4.83,45.76", {})["status"] == "unevaluable"
+    assert evaluate_spot("line_near=4.83,45.76", {})["status"] == "fail"
+    assert evaluate_spot("event_near=96.0,22.0", {}, {"points": [], "lines": []})[
+        "status"] == "fail"
 
 
 def test_truth_check_matches_short_keys_to_iso_3166_2_ids(tmp_path):

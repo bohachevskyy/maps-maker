@@ -115,12 +115,20 @@ from mapsvc.render_labels import (
     _value_text,
 )
 
-def render(manifest: Manifest, result: HarvestResult) -> str:
+def _frame_inputs(manifest: Manifest, result: HarvestResult):
+    """Derive the exact main-frame inputs once for rendering and evaluation."""
+    if result.effective is not None:
+        manifest = result.effective
     overlay_box = tuple(result.provenance.get("overlay_bbox") or ())
     measured_overlay = overlay_render.overlay_extent(result.overlays)
     if measured_overlay is not None:
         overlay_box = tuple(project.frame_box(measured_overlay))
-    overlay_framed = bool(overlay_box) and overlay_box != WORLD
+    # A bbox/no-window overlay is cropped to the measured data.  A political
+    # `within` map instead frames on the selected units near those data: this
+    # keeps metropolitan France recognisable while leaving its overseas units
+    # drawn outside the page, and avoids making the route itself the coastline.
+    overlay_framed = (bool(overlay_box) and overlay_box != WORLD
+                      and manifest.within is None)
     if manifest.bbox is None and result.provenance.get("overlay_bbox"):
         # Framed on its overlays (no window was given): the harvest chose it.
         manifest = dataclasses.replace(
@@ -135,7 +143,6 @@ def render(manifest: Manifest, result: HarvestResult) -> str:
     drawn_missing = [d for d in dropped if d.get("geometry")] if show_missing else []
     # Far-flung units (Alaska, the Canaries) go to insets; the main frame is
     # fitted to the rest. Classification still sees every row.
-    every_row = rows
     rows, drawn_missing, insets = _split_insets(manifest, rows, drawn_missing)
 
     geometries = [r["geometry"] for r in rows] + [d["geometry"] for d in drawn_missing]
@@ -144,6 +151,21 @@ def render(manifest: Manifest, result: HarvestResult) -> str:
 
     framed = (overlay_render.focus(geometries, result.overlays)
               if result.overlays and manifest.bbox is None else geometries)
+    return manifest, rows, drawn_missing, insets, geometries, framed, overlay_framed
+
+
+def frame_extent(manifest: Manifest, result: HarvestResult) -> tuple | None:
+    """The geographic extent used by the renderer's main frame."""
+    manifest, _, _, _, _, framed, _ = _frame_inputs(manifest, result)
+    if not framed:
+        return None
+    return tuple(manifest.bbox or project.extent_of(framed))
+
+
+def render(manifest: Manifest, result: HarvestResult) -> str:
+    (manifest, rows, drawn_missing, insets, geometries, framed,
+     overlay_framed) = _frame_inputs(manifest, result)
+    every_row = sorted(result.rows, key=lambda r: r["id"])
     # A small atlas-style inset set needs the lower-left sea inside the map,
     # rather than a box dangling below its frame. A taller frame creates that
     # room without naming Alaska or Hawaii.

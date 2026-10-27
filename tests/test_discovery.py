@@ -11,16 +11,24 @@ from mapsvc.statistics import regions
 def _taginfo_stub(monkeypatch):
     """Shaped like taginfo's real answers, measured 2026-10-26."""
     keyword = {
+        "high": [("highway", "speed_camera")],
+        "speed": [("highway", "speed_camera"), ("highspeed", "yes")],
+        "railway": [("railway", "rail")],
         "nuclear": [("power", "plant"), ("plant:source", "nuclear"),
                     ("man_made", "power_nuclear"), ("generator:source", "")],
         "power": [("power", "plant"), ("power", "generator"), ("frequency", "")],
         "plant": [("power", "plant"), ("plant:source", "nuclear"),
                   ("landuse", "plantation")],
+        "lighthouse": [("man_made", "lighthouse")],
     }
     uses = {("power", "plant"): (165277, "An industrial facility where power is produced."),
             ("plant:source", "nuclear"): (281, "Nuclear power plant"),
             ("power", "generator"): (900000, "A single power generator"),
-            ("landuse", "plantation"): (60000, "Planted crops")}
+            ("landuse", "plantation"): (60000, "Planted crops"),
+            ("railway", "rail"): (1200000, "A railway track."),
+            ("highspeed", "yes"): (9000, "A high-speed railway."),
+            ("highway", "speed_camera"): (200000, "A road speed camera."),
+            ("man_made", "lighthouse"): (45000, "A lighthouse.")}
     calls = []
 
     def response(path, params):
@@ -39,27 +47,42 @@ def _taginfo_stub(monkeypatch):
                 {"other_key": "plant:source", "other_value": "nuclear",
                  "together_count": 281, "from_fraction": 0.01},
                 {"other_key": "name", "other_value": "", "from_fraction": 0.9}]}
+        if path == "tag/combinations" and (params["key"], params["value"]) == ("railway", "rail"):
+            return {"data": [{"other_key": "highspeed", "other_value": "yes",
+                              "together_count": 9000,
+                              "description": "High-speed railway"}]}
         return {"data": []}
 
     monkeypatch.setattr(overpass, "_taginfo_json", response)
     return calls
 
 
-def test_taginfo_discovery_splits_the_phrase_and_returns_counts_and_hints(monkeypatch):
+def test_taginfo_discovery_returns_whole_kind_combinations(monkeypatch):
     calls = _taginfo_stub(monkeypatch)
     found = overpass.search("nuclear power plants")
     # taginfo's by_keyword matches one word at a time: each word was asked alone
     asked = {p["query"] for path, p in calls if path == "search/by_keyword"}
     assert asked == {"nuclear", "power", "plant"}
     ids = [c.id for c in found]
-    assert ids[:2] == ["power=plant", "plant:source=nuclear"]
+    assert ids[0] == "power=plant;plant:source=nuclear"
+    assert "power=plant" in ids
     assert "landuse=plantation" not in ids          # only one of the words
-    plant = found[0]
+    plant = next(candidate for candidate in found if candidate.id == "power=plant")
     assert plant.count == 165277 and "165,277 uses" in plant.as_prompt_line()
     assert "industrial facility" in plant.subtitle
-    assert "plant:source=nuclear" in plant.subtitle                  # qualifier
-    assert "plant:output:electricity (attribute)" in plant.subtitle  # size attribute
-    assert "name (attribute)" not in plant.subtitle
+
+
+def test_taginfo_discovery_weights_head_noun_and_drops_contradictions(monkeypatch):
+    _taginfo_stub(monkeypatch)
+    found = overpass.search("France's high-speed railway network")
+    ids = [candidate.id for candidate in found]
+    assert ids[0] == "railway=rail;highspeed=yes"
+    assert "highway=speed_camera" not in ids
+
+
+def test_taginfo_discovery_finds_a_direct_single_tag_kind(monkeypatch):
+    _taginfo_stub(monkeypatch)
+    assert overpass.search("lighthouses")[0].id == "man_made=lighthouse"
 
 
 def test_taginfo_outage_means_no_candidates_not_an_exception(monkeypatch):
@@ -89,10 +112,18 @@ def test_agent_gets_taginfo_candidates_then_picks_one(monkeypatch, tmp_path):
     monkeypatch.setattr(agent, "_preflight", lambda manifest: None)
     manifest, _, _ = agent.describe("nuclear power plants in France")
     turn = client.responses.calls[1]["input"][-1]["content"]
-    assert "power=plant: power=plant (165,277 uses)" in turn
-    assert "plant:output:electricity" in turn
+    assert "power=plant;plant:source=nuclear" in turn
     assert manifest.overlays[0][0] == "overpass"
     assert "plant:source=nuclear" in manifest.overlays[0][1]
+
+
+def test_agent_rejects_an_offered_tag_whose_description_misses_the_head_noun():
+    bad = overpass.Candidate("highway=speed_camera", "highway=speed_camera",
+                             "A device that measures vehicle speed", 3938)
+    raw = {"overlays": [{"source": "overpass", "id": bad.id}]}
+    with pytest.raises(ManifestError, match="requested feature kind"):
+        agent._check_overlay_choices(
+            raw, [("overpass", "high-speed railway", {bad.id: bad})])
 
 
 def test_settlement_filter_without_city_is_repairably_rejected():

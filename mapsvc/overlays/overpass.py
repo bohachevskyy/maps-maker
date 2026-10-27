@@ -324,8 +324,31 @@ def _count(item: dict) -> int:
 
 
 _STOP = {"the", "a", "an", "of", "in", "all", "and", "or", "for", "with", "to",
-         "on", "by", "map", "show", "every", "any", "world", "worldwide"}
+         "on", "by", "map", "show", "every", "any", "world", "worldwide",
+         "network", "s"}
 MIN_CANDIDATE_USES = 50
+
+# The last content noun is normally the requested feature kind; modifiers say
+# which member of that kind.  OSM vocabulary is not English, so keep the small
+# set of well-established aliases which cannot be inferred by stemming alone.
+_HEAD_SYNONYMS = {
+    "railway": {"railway", "rail", "railroad", "train"},
+    "railroad": {"railway", "rail", "railroad", "train"},
+    "lighthouse": {"lighthouse", "beacon", "light"},
+    "plant": {"plant", "station", "facility"},
+}
+_HEAD_FAMILIES = {
+    "railway": {"railway", "route"},
+    "railroad": {"railway", "route"},
+    "lighthouse": {"man_made", "seamark"},
+    "plant": {"power", "plant"},
+}
+_CONTRADICTS = {
+    "railway": {"highway"},
+    "railroad": {"highway"},
+    "lighthouse": {"highway", "railway", "power"},
+    "plant": {"highway", "railway"},
+}
 
 
 def _stem(word: str) -> str:
@@ -334,6 +357,36 @@ def _stem(word: str) -> str:
     if word.endswith("s") and not word.endswith("ss") and len(word) > 3:
         return word[:-1]
     return word
+
+
+def _query_words(query: str) -> tuple[list[str], str, set[str], list[str]]:
+    raw_words = [raw for raw in re.findall(r"[a-z0-9]+", str(query).lower())
+                 if raw not in _STOP]
+    words = list(dict.fromkeys(_stem(raw) for raw in raw_words))[:6]
+    head = words[-1] if words else ""
+    synonyms = _HEAD_SYNONYMS.get(head, {head})
+    # Taginfo value search understands OSM spellings, not English punctuation.
+    compounds = []
+    for match in re.finditer(r"\b[a-z0-9]+-[a-z0-9]+\b", str(query).lower()):
+        parts = match.group().split("-")
+        compounds.extend(("".join(parts), "_".join(parts)))
+    return words, head, synonyms, list(dict.fromkeys(compounds))
+
+
+def _candidate_text(key: str, value: str, description: str) -> str:
+    return " ".join(re.findall(r"[a-z0-9]+", f"{key} {value} {description}".lower()))
+
+
+def _mentions(words: set[str], text: str) -> bool:
+    tokens = set(text.split())
+    return bool(words & tokens)
+
+
+def candidate_relevant(query: str, candidate: Candidate) -> bool:
+    """Whether an offered choice actually names the requested feature kind."""
+    _, _, synonyms, _ = _query_words(query)
+    return bool(synonyms) and _mentions(
+        synonyms, _candidate_text("", "", candidate.subtitle))
 
 
 def _guarded(path: str, params: dict) -> dict:
@@ -347,25 +400,17 @@ def _guarded(path: str, params: dict) -> dict:
 def search(query: str, limit: int = 8) -> list[Candidate]:
     """Real OSM key=value filters for a plain-English feature phrase.
 
-    Measured 2026-10-26: taginfo's by_keyword matches single words only
-    ("nuclear power plants" -> 0 hits, "nuclear" -> 14), and by_value is mostly
-    operator names.  So the phrase is split into stemmed words, each searched
-    on its own; a pair is scored by how many of the words appear in its key or
-    value (power=plant: power, plant), then each shortlisted pair is looked up
-    with key/values for its real usage count and wiki description.  Key-only
-    hits sharing a root with a candidate become hints -- plant:output:electricity
-    is the size attribute that goes with power=plant.  Everything is cached.
+    Taginfo's keyword endpoint matches single words, so each word is searched,
+    but candidates are ranked against the whole phrase.  The final content noun
+    is the feature kind and outweighs modifiers; contradictory key families are
+    dropped.  Tag values also receive the modifier's compound OSM spellings.
+    Co-occurring qualifier tags become complete, selectable combinations.
     """
-    words = []
-    for raw in re.findall(r"[a-z0-9]+", str(query).lower()):
-        word = _stem(raw)
-        if raw not in _STOP and word not in words:
-            words.append(word)
-    words = words[:4]
+    words, head, head_synonyms, compounds = _query_words(query)
     if not words:
         return []
 
-    pairs: dict[tuple[str, str], int] = {}
+    pairs: set[tuple[str, str]] = set()
     for word in words:
         for item in _items(_guarded("search/by_keyword",
                                     {"query": word, "page": 1, "rp": 100})):
@@ -375,53 +420,74 @@ def search(query: str, limit: int = 8) -> list[Candidate]:
             if not value:
                 continue
             if _VALUE.fullmatch(value) and value != "*" and not _is_text(key):
-                text = f"{key} {value}".lower()
-                pairs[(key, value)] = sum(w in text for w in words)
-    if not pairs:   # a value-only phrase, e.g. a rare value without a keyword hit
-        for word in words:
-            for item in _items(_guarded("search/by_value",
-                                        {"query": word, "page": 1, "rp": 30})):
-                key, value = str(item.get("key") or ""), str(item.get("value") or "")
-                if (_TOKEN.fullmatch(key) and _VALUE.fullmatch(value)
-                        and not _is_text(key) and _count(item) >= MIN_CANDIDATE_USES):
-                    pairs[(key, value)] = sum(w in f"{key} {value}".lower()
-                                              for w in words)
-    # Every word present beats a lone word; lone words only when nothing better.
-    best = max(pairs.values(), default=0)
-    floor = min(best, 2) if len(words) > 1 else 1
-    shortlist = sorted((p for p, n in pairs.items() if n >= max(floor, 1)),
-                       key=lambda p: (-pairs[p], p))[:14]
+                pairs.add((key, value))
+    for term in list(dict.fromkeys(words + compounds)):
+        for item in _items(_guarded("search/by_value",
+                                    {"query": term, "page": 1, "rp": 50})):
+            key, value = str(item.get("key") or ""), str(item.get("value") or "")
+            if (_TOKEN.fullmatch(key) and _VALUE.fullmatch(value) and value != "*"
+                    and not _is_text(key)):
+                pairs.add((key, value))
+
+    # Avoid turning a broad word into hundreds of follow-up calls.  Key/value
+    # text is sufficient for this first cut; descriptions decide final rank.
+    shortlist = []
+    for key, value in pairs:
+        text = _candidate_text(key, value, "")
+        family = key.split(":", 1)[0]
+        if family in _CONTRADICTS.get(head, set()):
+            continue
+        if (not _mentions(head_synonyms, text)
+                and family not in _HEAD_FAMILIES.get(head, set())):
+            continue
+        shortlist.append((sum(word in text for word in words), key, value))
+    shortlist = sorted(shortlist, key=lambda item: (-item[0], item[1], item[2]))[:40]
 
     found = []
-    for key, value in shortlist:
+    for _, key, value in shortlist:
         data = _items(_guarded("key/values", {
             "key": key, "query": value, "page": 1, "rp": 10,
             "sortname": "count_all", "sortorder": "desc"}))
         item = next((d for d in data if d.get("value") == value), None)
         count = _count(item) if item else 0
         if count >= MIN_CANDIDATE_USES:
-            found.append((key, value, count, _description(item)))
-    found.sort(key=lambda f: (-pairs[(f[0], f[1])], -f[2], f[0], f[1]))
-    found = found[:limit]
+            text = _candidate_text(key, value, _description(item))
+            family = key.split(":", 1)[0]
+            if family in _CONTRADICTS.get(head, set()):
+                continue
+            head_match = _mentions(head_synonyms, text)
+            if not head_match and family not in _HEAD_FAMILIES.get(head, set()):
+                continue
+            coverage = sum(1 for word in words if word in text)
+            found.append((key, value, count, _description(item), coverage))
 
-    candidates = []
-    for rank, (key, value, count, description) in enumerate(found):
-        hints = []
-        for other_key, other_value, _, _ in found:
-            if other_key != key and (other_key.split(":", 1)[0] in
-                                     {key.split(":", 1)[0], value.split("_")[0]}):
-                hints.append(f"{other_key}={other_value}")
-        if rank < 3:
-            hints.extend(_combination_hints(key, value, words))
-        note = description
-        if hints:
-            unique = list(dict.fromkeys(hints))[:6]
-            note = "; ".join(filter(None, (note, "related tags: " + ", ".join(unique))))
-        candidates.append(Candidate(f"{key}={value}", f"{key}={value}", note, count))
-    return candidates
+    candidates: dict[str, tuple[tuple, Candidate]] = {}
+    for key, value, count, description, coverage in found:
+        base_id = f"{key}={value}"
+        base = Candidate(base_id, base_id, description, count)
+        score = (coverage * 2 + 6, 0, count)
+        candidates[base_id] = (score, base)
+        for qualifier, q_count, q_description in _combination_tags(key, value, words):
+            q_key, q_value = qualifier.split("=", 1)
+            combined_text = _candidate_text(
+                f"{key} {q_key}", f"{value} {q_value}",
+                f"{description} {q_description}")
+            modifier_coverage = sum(1 for word in words[:-1] if word in combined_text)
+            if not modifier_coverage:
+                continue
+            candidate_id = f"{base_id};{qualifier}"
+            note = "; ".join(filter(None, (description, q_description)))
+            combo = Candidate(candidate_id, candidate_id, note, min(count, q_count))
+            candidates[candidate_id] = ((coverage * 2 + modifier_coverage * 4 + 6,
+                                         1, min(count, q_count)), combo)
+
+    ranked = sorted(candidates.values(), key=lambda item: (
+        -item[0][0], -item[0][1], -item[0][2], item[1].id))
+    return [candidate for _, candidate in ranked[:limit]]
 
 
-def _combination_hints(key: str, value: str, words: list[str]) -> list[str]:
+def _combination_tags(key: str, value: str,
+                      words: list[str]) -> list[tuple[str, int, str]]:
     """Secondary tags that co-occur with key=value on real features.
 
     A qualifier is a pair whose text matches the request (plant:source=nuclear
@@ -431,7 +497,7 @@ def _combination_hints(key: str, value: str, words: list[str]) -> list[str]:
     data = _items(_guarded("tag/combinations", {
         "key": key, "value": value, "page": 1, "rp": 100,
         "sortname": "together_count", "sortorder": "desc"}))
-    qualifiers, attributes = [], []
+    qualifiers = []
     for item in data:
         other_key = str(item.get("other_key") or "")
         other_value = str(item.get("other_value") or "")
@@ -440,11 +506,11 @@ def _combination_hints(key: str, value: str, words: list[str]) -> list[str]:
         if other_value:
             if (_VALUE.fullmatch(other_value) and other_key != key
                     and any(w in f"{other_key} {other_value}" for w in words)):
-                qualifiers.append(f"{other_key}={other_value}")
-        elif (float(item.get("from_fraction") or 0) >= 0.2 and ":" in other_key
-              and other_key.split(":", 1)[0] in {key.split(":", 1)[0], value}):
-            attributes.append(f"{other_key} (attribute)")
-    return qualifiers[:2] + attributes[:3]
+                count = int(item.get("together_count") or 0)
+                if count >= MIN_CANDIDATE_USES:
+                    qualifiers.append((f"{other_key}={other_value}", count,
+                                       _description(item)))
+    return qualifiers[:4]
 
 
 def _suggestions(key: str) -> list[str]:

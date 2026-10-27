@@ -87,6 +87,17 @@ def test_extent_skips_features_clipped_at_the_antimeridian():
     assert project.extent_of([europe, russia])[2] == 10
 
 
+def test_extent_skips_a_transcontinental_member_even_with_an_uncut_far_east_ring():
+    europe = {"type": "Polygon", "coordinates": [
+        [(0, 40), (10, 40), (10, 50), (0, 50), (0, 40)]]}
+    russia = {"type": "MultiPolygon", "coordinates": [
+        [[(20, 50), (180, 50), (180, 70), (20, 70), (20, 50)]],
+        [[(160, 52), (169, 52), (169, 60), (160, 60), (160, 52)]],
+    ]}
+    assert project.extent_of([europe, russia]) == (0, 40, 10, 50)
+    assert project.extent_of([russia])[2] == 180
+
+
 def test_robust_feature_extent_drops_only_an_isolated_fringe_feature():
     cluster = [(i * 0.1, 50 + (i % 3) * 0.1, i * 0.1, 50 + (i % 3) * 0.1)
                for i in range(50)]
