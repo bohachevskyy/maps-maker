@@ -559,14 +559,16 @@ URL of a CSV/GeoJSON you are confident exists. The service fetches it and \
 rejects it if it does not load or has no coordinates. Leave search_query empty \
 for usgs.
 
-For `overpass`, do not guess tags. Whenever the request is about a KIND of \
-physical feature ("nuclear power plants", "ski lifts", "lighthouses", "wind \
-farms"), leave id empty and put the plain-English feature phrase in search_query. \
-The service asks Taginfo and returns real key=value candidates with usage counts, \
-wiki descriptions and related-tag hints; pick exactly one candidate, and add a \
-related qualifier when it narrows the kind (power=plant;plant:source=nuclear -- \
-power=plant alone is every power station). Attributes such as \
-plant:output:electricity are only hints about what the data carries. Write an id \
+For `overpass`, write the OpenStreetMap tags you know as the id \
+(key=value;key=value) -- railway=rail;highspeed=yes for high-speed lines, \
+power=plant;plant:source=nuclear for nuclear power stations (power=plant alone is \
+every power station), man_made=lighthouse. The service checks every tag against \
+Taginfo's real usage; a tag that is unknown or barely used comes back as a \
+repairable error with real candidates to choose from. Only when you do not know \
+the tagging at all, leave id empty and put the plain-English feature phrase in \
+search_query. Measured: keyword search ranks modifiers poorly ("high-speed" \
+matched speed cameras and abandoned railways), so your own tagging knowledge, \
+validated, is the better first step. Write an id \
 directly only for the fixed grammars (route relations with a network, place=...). \
 Settlements: "towns and villages", "settlements" or "populated places" mean \
 every settlement, so the filter is place=city|town|village|hamlet; a place= \
@@ -610,6 +612,7 @@ def describe(prompt: str) -> tuple[Manifest, dict, str]:
     conversation: list[dict] = [{"role": "user", "content": prompt.strip()}]
     last_error: ManifestError | None = None
     offered: set[str] | None = None
+    overlay_offers: list[tuple[str, str, dict[str, object]]] = []
     overlays_searched = False
     challenged = False
     repairs = 0
@@ -651,7 +654,11 @@ def describe(prompt: str) -> tuple[Manifest, dict, str]:
                 offered = {c.id for c in found}
                 parts.append(_candidate_prompt(source, query, found))
             for overlay_source, overlay_query in overlay_queries:
-                parts.append(_overlay_candidates(overlay_source, overlay_query))
+                candidate_prompt, found = _overlay_candidates(
+                    overlay_source, overlay_query, return_found=True)
+                parts.append(candidate_prompt)
+                overlay_offers.append((overlay_source, overlay_query,
+                                       {candidate.id: candidate for candidate in found}))
             overlays_searched = overlays_searched or bool(overlay_queries)
             conversation.append({"role": "assistant", "content": json.dumps(answer)})
             conversation.append({"role": "user", "content": "\n\n".join(parts)})
@@ -677,8 +684,9 @@ def describe(prompt: str) -> tuple[Manifest, dict, str]:
             raw.pop("bbox", None)
         if raw.pop("variable_is_null", False):
             raw["variable"] = None
-        _strip_overlays(raw)
         try:
+            _check_overlay_choices(raw, overlay_offers)
+            _strip_overlays(raw)
             _check_per((raw.get("variable") or {}).get("per"))
             manifest = validate(raw)
             # validate() can apply derived source rules. Return the effective
@@ -727,29 +735,60 @@ def _overlay_queries(raw: dict) -> list[tuple[str, str]]:
     return out
 
 
-def _overlay_candidates(source: str, query: str) -> str:
+def _overlay_candidates(source: str, query: str, *, return_found: bool = False):
     try:
         found = overlays.search(source, query, limit=SEARCH_RESULTS)
     except overlays.OverlayError:
         found = []
     if not found:
         if source == "overpass":
-            return (f"Taginfo returned no OSM tags for {query!r}. Refuse unless "
-                    "another overlay source can answer it; do not invent a tag.")
-        return (f"The {source} overlay catalogue has nothing for {query!r}. Give an "
-                "https URL of a CSV or GeoJSON you are confident exists, or refuse.")
+            prompt = (f"Taginfo returned no OSM tags for {query!r}. Refuse unless "
+                      "another overlay source can answer it; do not invent a tag.")
+        else:
+            prompt = (f"The {source} overlay catalogue has nothing for {query!r}. Give an "
+                      "https URL of a CSV or GeoJSON you are confident exists, or refuse.")
+        return (prompt, []) if return_found else prompt
     listed = "\n".join(f"  {c.as_prompt_line()}" for c in found)
     if source == "overpass":
-        return (f"Taginfo returned these real OSM tags for {query!r}:\n{listed}\n\n"
+        prompt = (f"Taginfo returned these real OSM tag filters for {query!r}:\n{listed}\n\n"
                 "Reply with the full manifest, setting the overpass id to exactly "
-                "one candidate key=value and search_query empty. You may append a "
-                "related tag shown in that candidate's hint. A settlement filter "
-                "must include city (normally place=city|town|village|hamlet).")
-    return (f"The {source} overlay catalogue returned these datasets for {query!r}:\n"
-            f"{listed}\n\nReply with the full manifest, one overlay per file you "
-            "want (source web, id = the URL exactly, plus any filters after '#' "
-            "as listed -- required ones always -- search_query empty). Use "
-            "several when they belong together, e.g. a route and its towns.")
+                "one complete candidate id and search_query empty. The candidate's "
+                "description must name the requested feature kind. A settlement "
+                "filter must include city (normally place=city|town|village|hamlet).")
+    else:
+        prompt = (f"The {source} overlay catalogue returned these datasets for {query!r}:\n"
+                  f"{listed}\n\nReply with the full manifest, one overlay per file you "
+                  "want (source web, id = the URL exactly, plus any filters after '#' "
+                  "as listed -- required ones always -- search_query empty). Use "
+                  "several when they belong together, e.g. a route and its towns.")
+    return (prompt, found) if return_found else prompt
+
+
+def _check_overlay_choices(raw: dict,
+                           offers: list[tuple[str, str, dict[str, object]]]) -> None:
+    """Search choices are exact and still describe the user's feature kind.
+
+    A mismatch is a ManifestError so the normal repair turn can select another
+    offered candidate rather than turning a bad discovery choice into a fetch.
+    """
+    if not offers:
+        return
+    from mapsvc.overlays import overpass
+
+    items = raw.get("overlays") or []
+    for source, query, candidates in offers:
+        choices = [item.get("id") for item in items if item.get("source") == source]
+        chosen = next((choice for choice in choices if choice in candidates), None)
+        if chosen is None:
+            raise ManifestError(
+                f"the chosen {source} id was not one of the candidates returned "
+                f"for {query!r}", "overlays.id")
+        candidate = candidates[chosen]
+        if source == "overpass" and not overpass.candidate_relevant(query, candidate):
+            raise ManifestError(
+                f"OSM tag {chosen!r} does not describe the requested feature kind "
+                f"in {query!r}; choose a candidate whose description names it",
+                "overlays.id")
 
 
 def _strip_overlays(raw: dict) -> None:
