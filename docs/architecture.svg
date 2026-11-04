@@ -1,0 +1,267 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1500 1180" width="1500" height="1180" font-family="-apple-system, 'Segoe UI', Helvetica, Arial, sans-serif">
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#475569"/>
+    </marker>
+    <marker id="arrowg" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#64748b"/>
+    </marker>
+    <style>
+      .title { font-size: 26px; font-weight: 700; fill: #0f172a; }
+      .sub { font-size: 13px; fill: #475569; }
+      .band { font-size: 15px; font-weight: 700; fill: #334155; letter-spacing: .04em; }
+      .box { stroke-width: 1.4; rx: 8; }
+      .h { font-size: 14px; font-weight: 700; fill: #0f172a; }
+      .t { font-size: 11.5px; fill: #334155; }
+      .m { font-size: 11px; fill: #475569; font-family: Menlo, Consolas, monospace; }
+      .note { font-size: 11px; fill: #64748b; font-style: italic; }
+      .edge { stroke: #475569; stroke-width: 1.6; fill: none; }
+      .edgeg { stroke: #94a3b8; stroke-width: 1.3; fill: none; stroke-dasharray: 5 4; }
+    </style>
+  </defs>
+  <rect width="1500" height="1180" fill="#ffffff"/>
+
+  <text x="30" y="42" class="title">maps-maker — architecture (2026-11-03)</text>
+  <text x="30" y="64" class="sub">An HTTP service that turns a request into an SVG map. Hand-written geometry and SVG; no GeoPandas/GDAL/shapely in mapsvc. 610 offline tests.</text>
+
+  <!-- ===================== BAND 1: request path ===================== -->
+  <rect x="20" y="82" width="1460" height="196" fill="#f8fafc" stroke="#e2e8f0" rx="10"/>
+  <text x="34" y="104" class="band">1 · REQUEST PATH</text>
+
+  <rect x="40" y="118" width="190" height="140" class="box" fill="#eef2ff" stroke="#6366f1"/>
+  <text x="54" y="140" class="h">api.py (FastAPI)</text>
+  <text x="54" y="162" class="m">POST /map      manifest</text>
+  <text x="54" y="180" class="m">POST /describe prompt</text>
+  <text x="54" y="198" class="m">POST /export   → file</text>
+  <text x="54" y="222" class="t">503 + Retry-After when an</text>
+  <text x="54" y="237" class="t">upstream (Overpass) is down</text>
+
+  <rect x="270" y="118" width="250" height="140" class="box" fill="#fef3c7" stroke="#d97706"/>
+  <text x="284" y="140" class="h">agent.py — prompt → manifest</text>
+  <text x="284" y="160" class="t">LLM: Codex CLI (gpt-5.6-terra, low)</text>
+  <text x="284" y="175" class="t">or OpenAI API (MAPSVC_LLM)</text>
+  <text x="284" y="193" class="t">• search turns: OWID / Eurostat / EIA,</text>
+  <text x="284" y="208" class="t">  web catalogue, taginfo (fallback)</text>
+  <text x="284" y="223" class="t">• region table (UN M49) replaces within</text>
+  <text x="284" y="238" class="t">• refusal challenged by a real search</text>
+  <text x="284" y="253" class="note">never trusted: output → validate()</text>
+
+  <rect x="560" y="118" width="210" height="140" class="box" fill="#ecfdf5" stroke="#059669"/>
+  <text x="574" y="140" class="h">manifest.py · validate()</text>
+  <text x="574" y="160" class="t">runs before any I/O</text>
+  <text x="574" y="178" class="m">bbox | within, level, basemap</text>
+  <text x="574" y="194" class="m">variable {source,id,</text><text x="574" y="208" class="m">          per,change}</text>
+  <text x="574" y="222" class="m">overlays [{source,id}]</text>
+  <text x="574" y="240" class="t">keys: ISO3·ISO 3166-2·FIPS·NUTS</text>
+  
+
+  <rect x="810" y="118" width="250" height="140" class="box" fill="#ecfeff" stroke="#0891b2"/>
+  <text x="824" y="140" class="h">harvest.py — fetch &amp; join</text>
+  <text x="824" y="160" class="t">• basemap units ⨝ statistics on key</text>
+  <text x="824" y="175" class="t">• derive.py: per (÷), change (% Δ)</text>
+  <text x="824" y="190" class="t">• overlays loaded, frame inputs</text>
+  <text x="824" y="205" class="t">• look-only choices made derived</text>
+  <text x="824" y="220" class="t">  (bbox dropped, census for US…)</text>
+  <text x="824" y="235" class="t">• accounting LEDGER (6 statuses)</text>
+  <text x="824" y="250" class="t">• disk cache · CACHE_VERSION</text>
+
+  <rect x="1100" y="118" width="170" height="140" class="box" fill="#fdf2f8" stroke="#db2777"/>
+  <text x="1114" y="140" class="h">render (pure)</text>
+  <text x="1114" y="160" class="t">no I/O — enforced by</text>
+  <text x="1114" y="175" class="m">tests/test_no_io.py</text>
+  <text x="1114" y="195" class="t">deterministic:</text>
+  <text x="1114" y="210" class="t">same manifest →</text>
+  <text x="1114" y="225" class="t">byte-identical SVG</text>
+  <text x="1114" y="245" class="note">see band 3</text>
+
+  <rect x="1310" y="148" width="150" height="80" class="box" fill="#f1f5f9" stroke="#334155"/>
+  <text x="1324" y="176" class="h">SVG map</text>
+  <text x="1324" y="196" class="t">title · legend · insets</text>
+  <text x="1324" y="211" class="t">mandatory footnote</text>
+
+  <path d="M230,188 L268,188" class="edge" marker-end="url(#arrow)"/>
+  <text x="232" y="180" class="note">/describe</text>
+  <path d="M520,188 L558,188" class="edge" marker-end="url(#arrow)"/>
+  <path d="M770,188 L808,188" class="edge" marker-end="url(#arrow)"/>
+  <path d="M1060,188 L1098,188" class="edge" marker-end="url(#arrow)"/>
+  <path d="M1270,188 L1308,188" class="edge" marker-end="url(#arrow)"/>
+  <path d="M135,258 L135,272 L665,272 L665,260" class="edge" marker-end="url(#arrow)"/>
+  <text x="300" y="268" class="note">/map: a hand-written manifest skips the agent</text>
+
+  <!-- ===================== BAND 2: data sources ===================== -->
+  <rect x="20" y="292" width="1460" height="330" fill="#f8fafc" stroke="#e2e8f0" rx="10"/>
+  <text x="34" y="314" class="band">2 · DATA SOURCES (registered; harvest calls them)</text>
+
+  <rect x="40" y="328" width="330" height="200" class="box" fill="#f0fdf4" stroke="#16a34a"/>
+  <text x="54" y="350" class="h">cartography/ — polygons, keyed</text>
+  <text x="54" y="372" class="m">natural_earth</text><text x="170" y="372" class="t">admin 0/1 · public domain</text>
+  <text x="54" y="390" class="m">overture</text><text x="170" y="390" class="t">admin 0–3 · DuckDB on S3 · ODbL</text>
+  <text x="54" y="408" class="m">census</text><text x="170" y="408" class="t">US states/counties · FIPS</text>
+  <text x="54" y="426" class="m">gisco</text><text x="170" y="426" class="t">NUTS 1–3 · © EuroGeographics</text>
+  <text x="54" y="448" class="t">recognised_borders(): Crimea = Ukraine</text>
+  <text x="54" y="463" class="t">(UN GA 68/262), Western Sahara split</text>
+  <text x="54" y="481" class="t">Overture release read from STAC `latest`</text>
+  <text x="54" y="499" class="t">iso.py: ISO2↔ISO3 (+ territory supplement)</text>
+  <text x="54" y="517" class="note">each declares KEYS per level</text>
+
+  <rect x="390" y="328" width="360" height="200" class="box" fill="#fff7ed" stroke="#ea580c"/>
+  <text x="404" y="350" class="h">statistics/ — values, keyed the same way</text>
+  <text x="404" y="370" class="t">searchable:</text>
+  <text x="480" y="370" class="m">owid · eurostat · eia</text>
+  <text x="404" y="388" class="t">fixed:</text>
+  <text x="480" y="388" class="m">natural_earth · ukrstat · wikidata</text>
+  <text x="480" y="404" class="m">census_acs · bls · statcan</text>
+  <text x="480" y="420" class="m">elections (MIT) · katotth</text>
+  <text x="404" y="442" class="m">regions.py</text><text x="480" y="442" class="t">UN M49 + EU27 + informal regions</text>
+  <text x="404" y="462" class="t">rules: official source over Wikidata;</text>
+  <text x="404" y="477" class="t">stale/mixed-year series → repair turn;</text>
+  <text x="404" y="492" class="t">count/count → %; vintage per unit</text>
+  <text x="404" y="512" class="note">Capabilities: levels, key, licence, searchable</text>
+
+  <rect x="770" y="328" width="380" height="200" class="box" fill="#f5f3ff" stroke="#7c3aed"/>
+  <text x="784" y="350" class="h">overlays/ — features above the basemap</text>
+  <text x="784" y="372" class="m">usgs</text><text x="860" y="372" class="t">quake query grammar</text>
+  <text x="784" y="390" class="m">overpass</text><text x="860" y="390" class="t">validated OSM tag grammar · relations</text>
+  <text x="860" y="405" class="t">taginfo usage check · 300 s budget</text>
+  <text x="860" y="420" class="t">stale-cache + Overture fallback</text>
+  <text x="784" y="438" class="m">web</text><text x="860" y="438" class="t">https CSV/GeoJSON (service fetches)</text>
+  <text x="860" y="453" class="t">catalogue: Minard, IBTrACS (any basin),</text>
+  <text x="860" y="468" class="t">GVP volcanoes, GeoNames, NE places…</text>
+  <text x="784" y="486" class="m">overture</text><text x="860" y="486" class="t">rail / settlements when Overpass is down</text>
+  <text x="784" y="504" class="m">coast · geo</text><text x="860" y="504" class="t">OSM coastline · route km (20 m merge)</text>
+
+  <rect x="1170" y="328" width="290" height="200" class="box" fill="#f1f5f9" stroke="#64748b"/>
+  <text x="1184" y="350" class="h">external services</text>
+  <text x="1184" y="372" class="t">AWS S3 (Overture) · STAC catalog</text>
+  <text x="1184" y="390" class="t">Overpass ×4 endpoints · taginfo</text>
+  <text x="1184" y="408" class="t">OWID · Eurostat · EIA SEDS · BLS</text>
+  <text x="1184" y="426" class="t">Census files · StatCan · MIT (Dataverse)</text>
+  <text x="1184" y="444" class="t">USGS FDSN · NOAA IBTrACS · GVP WFS</text>
+  <text x="1184" y="462" class="t">GeoNames · Wikidata SPARQL · GISCO</text>
+  <text x="1184" y="480" class="t">Natural Earth (GitHub)</text>
+  <text x="1184" y="504" class="note">fetch.py: UA, retries, never caches HTML</text>
+  <text x="1184" y="519" class="note">sources move: releases expire, APIs add keys</text>
+
+  <path d="M935,258 L935,326" class="edgeg" marker-end="url(#arrowg)"/>
+  <text x="944" y="290" class="note">harvest calls the registered sources</text>
+  <path d="M1150,428 L1168,428" class="edgeg" marker-end="url(#arrowg)"/>
+
+  <rect x="40" y="542" width="1420" height="66" class="box" fill="#ffffff" stroke="#cbd5e1"/>
+  <text x="54" y="562" class="h">supporting pure modules</text>
+  <text x="54" y="582" class="m">project.py</text><text x="140" y="582" class="t">Equal Earth · LAEA · Albers · Mercator; antimeridian arcs; frame extents</text>
+  <text x="640" y="582" class="m">classify.py</text><text x="728" y="582" class="t">log 1-2-5 · diverging · fixed 0–100 · rounded Jenks · class balance ≤35%</text>
+  <text x="54" y="600" class="m">colors.py</text><text x="140" y="600" class="t">ColorBrewer ramps · hatch</text>
+  <text x="640" y="600" class="m">registry.py · models.py · derive.py · xlsx.py · shapefile.py · usfips.py</text>
+
+  <!-- ===================== BAND 3: renderer ===================== -->
+  <rect x="20" y="636" width="1460" height="186" fill="#fdf2f8" stroke="#fbcfe8" rx="10"/>
+  <text x="34" y="658" class="band">3 · RENDERER (pure, no I/O) — render.py orchestrates</text>
+
+  <rect x="40" y="672" width="255" height="130" class="box" fill="#ffffff" stroke="#db2777"/>
+  <text x="54" y="694" class="h">render_frame.py</text>
+  <text x="54" y="714" class="t">projection choice &amp; fit</text>
+  <text x="54" y="729" class="t">frame on drawn data (shared with</text>
+  <text x="54" y="744" class="t">the eval runner) · clipping</text>
+  <text x="54" y="759" class="t">insets: AK/HI, EU outermost,</text>
+  <text x="54" y="774" class="t">dense-core magnified insets</text>
+  <text x="54" y="789" class="t">context land, seas, rivers</text>
+
+  <rect x="310" y="672" width="255" height="130" class="box" fill="#ffffff" stroke="#db2777"/>
+  <text x="324" y="694" class="h">render_encoding.py</text>
+  <text x="324" y="714" class="t">choropleth vs proportional circles</text>
+  <text x="324" y="729" class="t">(derived from measurement level)</text>
+  <text x="324" y="744" class="t">legends: classes, size keys,</text>
+  <text x="324" y="759" class="t">hatch = no data, "outside the set"</text>
+  <text x="324" y="774" class="t">diverging end captions</text>
+  <text x="324" y="789" class="note">nothing about styling in the manifest</text>
+
+  <rect x="580" y="672" width="255" height="130" class="box" fill="#ffffff" stroke="#db2777"/>
+  <text x="594" y="694" class="h">render_labels.py</text>
+  <text x="594" y="714" class="t">name + value labels, one style/map</text>
+  <text x="594" y="729" class="t">callouts: leaders ≤70 px, no crossings</text>
+  <text x="594" y="744" class="t">Highest / Lowest side table</text>
+  <text x="594" y="759" class="t">collision avoidance, halos</text>
+  <text x="594" y="774" class="t">context names (seas, neighbours)</text>
+
+  <rect x="850" y="672" width="255" height="130" class="box" fill="#ffffff" stroke="#db2777"/>
+  <text x="864" y="694" class="h">render_footer.py</text>
+  <text x="864" y="714" class="t">title · subtitle (wraps, never ellipsis)</text>
+  <text x="864" y="729" class="t">footnote: source, licence, vintage,</text>
+  <text x="864" y="744" class="t">projection, classification</text>
+  <text x="864" y="759" class="t">exclusions FROM THE LEDGER only</text>
+  <text x="864" y="774" class="t">border-convention notes</text>
+
+  <rect x="1120" y="672" width="340" height="130" class="box" fill="#ffffff" stroke="#db2777"/>
+  <text x="1134" y="694" class="h">overlay_render.py</text>
+  <text x="1134" y="714" class="t">points (sized, translucent), lines,</text>
+  <text x="1134" y="729" class="t">route relations in official colours,</text>
+  <text x="1134" y="744" class="t">Minard flows, storm tracks by category,</text>
+  <text x="1134" y="759" class="t">settlement tiers (KATOTTH), place labels,</text>
+  <text x="1134" y="774" class="t">landfall callouts, temperature panel</text>
+  <text x="1134" y="789" class="note">seam where fewest points lie</text>
+
+  <!-- ===================== BAND 4: evaluation loop ===================== -->
+  <rect x="20" y="836" width="1460" height="324" fill="#fefce8" stroke="#fde68a" rx="10"/>
+  <text x="34" y="858" class="band">4 · EVALUATION &amp; IMPROVEMENT LOOP (evals/ — costs money, not in pytest)</text>
+
+  <rect x="40" y="872" width="300" height="150" class="box" fill="#ffffff" stroke="#ca8a04"/>
+  <text x="54" y="894" class="h">eval sets (specs.toml)</text>
+  <text x="54" y="914" class="t">tuning: evals/maps — 31 maps (sets 1–3)</text>
+  <text x="54" y="930" class="t">held-out 1: evals/heldout (retired)</text>
+  <text x="54" y="946" class="t">held-out 2: evals/heldout2 (live)</text>
+  <text x="54" y="966" class="t">spec keys: units, contains/excludes,</text>
+  <text x="54" y="981" class="t">spot, must_include, must</text>
+  <text x="54" y="1001" class="note">held-out: measures, never teaches —</text>
+  <text x="54" y="1015" class="note">never shown to workers changing mapsvc</text>
+
+  <rect x="360" y="872" width="270" height="150" class="box" fill="#ffffff" stroke="#ca8a04"/>
+  <text x="374" y="894" class="h">reference builders (etalons/)</text>
+  <text x="374" y="914" class="t">independent of mapsvc (geopandas,</text>
+  <text x="374" y="930" class="t">matplotlib allowed here)</text>
+  <text x="374" y="950" class="t">→ truth.csv (from primary sources)</text>
+  <text x="374" y="966" class="t">→ truth.md (URLs, vintage, licence)</text>
+  <text x="374" y="982" class="t">→ reference.png (the standard)</text>
+  <text x="374" y="1002" class="note">built by Claude Sonnet agents</text>
+
+  <rect x="650" y="872" width="300" height="150" class="box" fill="#ffffff" stroke="#ca8a04"/>
+  <text x="664" y="894" class="h">runner: evals/maps/run.py</text>
+  <text x="664" y="914" class="t">prompt → live agent → render → PNG</text>
+  <text x="664" y="932" class="t">auto checks: units, window, spots,</text>
+  <text x="664" y="947" class="t">truth match, footnote, must_include,</text>
+  <text x="664" y="962" class="t">vintage, class balance, ledger match</text>
+  <text x="664" y="980" class="m">--repeat N · --specs · --recheck</text>
+  <text x="664" y="1000" class="t">spec lint (impossible excludes)</text>
+  <text x="664" y="1015" class="note">unevaluable ≠ pass</text>
+
+  <rect x="970" y="872" width="230" height="150" class="box" fill="#ffffff" stroke="#ca8a04"/>
+  <text x="984" y="894" class="h">critic (Claude Sonnet)</text>
+  <text x="984" y="914" class="t">CRITIC.md rubric, 1–5:</text>
+  <text x="984" y="930" class="t">data · geography · cartography</text>
+  <text x="984" y="946" class="t">· provenance · fidelity</text>
+  <text x="984" y="966" class="t">vs reference.png → critique.json</text>
+  <text x="984" y="986" class="t">"verified facts" list</text>
+
+  <rect x="1220" y="872" width="240" height="150" class="box" fill="#ffffff" stroke="#ca8a04"/>
+  <text x="1234" y="894" class="h">outputs</text>
+  <text x="1234" y="914" class="t">results/roundN/&lt;id&gt;/</text>
+  <text x="1234" y="930" class="m">map.svg/png auto.json</text>
+  <text x="1234" y="946" class="m">critique.json manifest</text>
+  <text x="1234" y="966" class="t">SCORES.md (per set)</text>
+  <text x="1234" y="982" class="t">results/index.html gallery</text>
+  <text x="1234" y="1002" class="note">tuning r9: 4.05 · held-out 2: 3.0</text>
+
+  <path d="M340,946 L358,946" class="edge" marker-end="url(#arrow)"/>
+  <path d="M630,946 L648,946" class="edge" marker-end="url(#arrow)"/>
+  <path d="M950,946 L968,946" class="edge" marker-end="url(#arrow)"/>
+  <path d="M1200,946 L1218,946" class="edge" marker-end="url(#arrow)"/>
+
+  <rect x="40" y="1036" width="1420" height="108" class="box" fill="#ffffff" stroke="#a3a3a3"/>
+  <text x="54" y="1058" class="h">who does the work</text>
+  <text x="54" y="1080" class="t">Orchestrator (Claude Opus): specs, briefs, reviews every diff, merges, verifies by measurement, reports.</text>
+  <text x="54" y="1098" class="t">Codex CLI workers (gpt-5.6-sol/terra, medium): bounded implementation in git worktrees; a guard stops them at 72% of the 5-hour window. Codex is also the eval agent's LLM.</text>
+  <text x="54" y="1116" class="t">Claude subagents: Sonnet for complex features, reference building and critique; Haiku for simple, well-specified tasks.</text>
+  <text x="54" y="1134" class="note">Loop: run → auto checks → critic → fixes as general mechanisms → re-run · stability over --repeat 3 · held-out checkpoints measure generalisation.</text>
+
+  <path d="M1460,190 L1490,190 L1490,946 L1462,946" class="edgeg" marker-end="url(#arrowg)"/>
+  <text x="1486" y="560" class="note" transform="rotate(90 1486 560)">rendered maps feed the evals</text>
+</svg>
