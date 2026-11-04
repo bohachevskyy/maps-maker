@@ -1,5 +1,6 @@
 """HTTP surface.
 
+    GET  /           browser interface
     POST /map       body: manifest JSON     ->  200 image/svg+xml
                                                 422 {"error": "...", "field": "..."}
                                                 503 if Overpass is unavailable
@@ -18,9 +19,12 @@ shape this contract promises.
 """
 
 import json
+from pathlib import Path
 
 from fastapi import FastAPI, Request
-from fastapi.responses import JSONResponse, Response
+from fastapi.responses import FileResponse, JSONResponse, Response
+from fastapi.staticfiles import StaticFiles
+from starlette.concurrency import run_in_threadpool
 
 from mapsvc.agent import AgentError, AgentUnavailable, describe
 from mapsvc.cartography import CartographyError
@@ -35,9 +39,16 @@ from mapsvc.render import RenderError
 FAILURES = (AgentError, ManifestError, HarvestError, RenderError,
             CartographyError, StatisticsError)
 
-# No docs, no schema route: the spec asks for one endpoint and nothing else.
+# Keep the public surface small; API docs and the schema route remain disabled.
 # Set docs_url="/docs", openapi_url="/openapi.json" to get them back.
 app = FastAPI(title="mapsvc", docs_url=None, redoc_url=None, openapi_url=None)
+WEB_DIR = Path(__file__).with_name("web")
+app.mount("/static", StaticFiles(directory=WEB_DIR), name="static")
+
+
+@app.get("/", include_in_schema=False)
+async def web_interface() -> FileResponse:
+    return FileResponse(WEB_DIR / "index.html", media_type="text/html")
 
 
 @app.post("/map")
@@ -49,7 +60,7 @@ async def make_map(request: Request) -> Response:
         return _rejected(f"request body is not valid JSON: {exc}", "")
 
     try:
-        svg = build_map(raw)
+        svg = await run_in_threadpool(build_map, raw)
     except UpstreamUnavailable as exc:
         return _upstream_unavailable(exc)
     except FAILURES as exc:
@@ -75,8 +86,9 @@ async def describe_map(request: Request) -> Response:
                          '{"prompt": "..."}', "")
 
     try:
-        manifest, raw, reasoning = describe(payload.get("prompt"))
-        svg = draw(manifest)
+        manifest, raw, reasoning, svg = await run_in_threadpool(
+            _describe_and_draw, payload.get("prompt")
+        )
     except UpstreamUnavailable as exc:
         return _upstream_unavailable(exc)
     except AgentUnavailable as exc:
@@ -88,6 +100,12 @@ async def describe_map(request: Request) -> Response:
         status_code=200,
         content={"manifest": raw, "svg": svg, "reasoning": reasoning},
     )
+
+
+def _describe_and_draw(prompt: object) -> tuple[Manifest, dict, str, str]:
+    """Run the complete blocking agent and render path off the event loop."""
+    manifest, raw, reasoning = describe(prompt)
+    return manifest, raw, reasoning, draw(manifest)
 
 
 @app.post("/export")

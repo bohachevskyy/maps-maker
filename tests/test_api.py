@@ -72,9 +72,15 @@ def test_second_identical_request_is_byte_identical(client):
     assert first.content == second.content
 
 
-def test_there_is_no_get_endpoint(client):
+def test_only_the_web_interface_has_a_get_endpoint(client):
     assert client.get("/map").status_code == 405
-    assert client.get("/").status_code == 404
+    page = client.get("/")
+    assert page.status_code == 200
+    assert page.headers["content-type"].startswith("text/html")
+    assert 'id="prompt-box"' in page.text
+    script = client.get("/static/app.js")
+    assert script.status_code == 200
+    assert script.headers["content-type"].startswith("text/javascript")
     assert client.get("/docs").status_code == 404
     assert client.get("/openapi.json").status_code == 404
 

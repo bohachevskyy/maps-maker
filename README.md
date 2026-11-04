@@ -1,9 +1,10 @@
 # mapsvc
 
 A small HTTP service that takes a JSON manifest and returns an SVG choropleth
-map. One dataset, one map type. Three endpoints: `POST /map` renders a manifest,
-`POST /describe` assembles one from a sentence, and `POST /export` does either
-and writes the result to a file.
+map. One dataset, one map type. Three API endpoints: `POST /map` renders a
+manifest, `POST /describe` assembles one from a sentence, and `POST /export`
+does either and writes the result to a file. A small browser interface is served
+at `GET /`.
 
 Geometry, projection and SVG generation are hand-written standard library —
 no GeoPandas, GDAL, matplotlib or shapely.
@@ -26,6 +27,12 @@ it clears the old process first.
 ```
 
 To stop one you started elsewhere: `pkill -f "uvicorn mapsvc.api:app"`.
+
+## Web interface
+
+Run `./run.sh`, then open [http://127.0.0.1:8000/](http://127.0.0.1:8000/).
+Type a description of the map you want; the page shows the rendered SVG and
+lets you inspect, edit, and re-render its manifest.
 
 Without `run.sh`:
 
@@ -116,9 +123,9 @@ code.
 Unlike `/map`, `/describe` is **not deterministic** — the same prompt may yield a
 different manifest.
 
-There is deliberately no GET route, no listing endpoint and no schema route.
-To turn the FastAPI docs back on, pass `docs_url="/docs"` and
-`openapi_url="/openapi.json"` in `mapsvc/api.py`.
+There is deliberately no listing endpoint or schema route. To turn the FastAPI
+docs back on, pass `docs_url="/docs"` and `openapi_url="/openapi.json"` in
+`mapsvc/api.py`.
 
 ## Export to a file
 
