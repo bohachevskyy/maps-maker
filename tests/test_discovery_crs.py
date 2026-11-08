@@ -52,6 +52,36 @@ def test_inverse_undoes_an_independent_forward_projection(lon, lat):
 
 
 def test_other_projections_are_refused_by_name():
-    lcc = UTM16.replace("Transverse_Mercator", "Lambert_Conformal_Conic").replace("UTM_Zone_16N", "StatePlane_X")
-    with pytest.raises(crs.CRSError, match="StatePlane_X"):
-        crs.inverse(lcc)
+    poly = UTM16.replace("Transverse_Mercator", "Polyconic").replace("UTM_Zone_16N", "Old_Grid")
+    with pytest.raises(crs.CRSError, match="Old_Grid"):
+        crs.inverse(poly)
+
+
+CLARKE_1866 = dict(a=6378206.4, inv_f=294.9786982)
+
+
+def test_lambert_matches_snyders_worked_example():
+    """Snyder (1987) p. 296: phi 35 N, lambda 75 W -> x 1,894,410.9 m, y 1,564,649.5 m."""
+    inv = crs.lambert_conformal_conic(**CLARKE_1866, lon0=-96.0, lat0=23.0, lat1=33.0, lat2=45.0,
+                                      false_easting=0.0, false_northing=0.0)
+    assert inv(1894410.9, 1564649.5) == pytest.approx((-75.0, 35.0), abs=1e-5)
+
+
+def test_albers_matches_snyders_worked_example():
+    """Snyder (1987) p. 292: phi 35 N, lambda 75 W -> x 1,885,472.7 m, y 1,535,925.0 m."""
+    inv = crs.albers(**CLARKE_1866, lon0=-96.0, lat0=23.0, lat1=29.5, lat2=45.5,
+                     false_easting=0.0, false_northing=0.0)
+    assert inv(1885472.7, 1535925.0) == pytest.approx((-75.0, 35.0), abs=1e-5)
+
+
+def test_a_state_plane_prj_in_us_feet_is_read():
+    prj = ('PROJCS["NAD_1983_StatePlane_X_Feet",GEOGCS["GCS_North_American_1983",'
+           'DATUM["D_North_American_1983",SPHEROID["GRS_1980",6378137.0,298.257222101]],'
+           'PRIMEM["Greenwich",0.0],UNIT["Degree",0.0174532925199433]],'
+           'PROJECTION["Lambert_Conformal_Conic"],PARAMETER["False_Easting",1968500.0],'
+           'PARAMETER["False_Northing",0.0],PARAMETER["Central_Meridian",-96.0],'
+           'PARAMETER["Standard_Parallel_1",33.0],PARAMETER["Standard_Parallel_2",45.0],'
+           'PARAMETER["Latitude_Of_Origin",23.0],UNIT["Foot_US",0.3048006096012192]]')
+    inv, name = crs.inverse(prj)
+    lon, lat = inv(1968500.0, 0.0)                 # the false origin, in feet
+    assert name.endswith("_Feet") and lon == pytest.approx(-96.0) and lat == pytest.approx(23.0)
