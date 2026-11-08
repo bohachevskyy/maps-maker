@@ -70,7 +70,10 @@ PLAN_SCHEMA = {
         "key_namespace": {"type": "string", "enum": list(NAMESPACES)},
         "level": {"type": "string", "description": "admin_0, admin_1, admin_2, nuts_2 … or 'points'"},
         "measure": {"type": "string", "description": "the quantity or feature, in plain words"},
-        "queries": {"type": "array", "items": _STR, "maxItems": MAX_QUERIES},
+        "queries": {"type": "array", "items": _STR, "maxItems": MAX_QUERIES,
+                    "description": ("web search queries: 3-8 plain keywords each, as a "
+                                    "person would type them (publisher, measure, place, "
+                                    "'csv' or 'data'); no instructions, no operators")},
         "give_up": {"type": "boolean", "description": "true only if no open dataset can exist"},
         "give_up_reason": _STR,
     },

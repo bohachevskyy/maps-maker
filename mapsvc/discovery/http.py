@@ -66,9 +66,12 @@ _RESPONSE_HEADERS = {
 
 
 def get(url: str, *, params=None, headers=None, max_bytes: int = 25_000_000,
-        timeout: float = 30, expect: str | None = None) -> Response:
+        timeout: float = 30, expect: str | None = None, record_if=None) -> Response:
+    """record_if(response) -> bool keeps a degraded answer (a rate-limited search
+    returning nothing) out of the cassettes, where it would replay forever."""
     return _request("GET", url, params=params, headers=headers, body=b"",
-                    max_bytes=max_bytes, timeout=timeout, expect=expect)
+                    max_bytes=max_bytes, timeout=timeout, expect=expect,
+                    record_if=record_if)
 
 
 def post_json(url: str, payload, *, params=None, headers=None,
@@ -213,7 +216,8 @@ def _read_limited(handle, limit: int, url: str) -> bytes:
 
 
 def _request(method: str, url: str, *, params, headers, body: bytes,
-             max_bytes: int, timeout: float, expect: str | None) -> Response:
+             max_bytes: int, timeout: float, expect: str | None,
+             record_if=None) -> Response:
     normalised = _normalised_url(url, params)
     _validate_url(normalised, resolve=False)
     key = _key(method, normalised, body)
@@ -255,7 +259,7 @@ def _request(method: str, url: str, *, params, headers, body: bytes,
                 raise HTTPStatusError(final_url, status)
             response = Response(status, response_headers, content, final_url, False)
             _check_expected(response, expect)
-            if mode == "record":
+            if mode == "record" and (record_if is None or record_if(response)):
                 _record(key, method, normalised, params, response)
             return response
         except DiscoveryHTTPError:

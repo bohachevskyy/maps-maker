@@ -81,8 +81,8 @@ def _completed(name: str, future, errors: dict[str, str]) -> list[dict]:
         return []
 
 
-def _json_response(url: str, *, params: dict) -> dict:
-    response = http.get(url, params=params, timeout=10, expect="json")
+def _json_response(url: str, *, params: dict, record_if=None) -> dict:
+    response = http.get(url, params=params, timeout=10, expect="json", record_if=record_if)
     value = json.loads(response.content)
     if not isinstance(value, dict):
         raise ValueError(f"{url} returned a non-object JSON response")
@@ -93,7 +93,13 @@ def _search_searxng(query: str) -> list[dict]:
     # The HTTP boundary permits a loopback exception only for the configured
     # SearXNG origin.  Materialise the documented default so the guard sees it.
     base_url = os.environ.setdefault("MAPSVC_SEARXNG_URL", _SEARXNG_DEFAULT).rstrip("/")
-    payload = _json_response(f"{base_url}/search", params={"q": query, "format": "json"})
+    payload = _json_response(f"{base_url}/search", params={"q": query, "format": "json"},
+                             record_if=_searx_answered)
+    if not payload.get("results") and payload.get("unresponsive_engines"):
+        # Measured 2026-11-07: engines get suspended under load and SearXNG
+        # then answers 200 with nothing. That is an outage, not "no results".
+        raise RuntimeError("SearXNG engines unavailable: " + ", ".join(
+            f"{e[0]} ({e[1]})" for e in payload["unresponsive_engines"][:4]))
     hits = []
     for result in payload.get("results") or []:
         if not isinstance(result, dict) or not result.get("url"):
@@ -106,6 +112,13 @@ def _search_searxng(query: str) -> list[dict]:
             "kind": "page",
         })
     return hits
+
+
+def _searx_answered(response) -> bool:
+    try:
+        return bool(json.loads(response.content).get("results"))
+    except (ValueError, AttributeError):
+        return False
 
 
 def _search_ckan(query: str, portal: str, base_url: str, page_path: str) -> list[dict]:
