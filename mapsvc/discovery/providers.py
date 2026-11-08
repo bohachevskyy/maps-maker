@@ -273,15 +273,30 @@ def _interleave_deduped(batches: list[list[dict]], limit: int) -> list[dict]:
 
 def fetch(url: str) -> dict:
     """Fetch a URL and identify a file or links to data files on an HTML page."""
+    errors: dict[str, str] = {}
+    _ERRORS.value = errors
+    ckan = adapters.ckan_package(url)
     adapted = adapters.data_urls(url)
     if adapted:
         if "/api/3/action/package_show?" in adapted[0]:
-            return _fetch_ckan_package(adapted[0])
-        return {"kind": "page", "title": "", "links": adapted}
+            try:
+                return _fetch_ckan_package(
+                    adapted[0], resource_id=(ckan or {}).get("resource_id", "")
+                )
+            except (OSError, ValueError, TypeError, KeyError, json.JSONDecodeError) as exc:
+                errors["ckan"] = f"{type(exc).__name__}: {exc}"
+        else:
+            return {"kind": "page", "title": "", "links": adapted}
     response = http.get(url, expect=None)
     content_type = _header(response.headers, "content-type").lower()
     if _is_data_response(response.url, content_type, response.content):
-        return {"kind": "file", "title": _file_title(response), "links": []}
+        result = {"kind": "file", "title": _file_title(response), "links": []}
+        if ckan and ckan["is_download"]:
+            try:
+                result.update(_ckan_metadata(_load_ckan_package(ckan["api_url"])))
+            except (OSError, ValueError, TypeError, KeyError, json.JSONDecodeError) as exc:
+                errors["ckan"] = f"{type(exc).__name__}: {exc}"
+        return result
 
     parser = _LandingPageParser()
     parser.feed(_decode_html(response.content, content_type))
@@ -297,31 +312,93 @@ def fetch(url: str) -> dict:
         seen.add(marker)
         ranked.append((_link_rank(absolute, anchor), index, absolute))
     ranked.sort(key=lambda item: (-item[0], item[1]))
-    return {
+    result = {
         "kind": "page",
         "title": _clip(parser.title, 160),
         "links": [item[2] for item in ranked[:30]],
     }
+    licence = next(iter(parser.licences), "")
+    if licence:
+        result["licence"] = licence
+    zenodo_api = _zenodo_record_api_url(response.url)
+    if zenodo_api:
+        try:
+            payload = _json_object(http.get(zenodo_api, expect="json"), zenodo_api)
+            metadata = payload.get("metadata") or {}
+            if isinstance(metadata, dict):
+                api_licence = _zenodo_licence(
+                    metadata.get("license") or metadata.get("licence")
+                )
+                if api_licence:
+                    result["licence"] = api_licence
+        except (OSError, ValueError, TypeError, KeyError, json.JSONDecodeError) as exc:
+            errors["zenodo"] = f"{type(exc).__name__}: {exc}"
+    return result
 
 
-def _fetch_ckan_package(url: str) -> dict:
-    response = http.get(url, expect="json")
+def _json_object(response, url: str) -> dict:
     payload = json.loads(response.content)
-    result = payload.get("result") or {} if isinstance(payload, dict) else {}
-    if not isinstance(result, dict):
-        result = {}
+    if not isinstance(payload, dict):
+        raise ValueError(f"{url} returned a non-object JSON response")
+    return payload
+
+
+def _load_ckan_package(url: str) -> dict:
+    payload = _json_object(http.get(url, expect="json"), url)
+    if payload.get("success") is not True or not isinstance(payload.get("result"), dict):
+        raise ValueError(f"{url} did not return a successful CKAN package")
+    return payload["result"]
+
+
+def _fetch_ckan_package(url: str, *, resource_id: str = "") -> dict:
+    result = _load_ckan_package(url)
     links = []
-    for resource in result.get("resources") or []:
+    resources = result.get("resources") or []
+    if resource_id:
+        resources = sorted(
+            enumerate(resources),
+            key=lambda item: (str((item[1] or {}).get("id") or "") != resource_id, item[0])
+            if isinstance(item[1], dict) else (True, item[0]),
+        )
+        resources = [resource for _, resource in resources]
+    for resource in resources:
         if not isinstance(resource, dict) or not resource.get("url"):
             continue
         resource_url = str(resource["url"])
         if _is_ckan_data_resource(resource, resource_url):
             links.append(resource_url)
-    return {
+    response = {
         "kind": "page",
         "title": _clip(result.get("title") or result.get("name"), 160),
         "links": links,
     }
+    response.update(_ckan_metadata(result))
+    return response
+
+
+def _ckan_metadata(package: dict) -> dict:
+    metadata = {}
+    licence = _clip(package.get("license_title") or package.get("licence_title"), 240)
+    organisation = package.get("organization") or package.get("organisation") or {}
+    publisher = _clip(
+        organisation.get("title") if isinstance(organisation, dict) else organisation, 240
+    )
+    dataset_title = _clip(package.get("title") or package.get("name"), 160)
+    if licence:
+        metadata["licence"] = licence
+    if publisher:
+        metadata["publisher"] = publisher
+    if dataset_title:
+        metadata["dataset_title"] = dataset_title
+    return metadata
+
+
+def _zenodo_record_api_url(url: str) -> str:
+    parts = urllib.parse.urlsplit(url)
+    if (parts.hostname or "").lower() not in {"zenodo.org", "www.zenodo.org"}:
+        return ""
+    match = re.fullmatch(r"/records/(\d+)/?", parts.path, re.I)
+    return f"https://zenodo.org/api/records/{match.group(1)}" if match else ""
 
 
 def _header(headers: dict, name: str) -> str:
@@ -398,6 +475,7 @@ class _LandingPageParser(HTMLParser):
         self._active_href = None
         self._anchor_parts = []
         self.links: list[tuple[str, str]] = []
+        self.licences: list[str] = []
 
     @property
     def title(self) -> str:
@@ -410,6 +488,9 @@ class _LandingPageParser(HTMLParser):
             href = dict(attrs).get("href")
             self._active_href = href
             self._anchor_parts = []
+            licence = _licence_from_href(href or "")
+            if licence and licence not in self.licences:
+                self.licences.append(licence)
 
     def handle_endtag(self, tag):
         if tag.lower() == "title":
@@ -426,6 +507,53 @@ class _LandingPageParser(HTMLParser):
             self._title_parts.append(data)
         if self._active_href is not None:
             self._anchor_parts.append(data)
+
+
+def _licence_from_href(href: str) -> str:
+    """Return a short licence name based solely on an anchor href."""
+    try:
+        parts = urllib.parse.urlsplit(href)
+    except ValueError:
+        return ""
+    host = (parts.hostname or "").lower().removeprefix("www.")
+    path = re.sub(r"/{2,}", "/", parts.path.lower()).rstrip("/")
+
+    if host == "creativecommons.org":
+        match = re.match(
+            r"^/licenses/(by(?:-(?:sa|nc|nd)){0,2})/(\d(?:\.\d)?)\b", path
+        )
+        if match and 2.0 <= float(match.group(2)) <= 4.0:
+            variants = {"by", "by-sa", "by-nc", "by-nd", "by-nc-sa", "by-nc-nd"}
+            if match.group(1) in variants:
+                return f"CC {match.group(1).upper()} {match.group(2)}"
+        if re.match(r"^/publicdomain/zero/1\.0\b", path):
+            return "CC0 1.0"
+        if re.match(r"^/publicdomain/mark(?:/|$)", path):
+            return "Public Domain Mark"
+
+    if host == "opendatacommons.org":
+        match = re.match(r"^/licenses/(odbl|by|pddl)(?:/|$)", path)
+        if match:
+            return {"odbl": "ODbL", "by": "ODC-By", "pddl": "PDDL"}[match.group(1)]
+
+    if host == "nationalarchives.gov.uk" and path.startswith(
+        "/doc/open-government-licence"
+    ):
+        return "OGL"
+    if host == "open.canada.ca" and path.startswith(
+        "/en/open-government-licence-canada"
+    ):
+        return "OGL-Canada"
+    if host in {"usa.gov", "data.gov"} and (
+        path.startswith("/government-works")
+        or path.startswith("/government-copyright")
+        or path.startswith("/open-gov")
+        or "government-works" in path
+    ):
+        return "US Government Work (public domain)"
+    if host == "etalab.gouv.fr" and path.startswith("/licence-ouverte"):
+        return "Licence Ouverte / Etalab"
+    return ""
 
 
 def _is_candidate_data_link(url: str) -> bool:

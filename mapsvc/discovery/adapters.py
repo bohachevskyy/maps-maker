@@ -5,7 +5,36 @@ import urllib.parse
 
 
 _SOCRATA_ID = re.compile(r"^[a-z0-9]{4}-[a-z0-9]{4}$", re.I)
-_CKAN_HOSTS = {"data.humdata.org", "data.gov.ua"}
+
+
+def ckan_package(url: str) -> dict | None:
+    """Describe a possible CKAN dataset/resource URL on any HTTP(S) host."""
+    try:
+        parts = urllib.parse.urlsplit(url)
+    except ValueError:
+        return None
+    if parts.scheme.lower() not in {"http", "https"} or not parts.hostname:
+        return None
+    match = re.fullmatch(
+        r"(?P<prefix>/[a-z]{2}(?:-[a-z]{2})?)?/dataset/(?P<name>[^/]+)"
+        r"(?:/resource/(?P<resource>[^/]+)(?P<tail>/.*)?)?/?",
+        parts.path,
+        re.I,
+    )
+    if not match:
+        return None
+    prefix = match.group("prefix") or ""
+    name = urllib.parse.unquote(match.group("name"))
+    api_url = urllib.parse.urlunsplit((
+        parts.scheme, parts.netloc, f"{prefix}/api/3/action/package_show",
+        urllib.parse.urlencode({"id": name}), "",
+    ))
+    tail = match.group("tail") or ""
+    return {
+        "api_url": api_url,
+        "resource_id": urllib.parse.unquote(match.group("resource") or ""),
+        "is_download": bool(re.match(r"^/download(?:/|$)", tail, re.I)),
+    }
 
 
 def data_urls(url: str) -> list[str]:
@@ -62,10 +91,9 @@ def data_urls(url: str) -> list[str]:
             + urllib.parse.urlencode(output_query)
         ]
 
-    match = re.fullmatch(r"/dataset/([^/]+)/?", path, re.I)
-    if host in _CKAN_HOSTS and match:
-        name = urllib.parse.quote(urllib.parse.unquote(match.group(1)), safe="._-")
-        return [f"https://{host}/api/3/action/package_show?id={name}"]
+    package = ckan_package(url)
+    if package and not package["is_download"]:
+        return [package["api_url"]]
 
     segments = [segment for segment in path.split("/") if segment]
     socrata_id = segments[-1] if segments else ""
