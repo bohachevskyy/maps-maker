@@ -60,11 +60,14 @@ def test_distinct_places_a_few_km_apart_stay_distinct():
     assert len(overpass.layer_from_overpass(data, SPEC, WINDOW, "ql")["features"]) == 2
 
 
-def test_different_names_close_together_stay_distinct_but_unnamed_merge():
+def test_different_names_stay_distinct_and_an_unnamed_node_merges_only_into_an_outline():
     data = {"elements": [_node(1, -122.0, 37.0, "Costco"), _node(2, -122.0, 37.0001, "Safeway")]}
     assert len(overpass.layer_from_overpass(data, SPEC, WINDOW, "ql")["features"]) == 2
     data = {"elements": [_node(1, -122.0, 37.0, "Costco"),
                          {"type": "node", "id": 2, "lon": -122.0, "lat": 37.0001}]}
+    assert len(overpass.layer_from_overpass(data, SPEC, WINDOW, "ql")["features"]) == 2
+    data = {"elements": [_way(20, -122.0, 37.0),
+                         {"type": "node", "id": 2, "lon": -122.0, "lat": 37.0}]}
     assert len(overpass.layer_from_overpass(data, SPEC, WINDOW, "ql")["features"]) == 1
 
 
@@ -108,4 +111,13 @@ def test_a_name_contained_in_a_neighbours_name_is_the_same_place():
          "tags": {"name": "Costco warehouse", "shop": "wholesale", "brand": "Costco"}}
     c = {"type": "node", "id": 3, "lon": -121.9005, "lat": 37.7, "tags": {"name": "Target", "shop": "department_store"}}
     layer = overpass.layer_from_overpass({"elements": [a, b, c]}, overpass._pairs("shop=wholesale"), WINDOW, "ql")
+    assert len(layer["features"]) == 2
+
+
+def test_two_unnamed_nodes_close_together_stay_two_features():
+    """Speed cameras come in pairs, one per direction, metres apart."""
+    cams = [{"type": "node", "id": i, "lon": 2.0 + i * 0.0003, "lat": 48.0,
+             "tags": {"highway": "speed_camera"}} for i in (1, 2)]
+    layer = overpass.layer_from_overpass({"elements": cams}, overpass._pairs("highway=speed_camera"),
+                                         WINDOW, "ql")
     assert len(layer["features"]) == 2

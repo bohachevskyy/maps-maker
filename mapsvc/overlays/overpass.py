@@ -994,7 +994,8 @@ def _norm_name(name) -> frozenset:
 
 def _merge_duplicates(points: list) -> tuple[list, int]:
     """Greedy, in (type, id) order: a point joins the first earlier place within
-    DUPLICATE_M whose name's words contain the other's, or when either has no name. The
+    DUPLICATE_M whose name's words contain the other's, or, unnamed, when one is a
+    node and the other an outline (never two unnamed nodes). The
     element with the most tags represents the place (ties keep the earlier)."""
     points = sorted(points, key=lambda p: (p["type"], p["osm_id"]))
     clusters, grid, merged = [], {}, 0
@@ -1010,8 +1011,14 @@ def _merge_duplicates(points: list) -> tuple[list, int]:
                         continue
                     if geo.segment_m((c["lon"], c["lat"]), (p["lon"], p["lat"])) > DUPLICATE_M:
                         continue
-                    if (not c["key"] or not p["key"]
-                            or c["key"] <= p["key"] or p["key"] <= c["key"]):
+                    named = bool(c["key"] and p["key"]
+                                 and (c["key"] <= p["key"] or p["key"] <= c["key"]))
+                    # Unnamed points merge only as a node in an outline: two
+                    # unnamed nodes are two things (measured: France's speed
+                    # cameras come in pairs, one per direction -- 292 were
+                    # wrongly merged when any unnamed neighbour counted).
+                    outline_node = (not c["key"] or not p["key"]) and c["type"] != p["type"]
+                    if named or outline_node:
                         home = c
         if home is None:
             p["seq"] = len(clusters)
