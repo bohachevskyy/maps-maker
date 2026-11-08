@@ -9,12 +9,14 @@ import itertools
 import json
 import math
 import re
+import struct
 import zipfile
 
 from mapsvc.discovery import htmltables
 from mapsvc.discovery import http
 from mapsvc.discovery import shapefile
 from mapsvc.xlsx import sheets as xlsx_sheets
+from mapsvc.discovery import xls
 
 
 MAX_ROWS = 50_000
@@ -88,6 +90,8 @@ def _records(payload: bytes, *, table: int | None = None):
             return _shapefile_records(payload, warnings)
         payload, inner_name = _safe_unzip(payload)
         warnings.append(f"inspected {inner_name} inside zip archive")
+    if xls.is_ole2(payload):
+        return _xlsx_records(payload, warnings, legacy=True), "xls", [], warnings
     if _looks_like_xlsx(payload):
         return _xlsx_records(payload, warnings), "xlsx", [], warnings
     text, encoding = _decode(payload)
@@ -124,6 +128,10 @@ def probe_bytes(payload: bytes, *, url: str = "",
 
     if rows_read:
         pass
+    elif xls.is_ole2(payload):
+        format_name = "xls"
+        rows = _xlsx_records(payload, warnings, legacy=True)
+        geometry_types: list[str] = []
     elif _looks_like_xlsx(payload):
         format_name = "xlsx"
         rows = _xlsx_records(payload, warnings)
@@ -192,7 +200,7 @@ def _safe_unzip(payload: bytes) -> tuple[bytes, str]:
                        if not member.is_dir()
                        and not member.filename.startswith(("__MACOSX/", "."))
                        and member.filename.lower().endswith(
-                           (".csv", ".tsv", ".txt", ".json", ".geojson", ".xlsx"))]
+                           (".csv", ".tsv", ".txt", ".json", ".geojson", ".xlsx", ".xls"))]
             if not members:
                 raise ProbeError("zip contains no supported data files")
             # Several: the largest is the data, the rest are summaries or
@@ -348,11 +356,12 @@ def _unique_headers(headers) -> list[str]:
     return result
 
 
-def _xlsx_records(payload: bytes, warnings: list[str]) -> list[dict]:
+def _xlsx_records(payload: bytes, warnings: list[str], *,
+                  legacy: bool = False) -> list[dict]:
     try:
-        books = xlsx_sheets(payload)
-    except (KeyError, ValueError, zipfile.BadZipFile) as exc:
-        raise ProbeError(f"unreadable xlsx: {exc}") from exc
+        books = xls.sheets(payload) if legacy else xlsx_sheets(payload)
+    except (KeyError, ValueError, struct.error, zipfile.BadZipFile) as exc:
+        raise ProbeError(f"unreadable {'xls' if legacy else 'xlsx'}: {exc}") from exc
     populated = [(name, rows) for name, rows in books.items()
                  if any(any(str(value).strip() for value in row.values()) for row in rows)]
     if not populated:

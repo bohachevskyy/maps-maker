@@ -27,6 +27,12 @@ _TOTAL = re.compile(r"^\s*(total|world|sum)\b", re.IGNORECASE)
 _DISPLAY_NONE = re.compile(r"display\s*:\s*none", re.IGNORECASE)
 _FRAGMENT = re.compile(r"#table=(\d{1,3})$")
 _SEP = " – "
+_TITLE = re.compile(r"<title[^>]*>(.*?)</title>", re.IGNORECASE | re.DOTALL)
+_LISTING_HEADERS = {"name", "last modified", "size", "description", "type",
+                    "date modified"}
+_TITLE = re.compile(r"<title[^>]*>(.*?)</title>", re.IGNORECASE | re.DOTALL)
+_LISTING_HEADERS = {"name", "last modified", "size", "description", "type",
+                    "date modified"}
 
 
 @dataclass
@@ -53,8 +59,12 @@ def tables(html_text: str) -> list[Table]:
     parser.feed(html_text)
     parser.close()
     out: list[Table] = []
+    title = _TITLE.search(html_text)
+    listing_page = bool(title) and title.group(1).strip().lower().startswith("index of")
     for raw in parser.done:
         table = _build(raw, len(out))
+        if table is not None and (listing_page or _is_listing(table.headers)):
+            continue    # a web server's file listing is navigation, not data
         if table is not None:
             out.append(table)
     return out
@@ -294,6 +304,19 @@ def _build(raw: _Raw, index: int) -> Table | None:
     if dividers:
         notes.append(f"{dividers} section-heading row(s) spanning every column were dropped")
     return Table(index, caption, headers, rows, len(rows), width, notes)
+
+
+def _is_listing(headers: list[str]) -> bool:
+    """Apache/nginx/GitHub directory listings: Name / Last modified / Size ..."""
+    names = {h.split(_SEP)[0].strip().lower().rstrip(":") for h in headers}
+    names |= {h.strip().lower().rstrip(":") for h in headers}
+    return len(names & _LISTING_HEADERS) >= 2
+
+
+def _is_listing(headers: list[str]) -> bool:
+    """Apache/nginx/GitHub directory listings: Name / Last modified / Size ..."""
+    names = {h.strip().lower().rstrip(":") for h in headers}
+    return len(names & _LISTING_HEADERS) >= 2
 
 
 def _unique(labels: list[str]) -> list[str]:
