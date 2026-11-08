@@ -44,6 +44,30 @@ def probe(url: str, *, max_bytes: int = 25_000_000,
     return probe_bytes(response.content, url=response.url)
 
 
+def records(payload: bytes) -> tuple[list[dict], str, list[str], list[str]]:
+    """Parse a data file into rows exactly as the probe does.
+
+    Returns (rows, format, geometry_types, warnings). The harvester uses this,
+    so a discovered source is read the same way it was validated.
+    """
+    warnings: list[str] = []
+    if payload.startswith(b"PK\x03\x04") and not _looks_like_xlsx(payload):
+        payload, inner_name = _safe_unzip(payload)
+        warnings.append(f"inspected {inner_name} inside zip archive")
+    if _looks_like_xlsx(payload):
+        return _xlsx_records(payload, warnings), "xlsx", [], warnings
+    text, encoding = _decode(payload)
+    if encoding != "utf-8":
+        warnings.append(f"decoded as {encoding}")
+    if text.lstrip().startswith(("{", "[")):
+        rows, geometry_types, format_name = _json_records(text)
+        return rows, format_name, geometry_types, warnings
+    rows, delimiter, skipped = _delimited_records(text)
+    if skipped:
+        warnings.append(f"skipped {skipped} leading metadata line(s)")
+    return rows, ("tsv" if delimiter == "\t" else "csv"), [], warnings
+
+
 def probe_bytes(payload: bytes, *, url: str = "") -> ProbeReport:
     original_size = len(payload)
     digest = hashlib.sha256(payload).hexdigest()
@@ -349,7 +373,10 @@ def coverage(values, key_namespace: str, level: str, scope=None) -> dict:
     if namespace in {"ISO3", "ISO3166_2", "name"}:
         from mapsvc.cartography import natural_earth as loader
         source = source or "natural_earth"
-        boundary_level = "admin_0" if namespace in {"ISO3", "name"} else "admin_1"
+        # Names match at the level asked for: state names against admin_1,
+        # country names against admin_0 (a Brazil-by-state file keyed by name).
+        boundary_level = ("admin_1" if namespace == "ISO3166_2"
+                          or (namespace == "name" and level == "admin_1") else "admin_0")
     elif namespace == "NUTS":
         from mapsvc.cartography import gisco as loader
         source = source or "gisco"
@@ -396,7 +423,8 @@ def _name_aliases(units: list[dict]) -> dict[str, str]:
     variants = ("NAME", "NAME_LONG", "FORMAL_EN", "NAME_EN", "name", "name_long",
                 "formal_en", "name_en")
     for unit in units:
-        code = unit.get("keys", {}).get("ISO3") or unit.get("id")
+        code = (unit.get("keys", {}).get("ISO3") or unit.get("keys", {}).get("ISO3166_2")
+                or unit.get("id"))
         names = [unit.get("name")]
         props = unit.get("properties") or {}
         names.extend(props.get(field) for field in variants)

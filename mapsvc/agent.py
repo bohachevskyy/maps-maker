@@ -615,9 +615,11 @@ def describe(prompt: str) -> tuple[Manifest, dict, str]:
     overlay_offers: list[tuple[str, str, dict[str, object]]] = []
     overlays_searched = False
     challenged = False
+    researched = False
     repairs = 0
 
-    for attempt in range(REPAIR_ATTEMPTS + 2):
+    # One extra turn is reserved for a dataset the research step finds.
+    for attempt in range(REPAIR_ATTEMPTS + 3):
         answer = _ask(conversation)
 
         if not answer.get("mappable", False) and not challenged and offered is None:
@@ -633,6 +635,22 @@ def describe(prompt: str) -> tuple[Manifest, dict, str]:
                 conversation.append({"role": "assistant", "content": json.dumps(answer)})
                 conversation.append({"role": "user", "content": _challenge_prompt(found)})
                 continue
+        if not answer.get("mappable", False) and not researched and _research_enabled():
+            # The registry cannot answer even after a search: look on the open
+            # web. The research step only proposes; the service validates and
+            # registers, and the main agent gets one more turn to use it.
+            researched = True
+            outcome = _discover(prompt.strip(), answer.get("refusal") or "no registry source")
+            if outcome.record is not None:
+                if outcome.record.get("geometry_kind") == "choropleth":
+                    offered = (offered or set()) | {outcome.record["id"]}
+                conversation.append({"role": "assistant", "content": json.dumps(answer)})
+                conversation.append({"role": "user",
+                                     "content": _discovery_prompt(outcome.record)})
+                continue
+            if outcome.refusal:
+                answer = dict(answer, refusal=(answer.get("refusal") or "")
+                              + f" Web search: {outcome.refusal}")
         if not answer.get("mappable", False):
             raise AgentRefusal(
                 answer.get("refusal") or "this request cannot be mapped from the "
@@ -901,6 +919,24 @@ def _check_per(per: dict | None) -> None:
         raise ManifestError(
             f"variable.per {per['source']}/{per.get('id')!r} was not offered; "
             f"{per['source']} offers these divisors: {offered}", "variable.per.id")
+
+
+def _research_enabled() -> bool:
+    """Web research runs unless switched off (MAPSVC_RESEARCH=0)."""
+    return os.environ.get("MAPSVC_RESEARCH", "1") not in ("0", "false", "off")
+
+
+def _discover(prompt: str, reason: str):
+    from mapsvc.discovery import pipeline
+    try:
+        return pipeline.discover(prompt, reason)
+    except Exception as exc:  # research must never turn a refusal into a crash
+        return pipeline.Outcome(None, f"research failed: {exc}", [])
+
+
+def _discovery_prompt(record: dict) -> str:
+    from mapsvc.discovery.pipeline import prompt_for_main_agent
+    return prompt_for_main_agent(record)
 
 
 def _search_all(query: str) -> list[tuple[str, list]]:

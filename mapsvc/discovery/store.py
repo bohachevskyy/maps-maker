@@ -193,6 +193,22 @@ class DiscoveredSourceStore:
                 "ORDER BY s.id ASC LIMIT ?", [*params, limit]).fetchall()
         return [self._decode(row) for row in rows]
 
+    def search_any(self, text: str, *, limit: int = 10, **filters) -> list[dict]:
+        """Records matching any query word, best first by how many words they match.
+
+        `search` needs every word; a search agent's wording ("annual rainfall")
+        rarely matches a publisher's title word for word ("precipitation in depth").
+        """
+        stop = {"of", "the", "in", "by", "and", "a", "an", "per", "for", "to", "on", "map"}
+        tokens = [t for t in dict.fromkeys(re.findall(r"[\w-]+", text.casefold(), flags=re.UNICODE))
+                  if len(t) > 2 and t not in stop]
+        hits: dict = {}
+        for token in tokens:
+            for rec in self.search(token, limit=50, **filters):
+                hits.setdefault(rec["id"], [0, rec])[0] += 1
+        ranked = sorted(hits.values(), key=lambda h: (-h[0], h[1]["id"]))
+        return [rec for _, rec in ranked[:limit]]
+
     @staticmethod
     def _normalise_query(query: str) -> str:
         return " ".join(query.casefold().split())

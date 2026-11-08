@@ -321,6 +321,38 @@ _BY_URL[_IBTRACS_NA] = {
 }
 
 
+def _discovered_entry(url: str) -> dict:
+    """A catalogue-like entry for a point/line dataset the research step validated.
+
+    Its column roles, title, publisher and licence come from the discovered-
+    sources store, so an arbitrary validated URL is drawn and credited like a
+    curated catalogue entry. {} when the URL was never validated.
+    """
+    try:
+        from mapsvc.discovery.store import Store
+        rows = [r for r in Store().search(url, limit=20)
+                if r.get("url") == url and r.get("geometry_kind") in ("points", "lines")]
+    except Exception:
+        return {}
+    if not rows:
+        return {}
+    rec = rows[0]
+    proposed = rec.get("roles") or {}
+    roles = {k: v for k, v in proposed.items()
+             if k in ("lon", "lat", "name", "category", "date", "size")}
+    if "value" in proposed and "size" not in roles:
+        roles["size"] = proposed["value"]
+    when = (rec.get("validated_at") or "")[:10]
+    return {
+        "url": url, "title": rec.get("title"), "label": rec.get("title"),
+        "description": f"{rec.get('publisher') or 'web'}, {rec.get('vintage') or 'undated'} "
+                       "(found by the research step)",
+        "roles": roles, "license": rec.get("licence"),
+        "attribution": (f"{rec.get('publisher') or 'unknown publisher'} ({url}; found by the "
+                        "research step" + (f", validated {when}" if when else "") + ")"),
+    }
+
+
 def companions(url: str) -> tuple[str, ...]:
     """Catalogue companions derived from a requested dataset."""
     return tuple(_BY_URL.get(url, {}).get("companions") or ())
@@ -362,7 +394,7 @@ def parse(overlay_id: str) -> str:
     plus filters after '#' checked against what the dataset accepts."""
     url, _, fragment = overlay_id.strip().partition("#")
     url = _parse_url(url)
-    entry = _BY_URL.get(url, {})
+    entry = _BY_URL.get(url) or _discovered_entry(url)
     accepted = filters_for(url)
     this_year = datetime.date.today().year
     filters: dict = {}
@@ -530,7 +562,23 @@ def search(query: str, limit: int = 8) -> list:
         if score:
             scored.append((-score, i, entry))
     scored.sort(key=lambda t: (t[0], t[1]))
-    return [Candidate(entry) for _, _, entry in scored[:limit]]
+    found = [Candidate(entry) for _, _, entry in scored[:limit]]
+    return found + _discovered_candidates(query, limit - len(found))
+
+
+def _discovered_candidates(query: str, limit: int) -> list:
+    """Point and line datasets the research step validated earlier."""
+    if limit <= 0:
+        return []
+    try:
+        from mapsvc.discovery.store import Store
+        store = Store()
+        recs = [r for kind in ("points", "lines")
+                for r in store.search_any(query, geometry_kind=kind, limit=limit)]
+    except Exception:
+        return []
+    entries = [_discovered_entry(r["url"]) for r in recs[:limit]]
+    return [Candidate(e) for e in entries if e]
 
 
 # ------------------------------------------------------------------- load ---
@@ -553,7 +601,7 @@ def check(overlay_id: str) -> None:
 
 def load(overlay_id: str, window: Window) -> dict:
     payload = fetch_bytes(overlay_id)
-    entry = _BY_URL.get(split(overlay_id)[0], {})
+    entry = _BY_URL.get(split(overlay_id)[0]) or _discovered_entry(split(overlay_id)[0])
     fame = _fame(entry["fame"]) if entry.get("fame") else None
     return layer_from_bytes(payload, overlay_id, window, fame)
 
@@ -610,7 +658,7 @@ def _renown(links: int, year) -> float:
 def layer_from_bytes(payload: bytes, overlay_id: str, window: Window,
                      fame: dict | None = None) -> dict:
     url, filters = split(overlay_id)
-    entry = _BY_URL.get(url, {})
+    entry = _BY_URL.get(url) or _discovered_entry(url)
     if fame is not None and entry.get("note_fame"):
         entry = {**entry, "note": entry["note_fame"]}
     payload = _unzip(payload, url)
