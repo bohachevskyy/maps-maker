@@ -147,7 +147,7 @@ def test_projected_crs_and_unlabelled_out_of_range_coordinates_are_refused():
     shp = _shp([_point(500000, 4000000)], 1)
     dbf = _dbf([("ID", "N", 2)], [(False, [1])])
     projected = 'PROJCS["NAD_1983_StatePlane_Alabama_East_FIPS_0101_Feet"]'
-    with pytest.raises(ShapefileError, match="projected CRS NAD_1983.*only geographic"):
+    with pytest.raises(ShapefileError, match="projected CRS NAD_1983.*not supported"):
         to_geojson(_zip(shp, dbf, prj=projected))
     with pytest.raises(ShapefileError, match="outside longitude/latitude"):
         to_geojson(_zip(shp, dbf))

@@ -77,7 +77,12 @@ def _read_zip(zip_bytes: bytes) -> tuple[dict, str, str]:
             f".dbf has {len(properties)} records but .shp has {len(geometries)} shapes")
     if len(geometries) > MAX_FEATURES:
         raise ShapefileError(f"shapefile has more than {MAX_FEATURES:,} features")
-    crs = _crs(prj, bounds)
+    transform, label = _projection(prj)
+    if transform is not None:
+        geometries = [_reproject(g, transform) for g in geometries]
+        crs = f"{label}, reprojected to longitude/latitude"
+    else:
+        crs = _crs(prj, bounds)
     features = [
         {"type": "Feature", "properties": props, "geometry": geometry}
         for props, geometry in zip(properties, geometries)
@@ -311,6 +316,32 @@ def _polygon(rings: list[list[list[float]]]) -> dict:
     if len(polygons) == 1:
         return {"type": "Polygon", "coordinates": polygons[0]}
     return {"type": "MultiPolygon", "coordinates": polygons}
+
+
+def _projection(prj: bytes | None):
+    """(inverse, name) for a projected .prj we can undo; (None, None) if geographic."""
+    if prj is None:
+        return None, None
+    text = prj.decode("utf-8-sig", "replace").strip()
+    if not re.search(r"\bPROJCS\s*\[", text, re.I):
+        return None, None
+    from mapsvc.discovery import crs as crs_mod
+    try:
+        return crs_mod.inverse(text)
+    except crs_mod.CRSError as exc:
+        raise ShapefileError(str(exc)) from exc
+
+
+def _reproject(geometry, transform):
+    if geometry is None:
+        return None
+
+    def walk(coords):
+        if coords and isinstance(coords[0], (int, float)):
+            lon, lat = transform(coords[0], coords[1])
+            return [round(lon, 6), round(lat, 6)]
+        return [walk(c) for c in coords]
+    return {**geometry, "coordinates": walk(geometry["coordinates"])}
 
 
 def _crs(prj: bytes | None,
