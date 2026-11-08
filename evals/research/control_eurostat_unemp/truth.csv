@@ -1,0 +1,287 @@
+NUTS,name,year,unemployment_rate_pct
+AT11,Burgenland,2024,4.9
+AT12,Niederösterreich,2024,4.2
+AT13,Wien,2024,9.4
+AT21,Kärnten,2024,4.3
+AT22,Steiermark,2024,4.4
+AT31,Oberösterreich,2024,3.8
+AT32,Salzburg,2024,3.4
+AT33,Tirol,2024,3.1
+AT34,Vorarlberg,2024,4.1
+BE10,Région de Bruxelles-Capitale/Brussels Hoofdstedelijk Gewest,2024,11.8
+BE21,Prov. Antwerpen,2024,4.6
+BE22,Prov. Limburg (BE),2024,3.8
+BE23,Prov. Oost-Vlaanderen,2024,3.4
+BE24,Prov. Vlaams-Brabant,2024,4.2
+BE25,Prov. West-Vlaanderen,2024,2.7
+BE31,Prov. Brabant wallon,2024,6.8
+BE32,Prov. Hainaut,2024,8.7
+BE33,Prov. Liège,2024,7.0
+BE34,Prov. Luxembourg (BE),2024,5.4
+BE35,Prov. Namur,2024,6.8
+BG31,Severozapaden,2024,9.7
+BG32,Severen tsentralen,2024,5.3
+BG33,Severoiztochen,2024,4.0
+BG34,Yugoiztochen,2024,4.9
+BG41,Yugozapaden,2024,2.8
+BG42,Yuzhen tsentralen,2024,2.9
+CH01,Région lémanique,2024,7.3
+CH02,Espace Mittelland,2024,4.0
+CH03,Nordwestschweiz,2024,4.3
+CH04,Zürich,2024,3.8
+CH05,Ostschweiz,2024,2.8
+CH06,Zentralschweiz,2024,2.5
+CH07,Ticino,2024,6.7
+CY00,Kýpros,2024,4.8
+CZ01,Praha,2024,1.8
+CZ02,Střední Čechy,2024,1.3
+CZ03,Jihozápad,2024,2.3
+CZ04,Severozápad,2024,4.1
+CZ05,Severovýchod,2024,2.9
+CZ06,Jihovýchod,2024,2.4
+CZ07,Střední Morava,2024,2.6
+CZ08,Moravskoslezsko,2024,4.1
+DE11,Stuttgart,2024,3.2
+DE12,Karlsruhe,2024,3.2
+DE13,Freiburg,2024,2.5
+DE14,Tübingen,2024,2.8
+DE21,Oberbayern,2024,2.7
+DE22,Niederbayern,2024,2.0
+DE23,Oberpfalz,2024,2.4
+DE24,Oberfranken,2024,2.7
+DE25,Mittelfranken,2024,2.7
+DE26,Unterfranken,2024,2.9
+DE27,Schwaben,2024,2.6
+DE30,Berlin,2024,5.6
+DE40,Brandenburg,2024,3.2
+DE50,Bremen,2024,4.9
+DE60,Hamburg,2024,4.8
+DE71,Darmstadt,2024,3.4
+DE72,Gießen,2024,3.7
+DE73,Kassel,2024,2.2
+DE80,Mecklenburg-Vorpommern,2024,3.7
+DE91,Braunschweig,2024,3.7
+DE92,Hannover,2024,3.1
+DE93,Lüneburg,2024,2.7
+DE94,Weser-Ems,2024,3.1
+DEA1,Düsseldorf,2024,4.3
+DEA2,Köln,2024,3.7
+DEA3,Münster,2024,3.4
+DEA4,Detmold,2024,3.4
+DEA5,Arnsberg,2024,4.1
+DEB1,Koblenz,2024,3.3
+DEB3,Rheinhessen-Pfalz,2024,3.4
+DEC0,Saarland,2024,3.6
+DED2,Dresden,2024,3.6
+DED4,Chemnitz,2024,3.1
+DED5,Leipzig,2024,5.5
+DEE0,Sachsen-Anhalt,2024,4.2
+DEF0,Schleswig-Holstein,2024,3.4
+DEG0,Thüringen,2024,3.5
+DK01,Hovedstaden,2024,6.6
+DK02,Sjælland,2024,5.8
+DK03,Syddanmark,2024,6.0
+DK04,Midtjylland,2024,6.1
+DK05,Nordjylland,2024,5.9
+EE00,Eesti,2024,7.6
+EL30,Attiki,2024,9.1
+EL41,Voreio Aigaio,2024,7.1
+EL42,Notio Aigaio,2024,9.9
+EL43,Kriti,2024,8.6
+EL51,"Anatoliki Makedonia, Thraki",2024,11.6
+EL52,Kentriki Makedonia,2024,12.8
+EL53,Dytiki Makedonia,2024,12.5
+EL54,Ipeiros,2024,10.7
+EL61,Thessalia,2024,10.0
+EL62,Ionia Nisia,2024,16.2
+EL63,Dytiki Elláda,2024,10.1
+EL64,Sterea Elláda,2024,8.6
+EL65,Peloponnisos,2024,7.6
+ES11,Galicia,2024,9.4
+ES12,Principado de Asturias,2024,10.1
+ES13,Cantabria,2024,7.8
+ES21,País Vasco,2024,8.1
+ES22,Comunidad Foral de Navarra,2024,7.6
+ES23,La Rioja,2024,9.7
+ES24,Aragón,2024,8.1
+ES30,Comunidad de Madrid,2024,9.0
+ES41,Castilla y León,2024,9.4
+ES42,Castilla-La Mancha,2024,13.3
+ES43,Extremadura,2024,15.5
+ES51,Cataluña,2024,8.9
+ES52,Comunitat Valenciana,2024,12.6
+ES53,Illes Balears,2024,9.3
+ES61,Andalucía,2024,16.5
+ES62,Región de Murcia,2024,12.7
+ES63,Ciudad de Ceuta,2024,27.5
+ES64,Ciudad de Melilla,2024,28.3
+ES70,Canarias,2024,13.8
+FI19,Länsi-Suomi,2024,7.8
+FI1B,Helsinki-Uusimaa,2024,8.9
+FI1C,Etelä-Suomi,2024,8.9
+FI1D,Pohjois- ja Itä-Suomi,2024,7.8
+FR10,Ile de France,2024,8.0
+FRB0,Centre — Val de Loire,2024,5.6
+FRC1,Bourgogne,2024,6.7
+FRC2,Franche-Comté,2024,5.3
+FRD1,Basse-Normandie,2024,7.3
+FRD2,Haute-Normandie,2024,7.6
+FRE1,Nord-Pas de Calais,2024,9.5
+FRE2,Picardie,2024,7.6
+FRF1,Alsace,2024,6.0
+FRF2,Champagne-Ardenne,2024,7.2
+FRF3,Lorraine,2024,8.5
+FRG0,Pays de la Loire,2024,6.3
+FRH0,Bretagne,2024,5.7
+FRI1,Aquitaine,2024,6.9
+FRI2,Limousin,2024,5.4
+FRI3,Poitou-Charentes,2024,5.3
+FRJ1,Languedoc-Roussillon,2024,9.0
+FRJ2,Midi-Pyrénées,2024,6.2
+FRK1,Auvergne,2024,7.8
+FRK2,Rhône-Alpes,2024,6.8
+FRL0,Provence-Alpes-Côte d’Azur,2024,6.9
+FRM0,Corse,2024,7.2
+FRY1,Guadeloupe,2024,16.8
+FRY2,Martinique,2024,12.3
+FRY3,Guyane,2024,17.0
+FRY4,La Réunion,2024,17.3
+FRY5,Mayotte,2024,26.9
+HR02,Panonska Hrvatska,2024,7.1
+HR03,Jadranska Hrvatska,2024,6.4
+HR05,Grad Zagreb,2024,2.6
+HR06,Sjeverna Hrvatska,2024,3.1
+HU11,Budapest,2024,2.6
+HU12,Pest,2024,3.1
+HU21,Közép-Dunántúl,2024,2.8
+HU22,Nyugat-Dunántúl,2024,3.3
+HU23,Dél-Dunántúl,2024,7.3
+HU31,Észak-Magyarország,2024,6.9
+HU32,Észak-Alföld,2024,7.1
+HU33,Dél-Alföld,2024,4.8
+IE04,Northern and Western,2024,4.2
+IE05,Southern,2024,4.1
+IE06,Eastern and Midland,2024,4.4
+IS00,Ísland,2024,3.6
+ITC1,Piemonte,2024,5.4
+ITC2,Valle d’Aosta/Vallée d’Aoste,2024,3.9
+ITC3,Liguria,2024,5.4
+ITC4,Lombardia,2024,3.7
+ITF1,Abruzzo,2024,7.1
+ITF2,Molise,2024,7.9
+ITF3,Campania,2024,15.6
+ITF4,Puglia,2024,9.3
+ITF5,Basilicata,2024,6.7
+ITF6,Calabria,2024,13.1
+ITG1,Sicilia,2024,13.0
+ITG2,Sardegna,2024,8.3
+ITH1,Provincia Autonoma di Bolzano/Bozen,2024,2.0
+ITH2,Provincia Autonoma di Trento,2024,2.7
+ITH3,Veneto,2024,3.0
+ITH4,Friuli-Venezia Giulia,2024,4.3
+ITH5,Emilia-Romagna,2024,4.3
+ITI1,Toscana,2024,4.0
+ITI2,Umbria,2024,4.8
+ITI3,Marche,2024,5.1
+ITI4,Lazio,2024,6.3
+LT01,Sostinės regionas,2024,5.9
+LT02,Vidurio ir vakarų Lietuvos regionas,2024,7.7
+LU00,Luxembourg,2024,6.4
+LV00,Latvija,2024,6.9
+MK00,Severna Makedonija,2024,12.3
+MT00,Malta,2024,3.2
+NL11,Groningen,2024,4.7
+NL12,Friesland (NL),2024,3.9
+NL13,Drenthe,2024,3.4
+NL21,Overijssel,2024,3.4
+NL22,Gelderland,2024,3.5
+NL23,Flevoland,2024,3.8
+NL32,Noord-Holland,2024,3.8
+NL34,Zeeland,2024,2.1
+NL35,Utrecht,2024,3.7
+NL36,Zuid-Holland,2024,4.1
+NL41,Noord-Brabant,2024,3.2
+NL42,Limburg (NL),2024,3.3
+NO02,Innlandet,2024,3.7
+NO06,Trøndelag,2024,3.8
+NO07,Nord-Norge,2024,2.7
+NO08,Oslo og Viken,2024,4.7
+NO09,Agder og Sør-Østlandet,2024,4.1
+NO0A,Vestlandet,2024,3.6
+PL21,Małopolskie,2024,2.5
+PL22,Śląskie,2024,2.4
+PL41,Wielkopolskie,2024,2.3
+PL42,Zachodniopomorskie,2024,2.7
+PL51,Dolnośląskie,2024,3.4
+PL52,Opolskie,2024,2.4
+PL61,Kujawsko-pomorskie,2024,4.2
+PL62,Warmińsko-mazurskie,2024,3.8
+PL63,Pomorskie,2024,2.2
+PL71,Łódzkie,2024,3.5
+PL72,Świętokrzyskie,2024,3.7
+PL81,Lubelskie,2024,3.3
+PL82,Podkarpackie,2024,3.7
+PL84,Podlaskie,2024,2.9
+PL91,Warszawski stołeczny,2024,2.5
+PL92,Mazowiecki regionalny,2024,3.5
+PT11,Norte,2024,6.6
+PT15,Algarve,2024,5.8
+PT19,Centro (PT),2024,5.8
+PT1A,Grande Lisboa,2024,6.5
+PT1B,Península de Setúbal,2024,8.0
+PT1C,Alentejo,2024,5.8
+PT1D,Oeste e Vale do Tejo,2024,6.7
+PT20,Região Autónoma dos Açores,2024,5.6
+PT30,Região Autónoma da Madeira,2024,5.7
+RO11,Nord-Vest,2024,4.5
+RO12,Centru,2024,4.3
+RO21,Nord-Est,2024,4.9
+RO22,Sud-Est,2024,9.9
+RO31,Sud-Muntenia,2024,7.3
+RO32,Bucureşti-Ilfov,2024,2.2
+RO41,Sud-Vest Oltenia,2024,7.7
+RO42,Vest,2024,3.3
+RS11,Beogradski region,2024,6.2
+RS12,Region Vojvodine,2024,8.4
+RS21,Region Sumadije i Zapadne Srbije,2024,8.6
+RS22,Region Juzne i Istocne Srbije,2024,12.2
+SE11,Stockholm,2024,8.3
+SE12,Östra Mellansverige,2024,9.6
+SE21,Småland med öarna,2024,7.2
+SE22,Sydsverige,2024,9.7
+SE23,Västsverige,2024,8.4
+SE31,Norra Mellansverige,2024,7.2
+SE32,Mellersta Norrland,2024,7.6
+SE33,Övre Norrland,2024,5.2
+SI03,Vzhodna Slovenija,2024,4.1
+SI04,Zahodna Slovenija,2024,3.3
+SK01,Bratislavský kraj,2024,2.3
+SK02,Západné Slovensko,2024,3.3
+SK03,Stredné Slovensko,2024,5.1
+SK04,Východné Slovensko,2024,9.6
+TR10,İstanbul,2024,8.8
+TR21,"Tekirdağ, Edirne, Kırklareli",2024,6.7
+TR22,"Balıkesir, Çanakkale",2024,6.1
+TR31,İzmir,2024,11.0
+TR32,"Aydın, Denizli, Muğla",2024,8.2
+TR33,"Manisa, Afyonkarahisar, Kütahya, Uşak",2024,6.4
+TR41,"Bursa, Eskişehir, Bilecik",2024,8.9
+TR42,"Kocaeli, Sakarya, Düzce, Bolu, Yalova",2024,8.5
+TR51,Ankara,2024,9.7
+TR52,"Konya, Karaman",2024,7.8
+TR61,"Antalya, Isparta, Burdur",2024,5.9
+TR62,"Adana, Mersin",2024,9.2
+TR63,"Hatay, Kahramanmaraş, Osmaniye",2024,11.7
+TR71,"Kırıkkale, Aksaray, Niğde, Nevşehir, Kırşehir",2024,8.3
+TR72,"Kayseri, Sivas, Yozgat",2024,9.0
+TR81,"Zonguldak, Karabük, Bartın",2024,9.3
+TR82,"Kastamonu, Çankırı, Sinop",2024,4.7
+TR83,"Samsun, Tokat, Çorum, Amasya",2024,7.0
+TR90,"Trabzon, Ordu, Giresun, Rize, Artvin, Gümüşhane",2024,8.0
+TRA1,"Erzurum, Erzincan, Bayburt",2024,6.4
+TRA2,"Ağrı, Kars, Iğdır, Ardahan",2024,10.3
+TRB1,"Malatya, Elazığ, Bingöl, Tunceli",2024,6.0
+TRB2,"Van, Muş, Bitlis, Hakkari",2024,15.2
+TRC1,"Gaziantep, Adıyaman, Kilis",2024,10.7
+TRC2,"Şanlıurfa, Diyarbakır",2024,9.3
+TRC3,"Mardin, Batman, Şırnak, Siirt",2024,11.0

@@ -1,0 +1,1272 @@
+id_no,name,lon,lat,category,iso_codes,year_inscribed,in_danger
+1,Galápagos Islands,-90.50132,-0.68986,Natural,['EC'],1978,False
+2,City of Quito,-78.51208,-0.22,Cultural,['EC'],1978,False
+3,Aachen Cathedral,6.08392,50.77475,Cultural,['DE'],1978,False
+4,L’Anse aux Meadows National Historic Site,-55.55,51.58472,Cultural,['CA'],1978,False
+8,Ichkeul National Park,9.67472,37.16361,Natural,['TN'],1980,False
+9,Simien National Park,38.06667,13.18333,Natural,['ET'],1978,False
+10,Lower Valley of the Awash,40.57939,11.10006,Cultural,['ET'],1980,False
+12,Tiya,38.6121,8.43491,Cultural,['ET'],1980,False
+13,Melka Kunture and Balchit: Archaeological and Palaeontological Sites in the Highland Area of Ethiopia,38.59182,8.72423,Cultural,['ET'],2024,False
+15,Aksum,38.71861,14.13019,Cultural,['ET'],1980,False
+17,Lower Valley of the Omo,35.96667,4.8,Cultural,['ET'],1980,False
+18,"Rock-Hewn Churches, Lalibela",38.81667,12.03333,Cultural,['ET'],1978,False
+19,"Fasil Ghebbi, Gondar Region",37.4697,12.60791,Cultural,['ET'],1979,False
+20,Ancient City of Damascus,36.30972,33.51083,Cultural,['SY'],1979,True
+21,Ancient City of Aleppo,37.16278,36.19917,Cultural,['SY'],1986,True
+22,Ancient City of Bosra,36.47965,32.51868,Cultural,['SY'],1980,True
+23,Site of Palmyra,38.26667,34.55417,Cultural,['SY'],1980,True
+24,Nahanni National Park,-125.58944,61.54722,Natural,['CA'],1978,False
+25,Djoudj National Bird Sanctuary,-16.23791,16.4146,Natural,['SN'],1981,False
+26,Island of Gorée,-17.40083,14.66722,Cultural,['SN'],1978,False
+27,Mesa Verde National Park,-108.48556,37.26167,Cultural,['US'],1978,False
+28,Yellowstone National Park,-110.82778,44.46056,Natural,['US'],1978,False
+29,Historic Centre of Kraków,19.93722,50.06139,Cultural,['PL'],1978,False
+30,Historic Centre of Warsaw,21.013,52.25,Cultural,['PL'],1980,False
+31,Auschwitz Birkenau German Nazi Concentration and Extermination Camp (1940-1945),19.19,50.03139,Cultural,['PL'],1979,False
+32,Wieliczka and Bochnia Royal Salt Mines,20.18034,49.97741,Cultural,['PL'],1978,False
+33,Białowieża Forest,23.94014,52.7275,Natural,"['PL', 'BY']",1979,False
+34,"Forts and Castles, Volta, Greater Accra, Central and Western Regions",-0.49361,5.39103,Cultural,['GH'],1979,False
+35,Asante Traditional Buildings,-1.62583,6.40111,Cultural,['GH'],1980,False
+36,Medina of Tunis,10.16667,36.81667,Cultural,['TN'],1979,False
+37,Archaeological Site of Carthage,10.32812,36.85166,Cultural,['TN'],1979,False
+38,Amphitheatre of El Jem,10.70694,35.29639,Cultural,['TN'],1979,False
+39,Ngorongoro Conservation Area,35.54083,-3.18722,Mixed,['TZ'],1979,False
+42,Boyana Church,23.26619,42.64467,Cultural,['BG'],1979,False
+43,Madara Rider,27.11894,43.27742,Cultural,['BG'],1979,False
+44,Thracian Tomb of Kazanlak,25.39917,42.62577,Cultural,['BG'],1979,False
+45,Rock-Hewn Churches of Ivanovo,25.98789,43.69486,Cultural,['BG'],1979,False
+55,Røros Mining Town and the Circumference,11.60972,62.44792,Cultural,['NO'],1980,False
+58,Urnes Stave Church,7.32268,61.29826,Cultural,['NO'],1979,False
+59,Bryggen,5.32507,60.39671,Cultural,['NO'],1979,False
+63,Virunga National Park,29.16667,0.91667,Natural,['CD'],1979,True
+64,Tikal National Park,-89.61667,17.21667,Mixed,['GT'],1979,False
+65,Antigua Guatemala,-90.74195,14.54051,Cultural,['GT'],1979,False
+71,Dinosaur Provincial Park,-111.49222,50.76778,Natural,['CA'],1979,False
+72,Kluane / Wrangell-St. Elias / Glacier Bay / Tatshenshini-Alsek,-140.99197,61.19758,Natural,"['CA', 'US']",1979,False
+75,Grand Canyon National Park,-112.09056,36.10083,Natural,['US'],1979,False
+76,Everglades National Park,-80.99639,25.55444,Natural,['US'],1979,True
+78,Independence Hall,-75.15,39.94861,Cultural,['US'],1979,False
+79,Paphos,32.46194,34.74731,Cultural,['CY'],1980,False
+80,Mont-Saint-Michel and its Bay,-1.50835,48.61041,Cultural,['FR'],1979,False
+81,Chartres Cathedral,1.48722,48.4475,Cultural,['FR'],1979,False
+83,Palace and Park of Versailles,2.11944,48.805,Cultural,['FR'],1979,False
+84,"Vézelay, Church and Hill",3.74215,47.46226,Cultural,['FR'],1979,False
+85,Prehistoric Sites and Decorated Caves of the Vézère Valley,1.0276,44.95959,Cultural,['FR'],1979,False
+86,Memphis and its Necropolis – the Pyramid Fields from Giza to Dahshur,31.19573,29.91577,Cultural,['EG'],1979,False
+87,Ancient Thebes with its Necropolis,32.6311,25.71673,Cultural,['EG'],1979,False
+88,Nubian Monuments from Abu Simbel to Philae,32.66244,23.62846,Cultural,['EG'],1979,False
+89,Historic Cairo,31.25762,30.02606,Cultural,['EG'],1979,False
+90,Abu Mena,29.66667,30.83583,Cultural,['EG'],1979,False
+91,"Historic Centre of Rome, the Properties of the Holy See in that City Enjoying Extraterritorial Rights and San Paolo Fuori le Mura",12.47577,41.88287,Cultural,"['IT', 'VA']",1980,False
+93,Church and Dominican Convent of Santa Maria delle Grazie with “The Last Supper” by Leonardo da Vinci,9.171,45.466,Cultural,['IT'],1980,False
+94,Rock Drawings in Valcamonica,10.31897,46.03321,Cultural,['IT'],1979,False
+95,Old City of Dubrovnik,18.11346,42.63518,Cultural,['HR'],1979,False
+96,Stari Ras and Sopoćani,20.45672,43.14675,Cultural,['RS'],1979,False
+97,Historical Complex of Split with the Palace of Diocletian,16.43917,43.50889,Cultural,['HR'],1979,False
+98,Plitvice Lakes National Park,15.61444,44.87778,Natural,['HR'],1979,False
+99,Natural and Cultural Heritage of the Ohrid region,20.69905,40.99765,Mixed,"['MK', 'AL']",1979,False
+100,Durmitor National Park,19.0166,43.133,Natural,['ME'],1980,False
+102,Al Qal'a of Beni Hammad,4.78684,35.81844,Cultural,['DZ'],1980,False
+111,Bale Mountains National Park,39.74889,6.79778,Natural,['ET'],2023,False
+113,Tchogha Zanbil,48.52212,32.00857,Cultural,['IR'],1979,False
+114,Persepolis,52.89028,29.93444,Cultural,['IR'],1979,False
+115,"Meidan Emam, Esfahan",51.67778,32.65745,Cultural,['IR'],1979,False
+116,Old Towns of Djenné,-4.55089,13.90208,Cultural,['ML'],1988,True
+119,Timbuktu,-2.99944,16.77333,Cultural,['ML'],1988,True
+120,Sagarmatha National Park,86.91306,27.96528,Natural,['NP'],1979,False
+121,Kathmandu Valley,85.35679,27.7016,Cultural,['NP'],1979,False
+124,Historic Town of Ouro Preto,-43.50556,-20.38889,Cultural,['BR'],1980,False
+125,Natural and Culturo-Historical Region of Kotor,18.7,42.48333,Cultural,['ME'],1979,False
+129,Maya Site of Copan,-89.142,14.838,Cultural,['HN'],1980,False
+130,Ħal Saflieni Hypogeum,14.50688,35.86959,Cultural,['MT'],1980,False
+131,City of Valletta,14.51444,35.90056,Cultural,['MT'],1980,False
+132,Megalithic Temples of Malta,14.40083,35.90208,Cultural,['MT'],1980,False
+134,Redwood National and State Parks,-123.99806,41.37389,Natural,['US'],1980,False
+135,Fortifications on the Caribbean Side of Panama: Portobelo-San Lorenzo,-79.82944,9.43903,Cultural,['PA'],1980,True
+136,Garamba National Park,29.49972,4.16667,Natural,['CD'],1980,True
+137,Kahuzi-Biega National Park,28.18074,-2.33405,Natural,['CD'],1980,True
+138,Archaeological Ruins at Moenjodaro,68.13889,27.32917,Cultural,['PK'],1980,False
+139,Taxila,72.85421,33.76201,Cultural,['PK'],1980,False
+140,Buddhist Ruins of Takht-i-Bahi and Neighbouring City Remains at Sahr-i-Bahlol,71.94889,34.27083,Cultural,['PK'],1980,False
+143,"Historical Monuments at Makli, Thatta",67.9,24.76667,Cultural,['PK'],1981,False
+144,Ruins of Kilwa Kisiwani and Ruins of Songo Mnara,39.545,-9.00361,Cultural,['TZ'],1981,False
+145,Los Glaciares National Park,-73.24944,-50.0,Natural,['AR'],1981,False
+147,Kakadu National Park,132.41815,-12.42972,Mixed,['AU'],1981,False
+148,Old City of Jerusalem and its Walls,35.23167,31.77778,Cultural,,1981,True
+149,Archaeological Park and Ruins of Quirigua,-89.04025,15.27059,Cultural,['GT'],1981,False
+150,Mammoth Cave National Park,-86.10306,37.18722,Natural,['US'],1981,False
+151,Olympic National Park,-124.11735,47.94792,Natural,['US'],1981,False
+153,Niokolo-Koba National Park,-13.004,13.006,Natural,['SN'],1981,False
+154,Great Barrier Reef,147.7,-18.28611,Natural,['AU'],1981,False
+155,Mount Nimba Strict Nature Reserve,-8.39097,7.60318,Natural,"['GN', 'CI']",1981,True
+156,Serengeti National Park,34.859,-2.74,Natural,['TZ'],1981,False
+157,SGang Gwaay,-131.22028,52.095,Cultural,['CA'],1981,False
+158,Head-Smashed-In Buffalo Jump,-113.65205,49.70841,Cultural,['CA'],1981,False
+159,Darien National Park,-77.54722,7.73611,Natural,['PA'],1981,False
+160,Palace and Park of Fontainebleau,2.69806,48.40194,Cultural,['FR'],1981,False
+162,Amiens Cathedral,2.30167,49.895,Cultural,['FR'],1981,False
+163,"Roman Theatre and its Surroundings and the ""Triumphal Arch"" of Orange",4.8066,44.13892,Cultural,['FR'],1981,False
+164,"Arles, Roman and Romanesque Monuments",4.63069,43.67764,Cultural,['FR'],1981,False
+165,Cistercian Abbey of Fontenay,4.38911,47.63944,Cultural,['FR'],1981,False
+166,Sydney Opera House,151.21528,-33.85667,Cultural,['AU'],2007,False
+167,Willandra Lakes Region,143.035,-33.673,Mixed,['AU'],1981,False
+168,Speyer Cathedral,8.44239,49.31722,Cultural,['DE'],1981,False
+169,Würzburg Residence with the Court Gardens and Residence Square,9.93864,49.79347,Cultural,['DE'],1981,False
+170,Medina of Fez,-4.98149,34.05885,Cultural,['MA'],1981,False
+171,Fort and Shalamar Gardens in Lahore,74.34877,31.58776,Cultural,['PK'],1981,False
+173,Stone Town of Zanzibar,39.18917,-6.16306,Cultural,['TZ'],2000,False
+174,Historic Centre of Florence,11.25611,43.77306,Cultural,['IT'],1982,False
+175,Medici Villas and Gardens in Tuscany,11.11204,43.83881,Cultural,['IT'],2013,False
+179,Tassili n'Ajjer,9.0,25.5,Mixed,['DZ'],1982,False
+180,"National History Park – Citadel, Sans Souci, Ramiers",-72.23427,19.57303,Cultural,['HT'],1982,False
+181,Tasmanian Wilderness,146.23056,-43.11847,Mixed,['AU'],1982,False
+183,Archaeological Site of Leptis Magna,14.29306,32.63833,Cultural,['LY'],1982,True
+184,Archaeological Site of Sabratha,12.485,32.80528,Cultural,['LY'],1982,True
+185,Aldabra Atoll,46.41667,-9.41667,Natural,['SC'],1982,False
+186,Lord Howe Island Group,159.08833,-31.56556,Natural,['AU'],1982,False
+187,St Mary's Cathedral and St Michael's Church at Hildesheim,9.94556,52.15083,Cultural,['DE'],1985,False
+188,M'Zab Valley,3.69809,32.48158,Cultural,['DZ'],1982,False
+189,Historic Centre of the Town of Olinda,-34.845,-8.01333,Cultural,['BR'],1982,False
+190,Archaeological Site of Cyrene,21.85833,32.825,Cultural,['LY'],1982,True
+191,Djémila,5.73667,36.32056,Cultural,['DZ'],1982,False
+192,Old Walled City of Shibam,48.62667,15.92694,Cultural,['YE'],1982,True
+193,Tipasa,2.48372,36.58722,Cultural,['DZ'],1982,False
+194,Timgad,6.46886,35.48417,Cultural,['DZ'],1982,False
+195,Taï National Park,-7.09528,5.64889,Natural,['CI'],1982,False
+196,Río Plátano Biosphere Reserve,-84.675,15.74444,Natural,['HN'],1982,True
+198,Cahokia Mounds State Historic Site,-90.06139,38.65861,Cultural,['US'],1982,False
+199,Selous Game Reserve,37.4,-9.0,Natural,['TZ'],1982,True
+200,Sacred City of Anuradhapura,80.38333,8.33333,Cultural,['LK'],1982,False
+201,Ancient City of Polonnaruwa,81.00056,7.91583,Cultural,['LK'],1982,False
+202,Ancient City of Sigiriya,80.75,7.95,Cultural,['LK'],1982,False
+203,"From the Great Saltworks of Salins-les-Bains to the Royal Saltworks of Arc-et-Senans, the Production of Open-pan Salt",5.827,46.98536,Cultural,['FR'],1982,False
+204,Old Havana and its Fortification System,-82.35472,23.14104,Cultural,['CU'],1982,False
+205,Talamanca Range-La Amistad Reserves / La Amistad National Park,-82.937,9.369,Natural,"['PA', 'CR']",1983,False
+206,Central Zone of the Town of Angra do Heroismo in the Azores,-27.22,38.655,Cultural,['PT'],1983,False
+208,Cultural Landscape and Archaeological Remains of the Bamiyan Valley,67.46063,34.8238,Cultural,['AF'],2003,True
+211,Minaret and Archaeological Remains of Jam,64.51589,34.39642,Cultural,['AF'],2002,True
+216,Rila Monastery,23.30825,42.13482,Cultural,['BG'],1983,False
+217,Ancient City of Nessebar,27.73603,42.65911,Cultural,['BG'],1983,False
+219,Srebarna Nature Reserve,27.07806,44.11444,Natural,['BG'],1983,False
+225,Pirin National Park,23.43047,41.74272,Natural,['BG'],1983,False
+227,Comoé National Park,-3.758,9.077,Natural,['CI'],1983,False
+228,"Historic Centre of Avignon: Papal Palace, Episcopal Ensemble and Avignon Bridge",4.80611,43.95278,Cultural,['FR'],1995,False
+229,"Place Stanislas, Place de la Carrière and Place d'Alliance in Nancy",6.18333,48.69361,Cultural,['FR'],1983,False
+230,Abbey Church of Saint-Savin sur Gartempe,0.86611,46.56472,Cultural,['FR'],1983,False
+231,Red Fort Complex,77.24083,28.65556,Cultural,['IN'],2007,False
+232,"Humayun's Tomb, Delhi",77.25056,28.59333,Cultural,['IN'],1993,False
+233,"Qutb Minar and its Monuments, Delhi",77.18528,28.52583,Cultural,['IN'],1993,False
+234,Churches and Convents of Goa,73.91167,15.50222,Cultural,['IN'],1986,False
+239,Group of Monuments at Pattadakal,75.81363,15.94925,Cultural,['IN'],1987,False
+240,Khajuraho Group of Monuments,79.9305,24.84719,Cultural,['IN'],1986,False
+241,Group of Monuments at Hampi,76.47167,15.31444,Cultural,['IN'],1986,False
+242,Ajanta Caves,75.70025,20.55311,Cultural,['IN'],1983,False
+243,Ellora Caves,75.17917,20.02639,Cultural,['IN'],1983,False
+244,Elephanta Caves,72.93583,18.96667,Cultural,['IN'],1987,False
+246,"Sun Temple, Konârak",86.09472,19.8875,Cultural,['IN'],1984,False
+247,Hill Forts of Rajasthan,74.60551,25.76269,Cultural,['IN'],2013,False
+249,Group of Monuments at Mahabalipuram,80.19378,12.62138,Cultural,['IN'],1984,False
+250,Great Living Chola Temples,79.31256,10.97952,Cultural,['IN'],1987,False
+251,Agra Fort,78.02153,27.17981,Cultural,['IN'],1983,False
+252,Taj Mahal,78.04222,27.17417,Cultural,['IN'],1983,False
+255,Fatehpur Sikri,77.6665,27.09753,Cultural,['IN'],1986,False
+256,Wood Buffalo National Park,-112.29333,59.35833,Natural,['CA'],1983,False
+258,"Gulf of Porto: Calanche of Piana, Gulf of Girolata, Scandola Reserve",8.62883,42.32519,Natural,['FR'],1983,False
+259,Great Smoky Mountains National Park,-83.43556,35.59306,Natural,['US'],1983,False
+260,Sangay National Park,-78.33333,-1.83333,Natural,['EC'],1983,False
+261,Vallée de Mai Nature Reserve,55.738,-4.331,Natural,['SC'],1983,False
+262,Sanganeb Marine National Park and Dungonab Bay – Mukkawar Island Marine National Park,37.34917,20.33667,Natural,['SD'],2016,False
+263,Monastery of the Hieronymites and Tower of Belém in Lisbon,-9.21132,38.69469,Cultural,['PT'],1983,False
+264,Monastery of Batalha,-8.82694,39.65778,Cultural,['PT'],1983,False
+265,Convent of Christ in Tomar,-8.4175,39.60472,Cultural,['PT'],1983,False
+266,La Fortaleza and San Juan National Historic Site in Puerto Rico,-66.12424,18.46488,Cultural,['US'],1983,False
+267,Old City of Berne,7.45028,46.94806,Cultural,['CH'],1983,False
+268,Abbey of St Gall,9.37778,47.42333,Cultural,['CH'],1983,False
+269,Benedictine Convent of St John at Müstair,10.44765,46.62945,Cultural,['CH'],1983,False
+271,Pilgrimage Church of Wies,10.90002,47.68065,Cultural,['DE'],1983,False
+272,Hanseatic City of Lübeck,10.68648,53.86565,Cultural,['DE'],1987,False
+273,City of Cuzco,-71.9827,-13.52385,Cultural,['PE'],1983,False
+274,Historic Sanctuary of Machu Picchu,-72.53344,-13.18493,Mixed,['PE'],1983,False
+275,"Jesuit Missions of the Guaranis: San Ignacio Mini, Santa Ana, Nuestra Señora de Loreto and Santa Maria Mayor (Argentina), Ruins of Sao Miguel das Missoes (Brazil)",-55.30605,-27.68302,Cultural,"['BR', 'AR']",1983,False
+276,Samarra Archaeological City,43.83805,34.23321,Cultural,['IQ'],2007,True
+277,Hatra,42.71833,35.58806,Cultural,['IQ'],1985,True
+278,Babylon,44.42083,32.54197,Cultural,['IQ'],2019,False
+280,Salonga National Park,21.2804,-1.94819,Natural,['CD'],1984,False
+284,Chitwan National Park,84.33333,27.5,Natural,['NP'],1984,False
+285,"Port, Fortresses and Group of Monuments, Cartagena",-75.53333,10.41667,Cultural,['CO'],1984,False
+286,Vatican City,12.45736,41.90216,Cultural,['VA'],1984,False
+287,Rock-Art Sites of Tadrart Acacus,10.33333,24.83333,Cultural,['LY'],1985,True
+288,Castles of Augustusburg and Falkenlust at Brühl,6.90978,50.82503,Cultural,['DE'],1984,False
+289,Lake Malawi National Park,34.88333,-14.03333,Natural,['MW'],1984,False
+292,Cologne Cathedral,6.95722,50.94111,Cultural,['DE'],1996,False
+293,Anjar,35.93333,33.73194,Cultural,['LB'],1984,False
+294,Baalbek,36.20417,34.00259,Cultural,['LB'],1984,False
+295,Byblos,35.64556,34.11917,Cultural,['LB'],1984,False
+299,Tyre,35.19583,33.26917,Cultural,['LB'],1984,True
+300,Historic District of Old Québec,-71.21056,46.80944,Cultural,['CA'],1985,False
+302,"Mana Pools National Park, Sapi and Chewore Safari Areas",29.40806,-15.81944,Natural,['ZW'],1984,False
+303,Iguazu National Park,-54.28607,-25.57736,Natural,['AR'],1984,False
+304,Canadian Rocky Mountain Parks,-116.47972,51.42472,Natural,['CA'],1984,False
+306,Matobo Hills,28.5,-20.5,Cultural,['ZW'],2003,False
+307,Statue of Liberty,-74.04472,40.68944,Cultural,['US'],1984,False
+308,Yosemite National Park,-119.59667,37.74611,Natural,['US'],1984,False
+309,Historic Centre of Salvador de Bahia,-38.51298,-12.97292,Cultural,['BR'],1985,False
+310,Cave of Altamira and Paleolithic Cave Art of Northern Spain,-3.98572,43.33164,Cultural,['ES'],1985,False
+311,Old Town of Segovia and its Aqueduct,-4.11675,40.94847,Cultural,['ES'],1985,False
+312,Monuments of Oviedo and the Kingdom of the Asturias,-5.84575,43.33036,Cultural,['ES'],1985,False
+313,Historic Centre of Cordoba,-4.77972,37.87919,Cultural,['ES'],1984,False
+314,"Alhambra, Generalife and Albayzín, Granada",-3.58992,37.17678,Cultural,['ES'],1984,False
+316,Burgos Cathedral,-3.70401,42.34073,Cultural,['ES'],1984,False
+318,"Monastery and Site of the Escurial, Madrid",-4.15289,40.58721,Cultural,['ES'],1984,False
+320,Works of Antoni Gaudí,2.144,41.39313,Cultural,['ES'],1984,False
+321,Historic Mosque City of Bagerhat,89.8,22.66667,Cultural,['BD'],1985,False
+322,Ruins of the Buddhist Vihara at Paharpur,88.98333,25.03333,Cultural,['BD'],1985,False
+323,Royal Palaces of Abomey,1.99264,7.19097,Cultural,['BJ'],1985,False
+326,Petra,35.44333,30.33056,Cultural,['JO'],1985,False
+327,Quseir Amra,36.58731,31.80181,Cultural,['JO'],1985,False
+330,Chavin (Archaeological Site),-77.17845,-9.59277,Cultural,['PE'],1985,False
+331,Medina of Marrakesh,-8.00444,31.62264,Cultural,['MA'],1985,False
+332,Punic Town of Kerkuane and its Necropolis,11.09265,36.95126,Cultural,['TN'],1985,False
+333,Huascarán National Park,-77.4,-9.33333,Natural,['PE'],1985,False
+334,Sanctuary of Bom Jesus do Congonhas,-43.86081,-20.5082,Cultural,['BR'],1985,False
+335,Nanda Devi and Valley of Flowers National Parks,79.74153,30.57597,Natural,['IN'],1988,False
+337,Kaziranga National Park,93.41667,26.66667,Natural,['IN'],1985,False
+338,Manas Wildlife Sanctuary,91.03056,26.725,Natural,['IN'],1985,False
+340,Keoladeo National Park,77.50861,27.15889,Natural,['IN'],1985,False
+344,Pont du Gard (Roman Aqueduct),4.53528,43.94722,Cultural,['FR'],1985,False
+345,Historic Fortified City of Carcassonne,2.36366,43.20706,Cultural,['FR'],1997,False
+347,Santiago de Compostela (Old Town),-8.55004,42.87092,Cultural,['ES'],1985,False
+348,Old Town of Ávila with its Extra-Muros Churches,-4.69814,40.6571,Cultural,['ES'],1985,False
+351,Painted Churches in the Troodos Region,32.93611,34.97288,Cultural,['CY'],1985,False
+352,Rock Art of Alta,23.26704,69.97464,Cultural,['NO'],1985,False
+353,Chaco Culture,-107.95643,36.05424,Cultural,['US'],1987,False
+354,Waterton Glacier International Peace Park,-113.84821,48.91972,Natural,"['CA', 'US']",1995,False
+355,Iguaçu National Park,-53.80014,-25.44815,Natural,['BR'],1986,False
+356,Historic Areas of Istanbul,28.9566,41.01736,Cultural,['TR'],1985,False
+357,Göreme National Park and the Rock Sites of Cappadocia,34.89887,38.52506,Mixed,['TR'],1985,False
+358,Great Mosque and Hospital of Divriği,38.12183,39.37127,Cultural,['TR'],1985,False
+359,Thracian Tomb of Sveshtari,26.76653,43.74492,Cultural,['BG'],1985,False
+361,Historic Centre of Évora,-7.90778,38.57306,Cultural,['PT'],1986,False
+362,Old Town of Ghadamès,9.5,30.13333,Cultural,['LY'],1986,False
+364,Great Zimbabwe National Monument,30.93327,-20.27117,Cultural,['ZW'],1986,False
+365,Khami Ruins National Monument,28.37667,-20.15833,Cultural,['ZW'],1986,False
+366,Chan Chan Archaeological Zone,-79.07474,-8.10784,Cultural,['PE'],1986,True
+367,"Roman Monuments, Cathedral of St Peter and Church of Our Lady in Trier",6.63009,49.74822,Cultural,['DE'],1986,False
+368,Gondwana Rainforests of Australia,152.43948,-28.92548,Natural,['AU'],1986,False
+369,Giant's Causeway and Causeway Coast,-6.51167,55.24083,Natural,['GB'],1986,False
+370,Durham Castle and Cathedral,-1.57611,54.77472,Cultural,['GB'],1986,False
+371,Ironbridge Gorge,-2.47278,52.62639,Cultural,['GB'],1986,False
+372,Studley Royal Park including the Ruins of Fountains Abbey,-1.58069,54.1125,Cultural,['GB'],1986,False
+373,"Stonehenge, Avebury and Associated Sites",-1.83968,51.30376,Cultural,['GB'],1986,False
+374,Castles and Town Walls of King Edward in Gwynedd,-4.07535,53.13603,Cultural,['GB'],1986,False
+377,Hattusha: the Hittite Capital,34.6307,40.01638,Cultural,['TR'],1986,False
+378,Mudejar Architecture of Aragon,-1.18706,41.04653,Cultural,['ES'],1986,False
+379,Historic City of Toledo,-4.02444,39.85694,Cultural,['ES'],1986,False
+380,Garajonay National Park,-17.23722,28.12625,Natural,['ES'],1986,False
+381,Old City of Salamanca,-5.66358,40.96588,Cultural,['ES'],1988,False
+383,"Cathedral, Alcázar and Archivo de Indias in Seville",-5.99244,37.38471,Cultural,['ES'],1987,False
+384,Old Town of Cáceres,-6.37,39.47444,Cultural,['ES'],1986,False
+385,Old City of Sana'a,44.20806,15.35556,Cultural,['YE'],1986,True
+387,St Kilda,-8.57667,57.81722,Mixed,['GB'],1986,False
+389,Studenica Monastery,20.53167,43.48653,Cultural,['RS'],1986,False
+390,Škocjan Caves,14.0,45.66667,Natural,['SI'],1986,False
+392,Temple of Apollo Epicurius at Bassae,21.89694,37.43498,Cultural,['GR'],1986,False
+393,Archaeological Site of Delphi,22.49617,38.48149,Cultural,['GR'],1987,False
+394,Venice and its Lagoon,12.33894,45.43431,Cultural,['IT'],1987,False
+395,"Piazza del Duomo, Pisa",10.39639,43.72306,Cultural,['IT'],1987,False
+398,Castel del Monte,16.27094,41.08481,Cultural,['IT'],1996,False
+400,"Budapest, including the Banks of the Danube, the Buda Castle Quarter and Andrássy Avenue",19.05234,47.50068,Cultural,['HU'],1987,False
+401,Old Village of Hollókő and its Surroundings,19.52917,47.99444,Cultural,['HU'],1987,False
+402,Manú National Park,-71.75,-12.25,Natural,['PE'],1987,False
+403,Kilimanjaro National Park,37.36667,-3.06667,Natural,['TZ'],1987,False
+404,"Acropolis, Athens",23.72618,37.97087,Cultural,['GR'],1987,False
+405,Sinharaja Forest Reserve,80.5,6.41667,Natural,['LK'],1988,False
+407,Dja Faunal Reserve,12.995,3.125,Natural,['CM'],1987,False
+409,Hawaii Volcanoes National Park,-155.375,19.41667,Natural,['US'],1987,False
+410,Sian Ka'an,-87.79167,19.38333,Natural,['MX'],1987,False
+411,Pre-Hispanic City and National Park of Palenque,-92.05,17.48333,Cultural,['MX'],1987,False
+412,Historic Centre of Mexico City and Xochimilco,-99.07062,19.29427,Cultural,['MX'],1987,False
+414,Pre-Hispanic City of Teotihuacan,-98.84167,19.69167,Cultural,['MX'],1987,False
+415,Historic Centre of Oaxaca and Archaeological Site of Monte Albán,-96.7449,17.05413,Cultural,['MX'],1987,False
+416,Historic Centre of Puebla,-98.19777,19.04597,Cultural,['MX'],1987,False
+417,"Ibiza, Biodiversity and Culture",1.41115,38.8685,Mixed,['ES'],1999,False
+419,Gros Morne National Park,-57.53139,49.6125,Natural,['CA'],1987,False
+420,City of Potosí,-65.74981,-19.59911,Cultural,['BO'],1987,True
+421,Tongariro National Park,175.6501,-39.14626,Mixed,['NZ'],1990,False
+422,The English Lake District,-3.08242,54.47661,Cultural,['GB'],2017,False
+425,Blenheim Palace,-1.36139,51.84194,Cultural,['GB'],1987,False
+426,Palace of Westminster and Westminster Abbey including Saint Margaret’s Church,-0.127,51.499,Cultural,['GB'],1987,False
+428,City of Bath,-2.35906,51.38131,Cultural,['GB'],1987,False
+429,New Lanark,-3.78306,55.66333,Cultural,['GB'],2001,False
+430,Frontiers of the Roman Empire,3.66168,52.18325,Cultural,"['GB', 'DE']",1987,False
+433,Bahla Fort,57.30111,22.96417,Cultural,['OM'],1987,False
+434,"Archaeological Sites of Bat, Al-Khutm and Al-Ayn",56.745,23.26986,Cultural,['OM'],1988,False
+437,Mount Taishan,117.1,36.26667,Mixed,['CN'],1987,False
+438,The Great Wall,111.34474,40.03923,Cultural,['CN'],1987,False
+439,Imperial Palaces of the Ming and Qing Dynasties in Beijing and Shenyang,119.92655,40.85714,Cultural,['CN'],1987,False
+440,Mogao Caves,94.81667,40.13333,Cultural,['CN'],1987,False
+441,Mausoleum of the First Qin Emperor,109.26356,34.38331,Cultural,['CN'],1987,False
+442,Monticello and the University of Virginia in Charlottesville,-78.46744,38.01789,Cultural,['US'],1987,False
+444,Ksar of Ait-Ben-Haddou,-7.12889,31.04722,Cultural,['MA'],1987,False
+445,Brasilia,-47.9,-15.78333,Cultural,['BR'],1987,False
+447,Uluru-Kata Tjuta National Park,131.0,-25.33333,Mixed,['AU'],1987,False
+448,Nemrut Dağ,38.74098,37.98079,Cultural,['TR'],1987,False
+449,Peking Man Site at Zhoukoudian,115.9227,39.68945,Cultural,['CN'],1987,False
+450,Sacred City of Kandy,80.64028,7.29361,Cultural,['LK'],1988,False
+451,Old Town of Galle and its Fortifications,80.21635,6.02805,Cultural,['LK'],1988,False
+452,Sundarbans National Park,88.89583,21.945,Natural,['IN'],1987,False
+454,Mount Athos,24.21667,40.26667,Mixed,['GR'],1988,False
+455,Meteora,21.63333,39.71667,Mixed,['GR'],1988,False
+456,Paleochristian and Byzantine Monuments of Thessalonika,22.96479,40.64588,Cultural,['GR'],1988,False
+460,Trinidad and the Valley de los Ingenios,-79.95284,21.81819,Cultural,['CU'],1988,False
+474,Hortobágy National Park - the Puszta,21.15678,47.59458,Cultural,['HU'],1999,False
+475,Manovo-Gounda St Floris National Park,21.5,9.0,Natural,['CF'],1988,True
+476,Chongoni Rock-Art Area,34.20707,-14.21852,Cultural,['MW'],2006,False
+479,Town of Luang Prabang,102.13333,19.88889,Cultural,['LA'],1995,False
+481,Vat Phou and Associated Ancient Settlements within the Champasak Cultural Landscape,105.82222,14.84833,Cultural,['LA'],2001,False
+482,Historic Town of Guanajuato and Adjacent Mines,-101.25556,21.01694,Cultural,['MX'],1988,False
+483,Pre-Hispanic City of Chichen-Itza,-88.56865,20.68274,Cultural,['MX'],1988,False
+484,Xanthos-Letoon,29.31043,36.34619,Cultural,['TR'],1988,False
+485,Hierapolis-Pamukkale,29.12333,37.92389,Mixed,['TR'],1988,False
+486,Wet Tropics of Queensland,145.86542,-17.61419,Natural,['AU'],1988,False
+487,Henderson Island,-128.33333,-24.36667,Natural,['GB'],1988,False
+488,Tower of London,-0.07611,51.50806,Cultural,['GB'],1988,False
+491,Sanctuary of Asklepios at Epidaurus,23.08056,37.6,Cultural,['GR'],1988,False
+492,Taos Pueblo,-105.546,36.438,Cultural,['US'],1992,False
+493,Medieval City of Rhodes,28.22778,36.44722,Cultural,['GR'],1988,False
+494,Andrefana Dry Forests,46.2916,-17.86546,Natural,['MG'],1990,False
+495,"Strasbourg, Grande-Île and Neustadt",7.74889,48.58444,Cultural,['FR'],1988,False
+496,"Canterbury Cathedral, St Augustine's Abbey, and St Martin's Church",1.0881,51.27902,Cultural,['GB'],1988,False
+498,Medina of Sousse,10.63861,35.82778,Cultural,['TN'],1988,False
+499,Kairouan,10.0958,35.68344,Cultural,['TN'],1988,False
+500,Historic Centre of Lima,-77.02488,-12.04423,Cultural,['PE'],1988,False
+502,Historic City of Vigan,120.3875,17.575,Cultural,['PH'],1999,False
+505,Monastery of Alcobaça,-8.97667,39.55,Cultural,['PT'],1989,False
+506,Banc d'Arguin National Park,-16.10889,20.23472,Natural,['MR'],1989,False
+509,Mosi-oa-Tunya / Victoria Falls,25.85539,-17.92453,Natural,"['ZM', 'ZW']",1989,False
+511,Archaeological Site of Mystras,22.36667,37.08056,Cultural,['GR'],1989,False
+514,Heart of Neolithic Orkney,-3.24215,59.01019,Cultural,['GB'],1999,False
+515,Abbey and Altenmünster of Lorsch,8.57229,49.65542,Cultural,['DE'],1991,False
+516,Cliff of Bandiagara (Land of the Dogons),-3.51113,14.41658,Mixed,['ML'],1989,False
+517,Archaeological Site of Olympia,21.634,37.64,Cultural,['GR'],1989,False
+518,Poblet Monastery,1.0825,41.38083,Cultural,['ES'],1991,False
+522,Renaissance Monumental Ensembles of Úbeda and Baeza,-3.4185,37.9995,Cultural,['ES'],2003,False
+524,Buddhist Monuments at Sanchi,77.73972,23.47944,Cultural,['IN'],1989,False
+526,Colonial City of Santo Domingo,-69.88584,18.47239,Cultural,['DO'],1990,False
+527,"Kyiv: Saint-Sophia Cathedral and Related Monastic Buildings, Kyiv-Pechersk Lavra",30.54254,50.44139,Cultural,['UA'],1990,True
+529,Jesuit Missions of the Chiquitos,-61.26702,-16.72055,Cultural,['BO'],1990,False
+530,Delos,25.26667,37.4,Cultural,['GR'],1990,False
+532,Palaces and Parks of Potsdam and Berlin,13.03333,52.4,Cultural,['DE'],1990,False
+534,Garden Kingdom of Dessau-Wörlitz,12.27402,51.82806,Cultural,['DE'],2000,False
+535,"Collegiate Church, Castle and Old Town of Quedlinburg",11.13653,51.78681,Cultural,['DE'],1994,False
+537,"Monasteries of Daphni, Hosios Loukas and Nea Moni of Chios",24.1511,38.26547,Cultural,['GR'],1990,False
+540,Historic Centre of Saint Petersburg and Related Groups of Monuments,30.01833,59.91055,Cultural,['RU'],1990,False
+541,Vilnius Historic Centre,25.29306,54.68667,Cultural,['LT'],1994,False
+543,Itchan Kala,60.36025,41.37809,Cultural,['UZ'],1990,False
+544,Kizhi Pogost,35.22436,62.06758,Cultural,['RU'],1990,False
+545,"Kremlin and Red Square, Moscow",37.62042,55.75403,Cultural,['RU'],1990,False
+546,Maulbronn Monastery Complex,8.80666,49.001,Cultural,['DE'],1993,False
+547,Mount Huangshan,118.15508,30.14533,Mixed,['CN'],1990,False
+548,Río Abiseo National Park,-77.25,-7.75,Mixed,['PE'],1990,False
+549,"18th-Century Royal Palace at Caserta with the Park, the Aqueduct of Vanvitelli, and the San Leucio Complex",14.32639,41.07333,Cultural,['IT'],1997,False
+550,Historic Centre of San Gimignano,11.04167,43.46806,Cultural,['IT'],1990,False
+551,Te Wahipounamu – South West New Zealand,167.31961,-45.03603,Natural,['NZ'],1990,False
+554,Whale Sanctuary of El Vizcaino,-113.66578,27.40597,Natural,['MX'],1993,False
+555,Birka and Hovgården,17.53631,59.34778,Cultural,['SE'],1993,False
+556,Engelsberg Ironworks,16.01,59.97,Cultural,['SE'],1993,False
+557,Rock Carvings in Tanum,11.34111,58.70111,Cultural,['SE'],1994,False
+558,Skogskyrkogården,18.09944,59.27556,Cultural,['SE'],1994,False
+559,Royal Domain of Drottningholm,17.88333,59.32306,Cultural,['SE'],1991,False
+560,"Archaeological Zone of Paquimé, Casas Grandes",-107.94812,30.36713,Cultural,['MX'],1998,False
+561,Rangiri Dambulla Cave Temple,80.64917,7.85667,Cultural,['LK'],1991,False
+564,Old City of Zamość,23.25278,50.71694,Cultural,['PL'],1992,False
+565,Kasbah of Algiers,3.06028,36.78333,Cultural,['DZ'],1992,False
+566,Historic City of Sucre,-65.25959,-19.04799,Cultural,['BO'],1991,False
+567,Tiwanaku: Spiritual and Political Centre of the Tiwanaku Culture,-68.67328,-16.555,Cultural,['BO'],2000,False
+569,Historic Centres of Berat and Gjirokastra,20.04389,40.38819,Cultural,['AL'],2005,False
+570,Butrint,20.02095,39.74573,Cultural,['AL'],1992,False
+573,Air and Ténéré Natural Reserves,9.662,19.07619,Natural,['NE'],1991,True
+574,Historic Town of Sukhothai and Associated Historic Towns,99.66788,16.98003,Cultural,['TH'],1991,False
+575,Ban Chiang Archaeological Site,103.23759,17.40777,Cultural,['TH'],1992,False
+576,Historic City of Ayutthaya,100.56056,14.34778,Cultural,['TH'],1991,False
+577,Heard and McDonald Islands,73.5,-53.1,Natural,['AU'],1997,False
+578,"Shark Bay, Western Australia",113.43611,-25.48611,Natural,['AU'],1991,False
+579,Bronze Age Burial Site of Sammallahdenmäki,21.7775,61.12056,Cultural,['FI'],1999,False
+582,Old Rauma,21.51167,61.12806,Cultural,['FI'],1991,False
+583,Fortress of Suomenlinna,24.98722,60.14722,Cultural,['FI'],1991,False
+584,Petäjävesi Old Church,25.18333,62.25,Cultural,['FI'],1994,False
+585,Historic Centre of Morelia,-101.19038,19.70093,Cultural,['MX'],1991,False
+586,Rohtas Fort,73.58889,32.9625,Cultural,['PK'],1997,False
+588,Danube Delta,29.5,45.08333,Natural,['RO'],1991,False
+590,Dong Phayayen-Khao Yai Forest Complex,102.2397,14.21347,Natural,['TH'],2005,False
+591,Thungyai-Huai Kha Khaeng Wildlife Sanctuaries,98.91667,15.33333,Natural,['TH'],1991,False
+592,Borobudur Temple Compounds,110.21786,-7.60624,Cultural,['ID'],1991,False
+593,Sangiran Early Man Site,110.81667,-7.4,Cultural,['ID'],1996,False
+595,Pythagoreion and Heraion of Samos,26.91639,37.68208,Cultural,['GR'],1992,False
+596,Villages with Fortified Churches in Transylvania,24.81889,46.04012,Cultural,['RO'],1993,False
+597,Hurezi Monastery,24.00722,45.16972,Cultural,['RO'],1993,False
+598,Churches of Moldavia,26.11153,47.6374,Cultural,['RO'],1993,False
+599,Island of Mozambique,40.73111,-15.04227,Cultural,['MZ'],1991,False
+600,"Paris, Banks of the Seine",2.32114,48.8655,Cultural,['FR'],1991,False
+601,"Cathedral of Notre-Dame, Former Abbey of Saint-Rémi and Palace of Tau, Reims",4.034,49.254,Cultural,['FR'],1991,False
+602,Historic Centre of Bukhara,64.42861,39.77472,Cultural,['UZ'],1993,False
+603,Samarkand – Crossroad of Cultures,66.98213,39.65278,Cultural,['UZ'],2001,False
+604,Historic Monuments of Novgorod and Surroundings,31.29242,58.51144,Cultural,['RU'],1992,False
+606,Serra da Capivara National Park,-42.65244,-8.71863,Cultural,['BR'],1991,False
+608,Ujung Kulon National Park,105.37044,-6.60554,Natural,['ID'],1991,False
+609,Komodo National Park,119.48944,-8.54333,Natural,['ID'],1991,False
+611,Historic Town of Zabid,43.31553,14.19533,Cultural,['YE'],1993,True
+613,Ruins of León Viejo,-86.61634,12.40047,Cultural,['NI'],2000,False
+614,City of Safranbolu,32.68255,41.25185,Cultural,['TR'],1994,False
+616,Historic Centre of Prague,14.48472,50.03958,Cultural,['CZ'],1992,False
+617,Historic Centre of Český Krumlov,14.31503,48.81069,Cultural,['CZ'],1992,False
+618,Historic Town of Banská Štiavnica and the Technical Monuments in its Vicinity,18.9,48.46111,Cultural,['SK'],1993,False
+620,"Levoča, Spišský Hrad and the Associated Cultural Monuments",20.67869,49.01253,Cultural,['SK'],1993,False
+621,Historic Centre of Telč,15.45397,49.18414,Cultural,['CZ'],1992,False
+622,Vlkolínec,19.27833,49.03917,Cultural,['SK'],1993,False
+623,"Mines of Rammelsberg, Historic Town of Goslar and Upper Harz Water Management System",10.38028,51.855,Cultural,['DE'],1992,False
+624,Town of Bamberg,10.88889,49.89167,Cultural,['DE'],1993,False
+625,Mir Castle Complex,26.47272,53.45108,Cultural,['BY'],2000,False
+629,Macquarie Island,158.89556,-54.59472,Natural,['AU'],1997,False
+630,K’gari,153.13333,-25.21667,Natural,['AU'],1992,False
+631,"El Tajin, Pre-Hispanic City",-97.37764,20.44609,Cultural,['MX'],1992,False
+632,Cultural and Historic Ensemble of the Solovetsky Islands,35.8425,65.03407,Cultural,['RU'],1992,False
+633,White Monuments of Vladimir and Suzdal,40.45551,56.28781,Cultural,['RU'],1992,False
+634,"Church of the Ascension, Kolomenskoye",37.67389,55.65556,Cultural,['RU'],1994,False
+635,Bourges Cathedral,2.39833,47.08222,Cultural,['FR'],1992,False
+637,Jiuzhaigou Valley Scenic and Historic Interest Area,103.91667,33.08333,Natural,['CN'],1992,False
+638,Huanglong Scenic and Historic Interest Area,103.82222,32.75417,Natural,['CN'],1992,False
+640,Wulingyuan Scenic and Historic Interest Area,110.5,29.33333,Natural,['CN'],1992,False
+642,Prambanan Temple Compounds,110.49167,-7.75222,Cultural,['ID'],1991,False
+648,Jesuit Missions of La Santísima Trinidad de Paraná and Jesús de Tavarangue,-55.72751,-27.09428,Cultural,['PY'],1993,False
+652,Puerto-Princesa Subterranean River National Park,118.91667,10.16667,Natural,['PH'],1999,False
+653,Tubbataha Reefs Natural Park,119.8675,8.95333,Natural,['PH'],1993,False
+657,Architectural Ensemble of the Trinity Sergius Lavra in Sergiev Posad,38.1312,56.31035,Cultural,['RU'],1993,False
+658,Coro and its Port,-69.62372,11.43422,Cultural,['VE'],1993,True
+659,Brú na Bóinne - Archaeological Ensemble of the Bend of the Boyne,-6.4755,53.69469,Cultural,['IE'],1993,False
+660,Buddhist Monuments in the Horyu-ji Area,135.74018,34.61864,Cultural,['JP'],1993,False
+661,Himeji-jo,134.7,34.83333,Cultural,['JP'],1993,False
+662,Yakushima,130.50861,30.315,Natural,['JP'],1993,False
+663,Shirakami-Sanchi,140.11556,40.4525,Natural,['JP'],1993,False
+664,Archaeological Ensemble of Mérida,-6.33055,38.92046,Cultural,['ES'],1993,False
+665,Royal Monastery of Santa María de Guadalupe,-5.3275,39.45285,Cultural,['ES'],1993,False
+666,"Lumbini, the Birthplace of the Lord Buddha",83.27611,27.46889,Cultural,['NP'],1997,False
+668,Angkor,103.93518,13.458,Cultural,['KH'],1992,False
+669,Routes of Santiago de Compostela: Camino Francés and Routes of Northern Spain,-4.98996,43.22313,Cultural,['ES'],1993,False
+670,The Sassi and the Park of the Rupestrian Churches of Matera,16.61028,40.66639,Cultural,['IT'],1993,False
+672,Ha Long Bay - Cat Ba Archipelago,107.16111,20.83278,Natural,['VN'],1994,False
+675,Joya de Cerén Archaeological Site,-89.36917,13.8275,Cultural,['SV'],1993,False
+676,Historic Centre of Zacatecas,-102.57353,22.77548,Cultural,['MX'],1993,False
+677,Baroque Churches of the Philippines,121.05328,15.16531,Cultural,['PH'],1993,False
+678,Complex of Hué Monuments,107.57658,16.43707,Cultural,['VN'],1993,False
+682,Bwindi Impenetrable National Park,29.692,-1.047,Natural,['UG'],1994,False
+684,Rwenzori Mountains National Park,29.92417,0.22361,Natural,['UG'],1994,False
+685,Doñana National Park,-6.35886,36.9477,Natural,['ES'],1994,False
+686,Miguasha National Park,-66.3503,48.10127,Natural,['CA'],1999,False
+687,Völklingen Ironworks,6.84422,49.24872,Cultural,['DE'],1994,False
+688,"Historic Monuments of Ancient Kyoto (Kyoto, Uji and Otsu Cities)",135.75517,35.00501,Cultural,['JP'],1994,False
+689,As-Salt - The Place of Tolerance and Urban Hospitality,35.72831,32.04261,Cultural,['JO'],2021,False
+690,Pilgrimage Church of St John of Nepomuk at Zelená Hora,15.94206,49.5802,Cultural,['CZ'],1994,False
+692,Forest Massif of Odzala-Kokoua,14.86028,1.33556,Natural,['CG'],2023,False
+695,Roskilde Cathedral,12.0799,55.64267,Cultural,['DK'],1995,False
+696,Kronborg Castle,12.62083,56.03889,Cultural,['DK'],2000,False
+697,"Jelling Mounds, Runic Stones and Church",9.42,55.75639,Cultural,['DK'],1994,False
+698,Australian Fossil Mammal Sites (Riversleigh / Naracoorte),140.49679,-34.47813,Natural,['AU'],1994,False
+699,City of Luxembourg: its Old Quarters and Fortifications,6.13333,49.61,Cultural,['LU'],1994,False
+700,Lines and Geoglyphs of Nasca and Palpa,-75.14861,-14.72583,Cultural,['PE'],1994,False
+701,Canaima National Park,-62.03788,5.33799,Natural,['VE'],1994,False
+702,Earliest 16th-Century Monasteries on the Slopes of Popocatepetl,-98.77362,18.96588,Cultural,['MX'],1994,False
+703,"Mountain Resort and its Outlying Temples, Chengde",117.93833,40.98694,Cultural,['CN'],1994,False
+704,Temple and Cemetery of Confucius and the Kong Family Mansion in Qufu,116.99456,35.61321,Cultural,['CN'],1994,False
+705,Ancient Building Complex in the Wudang Mountains,111.03808,32.44528,Cultural,['CN'],1994,False
+707,"Historic Ensemble of the Potala Palace, Lhasa",91.11511,29.65242,Cultural,['CN'],1994,False
+708,Historical Monuments of Mtskheta,44.72439,41.84263,Cultural,['GE'],1994,False
+709,Upper Svaneti,43.009,42.914,Cultural,['GE'],1996,False
+710,Gelati Monastery,42.76833,42.29472,Cultural,['GE'],1994,False
+711,Los Katíos National Park,-77.14627,7.80398,Natural,['CO'],1994,False
+712,City of Vicenza and the Palladian Villas of the Veneto,11.65107,45.53737,Cultural,['IT'],1994,False
+714,Rock Paintings of the Sierra de San Francisco,-113.02043,27.62696,Cultural,['MX'],1993,False
+715,Rapa Nui National Park,-109.36568,-27.0744,Cultural,['CL'],1995,False
+717,Historic Centre of Siena,11.33167,43.31861,Cultural,['IT'],1995,False
+718,Okapi Wildlife Reserve,28.5,2.0,Natural,['CD'],1996,True
+719,Virgin Komi Forests,58.71944,63.09296,Natural,['RU'],1995,False
+720,Messel Pit Fossil Site,8.757,49.918,Natural,['DE'],1995,False
+721,Carlsbad Caverns National Park,-104.5381,32.13747,Natural,['US'],1995,False
+722,Rice Terraces of the Philippine Cordilleras,121.05722,16.86572,Cultural,['PH'],1995,False
+723,Cultural Landscape of Sintra,-9.41667,38.78333,Cultural,['PT'],1995,False
+724,Medieval Monuments in Kosovo,20.60833,42.49167,Cultural,['RS'],2004,True
+725,Caves of Aggtelek Karst and Slovak Karst,20.50746,48.5853,Natural,"['HU', 'SK']",1995,False
+726,Historic Centre of Naples,14.20913,40.81658,Cultural,['IT'],1995,False
+728,Old and New Towns of Edinburgh,-3.21667,55.95,Cultural,['GB'],1995,False
+729,"Bauhaus and its Sites in Weimar, Dessau and Bernau",12.11031,51.66571,Cultural,['DE'],1996,False
+730,Crespi d'Adda,9.53833,45.59333,Cultural,['IT'],1995,False
+731,Hanseatic Town of Visby,18.29583,57.64167,Cultural,['SE'],1995,False
+732,Kutná Hora: Historical Town Centre with the Church of St Barbara and the Cathedral of Our Lady at Sedlec,15.27878,49.9549,Cultural,['CZ'],1995,False
+733,"Ferrara, City of the Renaissance, and its Po Delta",11.56428,44.86123,Cultural,['IT'],1995,False
+734,Historic Villages of Shirakawa-go and Gokayama,136.90743,36.33611,Cultural,['JP'],1995,False
+736,Seokguram Grotto and Bulguksa Temple,129.34903,35.7915,Cultural,['KR'],1995,False
+737,"Haeinsa Temple Janggyeong Panjeon, the Depositories for the Tripitaka Koreana Woodblocks",128.09871,35.80167,Cultural,['KR'],1995,False
+738,Jongmyo Shrine,126.99361,37.57472,Cultural,['KR'],1995,False
+739,Schokland and Surroundings,5.77167,52.63861,Cultural,['NL'],1995,False
+740,Gough and Inaccessible Islands,-11.30597,-38.81236,Natural,['GB'],1995,False
+741,Old Town Lunenburg,-64.30917,44.37611,Cultural,['CA'],1995,False
+742,Historic Centre of Santa Cruz de Mompox,-74.42308,9.24049,Cultural,['CO'],1995,False
+743,National Archeological Park of Tierradentro,-76.03927,2.57509,Cultural,['CO'],1995,False
+744,San Agustín Archaeological Park,-76.24989,1.93703,Cultural,['CO'],1995,False
+747,Historic Quarter of the City of Colonia del Sacramento,-57.8499,-34.47119,Cultural,['UY'],1995,False
+749,W-Arly-Pendjari Complex,2.3627,12.03372,Natural,"['BJ', 'NE', 'BF']",1996,False
+750,"Ancient Ksour of Ouadane, Chinguetti, Tichitt and Oualata",-10.12319,19.27792,Cultural,['MR'],1996,False
+751,Verla Groundwood and Board Mill,26.64083,61.06194,Cultural,['FI'],1996,False
+753,Medina of Essaouira (formerly Mogador),-9.77849,31.5049,Cultural,['MA'],2001,False
+754,Lake Baikal,107.6625,53.17361,Natural,['RU'],1996,False
+755,"Historic Centre of Oporto, Luiz I Bridge and Monastery of Serra do Pilar",-8.61667,41.14167,Cultural,['PT'],1996,False
+757,Sceilg Mhichíl,-10.53861,51.77194,Cultural,['IE'],1996,False
+758,Millenary Benedictine Abbey of Pannonhalma and its Natural Environment,17.78444,47.55889,Cultural,['HU'],1996,False
+759,Dutch Water Defence Lines,5.13158,52.15061,Cultural,['NL'],1996,False
+761,Kunta Kinteh Island and Related Sites,-16.43067,13.37055,Cultural,['GM'],2003,False
+762,"Church Town of Gammelstad, Luleå",22.02861,65.64611,Cultural,['SE'],1996,False
+763,Lednice-Valtice Cultural Landscape,16.80339,48.79994,Cultural,['CZ'],1996,False
+764,Belize Barrier Reef Reserve System,-87.90723,16.95689,Natural,['BZ'],1996,False
+765,Volcanoes of Kamchatka,159.00833,53.98889,Natural,['RU'],1996,False
+766,Central Sikhote-Alin,136.52796,45.71506,Natural,['RU'],2001,False
+768,Golden Mountains of Altai,87.07037,50.17685,Natural,['RU'],1998,False
+769,Uvs Nuur Basin,93.47059,50.31268,Natural,"['MN', 'RU']",2003,False
+770,Canal du Midi,1.416,43.61,Cultural,['FR'],1996,False
+772,Fertö / Neusiedlersee Cultural Landscape,16.72272,47.71928,Cultural,"['AT', 'HU']",2001,False
+773,Pyrénées - Mont Perdu,-0.0005,42.68542,Mixed,"['ES', 'FR']",1997,False
+774,Laponian Area,17.58333,67.33333,Mixed,['SE'],1996,False
+775,Hiroshima Peace Memorial (Genbaku Dome),132.45361,34.39556,Cultural,['JP'],1996,False
+776,Itsukushima Shinto Shrine,132.32464,34.29442,Cultural,['JP'],1996,False
+777,Monasteries of Haghpat and Sanahin,44.67898,41.09344,Cultural,['AM'],1996,False
+778,Lushan National Park,115.86667,29.43333,Cultural,['CN'],1996,False
+779,"Mount Emei Scenic Area, including Leshan Giant Buddha Scenic Area",103.56095,29.54541,Mixed,['CN'],1996,False
+780,Archaeological Site of Aigai (modern name Vergina),22.31528,40.48875,Cultural,['GR'],1996,False
+781,Historic Walled Town of Cuenca,-2.13137,40.07794,Cultural,['ES'],1996,False
+782,La Lonja de la Seda de Valencia,-0.37844,39.47442,Cultural,['ES'],1996,False
+783,Luther Memorials in Eisleben and Wittenberg,12.2802,51.75284,Cultural,['DE'],1996,False
+784,Historic Centre of the City of Salzburg,13.04333,47.80056,Cultural,['AT'],1996,False
+785,Semmering Railway,15.82797,47.64878,Cultural,['AT'],1998,False
+786,Palace and Gardens of Schönbrunn,16.31333,48.18667,Cultural,['AT'],1996,False
+787,The Trulli of Alberobello,17.23794,40.78428,Cultural,['IT'],1996,False
+788,Early Christian Monuments of Ravenna,12.20465,44.4142,Cultural,['IT'],1996,False
+789,Historic Centre of the City of Pienza,11.67861,43.07694,Cultural,['IT'],1996,False
+791,Pre-Hispanic Town of Uxmal,-89.66202,20.24007,Cultural,['MX'],1996,False
+792,Historic Monuments Zone of Querétaro,-100.39213,20.59329,Cultural,['MX'],1996,False
+793,Historic City of Meknes,-5.55833,33.88333,Cultural,['MA'],1996,False
+794,Dougga / Thugga,9.22028,36.42361,Cultural,['TN'],1997,False
+795,Maritime Greenwich,-0.00378,51.48117,Cultural,['GB'],1997,False
+797,City of Verona,10.99389,45.43861,Cultural,['IT'],2000,False
+798,The Sundarbans,89.47228,21.83912,Natural,['BD'],1997,False
+800,Mount Kenya National Park/Natural Forest,37.38986,0.03361,Natural,['KE'],1997,False
+801,Lake Turkana National Parks,36.33157,3.37472,Natural,['KE'],1997,True
+803,Las Médulas,-6.78961,42.44368,Cultural,['ES'],1997,False
+804,"Palau de la Música Catalana and Hospital de Sant Pau, Barcelona",2.17468,41.40022,Cultural,['ES'],1997,False
+805,San Millán Yuso and Suso Monasteries,-2.86885,42.32761,Cultural,['ES'],1997,False
+806,Hallstatt-Dachstein / Salzkammergut Cultural Landscape,13.64639,47.55944,Cultural,['AT'],1997,False
+809,Episcopal Complex of the Euphrasian Basilica in the Historic Centre of Poreč,13.59333,45.22858,Cultural,['HR'],1997,False
+810,Historic City of Trogir,16.25136,43.51708,Cultural,['HR'],1997,False
+811,Old Town of Lijiang,100.22083,26.91111,Cultural,['CN'],1997,False
+812,Ancient City of Ping Yao,112.19657,37.22021,Cultural,['CN'],1997,False
+813,Classical Gardens of Suzhou,120.63242,31.29461,Cultural,['CN'],1997,False
+814,Morne Trois Pitons National Park,-61.30661,15.33111,Natural,['DM'],1997,False
+815,"Hospicio Cabañas, Guadalajara",-103.3378,20.67689,Cultural,['MX'],1997,False
+816,Changdeokgung Palace Complex,126.99111,37.57889,Cultural,['KR'],1997,False
+817,Hwaseong Fortress,127.00833,37.27222,Cultural,['KR'],1997,False
+818,Mill Network at Kinderdijk-Elshout,4.64944,51.8825,Cultural,['NL'],1997,False
+819,"Historic Area of Willemstad, Inner City and Harbour, Curaçao",-68.90222,12.10194,Cultural,['NL'],1997,False
+820,Cocos Island National Park,-87.06667,5.53333,Natural,['CR'],1997,False
+821,Historic Centre of São Luís,-44.30337,-2.53005,Cultural,['BR'],1997,False
+822,Historic Centre (Old Town) of Tallinn,24.74,59.437,Cultural,['EE'],1997,False
+823,Residences of the Royal House of Savoy,7.70839,45.02133,Cultural,['IT'],1997,False
+824,"Botanical Garden (Orto Botanico), Padua",11.88067,45.39911,Cultural,['IT'],1997,False
+825,Archaeological Area and the Patriarchal Basilica of Aquileia,13.3675,45.76833,Cultural,['IT'],1998,False
+826,"Portovenere, Cinque Terre, and the Islands (Palmaria, Tino and Tinetto)",9.81859,44.05033,Cultural,['IT'],1997,False
+827,"Cathedral, Torre Civica and Piazza Grande, Modena",10.92568,44.64624,Cultural,['IT'],1997,False
+828,Historic Centre of Urbino,12.63592,43.72614,Cultural,['IT'],1998,False
+829,"Archaeological Areas of Pompei, Herculaneum and Torre Annunziata",14.41603,40.77716,Cultural,['IT'],1997,False
+830,Costiera Amalfitana,14.60278,40.63333,Cultural,['IT'],1997,False
+831,Archaeological Area of Agrigento,13.59333,37.28972,Cultural,['IT'],1997,False
+832,Villa Romana del Casale,14.33417,37.36611,Cultural,['IT'],1997,False
+833,Su Nuraxi di Barumini,8.99139,39.70583,Cultural,['IT'],1997,False
+835,Medieval Town of Toruń,18.60417,53.01056,Cultural,['PL'],1997,False
+836,Archaeological Site of Volubilis,-5.55694,34.07389,Cultural,['MA'],1997,False
+837,Medina of Tétouan (formerly known as Titawin),-5.36667,35.57083,Cultural,['MA'],1997,False
+839,Alejandro de Humboldt National Park,-75.0,20.45,Natural,['CU'],2001,False
+840,Viñales Valley,-83.71667,22.61667,Cultural,['CU'],1999,False
+841,"San Pedro de la Roca Castle, Santiago de Cuba",-75.87044,19.96845,Cultural,['CU'],1997,False
+842,"Cilento and Vallo di Diano National Park with the Archeological Sites of Paestum and Velia, and the Certosa di Padula",15.28139,40.19935,Cultural,['IT'],1998,False
+846,Classical Weimar,11.32861,50.9775,Cultural,['DE'],1998,False
+847,Castle of the Teutonic Order in Malbork,19.02972,54.041,Cultural,['PL'],1997,False
+848,Choirokoitia,33.34394,34.79674,Cultural,['CY'],1998,False
+849,Archaeological Site of Troy,26.239,39.95644,Cultural,['TR'],1998,False
+850,Ouadi Qadisha (the Holy Valley) and the Forest of the Cedars of God (Horsh Arz el-Rab),36.0,34.24847,Cultural,['LB'],1998,False
+852,Historic Centre of Riga,24.11667,56.95417,Cultural,['LV'],1997,False
+853,Early Christian Necropolis of Pécs (Sopianae),18.22778,46.07444,Cultural,['HU'],2000,False
+854,East Rennell,160.33333,-11.68333,Natural,['SB'],1998,True
+855,Flemish Béguinages,4.40309,51.03923,Cultural,['BE'],1998,False
+856,"The Four Lifts on the Canal du Centre and their Environs, La Louvière and Le Roeulx (Hainaut)",4.13722,50.48111,Cultural,['BE'],1998,False
+857,"La Grand-Place, Brussels",4.35242,50.84668,Cultural,['BE'],1998,False
+859,Holy Trinity Column in Olomouc,17.25046,49.59394,Cultural,['CZ'],2000,False
+860,Gardens and Castle at Kroměříž,17.38669,49.30064,Cultural,['CZ'],1998,False
+861,Holašovice Historic Village,14.27261,48.96964,Cultural,['CZ'],1998,False
+862,Historic Monuments Zone of Tlacotalpan,-95.65868,18.61346,Cultural,['MX'],1998,False
+863,Historic Centre of Santa Ana de los Ríos de Cuenca,-79.00438,-2.89745,Cultural,['EC'],1999,False
+865,L'viv – the Ensemble of the Historic Centre,24.02319,49.84014,Cultural,['UA'],1998,True
+866,Prehistoric Rock Art Sites in the Côa Valley and Siega Verde,-7.07259,40.99693,Cultural,"['ES', 'PT']",1998,False
+867,Ir.D.F. Woudagemaal (D.F. Wouda Steam Pumping Station),5.67889,52.84583,Cultural,['NL'],1998,False
+870,Historic Monuments of Ancient Nara,135.8169,34.68099,Cultural,['JP'],1998,False
+871,Naval Port of Karlskrona,15.5924,56.15559,Cultural,['SE'],1998,False
+872,Historic Site of Lyon,4.83333,45.76722,Cultural,['FR'],1998,False
+873,"Provins, Town of Medieval Fairs",3.29889,48.55972,Cultural,['FR'],2001,False
+874,Rock Art of the Mediterranean Basin on the Iberian Peninsula,-0.69515,39.65809,Cultural,['ES'],1998,False
+875,Archaeological Ensemble of Tarraco,1.28544,41.12891,Cultural,['ES'],2000,False
+876,University and Historic Precinct of Alcalá de Henares,-3.36806,40.48139,Cultural,['ES'],1998,False
+877,New Zealand Sub-Antarctic Islands,171.93342,-49.73691,Natural,['NZ'],1998,False
+880,"Summer Palace, an Imperial Garden in Beijing",116.26803,39.99694,Cultural,['CN'],1998,False
+881,Temple of Heaven: an Imperial Sacrificial Altar in Beijing,116.40667,39.88217,Cultural,['CN'],1998,False
+883,Fuerte de Samaipata,-63.82048,-18.17832,Cultural,['BO'],1998,False
+884,"Three Castles, Defensive Wall and Ramparts of the Market-Town of Bellinzona",9.02496,46.19106,Cultural,['CH'],2000,False
+885,Historic Centre of Shakhrisyabz,66.83333,39.05,Cultural,['UZ'],2000,True
+886,State Historical and Cultural Park “Ancient Merv”,62.13278,37.79479,Cultural,['TM'],1999,False
+887,Kuk Early Agricultural Site,144.33172,-5.78371,Cultural,['PG'],2008,False
+889,Desembarco del Granma National Park,-77.63333,19.88333,Natural,['CU'],1999,False
+890,Historic Centre of the Town of Diamantina,-43.59768,-18.24478,Cultural,['BR'],1999,False
+892,Discovery Coast Atlantic Forest Reserves,-39.42169,-17.04358,Natural,['BR'],1999,False
+893,Atlantic Forest South-East Reserves,-48.24987,-24.93733,Natural,['BR'],1999,False
+895,Historic Fortified Town of Campeche,-90.53722,19.84639,Cultural,['MX'],1999,False
+896,"Museumsinsel (Museum Island), Berlin",13.39861,52.51972,Cultural,['DE'],1999,False
+897,Wartburg Castle,10.307,50.96678,Cultural,['DE'],1999,False
+898,High Coast / Kvarken Archipelago,20.25,63.08889,Natural,"['SE', 'FI']",2000,False
+899,Droogmakerij de Beemster (Beemster Polder),4.91111,52.54889,Cultural,['NL'],1999,False
+900,Western Caucasus,40.0,44.0,Natural,['RU'],1999,False
+901,Litomyšl Castle,16.31444,49.87361,Cultural,['CZ'],1999,False
+902,Historic Centre of Sighişoara,24.79222,46.21778,Cultural,['RO'],1999,False
+904,Wooden Churches of Maramureş,23.94174,47.67038,Cultural,['RO'],1999,False
+905,Kalwaria Zebrzydowska: the Mannerist Architectural and Park Landscape Complex and Pilgrimage Park,19.67636,49.86668,Cultural,['PL'],1999,False
+906,Dacian Fortresses of the Orastie Mountains,23.26468,45.64204,Cultural,['RO'],1999,False
+907,Villa Adriana (Tivoli),12.77197,41.94417,Cultural,['IT'],1999,False
+908,Isole Eolie (Aeolian Islands),14.94558,38.48786,Natural,['IT'],2000,False
+910,Brimstone Hill Fortress National Park,-62.83722,17.34694,Cultural,['KN'],1999,False
+911,Mount Wuyi,117.88417,27.64042,Mixed,['CN'],1999,False
+912,Dazu Rock Carvings,105.72,29.67333,Cultural,['CN'],1999,False
+913,Shrines and Temples of Nikko,139.61056,36.7475,Cultural,['JP'],1999,False
+914,iSimangaliso Wetland Park – Maputo National Park,32.71028,-27.13764,Natural,"['MZ', 'ZA']",1999,False
+915,Fossil Hominid Sites of South Africa,27.19963,-25.90241,Cultural,['ZA'],1999,False
+916,Robben Island,18.36667,-33.8,Cultural,['ZA'],1999,False
+917,Greater Blue Mountains Area,150.0,-33.7,Natural,['AU'],2000,False
+922,"Rani-ki-Vav (the Queen’s Stepwell) at Patan, Gujarat",72.10167,23.85889,Cultural,['IN'],2014,False
+925,Rock Shelters of Bhimbetka,77.62528,22.94208,Cultural,['IN'],2003,False
+927,Ancient Buddhist Site of Sarnath,83.02403,25.3775,Cultural,['IN'],2026,False
+928,Area de Conservación Guanacaste,-85.61667,10.85,Natural,['CR'],1999,False
+929,San Cristóbal de La Laguna,-16.31178,28.47789,Cultural,['ES'],1999,False
+930,Palmeral of Elche,-0.71667,38.26667,Cultural,['ES'],2000,False
+931,City of Graz – Historic Centre and Schloss Eggenberg,15.41514,47.07361,Cultural,['AT'],1999,False
+932,Jurisdiction of Saint-Emilion,-0.15528,44.89472,Cultural,['FR'],1999,False
+933,The Loire Valley between Sully-sur-Loire and Chalonnes,0.70278,47.39889,Cultural,['FR'],2000,False
+934,Laurisilva of Madeira,-17.0,32.76667,Natural,['PT'],1999,False
+936,"Cueva de las Manos, Río Pinturas",-70.66667,-47.15,Cultural,['AR'],1999,False
+937,Península Valdés,-64.0,-42.5,Natural,['AR'],1999,False
+938,Sukur Cultural Landscape,13.57194,10.74056,Cultural,['NG'],1999,False
+939,Archaeological Monuments Zone of Xochicalco,-99.29639,18.80397,Cultural,['MX'],1999,False
+940,Historic Inner City of Paramaribo,-55.15,5.82611,Cultural,['SR'],2002,True
+941,Archaeological Sites of Mycenae and Tiryns,22.775,37.66667,Cultural,['GR'],1999,False
+942,The Historic Centre (Chorá) with the Monastery of Saint-John the Theologian and the Cave of the Apocalypse on the Island of Pátmos,26.55,37.3,Cultural,['GR'],1999,False
+943,Belfries of Belgium and France,3.34828,50.73845,Cultural,"['FR', 'BE']",1999,False
+944,Mountain Railways of India,80.77639,23.01417,Cultural,['IN'],1999,False
+945,Chhatrapati Shivaji Terminus (formerly Victoria Terminus),72.8362,18.94012,Cultural,['IN'],2004,False
+946,Old Bridge Area of the Old City of Mostar,17.815,43.33731,Cultural,['BA'],2005,False
+948,Hoi An Ancient Town,108.33333,15.88333,Cultural,['VN'],1999,False
+949,My Son Sanctuary,108.10917,15.77384,Cultural,['VN'],1999,False
+950,Royal Hill of Ambohimanga,47.56278,-18.75917,Cultural,['MG'],2001,False
+951,Phong Nha-Ke Bang National Park and Hin Nam No National Park,106.01771,17.45639,Natural,"['VN', 'LA']",2003,False
+954,Saint Catherine Area,33.97543,28.55623,Cultural,['EG'],2002,False
+955,Lorentz National Park,137.83333,-4.75,Natural,['ID'],1999,False
+956,Island of Saint-Louis,-16.50444,16.02778,Cultural,['SN'],2000,False
+958,Walled City of Baku with the Shirvanshah's Palace and Maiden Tower,49.83333,40.36667,Cultural,['AZ'],2000,False
+959,Historic Quarter of the Seaport City of Valparaíso,-71.628,-33.04064,Cultural,['CL'],2003,False
+960,Monastery of Geghard and the Upper Azat Valley,44.81853,40.14044,Cultural,['AM'],2000,False
+963,The Cathedral of St James in Šibenik,15.88913,43.73569,Cultural,['HR'],2000,False
+965,Rietveld Schröderhuis (Rietveld Schröder House),5.14756,52.08533,Cultural,['NL'],2000,False
+966,Ischigualasto / Talampaya Natural Parks,-68.0,-30.0,Natural,['AR'],2000,False
+967,Noel Kempff Mercado National Park,-60.86667,-14.26667,Natural,['BO'],2000,False
+968,Agricultural Landscape of Southern Öland,16.48333,56.325,Cultural,['SE'],2000,False
+970,Wachau Cultural Landscape,15.43417,48.36444,Cultural,['AT'],2000,False
+971,Churches of Chiloé,-73.57838,-42.50248,Cultural,['CL'],2000,False
+972,Gusuku Sites and Related Properties of the Kingdom of Ryukyu,127.76504,26.30022,Cultural,['JP'],2000,False
+973,Bardejov Town Conservation Reserve,21.27556,49.29278,Cultural,['SK'],2000,False
+974,Monastic Island of Reichenau,9.06131,47.69872,Cultural,['DE'],2000,False
+975,Zollverein Coal Mine Industrial Complex in Essen,7.04611,51.49139,Cultural,['DE'],2001,False
+976,Gyeongju Historic Areas,129.1898,35.8426,Cultural,['KR'],2000,False
+977,"Gochang, Hwasun and Ganghwa Dolmen Sites",126.66789,36.06926,Cultural,['KR'],2000,False
+978,Old Town of Corfu,19.9275,39.62394,Cultural,['GR'],2007,False
+980,Historic and Architectural Complex of the Kazan Kremlin,49.10646,55.79945,Cultural,['RU'],2000,False
+981,Bolgar Historical and Archaeological Complex,49.05764,54.97278,Cultural,['RU'],2014,False
+982,Ensemble of the Ferapontov Monastery,38.56667,59.95,Cultural,['RU'],2000,False
+983,"Historic Town of St George and Related Fortifications, Bermuda",-64.67632,32.36902,Cultural,['GB'],2000,False
+984,Blaenavon Industrial Landscape,-3.08806,51.77639,Cultural,['GB'],2000,False
+985,Maloti-Drakensberg Park,29.33181,-29.6493,Mixed,"['LS', 'ZA']",2000,False
+986,Ciudad Universitaria de Caracas,-66.89068,10.49073,Cultural,['VE'],2000,False
+987,Roman Walls of Lugo,-7.55307,43.01064,Cultural,['ES'],2000,False
+988,Catalan Romanesque Churches of the Vall de Boí,0.81535,42.50331,Cultural,['ES'],2000,False
+989,Archaeological Site of Atapuerca,-3.51528,42.34972,Cultural,['ES'],2000,False
+990,"Assisi, the Basilica of San Francesco and Other Franciscan Sites",12.5975,43.06458,Cultural,['IT'],2000,False
+993,Historic Centre of the Town of Goiás,-50.14016,-15.93423,Cultural,['BR'],2001,False
+994,Curonian Spit,20.96239,55.27458,Cultural,"['LT', 'RU']",2000,False
+995,Jesuit Block and Estancias of Córdoba,-64.31895,-31.16701,Cultural,['AR'],2000,False
+996,Historic Centre of Brugge,3.22527,51.20891,Cultural,['BE'],2000,False
+998,Central Amazon Conservation Complex,-62.06837,-2.28817,Natural,['BR'],2000,False
+999,Pantanal Conservation Area,-57.359,-17.656,Natural,['BR'],2000,False
+1000,Brazilian Atlantic Islands: Fernando de Noronha and Atol das Rocas Reserves,-33.12239,-3.85919,Natural,['BR'],2001,False
+1001,Mount Qingcheng and the Dujiangyan Irrigation System,103.60528,31.00167,Cultural,['CN'],2000,False
+1002,Ancient Villages in Southern Anhui – Xidi and Hongcun,117.98579,29.95465,Cultural,['CN'],2000,False
+1003,Longmen Grottoes,112.46667,34.46667,Cultural,['CN'],2000,False
+1004,Imperial Tombs of the Ming and Qing Dynasties,118.95895,35.73505,Cultural,['CN'],2000,False
+1005,Major Town Houses of the Architect Victor Horta (Brussels),4.3659,50.83137,Cultural,['BE'],2000,False
+1006,Neolithic Flint Mines at Spiennes (Mons),3.98227,50.42011,Cultural,['BE'],2000,False
+1007,Cape Floral Region Protected Areas,18.47503,-34.35581,Natural,['ZA'],2004,False
+1008,Archaeological Landscape of the First Coffee Plantations in the South-East of Cuba,-75.49111,20.16098,Cultural,['CU'],2000,False
+1009,Notre-Dame Cathedral in Tournai,3.38926,50.60603,Cultural,['BE'],2000,False
+1010,Land of Frankincense,54.29632,17.41486,Cultural,['OM'],2000,False
+1011,Cathedral and Churches of Echmiatsin and the Archaeological Site of Zvartnots,44.30417,40.16102,Cultural,['AM'],2000,False
+1012,Kinabalu Park,116.642,6.147,Natural,['MY'],2000,False
+1013,Gunung Mulu National Park,114.91667,4.13333,Natural,['MY'],2000,False
+1014,The Archaeological Heritage of Niah National Park’s Caves Complex,113.78077,3.80429,Cultural,['MY'],2024,False
+1016,Historical Centre of the City of Arequipa,-71.53678,-16.39835,Cultural,['PE'],2000,False
+1017,Central Suriname Nature Reserve,-56.5,4.0,Natural,['SR'],2000,False
+1018,Ephesus,27.34938,37.93299,Cultural,['TR'],2015,False
+1021,Tsodilo,21.73333,-18.75,Cultural,['BW'],2001,False
+1022,Tombs of Buganda Kings at Kasubi,32.55421,0.32971,Cultural,['UG'],2001,False
+1023,Natural System of Wrangel Island Reserve,-179.71528,71.18889,Natural,['RU'],2004,False
+1024,Late Baroque Towns of the Val di Noto (South-Eastern Sicily),14.82032,37.06899,Cultural,['IT'],2002,False
+1025,"Villa d'Este, Tivoli",12.79625,41.96392,Cultural,['IT'],2001,False
+1026,Val d'Orcia,11.55,43.06667,Cultural,['IT'],2004,False
+1027,Mining Area of the Great Copper Mountain in Falun,15.63083,60.60472,Cultural,['SE'],2001,False
+1028,Saltaire,-1.78833,53.83917,Cultural,['GB'],2001,False
+1029,Dorset and East Devon Coast,-2.66948,50.65694,Natural,['GB'],2001,False
+1030,Derwent Valley Mills,-1.48806,53.02889,Cultural,['GB'],2001,False
+1031,Historic Centre of Guimarães and Couros Zone,-8.29278,41.443,Cultural,['PT'],2001,False
+1033,Historic Centre of Vienna,16.3699,48.2094,Cultural,['AT'],2001,False
+1035,Cerrado Protected Areas: Chapada dos Veadeiros and Emas National Parks,-50.159,-16.04089,Natural,['BR'],2001,False
+1037,Swiss Alps Jungfrau-Aletsch,8.03333,46.5,Natural,['CH'],2001,False
+1039,Yungang Grottoes,113.12222,40.10972,Cultural,['CN'],2001,False
+1040,Masada,35.35361,31.31556,Cultural,['IL'],2001,False
+1042,Old City of Acre,35.06889,32.92167,Cultural,['IL'],2001,False
+1044,Aranjuez Cultural Landscape,-3.60934,40.03645,Cultural,['ES'],2001,False
+1046,Alto Douro Wine Region,-7.79889,41.10167,Cultural,['PT'],2001,False
+1052,Tugendhat Villa in Brno,16.61606,49.20718,Cultural,['CZ'],2001,False
+1053,Wooden Churches of Southern Małopolska,21.16944,49.66111,Cultural,['PL'],2003,False
+1054,Churches of Peace in Jawor and Świdnica,16.34064,50.95026,Cultural,['PL'],2001,False
+1055,Lamu Old Town,40.8525,-2.28444,Cultural,['KE'],2001,False
+1056,Mahabodhi Temple Complex at Bodh Gaya,84.99389,24.69528,Cultural,['IN'],2002,False
+1058,Portuguese City of Mazagan (El Jadida),-8.50194,33.25667,Cultural,['MA'],2004,False
+1060,Kenya Lake System in the Great Rift Valley,36.13704,-0.18102,Natural,['KE'],2011,False
+1061,"Ancient Maya City and Protected Tropical Forests of Calakmul, Campeche",-89.73728,18.05303,Mixed,['MX'],2002,False
+1063,Tokaj Wine Region Historic Cultural Landscape,21.51694,48.29528,Cultural,['HU'],2002,False
+1066,Upper Middle Rhine Valley,7.69417,50.17361,Cultural,['DE'],2002,False
+1067,Historic Centres of Stralsund and Wismar,12.27597,54.09292,Cultural,['DE'],2002,False
+1068,Sacri Monti of Piedmont and Lombardy,8.37885,45.73449,Cultural,['IT'],2003,False
+1070,"Citadel, Ancient City and Fortress Buildings of Derbent",48.28278,42.05583,Cultural,['RU'],2003,False
+1073,Gebel Barkal and the Sites of the Napatan Region,31.81522,18.47262,Cultural,['SD'],2003,False
+1076,Gobustan Rock Art Cultural Landscape,49.38022,40.11924,Cultural,['AZ'],2007,False
+1077,Takht-e Soleyman,47.235,36.60389,Cultural,['IR'],2003,False
+1078,Jewish Quarter and St Procopius' Basilica in Třebíč,15.8768,49.21814,Cultural,['CZ'],2003,False
+1079,Franciscan Missions in the Sierra Gorda of Querétaro,-99.39054,21.28171,Cultural,['MX'],2003,False
+1081,Orkhon Valley Cultural Landscape,102.67848,47.47921,Cultural,['MN'],2004,False
+1083,Three Parallel Rivers of Yunnan Protected Areas,98.40639,27.895,Natural,['CN'],2003,False
+1084,"Royal Botanic Gardens, Kew",-0.29403,51.48194,Cultural,['GB'],2003,False
+1087,Town Hall and Roland on the Marketplace of Bremen,8.80747,53.07597,Cultural,['DE'],2004,False
+1090,Monte San Giorgio,8.923,45.902,Natural,"['IT', 'CH']",2003,False
+1091,Complex of Koguryo Tombs,125.53766,38.83505,Cultural,['KP'],2004,False
+1093,Um er-Rasas (Kastrom Mefa'a),35.91667,31.49167,Cultural,['JO'],2004,False
+1094,Purnululu National Park,128.5,-17.5,Natural,['AU'],2003,False
+1096,White City of Tel-Aviv – the Modern Movement,34.77417,32.07778,Cultural,['IL'],2003,False
+1097,Ensemble of the Novodevichy Convent,37.55508,55.72611,Cultural,['RU'],2004,False
+1099,Mapungubwe Cultural Landscape,29.23889,-22.1925,Cultural,['ZA'],2003,False
+1100,Rio de Janeiro: Carioca Landscapes between the Mountain and the Sea,-43.24437,-22.96208,Cultural,['BR'],2012,False
+1101,Champaner-Pavagadh Archaeological Park,73.50976,22.49538,Cultural,['IN'],2004,False
+1102,Saryarka – Steppe and Lakes of Northern Kazakhstan,65.02578,51.34589,Natural,['KZ'],2008,False
+1103,Mausoleum of Khoja Ahmed Yasawi,68.27106,43.29769,Cultural,['KZ'],2003,False
+1106,Pasargadae,53.16729,30.19383,Cultural,['IR'],2004,False
+1107,Incense Route - Desert Cities in the Negev,34.83972,30.89431,Cultural,['IL'],2005,False
+1108,"Biblical Tels - Megiddo, Hazor, Beer Sheba",35.19694,32.28204,Cultural,['IL'],2005,False
+1110,Historic Centre of Macao,113.54347,22.19472,Cultural,['CN'],2005,False
+1111,Cultural Landscape of Honghe Hani Rice Terraces,102.77998,23.09328,Cultural,['CN'],2013,False
+1112,Kaiping Diaolou and Villages,112.57115,22.31869,Cultural,['CN'],2007,False
+1113,Fujian Tulou,117.07669,24.67322,Cultural,['CN'],2008,False
+1114,Yin Xu,114.3172,36.13198,Cultural,['CN'],2006,False
+1115,Lagoons of New Caledonia: Reef Diversity and Associated Ecosystems,165.04792,-20.49588,Natural,['FR'],2008,False
+1116,Quebrada de Humahuaca,-65.34886,-23.19986,Cultural,['AR'],2003,False
+1117,Landscape of the Pico Island Vineyard Culture,-28.41587,38.51132,Cultural,['PT'],2004,False
+1118,Osun-Osogbo Sacred Grove,4.55222,7.75556,Cultural,['NG'],2005,False
+1121,Coffee Cultural Landscape of Colombia,-75.82462,4.97857,Cultural,['CO'],2011,False
+1127,Muskauer Park / Park Mużakowski,14.72939,51.54765,Cultural,"['PL', 'DE']",2004,False
+1130,Ashur (Qal'at Sherqat),43.26111,35.45667,Cultural,['IQ'],2003,True
+1131,Royal Exhibition Building and Carlton Gardens,144.97169,-37.80446,Cultural,['AU'],2004,False
+1133,Ancient and Primeval Beech Forests of the Carpathians and Other Regions of Europe,16.92604,46.06905,Natural,"['MK', 'ES', 'IT', 'FR', 'PL', 'AL', 'AT', 'BE', 'HR', 'RO', 'UA', 'BG', 'SI', 'SK', 'CH', 'BA', 'DE', 'CZ']",2007,False
+1134,"Grimeton Radio Station, Varberg",12.38333,57.1,Cultural,['SE'],2004,False
+1135,Capital Cities and Tombs of the Ancient Koguryo Kingdom,126.06473,41.21626,Cultural,['CN'],2004,False
+1136,Luis Barragán House and Studio,-99.19235,19.4112,Cultural,['MX'],2004,False
+1137,Kernavė Archaeological Site (Cultural Reserve of Kernavė),24.853,54.879,Cultural,['LT'],2004,False
+1138,Coiba National Park and its Special Zone of Marine Protection,-81.766,7.433,Natural,['PA'],2005,False
+1139,Tomb of Askia,-0.04456,16.2898,Cultural,['ML'],2004,True
+1140,"Koutammakou, the Land of the Batammariba",1.09612,10.22907,Cultural,"['TG', 'BJ']",2004,False
+1141,Proto-urban Site of Sarazm,67.45872,39.50789,Cultural,['TJ'],2010,False
+1142,Sacred Sites and Pilgrimage Routes in the Kii Mountain Range,135.77522,34.03577,Cultural,['JP'],2004,False
+1143,Vegaøyan – The Vega Archipelago,11.75,65.61667,Cultural,['NO'],2004,False
+1145,Petroglyphs of the Archaeological Landscape of Tanbaly,75.535,43.80333,Cultural,['KZ'],2004,False
+1147,Ecosystem and Relict Cultural Landscape of Lopé-Okanda,11.475,-0.58611,Mixed,['GA'],2007,False
+1149,Ilulissat Icefjord,-49.5,69.13333,Natural,['DK'],2004,False
+1152,Þingvellir National Park,-21.03725,64.25381,Cultural,['IS'],2004,False
+1153,"The Causses and the Cévennes, Mediterranean agro-pastoral Cultural Landscape",3.47306,44.22028,Cultural,['FR'],2011,False
+1155,Old town of Regensburg with Stadtamhof,12.09917,49.02056,Cultural,['DE'],2006,False
+1158,Etruscan Necropolises of Cerveteri and Tarquinia,11.93587,42.12864,Cultural,['IT'],2004,False
+1160,Madriu-Perafita-Claror Valley,1.59556,42.49472,Cultural,['AD'],2004,False
+1161,Pitons Management Area,-61.07036,13.80708,Natural,['LC'],2004,False
+1162,Vredefort Dome,27.26568,-27.115,Natural,['ZA'],2005,False
+1165,Centennial Hall in Wrocław,17.07701,51.10695,Cultural,['PL'],2006,False
+1167,Tropical Rainforest Heritage of Sumatra,100.93112,-1.12261,Natural,['ID'],2004,True
+1170,Historical Centre of the City of Yaroslavl,39.87611,57.65278,Cultural,['RU'],2005,False
+1174,Chiribiquete National Park – “The Maloca of the Jaguar”,-72.79722,0.52528,Mixed,['CO'],2018,False
+1178,Humberstone and Santa Laura Saltpeter Works,-69.79406,-20.20582,Cultural,['CL'],2005,False
+1179,Swiss Tectonic Arena Sardona,9.25,46.91667,Natural,['CH'],2008,False
+1181,"Le Havre, the City Rebuilt by Auguste Perret",0.1075,49.49278,Cultural,['FR'],2005,False
+1182,Islands and Protected Areas of the Gulf of California,-110.37778,25.47562,Natural,['MX'],2005,True
+1183,Kondoa Rock-Art Sites,35.83389,-4.72444,Cultural,['TZ'],2006,False
+1185,Plantin-Moretus House-Workshops-Museum Complex,4.39778,51.21833,Cultural,['BE'],2005,False
+1186,Wadi Al-Hitan (Whale Valley),30.18333,29.33333,Natural,['EG'],2005,False
+1187,Struve Geodetic Arc,25.37163,59.20517,Cultural,"['LV', 'NO', 'SE', 'BY', 'EE', 'FI', 'UA', 'LT', 'MD', 'RU']",2005,False
+1188,Soltaniyeh,48.79752,36.43599,Cultural,['IR'],2005,False
+1189,"Harar Jugol, the Fortified Historic Town",42.13778,9.30889,Cultural,['ET'],2006,False
+1192,Qal’at al-Bahrain – Ancient Harbour and Capital of Dilmun,50.51836,26.23899,Cultural,['BH'],2005,False
+1193,Shiretoko,144.96583,43.94944,Natural,['JP'],2005,False
+1194,Cultural Landscape of Bali Province: the Subak System as a Manifestation of the Tri Hita Karana Philosophy,115.26917,-8.36578,Cultural,['ID'],2012,False
+1195,West Norwegian Fjords – Geirangerfjord and Nærøyfjord,6.975,61.51667,Natural,['NO'],2005,False
+1196,"Architectural, Residential and Cultural Complex of the Radziwill Family at Nesvizh",26.69139,53.22278,Cultural,['BY'],2005,False
+1199,Kunya-Urgench,59.13841,42.31539,Cultural,['TM'],2005,False
+1200,Syracuse and the Rocky Necropolis of Pantalica,15.18213,37.09898,Cultural,['IT'],2005,False
+1201,Mount Mulanje Cultural Landscape,35.65806,-15.91167,Cultural,['MW'],2025,False
+1202,Urban Historic Centre of Cienfuegos,-80.45218,22.14589,Cultural,['CU'],2005,False
+1203,Central Highlands of Sri Lanka,80.69591,7.02544,Natural,['LK'],2010,False
+1207,Aflaj Irrigation Systems of Oman,57.91667,22.95667,Cultural,['OM'],2006,False
+1208,Bam and its Cultural Landscape,58.36667,29.11683,Cultural,['IR'],2004,False
+1209,Agave Landscape and Ancient Industrial Facilities of Tequila,-103.78605,20.77235,Cultural,['MX'],2006,False
+1211,Genoa: Le Strade Nuove and the system of the Palazzi dei Rolli,8.93,44.412,Cultural,['IT'],2006,False
+1213,"Sichuan Giant Panda Sanctuaries - Wolong, Mt Siguniang and Jiajin Mountains",103.0,30.83333,Natural,['CN'],2006,False
+1214,Sewell Mining Town,-70.38278,-34.08444,Cultural,['CL'],2006,False
+1215,Cornwall and West Devon Mining Landscape,-5.11418,50.25412,Cultural,['GB'],2006,False
+1216,Malpelo Fauna and Flora Sanctuary,-81.60757,4.00334,Natural,['CO'],2006,False
+1217,Vizcaya Bridge,-3.01683,43.32317,Cultural,['ES'],2006,False
+1220,Bahá’i Holy Places in Haifa and the Western Galilee,35.04607,32.89946,Cultural,['IL'],2008,False
+1221,Rideau Canal,-76.35282,44.35493,Cultural,['CA'],2007,False
+1222,Bisotun,47.43667,34.38833,Cultural,['IR'],2006,False
+1223,"Melaka and George Town, Historic Cities of the Straits of Malacca",101.30288,3.80572,Cultural,['MY'],2008,False
+1224,Temple of Preah Vihear,104.68032,14.39084,Cultural,['KH'],2008,False
+1225,Ruins of Loropéni,-3.58334,10.25002,Cultural,['BF'],2009,False
+1226,Stone Circles of Senegambia,-15.27349,13.74955,Cultural,"['GM', 'SN']",2006,False
+1227,Aapravasi Ghat,57.50317,-20.15864,Cultural,['MU'],2006,False
+1229,Crac des Chevaliers and Qal’at Salah El-Din,36.17569,35.17611,Cultural,['SY'],2006,True
+1230,Sulaiman-Too Sacred Mountain,72.78278,40.53111,Cultural,['KG'],2009,False
+1231,Sacred Mijikenda Kaya Forests,39.60884,-3.91817,Cultural,['KE'],2008,False
+1234,Putorana Plateau,94.15806,69.04694,Natural,['RU'],2010,False
+1236,León Cathedral,-86.87806,12.435,Cultural,['NI'],2011,False
+1237,The Dolomites,11.81815,46.40769,Natural,['IT'],2009,False
+1239,Berlin Modernism Housing Estates,13.38321,52.50341,Cultural,['DE'],2008,False
+1240,Stari Grad Plain,16.63861,43.18167,Cultural,['HR'],2008,False
+1242,Parthian Fortresses of Nisa,58.2048,37.95882,Cultural,['TM'],2007,False
+1243,"Lavaux, Vineyard Terraces",6.74611,46.49194,Cultural,['CH'],2007,False
+1245,San Marino Historic Centre and Mount Titano,12.45194,43.93278,Cultural,['SM'],2008,False
+1246,Iwami Ginzan Silver Mine and its Cultural Landscape,132.40615,35.10635,Cultural,['JP'],2007,False
+1248,South China Karst,107.51435,26.63873,Natural,['CN'],2007,False
+1250,Central University City Campus of the Universidad Nacional Autónoma de México (UNAM),-99.18806,19.33222,Cultural,['MX'],2007,False
+1252,Tajik National Park (Mountains of the Pamirs),72.30528,38.765,Natural,['TJ'],2013,False
+1253,"Gamzigrad-Romuliana, Palace of Galerius",22.18611,43.89931,Cultural,['RS'],2007,False
+1255,Twyfelfontein or /Ui-//aes,14.3751,-20.59477,Cultural,['NA'],2007,False
+1256,"Bordeaux, Port of the Moon",-0.57222,44.83889,Cultural,['FR'],2007,False
+1257,Rainforests of the Atsinanana,48.83949,-18.10032,Natural,['MG'],2007,False
+1258,Teide National Park,-16.64361,28.27139,Natural,['ES'],2007,False
+1259,Le Morne Cultural Landscape,57.32833,-20.45194,Cultural,['MU'],2008,False
+1260,Mehmed Paša Sokolović Bridge in Višegrad,19.28803,43.78144,Cultural,['BA'],2007,False
+1262,Armenian Monastic Ensembles of Iran,44.88549,39.07455,Cultural,['IR'],2008,False
+1263,Socotra Archipelago,53.29321,12.42687,Natural,['YE'],2008,False
+1264,Jeju Volcanic Island and Lava Tubes,126.74092,33.46701,Natural,['KR'],2007,False
+1265,Richtersveld Cultural and Botanical Landscape,17.20389,-28.6,Cultural,['ZA'],2007,False
+1267,Surtsey,-20.60222,63.30306,Natural,['IS'],2008,False
+1268,Historic Centre of Agadez,7.99139,16.97361,Cultural,['NE'],2013,False
+1269,Sacred City of Caral-Supe,-77.52139,-10.89167,Cultural,['PE'],2009,False
+1270,Historic Centre of Camagüey,-77.91861,21.37861,Cultural,['CU'],2008,False
+1272,São Francisco Square in the Town of São Cristóvão,-37.20537,-11.01366,Cultural,['BR'],2010,False
+1273,Wooden Churches of the Slovak part of the Carpathian Mountain Area,20.49932,49.08358,Cultural,['SK'],2008,False
+1274,Protective town of San Miguel and the Sanctuary of Jesús Nazareno de Atotonilco,-100.77025,20.95965,Cultural,['MX'],2008,False
+1276,Rhaetian Railway in the Albula / Bernina Landscapes,9.84639,46.49833,Cultural,"['IT', 'CH']",2008,False
+1277,"Hiraizumi – Temples, Gardens and Archaeological Sites Representing the Buddhist Pure Land",141.11006,38.99289,Cultural,['JP'],2011,False
+1278,Historic Monuments and Sites in Kaesong,126.53884,37.98205,Cultural,['KP'],2013,False
+1279,Mount Wutai,113.45639,38.95639,Cultural,['CN'],2009,False
+1280,Chief Roi Mata’s Domain,168.17772,-17.62807,Cultural,['VU'],2008,False
+1282,Decorated Farmhouses of Hälsingland,16.02377,61.5752,Cultural,['SE'],2012,False
+1283,Fortifications of Vauban,2.66381,46.57618,Cultural,['FR'],2008,False
+1285,Joggins Fossil Cliffs,-64.43583,45.70972,Natural,['CA'],2008,False
+1287,Mantua and Sabbioneta,10.64236,45.07889,Cultural,['IT'],2008,False
+1290,Monarch Butterfly Biosphere Reserve,-100.2137,19.65219,Natural,['MX'],2008,False
+1292,Mount Sanqingshan National Park,118.06444,28.91583,Natural,['CN'],2008,False
+1293,Hegra Archaeological Site (al-Hijr / Madā ͐ in Ṣāliḥ),37.955,26.78361,Cultural,['SA'],2008,False
+1295,"Fort Jesus, Mombasa",39.67944,-4.06278,Cultural,['KE'],2011,False
+1298,Stoclet House,4.41611,50.835,Cultural,['BE'],2009,False
+1299,Lena Pillars Nature Park,126.93917,61.00153,Natural,['RU'],2012,False
+1302,"La Chaux-de-Fonds / Le Locle, Watchmaking Town Planning",6.79125,47.08111,Cultural,['CH'],2009,False
+1303,Pontcysyllte Aqueduct and Canal,-3.08778,52.97028,Cultural,['GB'],2009,False
+1305,Historic Monuments of Dengfeng in “The Centre of Heaven and Earth”,113.02559,34.47623,Cultural,['CN'],2010,False
+1306,Australian Convict Sites,147.83303,-37.20411,Cultural,['AU'],2010,False
+1308,Paraty and Ilha Grande – Culture and Biodiversity,-44.53603,-23.17922,Mixed,['BR'],2019,False
+1310,"Cidade Velha, Historic Centre of Ribeira Grande",-23.60519,14.91514,Cultural,['CV'],2009,False
+1312,Tower of Hercules,-8.40639,43.38583,Cultural,['ES'],2009,False
+1313,Heritage of Mercury. Almadén and Idrija,6.13621,42.98689,Cultural,"['ES', 'SI']",2012,False
+1314,Wadden Sea,7.54302,53.91847,Natural,"['DK', 'NL', 'DE']",2009,False
+1315,Shushtar Historical Hydraulic System,48.83583,32.01861,Cultural,['IR'],2009,False
+1317,"Pitons, cirques and remparts of Reunion Island",55.48,-21.09944,Natural,['FR'],2010,False
+1318,Longobards in Italy. Places of the Power (568-774 A.D.),12.67929,43.68365,Cultural,['IT'],2011,False
+1319,Royal Tombs of the Joseon Dynasty,127.11283,37.57393,Cultural,['KR'],2009,False
+1321,"The Architectural Work of Le Corbusier, an Outstanding Contribution to the Modern Movement",13.31974,40.57952,Cultural,"['IN', 'JP', 'FR', 'BE', 'CH', 'AR', 'DE']",2016,False
+1322,Historic Town of Grand-Bassam,-3.73403,5.20042,Cultural,['CI'],2012,False
+1324,Historic Villages of Korea: Hahoe and Yangdong,128.95533,36.21872,Cultural,['KR'],2010,False
+1325,Phoenix Islands Protected Area,-172.6502,-3.86445,Natural,['KI'],2010,False
+1326,Papahānaumokuākea,-170.14582,25.34907,Mixed,['US'],2010,False
+1328,Central Sector of the Imperial Citadel of Thang Long - Hanoi,105.83862,21.03752,Cultural,['VN'],2010,False
+1329,At-Turaif District in ad-Dir'iyah,46.57247,24.73413,Cultural,['SA'],2010,False
+1330,Residence of Bukovinian and Dalmatian Metropolitans,25.92472,48.29667,Cultural,['UA'],2011,False
+1333,Konso Cultural Landscape,37.4,5.3,Cultural,['ET'],2011,False
+1334,West Lake Cultural Landscape of Hangzhou,120.14083,30.2375,Cultural,['CN'],2011,False
+1335,China Danxia,113.72682,27.43223,Natural,['CN'],2010,False
+1336,Archaeological Sites of the Island of Meroe,33.51979,16.63854,Cultural,['SD'],2011,False
+1337,Episcopal City of Albi,2.14417,43.92917,Cultural,['FR'],2010,False
+1338,"The Jantar Mantar, Jaipur",75.825,26.92472,Cultural,['IN'],2010,False
+1339,Bikini Atoll Nuclear Test Site,165.38056,11.6,Cultural,['MH'],2010,False
+1342,Western Ghats,76.23651,11.50596,Natural,['IN'],2012,False
+1343,"Cultural Sites of Al Ain (Hafit, Hili, Bidaa Bint Saud and Oases Areas)",55.76213,24.24275,Cultural,['AE'],2011,False
+1344,Major Mining Sites of Wallonia,4.53778,50.49264,Cultural,['BE'],2012,False
+1345,Sheikh Safi al-din Khānegāh and Shrine Ensemble in Ardabil,48.29139,38.24861,Cultural,['IR'],2010,False
+1346,Tabriz Historic Bazaar Complex,46.29731,38.07991,Cultural,['IR'],2010,False
+1348,Ancient Villages of Northern Syria,36.70066,36.1017,Cultural,['SY'],2011,True
+1349,Seventeenth-Century Canal Ring Area of Amsterdam inside the Singelgracht,4.88778,52.365,Cultural,['NL'],2010,False
+1351,Camino Real de Tierra Adentro,-102.45557,22.80506,Cultural,['MX'],2010,False
+1352,Prehistoric Caves of Yagul and Mitla in the Central Valley of Oaxaca,-96.42111,16.95083,Cultural,['MX'],2010,False
+1356,Blue and John Crow Mountains,-76.57111,18.0775,Mixed,['JM'],2015,False
+1358,Citadel of the Ho Dynasty,105.61481,20.07389,Cultural,['VN'],2011,False
+1359,Saloum Delta,-16.49861,13.83528,Cultural,['SN'],2011,False
+1360,Nord-Pas de Calais Mining Basin,2.94692,50.43836,Cultural,['FR'],2012,False
+1361,"Historic Jeddah, the Gate to Makkah",39.1875,21.48389,Cultural,['SA'],2014,False
+1362,Ogasawara Islands,142.02539,26.82022,Natural,['JP'],2011,False
+1363,Prehistoric Pile Dwellings around the Alps,8.64824,46.83895,Cultural,"['IT', 'FR', 'AT', 'SI', 'CH', 'DE']",2011,False
+1364,"Pearling, Testimony of an Island Economy",50.64688,26.32208,Cultural,['BH'],2012,False
+1366,Selimiye Mosque and its Social Complex,26.55944,41.67778,Cultural,['TR'],2011,False
+1367,Garrison Border Town of Elvas and its Fortifications,-7.16501,38.87813,Cultural,['PT'],2012,False
+1368,Fagus Factory in Alfeld,9.81222,51.98389,Cultural,['DE'],2011,False
+1369,Ningaloo Coast,113.81,-22.451,Natural,['AU'],2011,False
+1370,Caves of Maresha and Bet-Guvrin in the Judean Lowlands as a Microcosm of the Land of the Caves,34.9,31.60111,Cultural,['IL'],2014,False
+1371,Cultural Landscape of the Serra de Tramuntana,2.69472,39.73083,Cultural,['ES'],2011,False
+1372,The Persian Garden,54.18286,32.16073,Cultural,['IR'],2011,False
+1375,Santiniketan,87.68497,23.68028,Cultural,['IN'],2023,False
+1376,Historic Bridgetown and its Garrison,-59.61389,13.09667,Cultural,['BB'],2011,False
+1377,Wadi Rum Protected Area,35.43389,29.63972,Mixed,['JO'],2011,False
+1379,Margravial Opera House Bayreuth,11.5785,49.94439,Cultural,['DE'],2012,False
+1380,Sangha Trinational,16.26417,2.63111,Natural,"['CG', 'CM', 'CF']",2012,False
+1382,Petroglyphic Complexes of the Mongolian Altai,88.26684,49.05595,Cultural,['MN'],2011,False
+1386,Rock Islands Southern Lagoon,134.3525,7.24693,Mixed,['PW'],2012,False
+1387,University of Coimbra – Alta and Sofia,-8.42747,40.20967,Cultural,['PT'],2013,False
+1388,Chengjiang Fossil Site,102.97722,24.66889,Natural,['CN'],2012,False
+1389,Site of Xanadu,116.18513,42.358,Cultural,['CN'],2012,False
+1390,Vineyard Landscape of Piedmont: Langhe-Roero and Monferrato,8.16495,44.76106,Cultural,['IT'],2014,False
+1393,Sites of Human Evolution at Mount Carmel: The Nahal Me’arot / Wadi el-Mughara Caves,34.96806,32.66861,Cultural,['IL'],2012,False
+1396,Archaeological Heritage of the Lenggong Valley,100.97813,5.1181,Cultural,['MY'],2012,False
+1397,Masjed-e Jāmé of Isfahan,51.68528,32.66972,Cultural,['IR'],2012,False
+1398,Gonbad-e Qābus,55.169,37.25803,Cultural,['IR'],2012,False
+1399,Levuka Historical Port Town,178.83453,-17.68338,Cultural,['FJ'],2013,False
+1400,Lakes of Ounianga,20.50556,19.055,Natural,['TD'],2012,False
+1401,"Rabat, Modern Capital and Historic City: a Shared Heritage",-6.835,34.01806,Cultural,['MA'],2012,False
+1402,Al Zubarah Archaeological Site,51.02972,25.97806,Cultural,['QA'],2013,False
+1403,Mount Hamiguitan Range Wildlife Sanctuary,126.17343,6.71717,Natural,['PH'],2014,False
+1404,Landscape of Grand Pré,-64.30722,45.11833,Cultural,['CA'],2012,False
+1405,Neolithic Site of Çatalhöyük,32.82806,37.66667,Cultural,['TR'],2012,False
+1406,Great Himalayan National Park Conservation Area,77.58333,31.83333,Natural,['IN'],2014,False
+1407,"Bassari Country: Bassari, Fula and Bedik Cultural Landscapes",-12.53917,12.50769,Cultural,['SN'],2012,False
+1410,El Pinacate and Gran Desierto de Altar Biosphere Reserve,-113.91667,32.0,Natural,['MX'],2013,False
+1411,Ancient City of Tauric Chersonese and its Chora,33.46448,44.55861,Cultural,['UA'],2013,True
+1412,Red Bay Basque Whaling Station,-56.42952,51.72693,Cultural,['CA'],2013,False
+1413,Bergpark Wilhelmshöhe,9.39306,51.31583,Cultural,['DE'],2013,False
+1414,Xinjiang Tianshan,83.86021,42.90201,Natural,['CN'],2013,False
+1415,Pimachiowin Aki,-95.41128,51.82642,Mixed,['CA'],2018,False
+1416,Stevns Klint,12.42333,55.26722,Natural,['DK'],2014,False
+1418,"Fujisan, sacred place and source of artistic inspiration",138.75853,35.39652,Cultural,['JP'],2013,False
+1422,Golestan Palace,51.42051,35.68037,Cultural,['IR'],2013,False
+1423,Cultural Landscape of Maymand,55.37556,30.16806,Cultural,['IR'],2015,False
+1424,Wooden Tserkvas of the Carpathian Region in Poland and Ukraine,22.90762,49.39856,Cultural,"['PL', 'UA']",2013,False
+1425,"The Climats, terroirs of Burgundy",4.95292,47.18972,Cultural,['FR'],2015,False
+1426,"Decorated Cave of Pont d’Arc, known as Grotte Chauvet-Pont d’Arc, Ardèche",4.41611,44.3875,Cultural,['FR'],2014,False
+1427,Mount Etna,14.99667,37.75611,Natural,['IT'],2013,False
+1430,Namib Sand Sea,15.40778,-24.88528,Natural,['NA'],2013,False
+1431,Coastal and Marine Ecosystems of the Bijagós Archipelago – Omatí Minhô,-15.94889,11.12,Natural,['GW'],2025,False
+1432,Okavango Delta,22.9,-19.28333,Natural,['BW'],2014,False
+1433,"Birthplace of Jesus: Church of the Nativity and the Pilgrimage Route, Bethlehem",35.2075,31.70435,Cultural,['PS'],2012,False
+1434,Chaîne des Puys - Limagne fault tectonic arena,2.96511,45.77939,Natural,['FR'],2018,False
+1435,Monumental Earthworks of Poverty Point,-91.40639,32.63694,Cultural,['US'],2014,False
+1437,Erbil Citadel,44.00917,36.19111,Cultural,['IQ'],2014,False
+1438,Trang An Landscape Complex,105.89639,20.25667,Mixed,['VN'],2014,False
+1439,Namhansanseong,127.18375,37.46903,Cultural,['KR'],2014,False
+1440,Great Burkhan Khaldun Mountain and its surrounding sacred landscape,109.00933,48.76198,Cultural,['MN'],2015,False
+1441,Van Nellefabriek,4.4325,51.92444,Cultural,['NL'],2014,False
+1442,Silk Roads: the Routes Network of Chang'an-Tianshan Corridor,92.13202,39.47982,Cultural,"['CN', 'KG', 'KZ']",2014,False
+1443,The Grand Canal,117.56946,34.06694,Cultural,['CN'],2014,False
+1444,Pyu Ancient Cities,95.49602,20.42407,Cultural,['MM'],2014,False
+1446,Baptism Site “Bethany Beyond the Jordan” (Al-Maghtas),35.55278,31.83722,Cultural,['JO'],2015,False
+1447,Carolingian Westwork and Civitas Corvey,9.41025,51.77828,Cultural,['DE'],2014,False
+1448,Landscapes of Dauria,114.94911,49.8405,Natural,"['MN', 'RU']",2017,False
+1449,Tomioka Silk Mill and Related Sites,138.94847,36.23799,Cultural,['JP'],2014,False
+1450,Thimlich Ohinga Archaeological Site,34.32611,-0.89134,Cultural,['KE'],2018,False
+1452,Bursa and Cumalıkızık: the Birth of the Ottoman Empire,29.06751,40.18886,Cultural,['TR'],2014,False
+1453,Precolumbian Chiefdom Settlements with Stone Spheres of the Diquís,-83.47914,8.95287,Cultural,['CR'],2014,False
+1455,Susa,48.24971,32.19167,Cultural,['IR'],2015,False
+1456,Shahr-i Sokhta,61.32778,30.59389,Cultural,['IR'],2014,False
+1457,Pergamon and its Multi-Layered Cultural Landscape,27.1783,39.11957,Cultural,['TR'],2014,False
+1459,"Qhapaq Ñan, Andean Road System",-73.33618,-13.88743,Cultural,"['PE', 'CL', 'EC', 'CO', 'AR', 'BO']",2014,False
+1461,Kaeng Krachan Forest Complex,99.40017,12.86567,Natural,['TH'],2021,False
+1463,Aqueduct of Padre Tembleque Hydraulic System,-98.66257,19.83528,Cultural,['MX'],2015,False
+1464,Fray Bentos Industrial Landscape,-58.33167,-33.11778,Cultural,['UY'],2015,False
+1465,"Champagne Hillsides, Houses and Cellars",3.99812,49.1106,Cultural,['FR'],2015,False
+1466,San Antonio Missions,-98.42347,29.32222,Cultural,['US'],2015,False
+1467,Speicherstadt and Kontorhaus District with Chilehaus,9.99944,53.54556,Cultural,['DE'],2015,False
+1468,Moravian Church Settlements,-14.37056,50.46097,Cultural,"['DK', 'US', 'GB', 'DE']",2015,False
+1469,The par force hunting landscape in North Zealand,12.37656,55.92657,Cultural,['DK'],2015,False
+1470,Naumburg Cathedral,11.804,51.15481,Cultural,['DE'],2018,False
+1471,Necropolis of Bet She’arim: A Landmark of Jewish Renewal,35.12694,32.70222,Cultural,['IL'],2015,False
+1472,Rock Art in the Hail Region of Saudi Arabia,40.40236,27.08208,Cultural,['SA'],2015,False
+1473,Brâncuși Monumental Ensemble of Târgu Jiu,23.27878,45.03828,Cultural,['RO'],2024,False
+1474,Tusi Sites,108.59639,28.83361,Cultural,['CN'],2015,False
+1475,Ennedi Massif: Natural and Cultural Landscape,21.86278,17.04167,Mixed,['TD'],2016,False
+1477,Baekje Historic Areas,127.00507,36.25392,Cultural,['KR'],2015,False
+1478,Erzgebirge/Krušnohoří Mining Region,13.08641,50.60582,Cultural,"['DE', 'CZ']",2019,False
+1480,Victorian Gothic and Art Deco Ensembles of Mumbai,72.83008,18.92981,Cultural,['IN'],2018,False
+1481,The Ahwar of Southern Iraq: Refuge of Biodiversity and the Relict Landscape of the Mesopotamian Cities,46.67595,31.04283,Mixed,['IQ'],2016,False
+1483,Singapore Botanic Gardens,103.81611,1.31528,Cultural,['SG'],2015,False
+1484,"Sites of Japan’s Meiji Industrial Revolution: Iron and Steel, Shipbuilding and Coal Mining",131.33937,33.45827,Cultural,['JP'],2015,False
+1485,The Forth Bridge,-3.38889,56.00111,Cultural,['GB'],2015,False
+1486,Rjukan-Notodden Industrial Heritage Site,8.59361,59.87861,Cultural,['NO'],2015,False
+1487,Arab-Norman Palermo and the Cathedral Churches of Cefalú and Monreale,13.42453,38.10087,Cultural,['IT'],2015,False
+1488,Diyarbakır Fortress and Hevsel Gardens Cultural Landscape,40.23931,37.9031,Cultural,['TR'],2015,False
+1490,Western Tien-Shan,70.46975,42.08197,Natural,"['KG', 'KZ', 'UZ']",2016,False
+1492,"Palestine: Land of Olives and Vines – Cultural Landscape of Southern Jerusalem, Battir",35.14347,31.72056,Cultural,['PS'],2014,True
+1493,Pampulha Modern Ensemble,-43.97361,-19.85194,Cultural,['BR'],2016,False
+1495,Hidden Christian Sites in the Nagasaki Region,129.50852,32.92449,Cultural,['JP'],2018,False
+1496,The 20th-Century Architecture of Frank Lloyd Wright,-92.30895,39.78419,Cultural,['US'],2019,False
+1497,Mistaken Point,-53.21111,46.635,Natural,['CA'],2016,False
+1498,"Seowon, Korean Neo-Confucian Academies",128.02348,36.06406,Cultural,['KR'],2019,False
+1499,Antigua Naval Dockyard and Related Archaeological Sites,-61.76167,17.00694,Cultural,['AG'],2016,False
+1500,Gorham's Cave Complex,-5.34206,36.12267,Cultural,['GB'],2016,False
+1501,Antequera Dolmens Site,-4.52878,37.02242,Cultural,['ES'],2016,False
+1502,"Archaeological Site of Nalanda Mahavihara at Nalanda, Bihar",85.44389,25.13667,Cultural,['IN'],2016,False
+1503,Nan Madol: Ceremonial Centre of Eastern Micronesia,158.33083,6.83972,Cultural,['FM'],2016,True
+1504,Stećci Medieval Tombstone Graveyards,18.43886,43.52423,Cultural,"['RS', 'HR', 'ME', 'BA']",2016,False
+1505,Lut Desert,58.83889,30.21611,Natural,['IR'],2016,False
+1506,The Persian Qanat,54.99099,32.20939,Cultural,['IR'],2016,False
+1507,"Phu Phrabat, a testimony to the Sīma stone tradition of the Dvaravati period",102.34407,17.68078,Cultural,['TH'],2024,False
+1508,Zuojiang Huashan Rock Art Cultural Landscape,107.23944,22.39769,Cultural,['CN'],2016,False
+1509,Hubei Shennongjia,110.35847,31.46639,Natural,['CN'],2016,False
+1510,Archipiélago de Revillagigedo,-112.14514,18.86132,Natural,['MX'],2016,False
+1511,"Mbanza Kongo, Vestiges of the Capital of the former Kingdom of Kongo",14.24972,-6.26889,Cultural,['AO'],2017,False
+1513,Khangchendzonga National Park,88.37722,27.76472,Mixed,['IN'],2016,False
+1517,Archaeological Site of Philippi,24.28528,41.01472,Cultural,['GR'],2016,False
+1518,Archaeological Site of Ani,43.56667,40.5,Cultural,['TR'],2016,False
+1519,Aphrodisias,28.7325,37.71792,Cultural,['TR'],2017,False
+1523,Churches of the Pskov School of Architecture,28.32529,57.81781,Cultural,['RU'],2019,False
+1525,Assumption Cathedral and Monastery of the town-island of Sviyazhsk,48.65278,55.77028,Cultural,['RU'],2017,False
+1526,Los Alerces National Park,-71.8728,-42.8528,Natural,['AR'],2017,False
+1527,Caves and Ice Age Art in the Swabian Jura,9.97056,48.46903,Cultural,['DE'],2017,False
+1528,Talayotic Menorca,4.09713,39.92269,Cultural,['ES'],2023,False
+1529,Taputapuātea,-151.37238,-16.8414,Cultural,['FR'],2017,False
+1532,"Temple Zone of Sambor Prei Kuk, Archaeological Site of Ancient Ishanapura",105.04306,12.8725,Cultural,['KH'],2017,False
+1533,Venetian Works of Defence between the 16th and 17th Centuries: Stato da Terra – Western Stato da Mar,13.92074,44.55083,Cultural,"['IT', 'HR', 'ME']",2017,False
+1534,Tehuacán-Cuicatlán Valley: originary habitat of Mesoamerica,-97.29811,18.16394,Mixed,['MX'],2018,False
+1535,Sacred Island of Okinoshima and Associated Sites in the Munakata Region,130.28814,34.04917,Cultural,['JP'],2017,False
+1536,Kujataa Greenland: Norse and Inuit Farming at the Edge of the Ice Cap,-45.53844,60.94061,Cultural,['DK'],2017,False
+1537,Ancient City of Qalhat,59.37811,22.69522,Cultural,['OM'],2018,False
+1538,"Ivrea, industrial city of the 20th century",7.86917,45.4575,Cultural,['IT'],2018,False
+1539,Tarnowskie Góry Lead-Silver-Zinc Mine and its Underground Water Management System,18.85123,50.4427,Cultural,['PL'],2017,False
+1540,Qinghai Hoh Xil,92.43917,35.38028,Natural,['CN'],2017,False
+1541,"Kulangsu, a Historic International Settlement",118.06194,24.4475,Cultural,['CN'],2017,False
+1542,Dilmun Burial Mounds,50.51118,26.15203,Cultural,['BH'],2019,False
+1544,Historic City of Yazd,54.36454,31.89611,Cultural,['IR'],2017,False
+1545,ǂKhomani Cultural Landscape,20.37458,-25.68761,Cultural,['ZA'],2017,False
+1548,Valongo Wharf Archaeological Site,-43.18739,-22.89711,Cultural,['BR'],2017,False
+1549,Historic Centre of Sheki with the Khan’s Palace,47.1875,41.20333,Cultural,['AZ'],2019,False
+1550,Asmara: A Modernist African City,38.93583,15.33528,Cultural,['ER'],2017,False
+1551,Historic City of Ahmadabad,72.58806,23.02639,Cultural,['IN'],2017,False
+1552,Roșia Montană Mining Landscape,23.13056,46.30611,Cultural,['RO'],2021,True
+1553,Archaeological Border complex of Hedeby and the Danevirke,9.54675,54.48041,Cultural,['DE'],2018,False
+1555,Colonies of Benevolence,5.79435,52.43407,Cultural,"['BE', 'NL']",2021,False
+1557,Aasivissuit – Nipisat. Inuit Hunting Ground between Ice and Sea,-51.43321,67.06393,Cultural,['DK'],2018,False
+1558,Žatec and the Landscape of Saaz Hops,13.58292,50.32347,Cultural,['CZ'],2023,False
+1559,Fanjingshan,108.68,27.89556,Natural,['CN'],2018,False
+1560,Caliphate City of Medina Azahara,-4.86769,37.88589,Cultural,['ES'],2018,False
+1561,Quanzhou: Emporium of the World in Song-Yuan China,118.51723,24.95396,Cultural,['CN'],2021,False
+1562,"Sansa, Buddhist Mountain Monasteries in Korea",127.88706,35.95893,Cultural,['KR'],2018,False
+1563,"Al-Ahsa Oasis, an Evolving Cultural Landscape",49.6206,25.4569,Cultural,['SA'],2018,False
+1564,Tr’ondëk-Klondike,-139.71686,64.3059,Cultural,['CA'],2023,False
+1565,Hebron/Al-Khalil Old Town,35.10833,31.52444,Cultural,['PS'],2017,True
+1568,Sassanid Archaeological Landscape of Fars Region,52.38684,29.15966,Cultural,['IR'],2018,False
+1569,The Maison Carrée of Nîmes,4.35619,43.83822,Cultural,['FR'],2023,False
+1570,"Kakatiya Rudreshwara (Ramappa) Temple, Telangana",79.94321,18.25913,Cultural,['IN'],2021,False
+1571,Le Colline del Prosecco di Conegliano e Valdobbiadene,12.22611,45.95303,Cultural,['IT'],2019,False
+1572,Göbekli Tepe,38.92236,37.22324,Cultural,['TR'],2018,False
+1573,"Royal Building of Mafra – Palace, Basilica, Convent, Cerco Garden and Hunting Park (Tapada)",-9.32553,38.93717,Cultural,['PT'],2019,False
+1574,"Amami-Oshima Island, Tokunoshima Island, Northern part of Okinawa Island, and Iriomote Island",127.86077,26.99139,Natural,['JP'],2021,False
+1575,Barberton Makhonjwa Mountains,31.01389,-25.97389,Natural,['ZA'],2018,False
+1577,Budj Bim Cultural Landscape,141.8087,-38.13509,Cultural,['AU'],2019,False
+1578,Risco Caido and the Sacred Mountains of Gran Canaria Cultural Landscape,-15.66119,28.04439,Cultural,['ES'],2019,False
+1580,Water Management System of Augsburg,10.902,48.36547,Cultural,['DE'],2019,False
+1581,"Beaches of the D-Day Landings, Normandy, 1944",-0.72269,49.36222,Cultural,['FR'],2026,False
+1582,The Colonial Transisthmian Route of Panamá,-79.69533,9.11287,Cultural,['PA'],2025,False
+1584,Hyrcanian Forests,52.0617,36.97423,Natural,"['AZ', 'IR']",2019,False
+1585,Trans-Iranian Railway,51.39833,35.65831,Cultural,['IR'],2021,False
+1586,"Memorial sites of the Genocide: Nyamata, Murambi, Gisozi and Bisesero",29.82478,-2.13179,Cultural,['RW'],2023,False
+1587,Megalithic Jar Sites in Xiengkhuang – Plain of Jars,103.22752,19.41922,Cultural,['LA'],2019,False
+1588,Bagan,94.90038,21.14275,Cultural,['MM'],2019,False
+1589,Landscape for Breeding and Training of Ceremonial Carriage Horses at Kladruby nad Labem,15.48426,50.05665,Cultural,['CZ'],2019,False
+1590,Sanctuary of Bom Jesus do Monte in Braga,-8.37703,41.55494,Cultural,['PT'],2019,False
+1591,"Getbol, Korean Tidal Flats",126.6145,35.55798,Natural,['KR'],2021,False
+1592,Archaeological Ruins of Liangzhu City,119.96398,30.41138,Cultural,['CN'],2019,False
+1593,Mozu-Furuichi Kofun Group: Mounded Tombs of Ancient Japan,135.55026,34.56189,Cultural,['JP'],2019,False
+1594,Jodrell Bank Observatory,-2.30386,53.23392,Cultural,['GB'],2019,False
+1595,The Archaeological Ensemble of 17th Century Port Royal,-76.84338,17.93861,Cultural,['JM'],2025,False
+1597,Writing-on-Stone / Áísínai’pi,-111.73602,49.09407,Cultural,['CA'],2019,False
+1599,Krzemionki Prehistoric Striped Flint Mining Region,21.54983,50.9224,Cultural,['PL'],2019,False
+1602,Ancient Ferrous Metallurgy Sites of Burkina Faso,-2.36952,12.67095,Cultural,['BF'],2019,False
+1603,French Austral Lands and Seas,65.94986,-44.64521,Natural,['FR'],2019,False
+1604,Vatnajökull National Park - Dynamic Nature of Fire and Ice,-16.88154,64.57736,Natural,['IS'],2019,False
+1605,"Jaipur City, Rajasthan",75.82186,26.92428,Cultural,['IN'],2019,False
+1606,Migratory Bird Sanctuaries along the Coast of Yellow Sea-Bohai Gulf of China,121.33506,37.88313,Natural,['CN'],2019,False
+1608,Frontiers of the Roman Empire – The Danube Limes (Western Segment),14.56993,48.45285,Cultural,"['AT', 'SK', 'DE']",2021,False
+1610,Ombilin Coal Mining Heritage of Sawahlunto,100.615,-0.65186,Cultural,['ID'],2019,False
+1611,Lençóis Maranhenses National Park,-43.06361,-2.53667,Natural,['BR'],2024,False
+1612,The work of engineer Eladio Dieste: Church of Atlántida,-55.76641,-34.74392,Cultural,['UY'],2021,False
+1613,The Great Spa Towns of Europe,8.90168,49.04413,Cultural,"['IT', 'FR', 'AT', 'BE', 'GB', 'DE', 'CZ']",2021,False
+1614,Mathildenhöhe Darmstadt,8.66569,49.87569,Cultural,['DE'],2021,False
+1616,Colchic Rainforests and Wetlands,41.77552,42.06069,Natural,['GE'],2021,False
+1618,"Paseo del Prado and Buen Retiro, a landscape of Arts and Sciences",-3.68706,40.41533,Cultural,['ES'],2021,False
+1619,Ḥimā Cultural Area,44.5008,18.29364,Cultural,['SA'],2021,False
+1620,Sítio Roberto Burle Marx,-43.54622,-23.02238,Cultural,['BR'],2021,False
+1621,Deer Stone Monuments and Related Bronze Age Sites,100.82653,48.41255,Cultural,['MN'],2023,False
+1622,Arslantepe Mound,38.36109,38.3822,Cultural,['TR'],2021,False
+1623,Padua’s fourteenth-century fresco cycles,11.87567,45.40557,Cultural,['IT'],2021,False
+1624,Chankillo Archaeoastronomical Complex,-78.20865,-9.5376,Cultural,['PE'],2021,False
+1625,Cordouan Lighthouse,-1.17333,45.58631,Cultural,['FR'],2021,False
+1627,Cultural Heritage Sites of Ancient Khuttal,69.35907,37.84561,Cultural,['TJ'],2025,False
+1631,Frontiers of the Roman Empire – The Lower German Limes,6.14699,51.51188,Cultural,"['NL', 'DE']",2021,False
+1632,Jomon Prehistoric Sites in Northern Japan,140.83737,41.24962,Cultural,['JP'],2021,False
+1633,The Slate Landscape of Northwest Wales,-4.07954,52.9956,Cultural,['GB'],2021,False
+1634,Settlement and Artificial Mummification of the Chinchorro Culture in the Arica and Parinacota Region,-70.3017,-18.7175,Cultural,['CL'],2021,False
+1635,"Nice, Winter Resort Town of the Riviera",7.27231,43.70169,Cultural,['FR'],2021,False
+1636,"ShUM Sites of Speyer, Worms and Mainz",8.35294,49.64611,Cultural,['DE'],2021,False
+1638,Badain Jaran Desert - Towers of Sand and Lakes,102.28944,39.88972,Natural,['CN'],2024,False
+1640,Djerba: Testimony to a settlement pattern in an island territory,10.86494,33.81404,Cultural,['TN'],2023,False
+1641,The Gedeo Cultural Landscape,38.28778,6.24889,Cultural,['ET'],2023,False
+1642,Mount Kumgang – Diamond Mountain from the Sea,128.21958,38.67278,Mixed,['KP'],2025,False
+1643,The works of Jože Plečnik in Ljubljana – Human Centred Urban Design,14.50583,46.0477,Cultural,['SI'],2021,False
+1645,Dholavira: a Harappan City,70.2133,23.88841,Cultural,['IN'],2021,False
+1647,Cultural Landscape of Hawraman/Uramanat,46.30718,35.02682,Cultural,['IR'],2021,False
+1648,Sudanese style mosques in northern Côte d’Ivoire,-5.42671,9.61119,Cultural,['CI'],2021,False
+1650,The Porticoes of Bologna,11.3338,44.49301,Cultural,['IT'],2021,False
+1653,Ivindo National Park,12.648,0.113,Natural,['GA'],2021,False
+1654,Petroglyphs of Lake Onega and the White Sea,35.34162,63.11066,Cultural,['RU'],2021,False
+1656,Jewish-Medieval Heritage of Erfurt,11.02982,50.97864,Cultural,['DE'],2023,False
+1657,Volcanoes and Forests of Mount Pelée and the Pitons of Northern Martinique,-61.13497,14.77285,Natural,['FR'],2023,False
+1658,Old town of Kuldīga,21.97153,56.96775,Cultural,['LV'],2023,False
+1660,Viking-Age Ring Fortresses,10.56056,55.97472,Cultural,['DK'],2023,False
+1661,"Modernist Kaunas: Architecture of Optimism, 1919-1939",23.92917,54.89694,Cultural,['LT'],2023,False
+1662,The Ancient Town of Si Thep and its Associated Dvaravati Monuments,101.09489,15.48224,Cultural,['TH'],2023,False
+1663,National Archaeological Park Tak’alik Ab’aj,-91.7325,14.63861,Cultural,['GT'],2023,False
+1665,Cultural Landscape of Old Tea Forests of the Jingmai Mountain in Pu’er,100.0075,22.18417,Cultural,['CN'],2023,False
+1666,Gaya Tumuli,128.32349,35.40647,Cultural,['KR'],2023,False
+1667,Koh Ker: Archaeological Site of Ancient Lingapura or Chok Gargyar,104.53722,13.78306,Cultural,['KH'],2023,False
+1668,The Persian Caravanserai,53.05524,34.22522,Cultural,['IR'],2023,False
+1669,Gordion,31.98611,39.64333,Cultural,['TR'],2023,False
+1670,Sacred Ensembles of the Hoysalas,76.24542,12.88376,Cultural,['IN'],2023,False
+1671,The Cosmological Axis of Yogyakarta and its Historic Landmarks,110.36478,-7.80139,Cultural,['ID'],2023,False
+1673,"Vjetrenica Cave, Ravno",17.98889,42.845,Natural,['BA'],2024,False
+1675,Silk Roads: Zarafshan-Karakum Corridor,65.35876,39.33368,Cultural,"['TJ', 'UZ', 'TM']",2023,False
+1676,"Human Rights, Liberation and Reconciliation: Nelson Mandela Legacy Sites",27.92499,-28.09576,Cultural,['ZA'],2024,False
+1678,Astronomical Observatories of Kazan Federal University,48.96576,55.81541,Cultural,['RU'],2023,False
+1680,Jodensavanne Archaeological Site: Jodensavanne Settlement and Cassipora Creek Cemetery,-54.98069,5.42106,Cultural,['SR'],2023,False
+1681,"ESMA Museum and Site of Memory – Former Clandestine Centre of Detention, Torture and Extermination",-58.46533,-34.53664,Cultural,['AR'],2023,False
+1683,Eisinga Planetarium in Franeker,5.54375,53.18738,Cultural,['NL'],2023,False
+1685,Tugay forests of the Tigrovaya Balka Nature Reserve,68.34139,37.20472,Natural,['TJ'],2023,False
+1686,Anticosti,-63.24528,49.53861,Natural,['CA'],2023,False
+1687,Ancient Jericho/Tell es-Sultan,35.44406,31.87131,Cultural,['PS'],2023,False
+1688,Cultural Landscape of Kenozero Lake,38.17261,61.928,Cultural,['RU'],2024,False
+1689,Hopewell Ceremonial Earthworks,-83.02295,39.51957,Cultural,['US'],2023,False
+1692,Evaporitic Karst and Caves of Northern Apennines,11.48982,44.27172,Natural,['IT'],2023,False
+1693,Cold Winter Deserts of Turan,63.41989,43.14242,Natural,"['KZ', 'UZ', 'TM']",2023,False
+1694,Wooden Hypostyle Mosques of Medieval Anatolia,32.0678,39.46136,Cultural,['TR'],2023,False
+1695,Zagori Cultural Landscape,20.81972,39.90528,Cultural,['GR'],2023,False
+1696,Cultural Landscape of Khinalig People and “Köç Yolu” Transhumance Route,48.8854,40.7059,Cultural,['AZ'],2023,False
+1697,Nyungwe National Park,29.10731,-2.51935,Natural,['RW'],2023,False
+1698,Sado Island Gold Mines,138.28296,37.99222,Cultural,['JP'],2024,False
+1699,‘Uruq Bani Ma’arid,45.59833,19.36389,Natural,['SA'],2023,False
+1700,"Landmarks of the Ancient Kingdom of Saba, Marib",45.26779,15.41548,Cultural,['YE'],2023,True
+1702,Rachid Karami International Fair-Tripoli,35.82417,34.43778,Cultural,['LB'],2023,True
+1703,The Historic Centre of Odesa,30.74161,46.48645,Cultural,['UA'],2023,True
+1704,Wixárika Route through Sacred Sites to Wirikuta (Tatehuarí Huajuyé),-102.38147,22.87402,Cultural,['MX'],2025,False
+1705,Schwerin Residence Ensemble,11.41889,53.62417,Cultural,['DE'],2024,False
+1707,Te Henua Enata – The Marquesas Islands,-139.57079,-9.27232,Mixed,['FR'],2024,False
+1708,Via Appia. Regina Viarum,14.72583,41.18094,Cultural,['IT'],2024,False
+1709,Murujuga Cultural Landscape,116.66853,-20.56503,Cultural,['AU'],2025,False
+1711,Moidams – the Mound-Burial System of the Ahom Dynasty,94.87635,26.94117,Cultural,['IN'],2024,False
+1712,The Cultural Landscape of Al-Faw Archaeological Area,45.16339,19.76492,Cultural,['SA'],2024,False
+1713,Royal Court of Tiébélé,-0.96186,11.08922,Cultural,['BF'],2024,False
+1714,Beijing Central Axis: A Building Ensemble Exhibiting the Ideal Order of the Chinese Capital,116.39139,39.90722,Cultural,['CN'],2024,False
+1715,Gdynia Modernist City Centre,18.54253,54.51936,Cultural,['PL'],2026,False
+1716,Hegmataneh,48.51833,34.80356,Cultural,['IR'],2024,False
+1718,Frontiers of the Roman Empire – Dacia,23.64398,46.58971,Cultural,['RO'],2024,False
+1719,The wider area of Mount Olympus,22.44118,40.13829,Mixed,['GR'],2026,False
+1720,The Historic Town and Archaeological Site of Gedi,40.01726,-3.31026,Cultural,['KE'],2024,False
+1721,Umm Al-Jimāl,36.37,32.32694,Cultural,['JO'],2024,False
+1722,The Flow Country,-3.92198,58.32127,Natural,['GB'],2024,False
+1723,The Emergence of Modern Human Behaviour: The Pleistocene Occupation Sites of South Africa,23.87617,-32.0388,Cultural,['ZA'],2024,False
+1724,Wadi Wurayah,56.26579,25.48233,Natural,['AE'],2026,False
+1725,Megaliths of Carnac and of the shores of Morbihan,-3.01806,47.58146,Cultural,['FR'],2025,False
+1726,"The Palaces of King Ludwig II of Bavaria: Neuschwanstein, Linderhof, Schachen and Herrenchiemsee",11.30618,47.60222,Cultural,['DE'],2025,False
+1728,Møns Klint,12.49833,54.97917,Natural,['DK'],2025,False
+1730,Funerary Tradition in the Prehistory of Sardinia – The domus de janas,8.7826,40.36614,Cultural,['IT'],2025,False
+1731,Sardis and the Lydian Tumuli of Bin Tepe,28.01931,38.52944,Cultural,['TR'],2025,False
+1732,"Yen Tu-Vinh Nghiem-Con Son, Kiep Bac Complex of Monuments and Landscapes",106.49547,21.12947,Cultural,['VN'],2025,False
+1733,Minoan Palatial Centres,25.10616,35.25097,Cultural,['GR'],2025,False
+1734,Forest Research Institute Malaysia Forest Park Selangor,101.62728,3.22925,Cultural,['MY'],2025,False
+1735,Faya Palaeolandscape,55.80658,25.08281,Cultural,['AE'],2025,False
+1736,Xixia Imperial Tombs,105.97111,38.41583,Cultural,['CN'],2025,False
+1739,Maratha Military Landscapes of India,74.01528,17.60271,Cultural,['IN'],2025,False
+1740,Petroglyphs along the Bangucheon Stream,129.174,35.60845,Cultural,['KR'],2025,False
+1742,Aqaba Marine Reserve,34.97556,29.42972,Natural,['JO'],2026,False
+1743,Rock Paintings of Shulgan-Tash Cave,57.07203,53.04944,Cultural,['RU'],2025,False
+1744,Prehistoric Sites of the Khorramabad Valley,48.31022,33.48538,Cultural,['IR'],2025,False
+1745,Diy-Gid-Biy Cultural Landscape of the Mandara Mountains,13.79556,10.90333,Cultural,['CM'],2025,False
+1746,Gola-Tiwai Complex,-11.02031,7.58946,Natural,['SL'],2025,False
+1747,Peruaçu River Canyon,-44.20833,-15.075,Natural,['BR'],2025,False
+1748,Cambodian Memorial Sites: From centres of repression to places of peace and reflection,104.73483,11.60136,Cultural,['KH'],2025,False
+1749,Saint Hilarion Monastery/ Tell Umm Amer,34.36636,31.44731,Cultural,['PS'],2024,True
+1750,The Roças of Sao Tome and Principe: Colonial Agricultural System and Forced Migration,6.88976,0.72175,Cultural,['ST'],2026,False
+1751,Okefenokee National Wildlife Refuge,-82.305,30.79889,Natural,['US'],2026,False
+1752,Aalto Works,25.00389,61.07842,Cultural,['FI'],2026,False
+1755,Royal Capetian Fortresses of Languedoc,2.41926,42.97803,Cultural,['FR'],2026,False
+1757,Ancient Capitals of Asuka and Fujiwara,135.81292,34.47365,Cultural,['JP'],2026,False
+1758,The Bony Fish Fossils of the Western Limfjord – Evolution and Climate Adaptation in the Earliest Eocene,8.85831,56.86693,Natural,['DK'],2026,False
+1759,The Cemetery Complexes of the Xiongnu Nobility,104.12272,48.06785,Cultural,['MN'],2026,False
+1760,Rock Mosques and Associated Sacred Sites of Mangystau,52.29632,43.99008,Cultural,['KZ'],2026,False
+1761,"Wat Phra Mahathat Woramahawihan, Nakhon Si Thammarat",99.96622,8.41147,Cultural,['TH'],2026,False
+1762,The system of Italian-style condominio theatres of the 18th and 19th centuries in Central Italy,13.12301,43.26054,Cultural,['IT'],2026,False
+1765,Jingdezhen Handicraft Porcelain Industry Sites,117.342,29.44344,Cultural,['CN'],2026,False
+1766,Tashkent Modernist Architecture. Modernity and Tradition in Central Asia,69.30644,41.3123,Cultural,['UZ'],2026,False
+1768,The Medinas of the Historic Sultanates of the Comoros,43.65783,-11.86915,Cultural,['KM'],2026,False
+1769,Village of Sidi Bou Saïd,10.34864,36.87103,Cultural,['TN'],2026,False
+1770,Alamūt Castle and Related Fortifications,50.47813,36.44107,Cultural,['IR'],2026,False
+1774,Amazonia Theaters,-54.25855,-2.29165,Cultural,['BR'],2026,False
+1808,Boma–Badingilo Migratory Landscape,33.2775,6.94167,Natural,['SS'],2026,True
+1809,Sebastia,35.18888,32.27634,Cultural,['PS'],2026,True
+1810,Mount Amel Castles,35.40743,33.22429,Cultural,['LB'],2026,True
