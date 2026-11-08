@@ -75,6 +75,11 @@ def records(payload: bytes, *, table: int | None = None
     Returns (rows, format, geometry_types, warnings). The harvester uses this,
     so a discovered source is read the same way it was validated.
     """
+    rows, format_name, geometry_types, warnings = _records(payload, table=table)
+    return _split_coordinates(rows, warnings), format_name, geometry_types, warnings
+
+
+def _records(payload: bytes, *, table: int | None = None):
     warnings: list[str] = []
     if table is not None:
         return _html_table_records(payload, table, warnings)
@@ -137,6 +142,7 @@ def probe_bytes(payload: bytes, *, url: str = "",
             if skipped:
                 warnings.append(f"skipped {skipped} leading metadata line(s)")
 
+    rows = _split_coordinates(rows, warnings)
     if len(rows) > MAX_ROWS:
         warnings.append(f"only the first {MAX_ROWS:,} of {len(rows):,} rows were inspected")
         rows = rows[:MAX_ROWS]
@@ -282,6 +288,54 @@ def _header_first(text: str):
     records = [{h: (row[i] if i < len(row) else None) for i, h in enumerate(headers)}
                for row in records[1:] if row]
     return records, dialect.delimiter, 0
+
+
+_NUM = r"(-?\d+(?:\.\d+)?)"
+_COORD_FORMS = (
+    # GeoJSON-style array: longitude first.
+    ("array [lon, lat]", re.compile(r"^\s*\[\s*" + _NUM + r"\s*,\s*" + _NUM + r"\s*(?:,[^\]]*)?\]\s*$"), False),
+    # WKT: longitude first.
+    ("WKT POINT (lon lat)", re.compile(r"^\s*POINT\s*Z?\s*\(\s*" + _NUM + r"\s+" + _NUM + r"(?:\s+[-\d.]+)?\s*\)\s*$", re.I), False),
+    # Text pair as people write it: latitude first.
+    ("text \"lat, lon\"", re.compile(r"^\s*\(?\s*" + _NUM + r"\s*[,;]\s*" + _NUM + r"\s*\)?\s*$"), True),
+)
+
+
+def _split_coordinates(rows: list[dict], warnings: list[str]) -> list[dict]:
+    """A column holding both coordinates becomes two: <col>.lon and <col>.lat.
+
+    Measured 2026-11-07: a CC BY 4.0 Costco locations CSV keeps each store's
+    position in one `coordinates` array column, which left the research step
+    with no longitude/latitude roles to propose.
+    """
+    if not rows:
+        return rows
+    sample = rows[:200]
+    found = []
+    for column in list(sample[0]):
+        values = [str(r.get(column)) for r in sample
+                  if r.get(column) not in (None, "") and not isinstance(r.get(column), (int, float))]
+        if len(values) < max(3, 0.8 * len(sample)) or f"{column}.lon" in sample[0]:
+            continue
+        for label, pattern, lat_first in _COORD_FORMS:
+            hits = [m for m in (pattern.match(v) for v in values) if m]
+            if len(hits) < 0.9 * len(values):
+                continue
+            pairs = [(float(m.group(1)), float(m.group(2))) for m in hits]
+            if lat_first and any(abs(a) > 90 for a, _ in pairs):
+                lat_first = False            # a first value beyond 90 is a longitude
+            if not lat_first and any(abs(b) > 90 for _, b in pairs):
+                lat_first = True
+            found.append((column, pattern, lat_first, label))
+            break
+    for column, pattern, lat_first, label in found:
+        for row in rows:
+            m = pattern.match(str(row.get(column) or ""))
+            a, b = (float(m.group(1)), float(m.group(2))) if m else (None, None)
+            row[f"{column}.lon"], row[f"{column}.lat"] = (b, a) if lat_first else (a, b)
+        warnings.append(f"split {column!r} ({label}) into {column + '.lon'!r} and "
+                        f"{column + '.lat'!r}")
+    return rows
 
 
 def _unique_headers(headers) -> list[str]:

@@ -69,3 +69,15 @@ def test_long_official_names_and_brackets_resolve_but_totals_never_do():
              "Mexico total"]
     res = mexico.resolver(names)
     assert [res(n) for n in names] == ["MX-COA", "MX-MEX", "MX-DIF", "MX-JAL", None]
+
+
+def test_combined_coordinate_columns_are_split():
+    from mapsvc.discovery import probe
+    csv = (b'name,coordinates,geom,latlon\n'
+           b'A,"[-122.39, 37.77]",POINT (-122.39 37.77),"37.77, -122.39"\n'
+           b'B,"[-121.89, 37.33]",POINT (-121.89 37.33),"37.33, -121.89"\n'
+           b'C,"[-122.27, 37.80]",POINT (-122.27 37.80),"37.80, -122.27"\n')
+    rows, *_, warnings = probe.records(csv)
+    for col in ("coordinates", "geom", "latlon"):
+        assert (rows[0][f"{col}.lon"], rows[0][f"{col}.lat"]) == (-122.39, 37.77), col
+    assert sum("split" in w for w in warnings) == 3

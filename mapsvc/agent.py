@@ -496,7 +496,7 @@ one country) so the overlay carries the message.
       variable_is_null true, overlays [{{source web, id "", search_query
       "atlantic hurricane storm tracks"}}] -- then pick from the candidates.
 
-OPENSTREETMAP (overpass) has three shapes of request, chosen by the tags:
+OPENSTREETMAP (overpass) has four shapes of request, chosen by the tags:
 
   Infrastructure as track or road, with no line identity -- every railway, \
 motorway, power line, river: way tags, e.g. "railway=rail;usage=main", \
@@ -516,6 +516,13 @@ name~<part of its name> (matched in any language, case-insensitive).
 "place=city|town|village|hamlet" (omit classes the request excludes). They \
 are complete in OSM where no statistical source lists them; do not refuse. \
 Symbol size and labels are derived from the place class.
+  Places of interest -- shops, a chain's stores, hospitals, schools, museums, \
+stations: their amenity=/shop=/tourism=/healthcare= tags. A named chain or \
+brand is brand=<Name as OSM writes it> plus its kind (brand=IKEA;shop=furniture, \
+brand=Starbucks;amenity=cafe), so its fuel stations, pharmacies and opticians \
+under the same brand stay out. Each one is a point: outlines are drawn at \
+their centre and a place mapped twice counts once. Use this before web search \
+for anything OSM maps as a place; do not refuse.
 
   "Paris Métro lines"
       bbox [2.2, 48.78, 2.47, 48.92], level admin_1, basemap natural_earth,
@@ -524,6 +531,9 @@ Symbol size and labels are derived from the place class.
   "the Glacier Express route"
       within ["CHE"], level admin_1, basemap natural_earth, variable_is_null
       true, overlays [{{source overpass, id "route=train;name~Glacier Express"}}]
+  "IKEA stores in Germany"
+      within ["DEU"], level admin_1, basemap natural_earth, variable_is_null
+      true, overlays [{{source overpass, id "brand=IKEA;shop=furniture"}}]
   "every town and village in Lviv oblast"
       within ["UA-46"], level admin_2, basemap overture, variable_is_null true,
       overlays [{{source overpass, id "place=city|town|village|hamlet"}}]
