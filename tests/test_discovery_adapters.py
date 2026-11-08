@@ -28,6 +28,8 @@ from mapsvc.discovery import adapters, http, providers
      "https://data.humdata.org/api/3/action/package_show?id=afghanistan-population"),
     ("https://data.gov.ua/dataset/weather/",
      "https://data.gov.ua/api/3/action/package_show?id=weather"),
+    ("https://unknown.example/fr/dataset/weather/resource/table",
+     "https://unknown.example/fr/api/3/action/package_show?id=weather"),
 ])
 def test_known_landing_pages(landing, expected):
     assert adapters.data_urls(landing) == [expected]
@@ -37,6 +39,7 @@ def test_known_landing_pages(landing, expected):
     "https://example.org/indicator/AG.LND.PRCP.MM",
     "https://github.com/acme/data/tree/main",
     "https://data.humdata.org/organization/acme",
+    "https://unknown.example/dataset/weather/resource/table/download/data.csv",
     "file:///tmp/data.csv",
 ])
 def test_non_matches(url):
@@ -52,7 +55,7 @@ def test_provider_short_circuits_landing_page(monkeypatch):
 
 
 def test_provider_fetches_ckan_metadata_and_filters_resources(monkeypatch):
-    package = {"result": {"title": "A" * 170, "resources": [
+    package = {"success": True, "result": {"title": "A" * 170, "resources": [
         {"format": "CSV", "url": "https://files.example/data"},
         {"format": "GeoJSON", "url": "https://files.example/map"},
         {"format": "PDF", "url": "https://files.example/report.pdf"},

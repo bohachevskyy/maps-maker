@@ -154,3 +154,103 @@ def test_fetch_html_extracts_only_ranked_data_links_and_never_prose(monkeypatch)
         ],
     }
     assert prose not in repr(result)
+
+
+def test_fetch_detects_ckan_on_unknown_host_and_prioritises_resource(monkeypatch):
+    package = {"success": True, "result": {
+        "title": "World heritage sites",
+        "license_title": "Creative Commons Attribution Share-Alike",
+        "organization": {"title": "UNESCO"},
+        "resources": [
+            {"id": "first", "format": "CSV", "url": "https://files.example/first.csv"},
+            {"id": "wanted", "format": "GeoJSON", "url": "https://files.example/map"},
+        ],
+    }}
+    calls = []
+
+    def fake_get(url, **kwargs):
+        calls.append((url, kwargs))
+        return _response(url, package)
+
+    monkeypatch.setattr(http, "get", fake_get)
+    result = providers.fetch(
+        "https://portal.example/en/dataset/heritage/resource/wanted"
+    )
+    assert calls == [(
+        "https://portal.example/en/api/3/action/package_show?id=heritage",
+        {"expect": "json"},
+    )]
+    assert result == {
+        "kind": "page",
+        "title": "World heritage sites",
+        "links": ["https://files.example/map", "https://files.example/first.csv"],
+        "licence": "Creative Commons Attribution Share-Alike",
+        "publisher": "UNESCO",
+        "dataset_title": "World heritage sites",
+    }
+
+
+def test_fetch_ckan_failure_falls_back_to_html_and_records_error(monkeypatch):
+    html = b"<html><head><title>Fallback</title></head><a href='/data.csv'>CSV</a></html>"
+
+    def fake_get(url, **kwargs):
+        if "/api/3/action/package_show" in url:
+            raise http.HTTPStatusError(url, 404)
+        return _response(url, html, "text/html")
+
+    monkeypatch.setattr(http, "get", fake_get)
+    result = providers.fetch("https://portal.example/dataset/weather")
+    assert result == {
+        "kind": "page", "title": "Fallback",
+        "links": ["https://portal.example/data.csv"],
+    }
+    assert "404" in providers.last_errors()["ckan"]
+
+
+def test_fetch_html_recognises_licence_hrefs_only_and_preserves_first(monkeypatch):
+    html = b"""<html><head><title>Licences</title></head><body>
+      <p>Creative Commons Attribution 4.0 is prose and must not count.</p>
+      <a href='https://creativecommons.org/licenses/by/4.0/deed.en'>CC</a>
+      <a href='https://opendatacommons.org/licenses/odbl/1-0/'>ODbL</a>
+      <a href='https://www.nationalarchives.gov.uk/doc/open-government-licence/version/3/'>OGL</a>
+      <a href='/data.csv'>data</a>
+    </body></html>"""
+    response = _response("https://example.org/catalogue", html, "text/html")
+    monkeypatch.setattr(http, "get", lambda url, **kwargs: response)
+    result = providers.fetch("https://example.org/catalogue")
+    assert result["licence"] == "CC BY 4.0"
+    assert result["links"] == ["https://example.org/data.csv"]
+    parser = providers._LandingPageParser()
+    parser.feed(html.decode())
+    assert parser.licences == ["CC BY 4.0", "ODbL", "OGL"]
+
+    prose_only = _response(
+        "https://example.org/prose", b"<html><p>CC BY 4.0 and ODbL</p></html>", "text/html"
+    )
+    monkeypatch.setattr(http, "get", lambda url, **kwargs: prose_only)
+    assert "licence" not in providers.fetch("https://example.org/prose")
+
+
+def test_fetch_ckan_download_keeps_file_and_adds_package_metadata(monkeypatch):
+    download = "https://portal.example/dataset/weather/resource/table/download/data.csv"
+    package_url = "https://portal.example/api/3/action/package_show?id=weather"
+    package = {"success": True, "result": {
+        "title": "Weather observations",
+        "license_title": "CC BY 4.0",
+        "organization": {"title": "Weather Office"},
+    }}
+    calls = []
+
+    def fake_get(url, **kwargs):
+        calls.append((url, kwargs))
+        if url == package_url:
+            return _response(url, package)
+        return _response(url, b"place,value\nA,1\n", "text/csv")
+
+    monkeypatch.setattr(http, "get", fake_get)
+    assert providers.fetch(download) == {
+        "kind": "file", "title": "data.csv", "links": [],
+        "licence": "CC BY 4.0", "publisher": "Weather Office",
+        "dataset_title": "Weather observations",
+    }
+    assert calls == [(download, {"expect": None}), (package_url, {"expect": "json"})]
