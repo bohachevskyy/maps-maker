@@ -101,6 +101,13 @@ def _features(record):
         return pts, len(groups)
     lon_col = roles.get("lon") or "__longitude"
     lat_col = roles.get("lat") or "__latitude"
+    if roles.get("end_lon") and roles.get("end_lat"):      # one segment per row
+        for row in rows:
+            for a, b in ((lon_col, lat_col), (roles["end_lon"], roles["end_lat"])):
+                lon, lat = _float(row.get(a)), _float(row.get(b))
+                if lon is not None and lat is not None:
+                    pts.append((lon, lat))
+        return pts, len(rows)
     for i, row in enumerate(rows):
         lon, lat = _float(row.get(lon_col)), _float(row.get(lat_col))
         if lon is None or lat is None or not (-180 <= lon <= 180 and -90 <= lat <= 90):

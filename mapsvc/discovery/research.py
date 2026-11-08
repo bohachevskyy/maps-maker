@@ -159,7 +159,8 @@ What makes a good dataset:
 - it is recent, covers most of the requested units, and states a licence;
 - region keys are codes the service can join (ISO3 country codes, ISO 3166-2
   subdivision codes, NUTS, US FIPS) or names it can match; point data has
-  longitude/latitude columns.
+  longitude/latitude columns; line data is GeoJSON/shapefile geometry, or a
+  table with start and end coordinates per row (roles lon/lat + end_lon/end_lat).
 
 Many statistics portals render their pages in JavaScript, so a landing page may
 offer no file links. When a result is such a page and you know the publisher's

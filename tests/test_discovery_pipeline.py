@@ -96,3 +96,21 @@ def test_a_rejected_proposal_is_repaired_with_the_services_reasons(tmp_path, mon
     validations = [t for t in outcome.trace if t["step"] == "validate"]
     assert not validations[0]["ok"] and "AGE (Y0T17, _T)" in validations[0]["problems"][0]
     assert outcome.record and outcome.record["roles"]["filter"][0]["value"] == "_T"
+
+
+def test_start_and_end_columns_draw_as_segments_coloured_in_natural_order(tmp_path, monkeypatch):
+    from mapsvc.overlays import Window, web
+    monkeypatch.setenv("MAPSVC_DISCOVERED_DB", str(tmp_path / "d.sqlite"))
+    url = "https://data.example.org/tornadoes.csv"
+    Store().add_or_update({
+        "id": "disc_1111222233334444", "url": url, "title": "Tornadoes", "publisher": "NOAA SPC",
+        "licence": "public domain", "geometry_kind": "lines", "key_namespace": "coords",
+        "level": "lines", "status": "active", "format": "csv",
+        "roles": {"lon": "slon", "lat": "slat", "end_lon": "elon", "end_lat": "elat",
+                  "category": "mag", "filter": [{"column": "date", "op": "ge", "value": "2011-04-25"}]}})
+    csv = (b"date,mag,slon,slat,elon,elat\n2011-04-27,10,-88.1,34.1,-87.9,34.3\n"
+           b"2011-04-27,2,-87.0,33.0,-86.8,33.2\n2011-03-01,1,-90,30,-89.9,30.1\n")
+    layer = web.layer_from_bytes(csv, url, Window(None, None, (-180.0, -90.0, 180.0, 90.0)))
+    assert layer["kind"] == "lines" and len(layer["features"]) == 2
+    assert layer["features"][0]["coords"] == [[-88.1, 34.1], [-87.9, 34.3]]
+    assert [c["value"] for c in layer["category"]["classes"]] == ["2", "10"]

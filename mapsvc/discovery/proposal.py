@@ -17,7 +17,10 @@ import re
 from mapsvc.discovery import rowfilter
 
 LICENCE_UNSTATED = "licence not stated by source"
-ROLE_NAMES = ("key", "name", "lon", "lat", "value", "unit", "date", "category", "size")
+# end_lon/end_lat: a row is a segment from (lon, lat) to its end -- a tornado track,
+# a flight, a migration -- as in NOAA SPC's one-row-per-tornado table.
+ROLE_NAMES = ("key", "name", "lon", "lat", "end_lon", "end_lat", "value", "unit", "date",
+              "category", "size")
 
 # Coverage a choropleth must reach inside its scope to be worth drawing. Below
 # this the map is mostly hatching, which is a worse answer than an honest refusal.
@@ -122,7 +125,10 @@ def validate(prop: DatasetProposal, report, *, column_values=None, coverage=None
     elif prop.kind == "lines":
         if ((prop.format or "").lower() not in {"geojson", "shapefile"}
                 and not {"lon", "lat"} <= set(prop.roles)):
-            problems.append("lines need GeoJSON geometry or ordered lon/lat columns")
+            problems.append("lines need GeoJSON geometry, lon/lat plus end_lon/end_lat, "
+                            "or ordered lon/lat columns")
+        if ("end_lon" in prop.roles) != ("end_lat" in prop.roles):
+            problems.append("end_lon and end_lat come together")
     else:
         problems.append(f"unknown kind {prop.kind!r}")
 

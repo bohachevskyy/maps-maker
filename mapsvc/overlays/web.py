@@ -340,7 +340,7 @@ def _discovered_entry(url: str) -> dict:
     rec = rows[0]
     proposed = rec.get("roles") or {}
     roles = {k: v for k, v in proposed.items()
-             if k in ("lon", "lat", "name", "category", "date", "size")}
+             if k in ("lon", "lat", "end_lon", "end_lat", "name", "category", "date", "size")}
     if "value" in proposed and "size" not in roles:
         roles["size"] = proposed["value"]
     when = (rec.get("validated_at") or "")[:10]
@@ -692,7 +692,7 @@ def layer_from_bytes(payload: bytes, overlay_id: str, window: Window,
         records, _fmt, _geo, _warn = probe.records(payload)
         records = rowfilter.apply(records, entry.get("row_filter"))
         columns = list(dict.fromkeys(k for r in records[:200] for k in r))
-        lines = []
+        lines = _segments(records, entry.get("roles") or {})
     elif text.lstrip().startswith("{"):
         records, columns, lines = _geojson(text, url)
         if entry.get("discovered") and not lines:
@@ -1475,13 +1475,44 @@ def _ibtracs_layer(base: dict, text: str, filters: dict, window: Window) -> dict
             "excluded": excluded, "noun": "storms"}
 
 
+def _segments(records, roles) -> list:
+    """Rows with a start and an end coordinate, as one-segment lines."""
+    if not ("end_lon" in roles and "end_lat" in roles and "lon" in roles and "lat" in roles):
+        return []
+    out = []
+    for i, r in enumerate(records):
+        pts = [_number(r.get(roles[k])) for k in ("lon", "lat", "end_lon", "end_lat")]
+        if None in pts or not all(-180 <= pts[j] <= 180 and -90 <= pts[j + 1] <= 90
+                                  for j in (0, 2)):
+            continue
+        out.append((str(i), r, [(pts[0], pts[1]), (pts[2], pts[3])]))
+    return out
+
+
+def _natural(value):
+    digits = re.findall(r"\d+", str(value))
+    return (0, int(digits[0]), str(value)) if digits else (1, 0, str(value))
+
+
 def _lines_layer(base, lines, roles, window):
     features = []
+    column = roles.get("category")
     for fid, props, coords in lines:
         pts = [[float(c[0]), float(c[1])] for c in coords if len(c) >= 2]
         if len(pts) >= 2:
-            features.append({"id": fid, "coords": pts, "category": None})
-    return {**base, "kind": "lines", "size": None, "category": None,
+            value = props.get(column) if column else None
+            features.append({"id": fid, "coords": pts,
+                             "category": None if value in (None, "") else str(value)})
+    category = None
+    values = sorted({f["category"] for f in features if f["category"]}, key=_natural)
+    if column and 1 < len(values) <= MAX_CATEGORIES:
+        category = {"field": column, "label": column, "ordered": True,
+                    "classes": [{"value": v, "label": v} for v in values]}
+    else:
+        for f in features:
+            f["category"] = None
+    return {**base, "kind": "lines", "size": None, "category": category,
             "features": features, "stats": {"count": len(features)},
-            "summary": f"{len(features):,} lines", "encoding": "One line per feature",
+            "summary": f"{len(features):,} lines", "encoding": "One line per feature"
+            + (f", coloured by {column}" if category else ""),
             "excluded": []}
