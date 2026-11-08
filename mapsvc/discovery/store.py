@@ -195,6 +195,12 @@ class DiscoveredSourceStore:
                 "ORDER BY s.id ASC LIMIT ?", [*params, limit]).fetchall()
         return [self._decode(row) for row in rows]
 
+    def by_url(self, url: str, status: str = "active") -> list[dict]:
+        rows = self.connection.execute(
+            "SELECT s.*, 0.0 AS rank FROM sources s WHERE s.url=? AND s.status=? ORDER BY s.id",
+            (url, status)).fetchall()
+        return [self._decode(row) for row in rows]
+
     def search_any(self, text: str, *, limit: int = 10, **filters) -> list[dict]:
         """Records matching any query word, best first by how many words they match.
 

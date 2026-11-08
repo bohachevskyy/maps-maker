@@ -31,7 +31,7 @@ PLAN = {"kind": "choropleth", "key_namespace": "ISO3", "level": "admin_0",
         "give_up": False, "give_up_reason": ""}
 SELECT = {"inspect": [0], "direct_urls": [], "why": "World Bank indicator", "none_fit": False}
 ROLES = {r: "" for r in P.ROLE_NAMES} | {"key": "Country Code", "value": "2023", "name": "Country Name"}
-PROPOSE = {"file": 0, "roles": ROLES, "filters": {"column": "", "equals": ""},
+PROPOSE = {"file": 0, "roles": ROLES, "filters": [], "scale": 1,
            "title": "Average precipitation in depth (mm per year)", "publisher": "World Bank",
            "licence": "CC BY 4.0", "unit": "mm per year", "vintage": "2023", "refusal": ""}
 
@@ -169,3 +169,16 @@ def test_a_direct_api_url_is_probed_like_a_found_file():
         probe=lambda url: probed.append(url) or REPORT)
     assert probed == ["https://api.worldbank.org/v2/x?format=json"]   # http:// is never fetched
     assert result.proposal.url == "https://api.worldbank.org/v2/x?format=json"
+
+
+def test_filters_and_scale_travel_from_the_answer_to_the_record():
+    answer = dict(PROPOSE, scale=1000, filters=[{"column": "2023", "op": "ge", "value": "500"}])
+    prop = _run(FakeLLM(PLAN, SELECT, answer)).proposal
+    assert prop.row_filter == [{"column": "2023", "op": "ge", "value": "500"}] and prop.scale == 1000
+    rec = P.to_store_record(prop, P.Verdict(ok=True, problems=[]))
+    assert rec["roles"]["filter"] == prop.row_filter and rec["roles"]["scale"] == 1000
+
+
+def test_a_scale_that_is_not_a_power_of_ten_is_ignored():
+    prop = _run(FakeLLM(PLAN, SELECT, dict(PROPOSE, scale=3.7))).proposal
+    assert prop.scale == 1.0

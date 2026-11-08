@@ -330,8 +330,8 @@ def _discovered_entry(url: str) -> dict:
     """
     try:
         from mapsvc.discovery.store import Store
-        rows = [r for r in Store().search(url, limit=20)
-                if r.get("url") == url and r.get("geometry_kind") in ("points", "lines")]
+        rows = [r for r in Store().by_url(url)
+                if r.get("geometry_kind") in ("points", "lines")]
     except Exception:
         return {}
     if not rows:
@@ -348,6 +348,8 @@ def _discovered_entry(url: str) -> dict:
         "description": f"{rec.get('publisher') or 'web'}, {rec.get('vintage') or 'undated'} "
                        "(found by the research step)",
         "roles": roles, "license": rec.get("licence"),
+        "discovered": True, "format_found": rec.get("format"),
+        "row_filter": proposed.get("filter") or [],
         "attribution": (f"{rec.get('publisher') or 'unknown publisher'} ({url}; found by the "
                         "research step" + (f", validated {when}" if when else "") + ")"),
     }
@@ -681,8 +683,19 @@ def layer_from_bytes(payload: bytes, overlay_id: str, window: Window,
     if entry.get("format") == "geonames":
         records, columns = _geonames(text, url)
         lines = []
+    elif entry.get("discovered") and entry.get("format_found") != "geojson":
+        # What was validated is what is drawn: the same parser (CSV, XLSX,
+        # JSON APIs, zips) and the same row conditions as at validation.
+        from mapsvc.discovery import probe, rowfilter
+        records, _fmt, _geo, _warn = probe.records(payload)
+        records = rowfilter.apply(records, entry.get("row_filter"))
+        columns = list(dict.fromkeys(k for r in records[:200] for k in r))
+        lines = []
     elif text.lstrip().startswith("{"):
         records, columns, lines = _geojson(text, url)
+        if entry.get("discovered") and not lines:
+            from mapsvc.discovery import rowfilter
+            records = rowfilter.apply(records, entry.get("row_filter"))
     else:
         records, columns = _csv(text, url)
         lines = []

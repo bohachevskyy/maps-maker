@@ -57,3 +57,22 @@ def test_the_main_agent_is_told_how_to_use_each_kind():
         {"id": "disc_2", "geometry_kind": "points", "url": "https://e.org/p.csv"})
     assert '"source": "discovered", "id": "disc_1"' in choro
     assert '"source": "web", "id": "https://e.org/p.csv"' in points
+
+
+def test_a_discovered_points_file_is_drawn_with_its_validated_filter(tmp_path, monkeypatch):
+    from mapsvc.overlays import web
+    from mapsvc.overlays import Window
+    monkeypatch.setenv("MAPSVC_DISCOVERED_DB", str(tmp_path / "d.sqlite"))
+    url = "https://data.example.org/meteorites.csv"
+    Store().add_or_update({
+        "id": "disc_aaaabbbbccccdddd", "url": url, "title": "Meteorite Landings",
+        "publisher": "NASA", "licence": "public domain", "geometry_kind": "points",
+        "key_namespace": "coords", "level": "points", "status": "active", "format": "csv",
+        "roles": {"lon": "reclong", "lat": "reclat", "name": "name",
+                  "filter": [{"column": "fall", "op": "eq", "value": "Fell"}]}})
+    csv = (b"name,fall,reclong,reclat\nAachen,Fell,6.08,50.77\nAbee,Found,-113,54.2\n"
+           b"Acapulco,Fell,-99.9,16.88\n")
+    layer = web.layer_from_bytes(csv, url, Window(None, None, (-180.0, -90.0, 180.0, 90.0)))
+    names = sorted(str(f) for f in layer.get("features", layer.get("places", [])))
+    assert "Abee" not in " ".join(names) and len(names) == 2
+    assert "NASA" in layer["provenance"]["attribution"]

@@ -66,9 +66,10 @@ def load(variable_id: str, level: str, region=None, year=None) -> Values:
     except Exception as exc:  # outage, replay miss, moved file: say which
         raise StatisticsError(f"could not fetch the discovered dataset {rec['url']}: {exc}",
                               "variable.id") from exc
+    from mapsvc.discovery import rowfilter
     rows, _fmt, _geo, _warn = probe.records(payload)
-    for column, wanted in (roles.get("filter") or {}).items():
-        rows = [r for r in rows if str(r.get(column, "")).strip() == str(wanted).strip()]
+    rows = rowfilter.apply(rows, roles.get("filter"))
+    scale = float(roles.get("scale") or 1)
 
     value_col = roles.get("value")
     key_col = roles.get("key")
@@ -94,7 +95,7 @@ def load(variable_id: str, level: str, region=None, year=None) -> Values:
         # Long files hold one row per unit and year: keep each unit's latest.
         when = _when(row.get(date_col)) if date_col else 0
         if when >= dated.get(key, when):
-            values[key], dated[key] = number, when
+            values[key], dated[key] = number * scale, when
     if not values:
         raise StatisticsError(f"discovered dataset {variable_id} yielded no joinable values",
                               "variable.id")

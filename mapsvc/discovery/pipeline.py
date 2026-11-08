@@ -77,9 +77,12 @@ def _verify(prop, probe_fn, within) -> proposal_mod.Verdict:
     from mapsvc.discovery import http, probe as probe_mod
 
     report = probe_fn(prop.url)
+    from mapsvc.discovery import rowfilter
     rows, _fmt, _geo, _warn = probe_mod.records(http.get(prop.url, expect="data").content)
-    for column, wanted in prop.row_filter.items():
-        rows = [r for r in rows if str(r.get(column, "")).strip() == str(wanted).strip()]
+    rows = rowfilter.apply(rows, prop.row_filter)
+    if not rows:
+        return proposal_mod.Verdict(False, ["the filters keep no rows: "
+                                            + rowfilter.describe(prop.row_filter)])
 
     def column_values(name):
         return [r.get(name) for r in rows]

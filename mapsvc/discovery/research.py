@@ -27,6 +27,7 @@ import re
 from typing import Callable, Iterable
 
 from mapsvc.discovery import proposal as proposal_mod
+from mapsvc.discovery import rowfilter
 
 MAX_QUERIES = 4
 MAX_RESULTS_SHOWN = 24      # search hits the model sees per turn
@@ -110,9 +111,19 @@ PROPOSE_SCHEMA = {
             "additionalProperties": False,
             "description": "column NAME for each role, exactly as listed in the probe, or ''",
         },
-        "filters": {"type": "object", "properties": {"column": _STR, "equals": _STR},
-                    "required": ["column", "equals"], "additionalProperties": False,
-                    "description": "optional row filter (e.g. indicator code, year); '' when unused"},
+        "filters": {
+            "type": "array", "maxItems": rowfilter.MAX_FILTERS,
+            "items": {"type": "object",
+                      "properties": {"column": _STR,
+                                     "op": {"type": "string", "enum": list(rowfilter.OPS)},
+                                     "value": _STR},
+                      "required": ["column", "op", "value"], "additionalProperties": False},
+            "description": ("conditions every kept row meets, e.g. year eq 2023, "
+                            "fall eq Fell, SIZE_HA ge 200, date ge 2011-04-25; "
+                            "[] to keep every row")},
+        "scale": {"type": "number",
+                  "description": ("multiplier that turns the value column into the stated "
+                                  "unit: 1000 when a table is 'in thousands', else 1")},
         "title": _STR,
         "publisher": _STR,
         "licence": {"type": "string", "description": "as stated by the source, or 'licence not stated by source'"},
@@ -120,7 +131,8 @@ PROPOSE_SCHEMA = {
         "vintage": {"type": "string", "description": "year or period of the values"},
         "refusal": {"type": "string", "description": "when file is -1: what was searched and why nothing fit"},
     },
-    "required": ["file", "roles", "filters", "title", "publisher", "licence", "unit", "vintage", "refusal"],
+    "required": ["file", "roles", "filters", "scale", "title", "publisher", "licence", "unit",
+                 "vintage", "refusal"],
     "additionalProperties": False,
 }
 
@@ -218,14 +230,23 @@ def research(need: Need, *, ask: Asker, search: Searcher, fetch: Fetcher,
         vintage=answer["vintage"], kind=plan["kind"], key_namespace=plan["key_namespace"],
         level=plan["level"], measure=plan["measure"],
         roles={k: v for k, v in answer["roles"].items() if v},
-        row_filter=({answer["filters"]["column"]: answer["filters"]["equals"]}
-                    if answer["filters"].get("column") else {}),
+        row_filter=rowfilter.normalise(answer.get("filters")),
+        scale=_scale(answer.get("scale")),
         query=need.prompt, format=_get(report, "format"), content_sha256=_get(report, "sha256"),
     )
     return Result(proposed, None, trace)
 
 
 # ------------------------------------------------------------- helpers ---
+
+def _scale(value) -> float:
+    """Powers of ten only: a scale is a unit statement, not a correction factor."""
+    try:
+        value = float(value)
+    except (TypeError, ValueError):
+        return 1.0
+    return value if value in (0.001, 0.01, 0.1, 1.0, 10.0, 100.0, 1e3, 1e6, 1e9) else 1.0
+
 
 def _need_text(need: Need) -> str:
     parts = [f"User request: {need.prompt}", f"Why the registry was not enough: {need.reason}"]

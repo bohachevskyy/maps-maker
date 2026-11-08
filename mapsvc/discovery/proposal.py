@@ -14,6 +14,8 @@ import dataclasses
 import hashlib
 import re
 
+from mapsvc.discovery import rowfilter
+
 LICENCE_UNSTATED = "licence not stated by source"
 ROLE_NAMES = ("key", "name", "lon", "lat", "value", "unit", "date", "category", "size")
 
@@ -44,7 +46,8 @@ class DatasetProposal:
     roles: dict                   # role -> column name in the file
     query: str
     landing_page: str | None = None
-    row_filter: dict = dataclasses.field(default_factory=dict)
+    row_filter: list = dataclasses.field(default_factory=list)   # rowfilter conditions
+    scale: float = 1.0
     format: str | None = None
     content_sha256: str | None = None
 
@@ -53,7 +56,8 @@ class DatasetProposal:
         """Stable id: the same file with the same roles is the same source."""
         basis = "|".join([self.url, self.kind, self.key_namespace,
                           ",".join(f"{k}={v}" for k, v in sorted(self.roles.items())),
-                          ",".join(f"{k}={v}" for k, v in sorted(self.row_filter.items()))])
+                          rowfilter.describe(self.row_filter)]
+                         + ([f"x{self.scale:g}"] if self.scale != 1 else []))
         return "disc_" + hashlib.sha256(basis.encode()).hexdigest()[:16]
 
 
@@ -102,7 +106,7 @@ def validate(prop: DatasetProposal, report, *, column_values=None, coverage=None
             problems.append(f"unknown role {role!r}")
         elif column not in columns:
             problems.append(f"role {role!r} names column {column!r}, which the file does not have")
-    for column in prop.row_filter:
+    for column in [f["column"] for f in rowfilter.normalise(prop.row_filter)]:
         if column not in columns:
             problems.append(f"filter names column {column!r}, which the file does not have")
 
@@ -164,7 +168,9 @@ def to_store_record(prop: DatasetProposal, verdict: Verdict, *, description="") 
         "id": prop.id, "url": prop.url, "title": prop.title, "description": description,
         "publisher": prop.publisher, "licence": prop.licence, "format": prop.format,
         "geometry_kind": prop.kind, "key_namespace": prop.key_namespace, "level": prop.level,
-        "roles": dict(prop.roles, **({"filter": prop.row_filter} if prop.row_filter else {})),
+        "roles": dict(prop.roles,
+                      **({"filter": rowfilter.normalise(prop.row_filter)} if prop.row_filter else {}),
+                      **({"scale": prop.scale} if prop.scale != 1 else {})),
         "units": prop.unit, "vintage": prop.vintage, "coverage": verdict.coverage,
         "content_sha256": prop.content_sha256, "status": "active",
         "validation": {"problems": verdict.problems, "warnings": verdict.warnings},

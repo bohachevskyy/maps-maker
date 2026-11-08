@@ -79,11 +79,9 @@ def _float(v):
 def _rows(record):
     from mapsvc.discovery import http, probe
     payload = http.get(record["url"], expect="data").content
+    from mapsvc.discovery import rowfilter
     rows, fmt, _geo, _warn = probe.records(payload)
-    flt = (record.get("roles") or {}).get("filter") or {}
-    for column, wanted in flt.items():
-        rows = [r for r in rows if str(r.get(column, "")).strip() == str(wanted).strip()]
-    return rows, fmt, payload
+    return rowfilter.apply(rows, (record.get("roles") or {}).get("filter")), fmt, payload
 
 
 def _features(record):
