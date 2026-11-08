@@ -51,6 +51,7 @@ class DatasetProposal:
     landing_page: str | None = None
     row_filter: list = dataclasses.field(default_factory=list)   # rowfilter conditions
     scale: float = 1.0
+    derive: dict = dataclasses.field(default_factory=dict)       # {} or a ratio
     format: str | None = None
     content_sha256: str | None = None
 
@@ -60,7 +61,9 @@ class DatasetProposal:
         basis = "|".join([self.url, self.kind, self.key_namespace,
                           ",".join(f"{k}={v}" for k, v in sorted(self.roles.items())),
                           rowfilter.describe(self.row_filter)]
-                         + ([f"x{self.scale:g}"] if self.scale != 1 else []))
+                         + ([f"x{self.scale:g}"] if self.scale != 1 else [])
+                         + ([f"ratio/{self.derive['denominator']}x{self.derive['factor']:g}"]
+                            if self.derive else []))
         return "disc_" + hashlib.sha256(basis.encode()).hexdigest()[:16]
 
 
@@ -109,6 +112,9 @@ def validate(prop: DatasetProposal, report, *, column_values=None, coverage=None
             problems.append(f"unknown role {role!r}")
         elif column not in columns:
             problems.append(f"role {role!r} names column {column!r}, which the file does not have")
+    if prop.derive and prop.derive.get("denominator") not in columns:
+        problems.append(f"the ratio's denominator {prop.derive.get('denominator')!r} is not "
+                        "a column of the file")
     for column in [f["column"] for f in rowfilter.normalise(prop.row_filter)]:
         if column not in columns:
             problems.append(f"filter names column {column!r}, which the file does not have")
@@ -144,6 +150,11 @@ def validate(prop: DatasetProposal, report, *, column_values=None, coverage=None
 
     result_coverage = None
     if not problems and column_values is not None:
+        if prop.derive and prop.derive.get("denominator") in columns:
+            share = _numeric_share(column_values(prop.derive["denominator"]))
+            if share < MIN_NUMERIC_SHARE:
+                problems.append(f"denominator column {prop.derive['denominator']!r} is only "
+                                f"{share:.0%} numeric")
         for role in ("value", "size"):
             if role in prop.roles:
                 share = _numeric_share(column_values(prop.roles[role]))
@@ -177,7 +188,8 @@ def to_store_record(prop: DatasetProposal, verdict: Verdict, *, description="") 
         "geometry_kind": prop.kind, "key_namespace": prop.key_namespace, "level": prop.level,
         "roles": dict(prop.roles,
                       **({"filter": rowfilter.normalise(prop.row_filter)} if prop.row_filter else {}),
-                      **({"scale": prop.scale} if prop.scale != 1 else {})),
+                      **({"scale": prop.scale} if prop.scale != 1 else {}),
+                      **({"derive": prop.derive} if prop.derive else {})),
         "units": prop.unit, "vintage": prop.vintage, "coverage": verdict.coverage,
         "content_sha256": prop.content_sha256, "status": "active",
         "validation": {"problems": verdict.problems, "warnings": verdict.warnings},

@@ -48,6 +48,8 @@ def describe(variable_id: str) -> Variable:
     rec = _record(variable_id)
     unit = rec.get("units") or None
     level = "count" if unit and any(w in unit.lower() for w in _COUNT_WORDS) else "ratio"
+    if (rec.get("roles") or {}).get("derive"):
+        level = "ratio"            # a derived share or rate is never a count
     return Variable(id=variable_id, label=rec.get("title") or variable_id, unit=unit,
                     level=level, citation=_citation(rec))
 
@@ -70,6 +72,7 @@ def load(variable_id: str, level: str, region=None, year=None) -> Values:
     rows, _fmt, _geo, _warn = probe.records(payload)
     rows = rowfilter.apply(rows, roles.get("filter"))
     scale = float(roles.get("scale") or 1)
+    derive = roles.get("derive") or {}
 
     value_col = roles.get("value")
     key_col = roles.get("key")
@@ -88,6 +91,13 @@ def load(variable_id: str, level: str, region=None, year=None) -> Values:
         number = _number(row.get(value_col))
         if number is None:
             continue
+        if derive:
+            # A ratio the file holds the parts of (e.g. people without health
+            # coverage / population x 100); a zero or missing base is no value.
+            base = _number(row.get(derive["denominator"]))
+            if not base:
+                continue
+            number = number / base * float(derive.get("factor") or 1)
         key = (by_key(row.get(key_col)) if by_key else None) or (
             by_name(row.get(name_col)) if by_name else None)
         if not key:
@@ -102,7 +112,10 @@ def load(variable_id: str, level: str, region=None, year=None) -> Values:
     _store().mark_used(variable_id)
     return Values(values=values, provenance={
         "source": rec.get("publisher") or "web dataset",
-        "variable": rec.get("title") or variable_id,
+        "variable": (rec.get("title") or variable_id) + (
+            f" (computed here: {value_col} / {derive['denominator']}"
+            + (f" × {float(derive.get('factor') or 1):g}" if float(derive.get("factor") or 1) != 1 else "")
+            + ")" if derive else ""),
         "unit": rec.get("units"),
         "year": rec.get("vintage"),
         "license": rec.get("licence"),
