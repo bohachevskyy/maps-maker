@@ -470,6 +470,13 @@ def _footnote_consistency_check(root: ET.Element, truth_path: pathlib.Path,
             truth_keys -= ignored_truth_keys
     rendered = _all_rendered_ids(root)
     missing = {key for key in truth_keys if _resolve_key(key, rendered) is None}
+    if truth_keys and missing == truth_keys:
+        # No truth key is a drawn unit: the truth lists overlay features (OSM
+        # ids, metro line names) that the SVG draws without unit ids. Measured
+        # 2026-11-08: Norway lighthouses and Paris metro "failed" here once the
+        # point layer's footnote began stating an exclusion count.
+        return {"status": "unevaluable", "severity": "warning",
+                "reason": "truth keys are overlay features, not rendered units"}
     # A `within` list scopes the map: a truth row outside it (Russia on a
     # Europe map whose list leaves Russia out) is not an omission. Only applied
     # when truth keys share the scope's namespace (ISO3 within, ISO3 keys).

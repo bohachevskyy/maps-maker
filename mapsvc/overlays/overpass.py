@@ -876,6 +876,8 @@ def describe(pairs) -> str:
         # "brand=Costco;shop=wholesale" is Costco's locations, not "features
         # tagged shop=wholesale" (measured: the Bay Area map lost its subject).
         rest = [(k, v) for k, v in every if k != "brand"]
+        if len(rest) == 1 and rest[0][0] == "shop":
+            return f"{brands[0]} stores"
         kind = describe(rest) if rest else ""
         noun = kind.lower() if kind and not kind.startswith("OpenStreetMap") else "locations"
         return f"{brands[0]} {noun}"
@@ -892,7 +894,24 @@ def describe(pairs) -> str:
     if nouns and len(nouns) + len(mods) == len(pairs):
         text = " ".join(mods + [nouns[0]])
         return text[:1].upper() + text[1:]
+    if len(pairs) == 1:
+        # A single place-of-interest tag reads as its plural: man_made=lighthouse
+        # -> "Lighthouses", shop=furniture -> "Furniture shops".
+        key, value = pairs[0]
+        word = value.replace("_", " ").strip()
+        if re.fullmatch(r"[a-z ]{3,30}", word or ""):
+            if key == "shop":
+                return f"{word.capitalize()} shops"
+            if key in _POI_KEYS:
+                plural = (word[:-1] + "ies" if word.endswith("y") and word[-2:-1] not in "aeiou"
+                          else word + "es" if word.endswith(("s", "sh", "ch", "x"))
+                          else word + "s")
+                return plural.capitalize()
     return "OpenStreetMap features tagged " + " + ".join(f"{k}={v}" for k, v in pairs)
+
+
+_POI_KEYS = {"amenity", "man_made", "tourism", "historic", "leisure", "healthcare",
+             "office", "craft", "emergency", "aeroway", "military", "highway", "railway"}
 
 
 def _speed(tags: dict) -> float | None:

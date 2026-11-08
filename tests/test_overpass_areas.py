@@ -124,4 +124,7 @@ def test_two_unnamed_nodes_close_together_stay_two_features():
 
 
 def test_a_brand_names_the_layer():
-    assert overpass.describe(overpass._pairs("brand=Costco;shop=wholesale")) == "Costco locations"
+    assert overpass.describe(overpass._pairs("brand=Costco;shop=wholesale")) == "Costco stores"
+    assert overpass.describe(overpass._pairs("brand=Starbucks;amenity=cafe")) == "Starbucks cafes"
+    assert overpass.describe(overpass._pairs("man_made=lighthouse")) == "Lighthouses"
+    assert overpass.describe(overpass._pairs("amenity=pharmacy")) == "Pharmacies"
