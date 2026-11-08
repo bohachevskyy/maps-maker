@@ -1,0 +1,35 @@
+id,name,city,county,lon,lat,kind,sources
+w179238232,Costco,Fremont,Alameda,-121.97303,37.501539,warehouse,osm:w179238232
+w180344072,Costco,Hayward,Alameda,-122.089267,37.616148,warehouse,osm:w180344072
+w395215789,Costco Business Center,Hayward,Alameda,-122.102327,37.667445,business_center,osm:w395215789
+w225005065,Costco,Livermore,Alameda,-121.8127,37.702859,warehouse,osm:w225005065
+n11473878545,Costco,Newark,Alameda,-121.999069,37.525842,warehouse,osm:n11473878545
+n12597023418,Costco,Pleasanton,Alameda,-121.917421,37.694558,warehouse,osm:n12597023418+n14298541701
+w83886783,Costco,San Leandro,Alameda,-122.181854,37.720821,warehouse,osm:w83886783
+w224022985,Costco,Antioch,Contra Costa,-121.835458,38.008698,warehouse,osm:w224022985
+n12644335899,Costco,Brentwood,Contra Costa,-121.745876,37.957128,warehouse,osm:n12644335899
+w31512320,Costco,Concord,Contra Costa,-122.032299,37.957639,warehouse,osm:w31512320
+w230294138,Costco,Danville,Contra Costa,-121.973378,37.782716,warehouse,osm:w230294138
+w24429747,Costco,Richmond,Contra Costa,-122.320178,37.898843,warehouse,osm:w24429747
+w721067069,Costco,Novato,Marin,-122.550489,38.087443,warehouse,osm:w721067069
+w1437055204,Costco,Napa,Napa,-122.27838,38.252122,warehouse,osm:w1437055204+w1362134972
+w43100828,Costco,San Francisco,San Francisco,-122.410861,37.770284,warehouse,osm:w43100828
+w54857723,Costco,Foster City,San Mateo,-122.274334,37.561779,warehouse,osm:w54857723
+w160673147,Costco,Redwood City,San Mateo,-122.216239,37.478422,warehouse,osm:w160673147
+w217040722,Costco,South San Francisco,San Mateo,-122.40065,37.642471,warehouse,osm:w217040722
+w217052097,Costco Business Center,South San Francisco,San Mateo,-122.401557,37.661039,business_center,osm:w217052097
+w67472154,Costco,South San Francisco,San Mateo,-122.449155,37.665449,warehouse,osm:w67472154
+w157807066,Costco,Gilroy,Santa Clara,-121.556608,37.008315,warehouse,osm:w157807066
+w609011452,Costco,Mountain View,Santa Clara,-122.095754,37.420957,warehouse,osm:w609011452+n8505760978
+w23792255,Costco,San Jose,Santa Clara,-121.880279,37.25321,warehouse,osm:w23792255
+w297274702,Costco,San Jose,Santa Clara,-121.884698,37.390675,warehouse,osm:w297274702
+w37681898,Costco,San Jose,Santa Clara,-121.852239,37.309897,warehouse,osm:w37681898
+w501516366,Costco,San Jose,Santa Clara,-121.785226,37.243859,warehouse,osm:w501516366
+w934444795,Costco Business Center,San Jose,Santa Clara,-121.810495,37.318043,business_center,osm:w934444795
+w37907886,Costco,Santa Clara,Santa Clara,-121.939331,37.356907,warehouse,osm:w37907886
+w38263383,Costco,Sunnyvale,Santa Clara,-121.994486,37.371824,warehouse,osm:w38263383
+w106610242,Costco,Fairfield,Solano,-122.145483,38.21525,warehouse,osm:w106610242
+w252995702,Costco,Vacaville,Solano,-121.980239,38.350569,warehouse,osm:w252995702
+w59441261,Costco,Vallejo,Solano,-122.213302,38.133224,warehouse,osm:w59441261
+w132688382,Costco,Rohnert Park,Sonoma,-122.71749,38.353143,warehouse,osm:w132688382
+w383771707,Costco,Santa Rosa,Sonoma,-122.711373,38.420148,warehouse,osm:w383771707

@@ -480,3 +480,21 @@ excludes = [[12.57, 55.68]]                              # Copenhagen (Stockholm
 spot = ["count=230±25%"]   # measured: 230 mainland man_made=lighthouse features
 must = ["the long coastline framed without wasting space (insets or conic)", "points readable along fjords", "OpenStreetMap ODbL credited"]
 reference = ["https://www.openstreetmap.org/"]
+
+[[map]]
+id = "costco_bay_area"
+prompt = "Map all Costco stores in the Bay Area"
+truth = "OpenStreetMap Costco warehouses (shop=wholesale incl. Business Centers) in the nine Bay Area counties, clustered so a node and a way of one store count once, counties by Census point-in-polygon; cross-checked with Overture Places 2026-10-21.0 (34 of 34 matched)"
+units = [30, 40]
+contains = [[-122.411, 37.770], [-122.711, 38.420], [-121.880, 37.253], [-121.557, 37.008], [-121.836, 38.009]]
+excludes = [[-121.453, 38.597], [-121.293, 38.019]]      # Sacramento (Expo Pkwy) and Stockton: a box drawn to reach Antioch/Gilroy must not reach them
+spot = ["count=34±12%", "event_near=-122.411,37.770", "event_near=-121.880,37.253"]   # measured 34 stores in the nine counties (31 warehouses + 3 Business Centers)
+must = [
+  "warehouses only: not the tire, optical, hearing-aid, pharmacy, gasoline or food-court sub-shops that OSM maps as separate objects (about 117 Costco-named objects, 34 stores)",
+  "one symbol per store: no node+way duplicates (Pleasanton, Mountain View and Napa are each mapped twice in OSM)",
+  "the nine-county Bay Area (Alameda, Contra Costa, Marin, Napa, San Francisco, San Mateo, Santa Clara, Solano, Sonoma), not a box reaching Sacramento, Stockton, Tracy or Santa Cruz",
+  "Business Centers (Hayward, South San Francisco, San Jose) distinguished from ordinary warehouses or labelled",
+  "points, not building outlines: one marker per store",
+  "footnote credits OpenStreetMap (ODbL) and states the 'Bay Area' definition used",
+]
+reference = ["https://www.costco.com/warehouse-locations", "https://www.openstreetmap.org/"]
