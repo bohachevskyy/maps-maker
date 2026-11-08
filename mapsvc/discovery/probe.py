@@ -12,6 +12,7 @@ import re
 import zipfile
 
 from mapsvc.discovery import http
+from mapsvc.discovery import shapefile
 from mapsvc.xlsx import sheets as xlsx_sheets
 
 
@@ -53,6 +54,8 @@ def records(payload: bytes) -> tuple[list[dict], str, list[str], list[str]]:
     """
     warnings: list[str] = []
     if payload.startswith(b"PK\x03\x04") and not _looks_like_xlsx(payload):
+        if _zip_has_shapefile(payload):
+            return _shapefile_records(payload, warnings)
         payload, inner_name = _safe_unzip(payload)
         warnings.append(f"inspected {inner_name} inside zip archive")
     if _looks_like_xlsx(payload):
@@ -73,12 +76,19 @@ def probe_bytes(payload: bytes, *, url: str = "") -> ProbeReport:
     original_size = len(payload)
     digest = hashlib.sha256(payload).hexdigest()
     warnings: list[str] = []
-    inner_name = ""
+    is_shapefile = False
     if payload.startswith(b"PK\x03\x04") and not _looks_like_xlsx(payload):
-        payload, inner_name = _safe_unzip(payload)
-        warnings.append(f"inspected {inner_name} inside zip archive")
+        if _zip_has_shapefile(payload):
+            rows, format_name, geometry_types, warnings = _shapefile_records(
+                payload, warnings)
+            is_shapefile = True
+        else:
+            payload, inner_name = _safe_unzip(payload)
+            warnings.append(f"inspected {inner_name} inside zip archive")
 
-    if _looks_like_xlsx(payload):
+    if is_shapefile:
+        pass
+    elif _looks_like_xlsx(payload):
         format_name = "xlsx"
         rows = _xlsx_records(payload, warnings)
         geometry_types: list[str] = []
@@ -114,6 +124,28 @@ def _looks_like_xlsx(payload: bytes) -> bool:
         return "xl/workbook.xml" in names and "[Content_Types].xml" in names
     except (zipfile.BadZipFile, OSError):
         return False
+
+
+def _zip_has_shapefile(payload: bytes) -> bool:
+    try:
+        with zipfile.ZipFile(io.BytesIO(payload)) as archive:
+            return any(shapefile._usable(member)
+                       and member.filename.lower().endswith(".shp")
+                       for member in archive.infolist())
+    except (zipfile.BadZipFile, zipfile.LargeZipFile, OSError):
+        return False
+
+
+def _shapefile_records(payload: bytes, warnings: list[str]
+                       ) -> tuple[list[dict], str, list[str], list[str]]:
+    try:
+        geojson, name, crs = shapefile._read_zip(payload)
+    except shapefile.ShapefileError as exc:
+        raise ProbeError(str(exc)) from exc
+    rows, geometry_types, _ = _json_records(json.dumps(geojson))
+    warnings.append(
+        f"read shapefile {name} ({len(geojson['features']):,} features, {crs})")
+    return rows, "shapefile", geometry_types, warnings
 
 
 def _safe_unzip(payload: bytes) -> tuple[bytes, str]:

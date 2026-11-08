@@ -35,6 +35,7 @@ import urllib.request
 import zipfile
 
 from mapsvc import fetch
+from mapsvc.discovery import shapefile
 from mapsvc.overlays import UNKNOWN_LICENSE, Capabilities, OverlayError, Window
 
 MAX_BYTES = 80 * 1024 * 1024    # IBTrACS North Atlantic CSV: 57.6 MB
@@ -683,7 +684,8 @@ def layer_from_bytes(payload: bytes, overlay_id: str, window: Window,
     if entry.get("format") == "geonames":
         records, columns = _geonames(text, url)
         lines = []
-    elif entry.get("discovered") and entry.get("format_found") != "geojson":
+    elif (entry.get("discovered")
+          and entry.get("format_found") not in {"geojson", "shapefile"}):
         # What was validated is what is drawn: the same parser (CSV, XLSX,
         # JSON APIs, zips) and the same row conditions as at validation.
         from mapsvc.discovery import probe, rowfilter
@@ -749,6 +751,15 @@ def _unzip(payload: bytes, url: str) -> bytes:
         return payload
     try:
         archive = zipfile.ZipFile(io.BytesIO(payload))
+        if any(shapefile._usable(m) and m.filename.lower().endswith(".shp")
+               for m in archive.infolist()):
+            try:
+                converted = shapefile.to_geojson(payload)
+            except shapefile.ShapefileError as exc:
+                raise OverlayError(f"{url} has an unreadable shapefile: {exc}",
+                                   "overlays.id") from exc
+            return json.dumps(converted, sort_keys=True,
+                              separators=(",", ":")).encode("utf-8")
         members = [m for m in archive.infolist()
                    if not m.is_dir() and not m.filename.startswith(("__MACOSX/", "."))
                    and m.filename.lower().endswith((".csv", ".txt", ".tsv", ".json",
