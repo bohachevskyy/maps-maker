@@ -11,9 +11,11 @@ one the model CHOOSES AMONG THINGS THE SERVICE PRODUCED:
 
 The service runs every search, fetches every page and file, extracts download
 links from landing pages, and probes files (format, columns, inferred roles).
-The model never supplies a URL that was not found, a column that does not
-exist, or a single data value -- and nothing it reads from the web is treated
-as an instruction. The result is a DatasetProposal, which `proposal.validate`
+The model may add a few URLs of its own from a publisher's documented API --
+many indicator pages are rendered in JavaScript and link to no file -- but
+those are fetched and probed exactly like found links, so a wrong guess just
+fails. It never names a column that does not exist or a single data value,
+and nothing it reads from the web is treated as an instruction. The result is a DatasetProposal, which `proposal.validate`
 then checks against the probe before anything is registered or drawn.
 """
 
@@ -29,6 +31,7 @@ from mapsvc.discovery import proposal as proposal_mod
 MAX_QUERIES = 4
 MAX_RESULTS_SHOWN = 24      # search hits the model sees per turn
 MAX_PROBES = 4              # files the service will inspect per request
+MAX_DIRECT = 3              # API URLs the model may add from its own knowledge
 MAX_LINKS_PER_PAGE = 12     # data-file links taken from one landing page
 SNIPPET_CHARS = 220         # web text is data: shown short, never obeyed
 
@@ -80,10 +83,16 @@ SELECT_SCHEMA = {
     "properties": {
         "inspect": {"type": "array", "items": {"type": "integer"}, "maxItems": MAX_PROBES,
                     "description": "result numbers to inspect, best first"},
+        "direct_urls": {
+            "type": "array", "items": _STR, "maxItems": MAX_DIRECT,
+            "description": ("https URLs of machine-readable files from a publisher's "
+                            "documented API that a result points to (e.g. its JSON/CSV "
+                            "endpoint for that indicator); [] if none. They are fetched "
+                            "and checked like any file.")},
         "why": _STR,
         "none_fit": {"type": "boolean"},
     },
-    "required": ["inspect", "why", "none_fit"],
+    "required": ["inspect", "direct_urls", "why", "none_fit"],
     "additionalProperties": False,
 }
 
@@ -133,6 +142,13 @@ What makes a good dataset:
   subdivision codes, NUTS, US FIPS) or names it can match; point data has
   longitude/latitude columns.
 
+Many statistics portals render their pages in JavaScript, so a landing page may
+offer no file links. When a result is such a page and you know the publisher's
+documented machine-readable endpoint for that same dataset (an indicator API, a
+CSV export, an SDMX/REST query), add it under direct_urls: ask for every unit at
+the requested level, the most recent values, and a page size large enough for
+all of them. The service fetches and validates it; never invent a host.
+
 If no open dataset can honestly answer the request (the data is not collected,
 is behind a login, or only exists as prose), refuse and say what you searched."""
 
@@ -168,10 +184,15 @@ def research(need: Need, *, ask: Asker, search: Searcher, fetch: Fetcher,
     choice = ask(INSTRUCTIONS + "\n\nSTEP 2 -- SELECT results worth inspecting.",
                  SELECT_SCHEMA, conversation, "research_select")
     trace.append({"step": "select", **choice})
-    if choice.get("none_fit") or not choice.get("inspect"):
+    direct = [u.strip() for u in (choice.get("direct_urls") or [])[:MAX_DIRECT]
+              if isinstance(u, str) and u.strip().startswith("https://")]
+    if (choice.get("none_fit") or not choice.get("inspect")) and not direct:
         return Result(None, "no search result looked like a usable dataset: " + choice.get("why", ""), trace)
 
-    reports = _probe_selected(choice["inspect"], hits, fetch, probe, trace)
+    urls = [hits[i]["url"] for i in choice.get("inspect") or []
+            if isinstance(i, int) and 0 <= i < len(hits)]
+    reports = _probe_selected(urls, fetch, probe, trace, limit=MAX_PROBES)
+    reports += _probe_selected(direct, fetch, probe, trace, limit=MAX_DIRECT, origin="direct")
     if not reports:
         return Result(None, "none of the selected sources offered a machine-readable file", trace)
 
@@ -242,13 +263,12 @@ def _list_hits(hits: list) -> str:
         for i, h in enumerate(hits))
 
 
-def _probe_selected(indexes, hits, fetch, probe, trace) -> list:
-    """Resolve each selected hit to machine-readable files and probe them."""
+def _probe_selected(urls, fetch, probe, trace, *, limit, origin="search") -> list:
+    """Resolve each URL to machine-readable files and probe them."""
     reports: list = []
-    for i in indexes:
-        if len(reports) >= MAX_PROBES or not isinstance(i, int) or not 0 <= i < len(hits):
-            continue
-        url = hits[i]["url"]
+    for url in urls:
+        if len(reports) >= limit:
+            break
         try:
             fetched = fetch(url)
         except Exception as exc:
@@ -260,7 +280,7 @@ def _probe_selected(indexes, hits, fetch, probe, trace) -> list:
             targets, landing = list(fetched.get("links", []))[:MAX_LINKS_PER_PAGE], url
             trace.append({"step": "links", "url": url, "found": len(targets)})
         for target in targets:
-            if len(reports) >= MAX_PROBES:
+            if len(reports) >= limit:
                 break
             try:
                 report = probe(target)
@@ -271,7 +291,7 @@ def _probe_selected(indexes, hits, fetch, probe, trace) -> list:
                 continue
             reports.append((target, report, landing))
             trace.append({"step": "probe", "url": target, "format": _get(report, "format"),
-                          "rows": _get(report, "n_rows")})
+                          "rows": _get(report, "n_rows"), "origin": origin})
     return reports
 
 

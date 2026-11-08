@@ -85,7 +85,8 @@ def _verify(prop, probe_fn, within) -> proposal_mod.Verdict:
         return [r.get(name) for r in rows]
 
     def coverage(values, namespace, level, scope):
-        return probe_mod.coverage(values, namespace, level, scope or None)
+        from mapsvc.discovery import join
+        return join.coverage(values, namespace, level, scope or None)
 
     return proposal_mod.validate(prop, report, column_values=column_values,
                                  coverage=coverage, scope=list(within) or None)

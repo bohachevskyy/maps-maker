@@ -2,7 +2,7 @@
 
 import types
 
-from mapsvc.discovery import http, pipeline, probe
+from mapsvc.discovery import http, join, pipeline
 from mapsvc.discovery.store import Store
 from tests.test_research_agent import PLAN, PROPOSE, REPORT, SELECT, FakeLLM
 
@@ -11,7 +11,7 @@ CSV = b"Country Code,Country Name,2023\nBRA,Brazil,1761\nARG,Argentina,591\nCHL,
 
 def _discover(tmp_path, monkeypatch, llm, *, ratio=1.0, payload=CSV):
     monkeypatch.setattr(http, "get", lambda url, **kw: types.SimpleNamespace(content=payload))
-    monkeypatch.setattr(probe, "coverage",
+    monkeypatch.setattr(join, "coverage",
                         lambda values, ns, level, scope: {"matched": 3, "expected": 3, "ratio": ratio})
     store = Store(tmp_path / "d.sqlite")
     hits = [{"title": "Precipitation", "url": "https://data.worldbank.org/x", "snippet": "mm"}]

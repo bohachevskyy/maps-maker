@@ -29,7 +29,7 @@ class FakeLLM:
 PLAN = {"kind": "choropleth", "key_namespace": "ISO3", "level": "admin_0",
         "measure": "average annual precipitation", "queries": ["precipitation by country csv"],
         "give_up": False, "give_up_reason": ""}
-SELECT = {"inspect": [0], "why": "World Bank indicator", "none_fit": False}
+SELECT = {"inspect": [0], "direct_urls": [], "why": "World Bank indicator", "none_fit": False}
 ROLES = {r: "" for r in P.ROLE_NAMES} | {"key": "Country Code", "value": "2023", "name": "Country Name"}
 PROPOSE = {"file": 0, "roles": ROLES, "filters": {"column": "", "equals": ""},
            "title": "Average precipitation in depth (mm per year)", "publisher": "World Bank",
@@ -153,3 +153,19 @@ def test_the_store_record_carries_provenance_and_the_verdict():
     rec = P.to_store_record(prop, P.Verdict(ok=True, problems=[], coverage={"ratio": 1.0}))
     assert rec["id"] == prop.id and rec["publisher"] == "World Bank"
     assert rec["licence"] == "CC BY 4.0" and rec["landing_page"].endswith("/x")
+
+
+def test_a_direct_api_url_is_probed_like_a_found_file():
+    """A JavaScript landing page links to nothing; the model may name the API."""
+    select = dict(SELECT, direct_urls=["https://api.worldbank.org/v2/x?format=json",
+                                       "http://insecure.example/x.csv"])
+    llm = FakeLLM(PLAN, select, PROPOSE)
+    probed = []
+    result = R.research(
+        R.Need(prompt="rainfall", reason="none"), ask=llm,
+        search=lambda q: [{"title": "t", "url": "https://data.worldbank.org/x", "snippet": ""}],
+        fetch=lambda url: ({"kind": "page", "links": []} if "data.worldbank" in url
+                           else {"kind": "file", "links": []}),
+        probe=lambda url: probed.append(url) or REPORT)
+    assert probed == ["https://api.worldbank.org/v2/x?format=json"]   # http:// is never fetched
+    assert result.proposal.url == "https://api.worldbank.org/v2/x?format=json"

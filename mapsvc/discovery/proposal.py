@@ -140,9 +140,14 @@ def validate(prop: DatasetProposal, report, *, column_values=None, coverage=None
                     problems.append(f"{role} column {prop.roles[role]!r} is only "
                                     f"{share:.0%} numeric")
         if prop.kind == "choropleth" and coverage is not None:
-            key_col = prop.roles.get("key") or prop.roles.get("name")
-            namespace = prop.key_namespace if "key" in prop.roles else "name"
-            result_coverage = coverage(column_values(key_col), namespace, prop.level, scope)
+            # Join on whichever column resolves better: a file's "code" column
+            # may be M49 numbers or a national scheme while its names match.
+            tried = []
+            for role, namespace in (("key", prop.key_namespace), ("name", "name")):
+                if role in prop.roles:
+                    tried.append(coverage(column_values(prop.roles[role]), namespace,
+                                          prop.level, scope))
+            result_coverage = max(tried, key=lambda c: _get(c, "ratio", 0) or 0)
             ratio = _get(result_coverage, "ratio", 0) or 0
             if ratio < MIN_CHOROPLETH_COVERAGE:
                 problems.append(f"keys join to only {ratio:.0%} of the expected units "
