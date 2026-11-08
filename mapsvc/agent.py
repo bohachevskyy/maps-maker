@@ -702,6 +702,22 @@ def describe(prompt: str) -> tuple[Manifest, dict, str]:
             raw.pop("bbox", None)
         if raw.pop("variable_is_null", False):
             raw["variable"] = None
+        missing = None if researched else _unmatched_web_offer(raw, overlay_offers)
+        if missing is not None and _research_enabled():
+            # The curated web catalogue had nothing that fitted and the model
+            # reached for a URL of its own: that is the registry not answering,
+            # so research looks (and validates) instead of trusting the guess.
+            researched = True
+            outcome = _discover(prompt.strip(), "the web overlay catalogue had no fitting "
+                                f"dataset for {missing!r}")
+            if outcome.record is not None:
+                _offer_discovered(outcome.record, missing, overlay_offers)
+                if outcome.record.get("geometry_kind") == "choropleth":
+                    offered = (offered or set()) | {outcome.record["id"]}
+                conversation.append({"role": "assistant", "content": json.dumps(answer)})
+                conversation.append({"role": "user",
+                                     "content": _discovery_prompt(outcome.record)})
+                continue
         try:
             _check_overlay_choices(raw, overlay_offers)
             _strip_overlays(raw)
@@ -807,6 +823,31 @@ def _check_overlay_choices(raw: dict,
                 f"OSM tag {chosen!r} does not describe the requested feature kind "
                 f"in {query!r}; choose a candidate whose description names it",
                 "overlays.id")
+
+
+def _unmatched_web_offer(raw: dict, offers) -> str | None:
+    """The query of a web catalogue search whose offers the model did not use."""
+    items = raw.get("overlays") or []
+    for source, query, candidates in offers:
+        if source != "web":
+            continue
+        choices = [item.get("id") for item in items if item.get("source") == "web"]
+        if not any(choice in candidates for choice in choices):
+            return query
+    return None
+
+
+def _offer_discovered(record: dict, query: str, offers) -> None:
+    """Make a validated points/lines find an offered web candidate."""
+    if record.get("geometry_kind") not in ("points", "lines"):
+        return
+    from mapsvc.overlays import web
+    entry = web._discovered_entry(record["url"])
+    if not entry:
+        return
+    for source, q, candidates in offers:
+        if source == "web" and q == query:
+            candidates[record["url"]] = web.Candidate(entry)
 
 
 def _strip_overlays(raw: dict) -> None:

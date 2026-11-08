@@ -522,8 +522,14 @@ def fetch_bytes(url: str) -> bytes:
     target = fetch.path("overlays", "web", digest)
     if target.exists():
         return target.read_bytes()
-    # A curated entry may be larger than an arbitrary URL is allowed to be.
-    payload = _download(download_url, _BY_URL.get(base_url, {}).get("max_bytes") or MAX_BYTES)
+    if base_url not in _BY_URL and _discovered_entry(base_url):
+        # A validated find is read through the same replayable layer that
+        # validated it, so what is drawn is the bytes that were checked.
+        from mapsvc.discovery import http as discovery_http
+        payload = discovery_http.get(download_url, expect="data").content
+    else:
+        # A curated entry may be larger than an arbitrary URL is allowed to be.
+        payload = _download(download_url, _BY_URL.get(base_url, {}).get("max_bytes") or MAX_BYTES)
     target.parent.mkdir(parents=True, exist_ok=True)
     temporary = target.with_name(target.name + ".part")
     temporary.write_bytes(payload)
