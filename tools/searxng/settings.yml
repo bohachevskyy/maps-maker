@@ -1,0 +1,13 @@
+# Local SearXNG for the research agent (free, no API key).
+#   tools/searxng/up.sh   -> http://127.0.0.1:8888/search?q=...&format=json
+use_default_settings: true
+server:
+  secret_key: "maps-maker-local-only"   # local instance, not exposed
+  limiter: false
+  image_proxy: false
+  bind_address: "0.0.0.0"
+search:
+  safe_search: 0
+  formats:
+    - html
+    - json
