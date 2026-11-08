@@ -31,7 +31,9 @@ need = "OWID/registry have no UNHCR refugee stock by host country at the time of
 should_refuse = false
 truth = "refugees_asylum/truth.csv"
 expected = { geometry_kind = "choropleth", key_namespace = "ISO3", level = "country", min_coverage = 0.7, min_vintage = 2023, must_have_licence = true, acceptable_publishers = ["UNHCR"] }
-spots = ["TUR=2940735±5%", "IRN>DEU", "DEU>POL", "COL<10000"]
+# 2026-11-07: TUR=2,940,735 was end-2024 only. Measured: 2025 is complete (UNICEF/UNHCR
+# 323 areas vs 326) and Turkey fell to 2,390,414 as Syrians returned; either year is right.
+spots = ["TUR>2000000", "TUR<3300000", "IRN>DEU", "DEU>POL", "COL<10000"]
 keyless = true
 
 [[case]]
@@ -42,7 +44,9 @@ need = "No sub-national source for Brazil in the registry."
 should_refuse = false
 truth = "brazil_states/truth.csv"
 expected = { geometry_kind = "choropleth", key_namespace = "ISO3166_2", level = "admin1", min_coverage = 0.95, min_vintage = 2022, must_have_licence = false, acceptable_publishers = ["IBGE"] }
-spots = ["BR-SP=44411238±1%", "BR-SP>BR-MG", "BR-RR<1000000", "count=27±0%"]
+# 2026-11-07: ±1% held only for the 2022 census; IBGE's 2026 estimate (46,179,008)
+# is a better answer to "population", so the spot accepts census or later estimates.
+spots = ["BR-SP=44411238±6%", "BR-SP>BR-MG", "BR-RR<1000000", "count=27±0%"]
 keyless = true
 
 [[case]]

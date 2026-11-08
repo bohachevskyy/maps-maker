@@ -248,7 +248,13 @@ def _proposed(answer, need, plan, reports, conversation, trace) -> Result:
         return Result(None, answer.get("refusal") or "no probed file answered the request",
                       trace)
 
-    source_url, report, landing = reports[index]
+    source_url, report, landing, meta = reports[index]
+    # A licence or publisher the portal states in its metadata beats "not stated".
+    stated_licence = (answer.get("licence") or "").strip()
+    if not stated_licence or stated_licence == proposal_mod.LICENCE_UNSTATED:
+        answer = dict(answer, licence=meta.get("licence") or stated_licence)
+    if not (answer.get("publisher") or "").strip() and meta.get("publisher"):
+        answer = dict(answer, publisher=meta["publisher"])
     proposed = proposal_mod.DatasetProposal(
         url=source_url, landing_page=landing, title=answer["title"], publisher=answer["publisher"],
         licence=answer["licence"] or proposal_mod.LICENCE_UNSTATED, unit=answer["unit"],
@@ -323,6 +329,8 @@ def _probe_selected(urls, fetch, probe, trace, *, limit, origin="search") -> lis
         except Exception as exc:
             trace.append({"step": "fetch", "url": url, "error": str(exc)[:200]})
             continue
+        meta = {k: fetched.get(k) for k in ("licence", "publisher", "dataset_title")
+                if fetched.get(k)}
         if fetched.get("kind") == "file":
             targets, landing = [url], None
         else:
@@ -338,7 +346,7 @@ def _probe_selected(urls, fetch, probe, trace, *, limit, origin="search") -> lis
                 continue
             if not _get(report, "columns"):
                 continue
-            reports.append((target, report, landing))
+            reports.append((target, report, landing, meta))
             trace.append({"step": "probe", "url": target, "format": _get(report, "format"),
                           "rows": _get(report, "n_rows"), "origin": origin})
     return reports
@@ -346,15 +354,18 @@ def _probe_selected(urls, fetch, probe, trace, *, limit, origin="search") -> lis
 
 def _list_probes(reports: list) -> str:
     out = []
-    for i, (url, report, landing) in enumerate(reports):
+    for i, (url, report, landing, meta) in enumerate(reports):
         cols = []
         for col in (_get(report, "columns") or [])[:40]:
             roles = ", ".join(f"{_get(r, 'role')}:{_get(r, 'confidence')}"
                               for r in (_get(col, "inferred") or [])[:3])
             sample = ", ".join(_clip(v, 30) for v in (_get(col, "sample") or [])[:4])
             cols.append(f"    - {_clip(_get(col, 'name'), 60)!r} [{roles}] e.g. {sample}")
+        stated = "; ".join(f"{k.replace('_', ' ')}: {_clip(v, 120)}" for k, v in meta.items())
         out.append(f"[{i}] {url} ({_get(report, 'format')}, {_get(report, 'n_rows')} rows)"
-                   + (f" via {landing}" if landing else "") + "\n" + "\n".join(cols))
+                   + (f" via {landing}" if landing else "")
+                   + (f"\n    portal metadata -- {stated}" if stated else "")
+                   + "\n" + "\n".join(cols))
     return "\n".join(out)
 
 

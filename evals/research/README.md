@@ -39,3 +39,10 @@ a source has died; compare them with `truth.md`, not with the old replay.
 - Source traps found while building truth (kept because they are real): UNESCO's
   own XML sits behind Cloudflare (403); the NFDB "large fires" zip is BC-only;
   NASA's Socrata URLs 404; e-Stat's main API needs an appId.
+
+## Spec changes after seeing results (tune split only)
+- 2026-11-07 `brazil_states`: BR-SP tolerance ±1% → ±6%. The agent found IBGE's 2026
+  estimate (46.18 M), newer than the 2022 census the spot was pinned to.
+- 2026-11-07 `refugees_asylum`: TUR=2,940,735±5% (end-2024) → 2.0–3.3 M. Measured: 2025
+  data is complete (323 areas vs 326 in 2024), and Turkey's fall to 2.39 M is real.
+Both were truth too narrow for "judged on properties", not the agent being lenient.

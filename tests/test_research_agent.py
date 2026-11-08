@@ -182,3 +182,12 @@ def test_filters_and_scale_travel_from_the_answer_to_the_record():
 def test_a_scale_that_is_not_a_power_of_ten_is_ignored():
     prop = _run(FakeLLM(PLAN, SELECT, dict(PROPOSE, scale=3.7))).proposal
     assert prop.scale == 1.0
+
+
+def test_a_licence_the_portal_states_fills_an_unstated_one():
+    answer = dict(PROPOSE, licence=P.LICENCE_UNSTATED, publisher="")
+    llm = FakeLLM(PLAN, SELECT, answer)
+    result = _run(llm, fetched={"kind": "page", "links": ["https://api.worldbank.org/x.csv"],
+                                "licence": "CC BY 4.0", "publisher": "World Bank"})
+    assert result.proposal.licence == "CC BY 4.0" and result.proposal.publisher == "World Bank"
+    assert "portal metadata -- licence: CC BY 4.0" in llm.calls[2][1]

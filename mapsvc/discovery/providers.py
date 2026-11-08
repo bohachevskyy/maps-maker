@@ -436,6 +436,10 @@ def _is_candidate_data_link(url: str) -> bool:
         return True
     if re.search(r"/resource/[^/]+/download(?:/|$)", parts.path, re.I):
         return True
+    # Download endpoints without an extension, e.g. e-Stat's
+    # /stat-search/file-download?statInfId=...&fileKind=0 (measured 2026-11-07).
+    if re.search(r"/(?:file-?)?download(?:file)?s?(?:/|$)", parts.path, re.I) and parts.query:
+        return True
     query = urllib.parse.parse_qs(parts.query, keep_blank_values=True)
     lowered = {key.lower(): [str(value).lower() for value in values]
                for key, values in query.items()}
