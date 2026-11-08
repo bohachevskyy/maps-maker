@@ -195,3 +195,11 @@ def test_directory_listing_tables_are_not_data():
     real = ("<table><tr><th>Name</th><th>Population</th></tr>"
             + "".join(f"<tr><td>P{i}</td><td>{i}</td></tr>" for i in range(6)) + "</table>")
     assert len(htmltables.tables(real)) == 1
+
+
+def test_a_sheet_is_addressed_by_name_after_the_file_url(monkeypatch):
+    from mapsvc.discovery import http, probe
+    assert probe.split_selector("https://e.org/a.xls#sheet=BRASIL%20E%20UFs") == (
+        "https://e.org/a.xls", {"sheet": "BRASIL E UFs"})
+    assert probe.split_selector("https://e.org/p#table=2") == ("https://e.org/p", {"table": 2})
+    assert probe.split_selector("https://e.org/a.csv") == ("https://e.org/a.csv", {})

@@ -78,10 +78,10 @@ def _float(v):
 
 def _rows(record):
     from mapsvc.discovery import htmltables, http, probe
-    base, table = htmltables.split_table_fragment(record["url"])
-    payload = http.get(base, expect=None if table is not None else "data").content
+    response, selector = probe.fetch_selected(record["url"])
+    payload = response.content
     from mapsvc.discovery import rowfilter
-    rows, fmt, _geo, _warn = probe.records(payload, table=table)
+    rows, fmt, _geo, _warn = probe.records(payload, **selector)
     return rowfilter.apply(rows, (record.get("roles") or {}).get("filter")), fmt, payload
 
 

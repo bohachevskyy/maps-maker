@@ -64,13 +64,13 @@ def load(variable_id: str, level: str, region=None, year=None) -> Values:
     rec = _record(variable_id)
     roles = rec.get("roles") or {}
     try:
-        base, table = htmltables.split_table_fragment(rec["url"])
-        payload = http.get(base, expect=None if table is not None else "data").content
+        response, selector = probe.fetch_selected(rec["url"])
+        payload = response.content
     except Exception as exc:  # outage, replay miss, moved file: say which
         raise StatisticsError(f"could not fetch the discovered dataset {rec['url']}: {exc}",
                               "variable.id") from exc
     from mapsvc.discovery import rowfilter
-    rows, _fmt, _geo, _warn = probe.records(payload, table=table)
+    rows, _fmt, _geo, _warn = probe.records(payload, **selector)
     rows = rowfilter.apply(rows, roles.get("filter"))
     scale = float(roles.get("scale") or 1)
     derive = roles.get("derive") or {}

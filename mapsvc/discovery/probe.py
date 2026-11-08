@@ -1,6 +1,8 @@
 """Bounded, service-side inspection of a proposed data URL."""
 
 import csv
+import urllib.parse
+import dataclasses
 from dataclasses import asdict, dataclass
 import datetime
 import hashlib
@@ -43,13 +45,31 @@ class ProbeReport:
         return asdict(self)
 
 
+def split_selector(url: str) -> tuple[str, dict]:
+    """A file URL and what to read inside it: `#table=N` (an HTML page's Nth data
+    table) or `#sheet=<name>` (a workbook sheet, URL-encoded). The fetch layer
+    drops fragments, so the selector is read before fetching."""
+    match = re.search(r"#sheet=([^#&]+)$", url)
+    if match:
+        return url[:match.start()], {"sheet": urllib.parse.unquote(match.group(1))}
+    base, table = htmltables.split_table_fragment(url)
+    return base, ({"table": table} if table is not None else {})
+
+
+def fetch_selected(url: str, **kwargs):
+    """(payload, selector) for a URL that may carry a selector."""
+    base, selector = split_selector(url)
+    response = http.get(base, expect=None if "table" in selector else "data", **kwargs)
+    return response, selector
+
+
 def probe(url: str, *, max_bytes: int = 25_000_000,
           timeout: float = 30) -> ProbeReport:
-    base, table = htmltables.split_table_fragment(url)
-    # The fetch layer drops fragments; the selector is read before fetching.
-    response = http.get(base, max_bytes=max_bytes, timeout=timeout,
-                        expect=None if table is not None else "data")
-    return probe_bytes(response.content, url=response.url, table=table)
+    response, selector = fetch_selected(url, max_bytes=max_bytes, timeout=timeout)
+    report = probe_bytes(response.content, url=response.url, **selector)
+    if "sheet" in selector:
+        report = dataclasses.replace(report, url=url)
+    return report
 
 
 def _html_table_records(payload: bytes, table: int, warnings: list[str]
@@ -70,18 +90,18 @@ def _html_table_records(payload: bytes, table: int, warnings: list[str]
     return chosen.rows, "html_table", [], warnings
 
 
-def records(payload: bytes, *, table: int | None = None
+def records(payload: bytes, *, table: int | None = None, sheet: str | None = None
             ) -> tuple[list[dict], str, list[str], list[str]]:
     """Parse a data file into rows exactly as the probe does.
 
     Returns (rows, format, geometry_types, warnings). The harvester uses this,
     so a discovered source is read the same way it was validated.
     """
-    rows, format_name, geometry_types, warnings = _records(payload, table=table)
+    rows, format_name, geometry_types, warnings = _records(payload, table=table, sheet=sheet)
     return _split_coordinates(rows, warnings), format_name, geometry_types, warnings
 
 
-def _records(payload: bytes, *, table: int | None = None):
+def _records(payload: bytes, *, table: int | None = None, sheet: str | None = None):
     warnings: list[str] = []
     if table is not None:
         return _html_table_records(payload, table, warnings)
@@ -91,9 +111,9 @@ def _records(payload: bytes, *, table: int | None = None):
         payload, inner_name = _safe_unzip(payload)
         warnings.append(f"inspected {inner_name} inside zip archive")
     if xls.is_ole2(payload):
-        return _xlsx_records(payload, warnings, legacy=True), "xls", [], warnings
+        return _xlsx_records(payload, warnings, legacy=True, sheet=sheet), "xls", [], warnings
     if _looks_like_xlsx(payload):
-        return _xlsx_records(payload, warnings), "xlsx", [], warnings
+        return _xlsx_records(payload, warnings, sheet=sheet), "xlsx", [], warnings
     text, encoding = _decode(payload)
     if encoding != "utf-8":
         warnings.append(f"decoded as {encoding}")
@@ -107,7 +127,7 @@ def _records(payload: bytes, *, table: int | None = None):
 
 
 def probe_bytes(payload: bytes, *, url: str = "",
-                table: int | None = None) -> ProbeReport:
+                table: int | None = None, sheet: str | None = None) -> ProbeReport:
     original_size = len(payload)
     digest = hashlib.sha256(payload).hexdigest()
     warnings: list[str] = []
@@ -130,11 +150,11 @@ def probe_bytes(payload: bytes, *, url: str = "",
         pass
     elif xls.is_ole2(payload):
         format_name = "xls"
-        rows = _xlsx_records(payload, warnings, legacy=True)
+        rows = _xlsx_records(payload, warnings, legacy=True, sheet=sheet)
         geometry_types: list[str] = []
     elif _looks_like_xlsx(payload):
         format_name = "xlsx"
-        rows = _xlsx_records(payload, warnings)
+        rows = _xlsx_records(payload, warnings, sheet=sheet)
         geometry_types: list[str] = []
     else:
         text, encoding = _decode(payload)
@@ -357,7 +377,7 @@ def _unique_headers(headers) -> list[str]:
 
 
 def _xlsx_records(payload: bytes, warnings: list[str], *,
-                  legacy: bool = False) -> list[dict]:
+                  legacy: bool = False, sheet: str | None = None) -> list[dict]:
     try:
         books = xls.sheets(payload) if legacy else xlsx_sheets(payload)
     except (KeyError, ValueError, struct.error, zipfile.BadZipFile) as exc:
@@ -372,11 +392,19 @@ def _xlsx_records(payload: bytes, warnings: list[str], *,
         return sum(1 for row in rows for value in row.values() if _is_number(value))
     counts = [numbers(rows) for _, rows in populated]
     best = max(range(len(populated)), key=lambda i: (counts[i], -i))
+    if sheet is not None:
+        wanted = [i for i, (n, _) in enumerate(populated) if n.strip().casefold() == sheet.strip().casefold()]
+        if not wanted:
+            raise ProbeError(f"no sheet {sheet!r}; sheets: "
+                             + ", ".join(repr(n) for n, _ in populated[:12]))
+        best = wanted[0]
     name, rows = populated[best]
     if len(populated) > 1:
         listing = ", ".join(f"{n!r} ({len(r)} rows, {c} numbers)"
                             for (n, r), c in list(zip(populated, counts))[:12])
-        warnings.append(f"workbook sheets: {listing}; read {name!r} (most numbers)")
+        why = "as asked" if sheet is not None else "most numbers"
+        warnings.append(f"workbook sheets: {listing}; read {name!r} ({why}); another sheet "
+                        "is the file URL + '#sheet=<name, URL-encoded>'")
     header_index = next(index for index, row in enumerate(rows)
                         if sum(bool(str(value).strip()) for value in row.values()) >= 2)
     header_row = rows[header_index]
