@@ -116,11 +116,12 @@ def validate(prop: DatasetProposal, report, *, column_values=None, coverage=None
         if "value" not in prop.roles:
             problems.append("a choropleth needs a value column")
     elif prop.kind == "points":
-        geojson = (prop.format or "").lower() == "geojson"
-        if not geojson and not {"lon", "lat"} <= set(prop.roles):
+        embedded_geometry = (prop.format or "").lower() in {"geojson", "shapefile"}
+        if not embedded_geometry and not {"lon", "lat"} <= set(prop.roles):
             problems.append("points need lon and lat columns (or a GeoJSON file)")
     elif prop.kind == "lines":
-        if (prop.format or "").lower() != "geojson" and not {"lon", "lat"} <= set(prop.roles):
+        if ((prop.format or "").lower() not in {"geojson", "shapefile"}
+                and not {"lon", "lat"} <= set(prop.roles)):
             problems.append("lines need GeoJSON geometry or ordered lon/lat columns")
     else:
         problems.append(f"unknown kind {prop.kind!r}")
