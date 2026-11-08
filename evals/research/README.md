@@ -52,3 +52,7 @@ All three were truth too narrow for "judged on properties", not the agent being 
   5 km **or a found row with the same name**. Measured: UNESCO's two official lists place
   27% of World Heritage sites >5 km apart (large and serial sites; median 1,474 ha vs 151 ha),
   so 5 km alone measured the two sources' disagreement, not the agent.
+- 2026-11-07 `tornado_tracks`, `hurricane_tracks_2005`: min_vintage 2024 → the event year
+  (2011, 2005). The service defines vintage as the period of the values (computed from the
+  data's date column), not the release year of a file; for a past event that is the event year.
+  Changed for both cases on the semantics alone, from the tune case; no held-out result was seen.
