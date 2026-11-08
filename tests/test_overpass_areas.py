@@ -76,9 +76,10 @@ def test_open_way_majority_stays_a_lines_layer():
                          _way(20, 5.0, 45.5)]}
     layer = overpass.layer_from_overpass(
         data, overpass._pairs("railway=rail"), WINDOW, "ql")
-    assert layer["kind"] == "lines" and len(layer["features"]) == 3
+    # The closed way is drawn too: in a line layer a loop is network, not an outline.
+    assert layer["kind"] == "lines" and len(layer["features"]) == 4
     reasons = {e["reason"]: e["count"] for e in layer["excluded"]}
-    assert reasons == {"points in a line layer": 1, "outlines in a line layer": 1}
+    assert reasons == {"points in a line layer": 1}
 
 
 def test_ring_centroid_at_60_north():
@@ -98,3 +99,13 @@ def test_degenerate_ring_falls_back_to_the_vertex_mean():
 
 def test_result_is_json_serialisable():
     json.dumps(overpass.layer_from_overpass(_mixed(), SPEC, WINDOW, "ql"))
+
+
+def test_a_name_contained_in_a_neighbours_name_is_the_same_place():
+    """Pleasanton: "Costco" and "Costco warehouse", two nodes 3 m apart (measured)."""
+    a = {"type": "node", "id": 1, "lon": -121.9, "lat": 37.7, "tags": {"name": "Costco", "shop": "wholesale"}}
+    b = {"type": "node", "id": 2, "lon": -121.90003, "lat": 37.70001,
+         "tags": {"name": "Costco warehouse", "shop": "wholesale", "brand": "Costco"}}
+    c = {"type": "node", "id": 3, "lon": -121.9005, "lat": 37.7, "tags": {"name": "Target", "shop": "department_store"}}
+    layer = overpass.layer_from_overpass({"elements": [a, b, c]}, overpass._pairs("shop=wholesale"), WINDOW, "ql")
+    assert len(layer["features"]) == 2

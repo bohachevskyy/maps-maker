@@ -876,10 +876,12 @@ def layer_from_overpass(data: dict, pairs, window: Window, ql: str) -> dict:
             return _settlements(nodes, spec, what, where, provenance)
         return _points_layer(nodes, closed, len(ways), spec, what, where, provenance)
 
+    # A line layer keeps its closed ways as lines: a loop line or a ring
+    # railway is network, not an outline.
+    ways = sorted(all_ways, key=lambda e: e["id"])
     if len(ways) > MAX_WAYS:
         raise OverlayError(f"{len(ways):,} OpenStreetMap ways match; narrow the "
                            "filter or the window", "overlays.id")
-    ways.sort(key=lambda e: e["id"])
     railway = any(k == "railway" for k, _ in pairs)
     kept, service = [], []
     for way in ways:
@@ -921,8 +923,6 @@ def layer_from_overpass(data: dict, pairs, window: Window, ql: str) -> dict:
                                    f"{service_m / 1000:,.0f} km)"})
     if nodes:
         excluded.append({"count": len(nodes), "reason": "points in a line layer"})
-    if closed:
-        excluded.append({"count": len(closed), "reason": "outlines in a line layer"})
     coloured = "by signalled maximum speed" if category else ""
     return {
         "source": "overpass", "id": spec.text(),
@@ -986,13 +986,15 @@ def ring_centroid(ring) -> tuple[float, float]:
     return (lon0 + cx / k if k else lon0, lat0 + cy)
 
 
-def _norm_name(name) -> str:
-    return "".join(c for c in (name or "").casefold() if c.isalnum())
+def _norm_name(name) -> frozenset:
+    """The name's words: "Costco" and "Costco warehouse" are one place when they
+    sit within DUPLICATE_M (measured: Pleasanton, two nodes 3 m apart)."""
+    return frozenset(re.findall(r"[^\W_]+", (name or "").casefold()))
 
 
 def _merge_duplicates(points: list) -> tuple[list, int]:
     """Greedy, in (type, id) order: a point joins the first earlier place within
-    DUPLICATE_M whose normalised name is equal, or when either has no name. The
+    DUPLICATE_M whose name's words contain the other's, or when either has no name. The
     element with the most tags represents the place (ties keep the earlier)."""
     points = sorted(points, key=lambda p: (p["type"], p["osm_id"]))
     clusters, grid, merged = [], {}, 0
@@ -1008,7 +1010,8 @@ def _merge_duplicates(points: list) -> tuple[list, int]:
                         continue
                     if geo.segment_m((c["lon"], c["lat"]), (p["lon"], p["lat"])) > DUPLICATE_M:
                         continue
-                    if not c["key"] or not p["key"] or c["key"] == p["key"]:
+                    if (not c["key"] or not p["key"]
+                            or c["key"] <= p["key"] or p["key"] <= c["key"]):
                         home = c
         if home is None:
             p["seq"] = len(clusters)
