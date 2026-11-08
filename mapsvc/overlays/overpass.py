@@ -870,8 +870,16 @@ _PLACE_NOUNS = {"city": "cities", "town": "towns", "selyshche": "selyshcha",
 def describe(pairs) -> str:
     """A plain phrase for a filter: 'High-speed railway lines', 'Towns and
     villages'. Names narrowing a filter are left to the footnote."""
-    pairs = [(k, v) for k, v in (_as_filter(pairs).pairs() if isinstance(pairs, Filter)
-                                 else pairs) if not _is_text(k)]
+    every = list(_as_filter(pairs).pairs() if isinstance(pairs, Filter) else pairs)
+    brands = [v for k, v in every if k == "brand" and "|" not in v]
+    if brands:
+        # "brand=Costco;shop=wholesale" is Costco's locations, not "features
+        # tagged shop=wholesale" (measured: the Bay Area map lost its subject).
+        rest = [(k, v) for k, v in every if k != "brand"]
+        kind = describe(rest) if rest else ""
+        noun = kind.lower() if kind and not kind.startswith("OpenStreetMap") else "locations"
+        return f"{brands[0]} {noun}"
+    pairs = [(k, v) for k, v in every if not _is_text(k)]
     places = [v for k, v in pairs if k == "place"]
     if places and len(pairs) == 1:
         values = places[0].split("|")

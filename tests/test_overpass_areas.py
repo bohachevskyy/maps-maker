@@ -121,3 +121,7 @@ def test_two_unnamed_nodes_close_together_stay_two_features():
     layer = overpass.layer_from_overpass({"elements": cams}, overpass._pairs("highway=speed_camera"),
                                          WINDOW, "ql")
     assert len(layer["features"]) == 2
+
+
+def test_a_brand_names_the_layer():
+    assert overpass.describe(overpass._pairs("brand=Costco;shop=wholesale")) == "Costco locations"
