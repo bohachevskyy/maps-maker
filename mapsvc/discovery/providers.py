@@ -9,7 +9,7 @@ import re
 import threading
 import urllib.parse
 
-from mapsvc.discovery import http
+from mapsvc.discovery import adapters, http
 
 
 _SEARXNG_DEFAULT = "http://127.0.0.1:8888"
@@ -260,6 +260,11 @@ def _interleave_deduped(batches: list[list[dict]], limit: int) -> list[dict]:
 
 def fetch(url: str) -> dict:
     """Fetch a URL and identify a file or links to data files on an HTML page."""
+    adapted = adapters.data_urls(url)
+    if adapted:
+        if "/api/3/action/package_show?" in adapted[0]:
+            return _fetch_ckan_package(adapted[0])
+        return {"kind": "page", "title": "", "links": adapted}
     response = http.get(url, expect=None)
     content_type = _header(response.headers, "content-type").lower()
     if _is_data_response(response.url, content_type, response.content):
@@ -283,6 +288,26 @@ def fetch(url: str) -> dict:
         "kind": "page",
         "title": _clip(parser.title, 160),
         "links": [item[2] for item in ranked[:30]],
+    }
+
+
+def _fetch_ckan_package(url: str) -> dict:
+    response = http.get(url, expect="json")
+    payload = json.loads(response.content)
+    result = payload.get("result") or {} if isinstance(payload, dict) else {}
+    if not isinstance(result, dict):
+        result = {}
+    links = []
+    for resource in result.get("resources") or []:
+        if not isinstance(resource, dict) or not resource.get("url"):
+            continue
+        resource_url = str(resource["url"])
+        if _is_ckan_data_resource(resource, resource_url):
+            links.append(resource_url)
+    return {
+        "kind": "page",
+        "title": _clip(result.get("title") or result.get("name"), 160),
+        "links": links,
     }
 
 
