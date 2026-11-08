@@ -57,17 +57,18 @@ def variables(level: str) -> dict:
 
 
 def load(variable_id: str, level: str, region=None, year=None) -> Values:
-    from mapsvc.discovery import http, probe
+    from mapsvc.discovery import htmltables, http, probe
 
     rec = _record(variable_id)
     roles = rec.get("roles") or {}
     try:
-        payload = http.get(rec["url"], expect="data").content
+        base, table = htmltables.split_table_fragment(rec["url"])
+        payload = http.get(base, expect=None if table is not None else "data").content
     except Exception as exc:  # outage, replay miss, moved file: say which
         raise StatisticsError(f"could not fetch the discovered dataset {rec['url']}: {exc}",
                               "variable.id") from exc
     from mapsvc.discovery import rowfilter
-    rows, _fmt, _geo, _warn = probe.records(payload)
+    rows, _fmt, _geo, _warn = probe.records(payload, table=table)
     rows = rowfilter.apply(rows, roles.get("filter"))
     scale = float(roles.get("scale") or 1)
 
