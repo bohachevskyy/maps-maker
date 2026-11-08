@@ -1,0 +1,168 @@
+"""A dataset proposal from the research agent, and the service's verdict on it.
+
+The proposal names a file and which of its columns play which role; it carries
+no values. `validate` checks it against the service's own probe of that file --
+the columns exist, the roles suit the kind of map, values are numeric where
+they must be, the keys actually join to our boundaries -- before anything is
+registered or drawn. A proposal that fails is rejected with reasons, never
+"repaired" by guessing.
+"""
+
+from __future__ import annotations
+
+import dataclasses
+import hashlib
+import re
+
+LICENCE_UNSTATED = "licence not stated by source"
+ROLE_NAMES = ("key", "name", "lon", "lat", "value", "unit", "date", "category", "size")
+
+# Coverage a choropleth must reach inside its scope to be worth drawing. Below
+# this the map is mostly hatching, which is a worse answer than an honest refusal.
+MIN_CHOROPLETH_COVERAGE = 0.5
+MIN_NUMERIC_SHARE = 0.8
+
+# Text that tries to steer the agent. Web content is data; a source carrying it
+# in its own title or publisher field is not trustworthy enough to cite.
+_INJECTION = re.compile(
+    r"ignore (all |any )?(previous|prior|above) instructions|you are (now )?an? (ai|assistant)"
+    r"|system prompt|report (success|that this)|disregard (the|your)", re.I)
+
+
+@dataclasses.dataclass
+class DatasetProposal:
+    url: str
+    title: str
+    publisher: str
+    licence: str
+    unit: str
+    vintage: str
+    kind: str                     # choropleth | points | lines
+    key_namespace: str            # ISO3 | ISO3166_2 | FIPS | NUTS | coords | name
+    level: str
+    measure: str
+    roles: dict                   # role -> column name in the file
+    query: str
+    landing_page: str | None = None
+    row_filter: dict = dataclasses.field(default_factory=dict)
+    format: str | None = None
+    content_sha256: str | None = None
+
+    @property
+    def id(self) -> str:
+        """Stable id: the same file with the same roles is the same source."""
+        basis = "|".join([self.url, self.kind, self.key_namespace,
+                          ",".join(f"{k}={v}" for k, v in sorted(self.roles.items())),
+                          ",".join(f"{k}={v}" for k, v in sorted(self.row_filter.items()))])
+        return "disc_" + hashlib.sha256(basis.encode()).hexdigest()[:16]
+
+
+@dataclasses.dataclass
+class Verdict:
+    ok: bool
+    problems: list
+    coverage: dict | None = None
+    warnings: list = dataclasses.field(default_factory=list)
+
+
+def _get(obj, name, default=None):
+    if isinstance(obj, dict):
+        return obj.get(name, default)
+    return getattr(obj, name, default)
+
+
+def _numeric_share(values) -> float:
+    vals = [v for v in values if str(v).strip() not in ("", "..", "-", "NA", "n/a", "null")]
+    if not vals:
+        return 0.0
+    ok = 0
+    for v in vals:
+        try:
+            float(str(v).replace(",", "").replace(" ", ""))
+            ok += 1
+        except ValueError:
+            pass
+    return ok / len(vals)
+
+
+def validate(prop: DatasetProposal, report, *, column_values=None, coverage=None,
+             scope=()) -> Verdict:
+    """Check a proposal against the service's probe of the same file.
+
+    column_values(name) -> list of that column's values (after row_filter);
+    coverage(values, key_namespace, level, scope) -> {"matched","expected","ratio"}.
+    Both are injected so tests and evals can run offline.
+    """
+    problems: list = []
+    warnings: list = []
+    columns = {_get(c, "name"): c for c in (_get(report, "columns") or [])}
+
+    for role, column in prop.roles.items():
+        if role not in ROLE_NAMES:
+            problems.append(f"unknown role {role!r}")
+        elif column not in columns:
+            problems.append(f"role {role!r} names column {column!r}, which the file does not have")
+    for column in prop.row_filter:
+        if column not in columns:
+            problems.append(f"filter names column {column!r}, which the file does not have")
+
+    if prop.kind == "choropleth":
+        if "key" not in prop.roles and "name" not in prop.roles:
+            problems.append("a choropleth needs a key or name column to join on")
+        if "value" not in prop.roles:
+            problems.append("a choropleth needs a value column")
+    elif prop.kind == "points":
+        geojson = (prop.format or "").lower() == "geojson"
+        if not geojson and not {"lon", "lat"} <= set(prop.roles):
+            problems.append("points need lon and lat columns (or a GeoJSON file)")
+    elif prop.kind == "lines":
+        if (prop.format or "").lower() != "geojson" and not {"lon", "lat"} <= set(prop.roles):
+            problems.append("lines need GeoJSON geometry or ordered lon/lat columns")
+    else:
+        problems.append(f"unknown kind {prop.kind!r}")
+
+    for text in (prop.title, prop.publisher, prop.licence):
+        if _INJECTION.search(text or ""):
+            problems.append("source metadata contains instruction-like text; not trusted")
+            break
+
+    if not prop.licence or prop.licence.strip().lower() in ("", "unknown", "none"):
+        prop.licence = LICENCE_UNSTATED
+    if prop.licence == LICENCE_UNSTATED:
+        warnings.append("the source states no licence; the map will say so")
+
+    result_coverage = None
+    if not problems and column_values is not None:
+        for role in ("value", "size"):
+            if role in prop.roles:
+                share = _numeric_share(column_values(prop.roles[role]))
+                if share < MIN_NUMERIC_SHARE:
+                    problems.append(f"{role} column {prop.roles[role]!r} is only "
+                                    f"{share:.0%} numeric")
+        if prop.kind == "choropleth" and coverage is not None:
+            key_col = prop.roles.get("key") or prop.roles.get("name")
+            namespace = prop.key_namespace if "key" in prop.roles else "name"
+            result_coverage = coverage(column_values(key_col), namespace, prop.level, scope)
+            ratio = _get(result_coverage, "ratio", 0) or 0
+            if ratio < MIN_CHOROPLETH_COVERAGE:
+                problems.append(f"keys join to only {ratio:.0%} of the expected units "
+                                f"({_get(result_coverage, 'matched')}/"
+                                f"{_get(result_coverage, 'expected')})")
+
+    return Verdict(ok=not problems, problems=problems, coverage=result_coverage,
+                   warnings=warnings)
+
+
+def to_store_record(prop: DatasetProposal, verdict: Verdict, *, description="") -> dict:
+    """The row the discovered-sources store keeps for a validated proposal."""
+    return {
+        "id": prop.id, "url": prop.url, "title": prop.title, "description": description,
+        "publisher": prop.publisher, "licence": prop.licence, "format": prop.format,
+        "geometry_kind": prop.kind, "key_namespace": prop.key_namespace, "level": prop.level,
+        "roles": dict(prop.roles, **({"filter": prop.row_filter} if prop.row_filter else {})),
+        "units": prop.unit, "vintage": prop.vintage, "coverage": verdict.coverage,
+        "content_sha256": prop.content_sha256, "status": "active",
+        "validation": {"problems": verdict.problems, "warnings": verdict.warnings},
+        "keywords": prop.measure, "query_text": prop.query,
+        "landing_page": prop.landing_page,
+    }

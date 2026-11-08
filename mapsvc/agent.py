@@ -952,20 +952,30 @@ def _candidate_prompt(source: str, query: str, found: list) -> str:
 
 
 def _ask(conversation: list[dict]) -> dict:
-    backend = backend_name()
-    if backend == "codex":
-        return _ask_codex(conversation)
-    return _ask_openai(_client(), conversation)
+    return ask_structured(instructions(), schema(), conversation, name="map_request")
 
 
-def _ask_openai(client, conversation: list[dict]) -> dict:
+def ask_structured(instructions_text: str, response_schema: dict,
+                   conversation: list[dict], *, name: str) -> dict:
+    """One structured LLM turn with any instructions and JSON schema.
+
+    The main agent and the research agent share this, so both run on the same
+    backend choice (Codex CLI or OpenAI API) and the same failure handling.
+    """
+    if backend_name() == "codex":
+        return _ask_codex(conversation, instructions_text, response_schema)
+    return _ask_openai(_client(), conversation, instructions_text, response_schema, name)
+
+
+def _ask_openai(client, conversation: list[dict], instructions_text: str | None = None,
+                response_schema: dict | None = None, name: str = "map_request") -> dict:
     response = client.responses.create(
         model=model_name(),
-        instructions=instructions(),
+        instructions=instructions_text if instructions_text is not None else instructions(),
         input=conversation,
         max_output_tokens=MAX_OUTPUT_TOKENS,
-        text={"format": {"type": "json_schema", "name": "map_request",
-                         "strict": True, "schema": schema()}},
+        text={"format": {"type": "json_schema", "name": name, "strict": True,
+                         "schema": response_schema if response_schema is not None else schema()}},
     )
     try:
         return _first_json_object(response.output_text)
@@ -973,7 +983,8 @@ def _ask_openai(client, conversation: list[dict]) -> dict:
         raise AgentError(f"the model did not return usable JSON: {exc}", "prompt") from exc
 
 
-def _ask_codex(conversation: list[dict]) -> dict:
+def _ask_codex(conversation: list[dict], instructions_text: str | None = None,
+               response_schema: dict | None = None) -> dict:
     executable = shutil.which("codex")
     if executable is None:
         raise AgentUnavailable(
@@ -981,14 +992,15 @@ def _ask_codex(conversation: list[dict]) -> dict:
             "and OPENAI_API_KEY. POST /map works without either backend."
         )
 
-    transcript = instructions() + "\n\n" + "\n".join(
+    transcript = (instructions_text if instructions_text is not None else instructions()) + "\n\n" + "\n".join(
         f"{turn['role'].upper()}: {turn['content']}" for turn in conversation
     )
     with tempfile.TemporaryDirectory(prefix="mapsvc-codex-") as directory:
         root = pathlib.Path(directory)
         schema_path = root / "schema.json"
         output_path = root / "output.json"
-        schema_path.write_text(json.dumps(schema(), sort_keys=True), encoding="utf-8")
+        schema_path.write_text(json.dumps(response_schema if response_schema is not None
+                                          else schema(), sort_keys=True), encoding="utf-8")
         command = [
             executable, "exec", "--ephemeral", "--skip-git-repo-check",
             "-s", "read-only", "-c", "model_reasoning_effort=low",
