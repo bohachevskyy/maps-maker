@@ -33,7 +33,9 @@ truth = "refugees_asylum/truth.csv"
 expected = { geometry_kind = "choropleth", key_namespace = "ISO3", level = "country", min_coverage = 0.7, min_vintage = 2023, must_have_licence = true, acceptable_publishers = ["UNHCR"] }
 # 2026-11-07: TUR=2,940,735 was end-2024 only. Measured: 2025 is complete (UNICEF/UNHCR
 # 323 areas vs 326) and Turkey fell to 2,390,414 as Syrians returned; either year is right.
-spots = ["TUR>2000000", "TUR<3300000", "IRN>DEU", "DEU>POL", "COL<10000"]
+# IRN>DEU dropped: UNHCR 2025 has Iran at 770,514 (Germany 2,655,191). COL<10000 stays: it
+# separates UNHCR "refugees" (1,306) from UNICEF's broader series (2.8 M incl. Venezuelans).
+spots = ["TUR>2000000", "TUR<3300000", "DEU>POL", "COL<10000"]
 keyless = true
 
 [[case]]

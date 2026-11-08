@@ -77,8 +77,10 @@ def test_propose_minus_one_is_a_refusal_with_the_agents_reason():
 
 
 def test_out_of_range_selections_are_ignored_not_trusted():
-    result = _run(FakeLLM(PLAN, {"inspect": [7, -1], "why": "", "none_fit": False}))
-    assert result.proposal is None
+    bad = {"inspect": [7, -1], "direct_urls": [], "why": "", "none_fit": False}
+    llm = FakeLLM(PLAN, bad, bad)
+    result = _run(llm)
+    assert result.proposal is None and [c[0] for c in llm.calls][-1] == "research_reselect"
 
 
 def test_web_text_is_clipped_before_the_model_sees_it():
@@ -191,3 +193,17 @@ def test_a_licence_the_portal_states_fills_an_unstated_one():
                                 "licence": "CC BY 4.0", "publisher": "World Bank"})
     assert result.proposal.licence == "CC BY 4.0" and result.proposal.publisher == "World Bank"
     assert "portal metadata -- licence: CC BY 4.0" in llm.calls[2][1]
+
+
+def test_a_page_without_files_gets_one_reselect_with_what_failed():
+    reselect = dict(SELECT, inspect=[], direct_urls=["https://api.example.org/data.csv"])
+    llm = FakeLLM(PLAN, SELECT, reselect, PROPOSE)
+    result = R.research(
+        R.Need(prompt="fires", reason="none"), ask=llm,
+        search=lambda q: [{"title": "t", "url": "https://portal.example.org/app", "snippet": ""}],
+        fetch=lambda url: ({"kind": "page", "links": []} if "portal" in url else {"kind": "file", "links": []}),
+        probe=lambda url: REPORT)
+    assert [c[0] for c in llm.calls] == ["research_plan", "research_select", "research_reselect",
+                                         "research_propose"]
+    assert "0 data-file links" in llm.calls[2][1]
+    assert result.proposal.url == "https://api.example.org/data.csv"

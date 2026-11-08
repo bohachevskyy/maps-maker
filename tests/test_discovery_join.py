@@ -46,3 +46,8 @@ def test_postal_codes_need_a_country_context():
     assert REGIONS.resolve("DF") is None
     assert REGIONS.resolver(["BR-SP", "BR-MG", "DF"])("DF") == "BR-DF"
     assert REGIONS.resolve("BR.SP") == "BR-SP" and REGIONS.resolve("br-mg") == "BR-MG"
+
+
+def test_names_prefixed_with_an_office_code_resolve():
+    assert REGIONS.resolve("35_São Paulo") == "BR-SP" and REGIONS.resolve("31 Minas Gerais") == "BR-MG"
+    assert REGIONS.resolve("35 - São Paulo") == "BR-SP" and REGIONS.resolve("35") is None

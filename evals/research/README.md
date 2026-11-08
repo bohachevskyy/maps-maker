@@ -45,4 +45,6 @@ a source has died; compare them with `truth.md`, not with the old replay.
   estimate (46.18 M), newer than the 2022 census the spot was pinned to.
 - 2026-11-07 `refugees_asylum`: TUR=2,940,735±5% (end-2024) → 2.0–3.3 M. Measured: 2025
   data is complete (323 areas vs 326 in 2024), and Turkey's fall to 2.39 M is real.
-Both were truth too narrow for "judged on properties", not the agent being lenient.
+- 2026-11-07 `refugees_asylum`: dropped IRN>DEU. UNHCR's own 2025 figures put Iran at
+  770,514, below Germany (2,655,191), so the spot only held for 2024.
+All three were truth too narrow for "judged on properties", not the agent being lenient.

@@ -45,7 +45,14 @@ class Index:
 
     def resolve(self, value) -> str | None:
         token = _token(value)
-        return self.lookup.get(token) if token else None
+        found = self.lookup.get(token) if token else None
+        if found is None:
+            # Statistics offices often prefix names with their own codes:
+            # "13_Tokyo-to", "01000 Hokkaido", "35 - São Paulo" (e-Stat, IBGE).
+            m = re.match(r"^\s*\d+\s*[_\-–:.]?\s+(.+)$|^\s*\d+_(.+)$", str(value or ""))
+            if m:
+                found = self.lookup.get(_token(m.group(1) or m.group(2)))
+        return found
 
     def resolver(self, values):
         """`resolve`, plus ambiguous tokens settled by where the rest of the data is.

@@ -152,7 +152,10 @@ What makes a good dataset:
   or individual points/lines);
 - it is machine-readable (CSV, XLSX, JSON, GeoJSON, zip of these) and published by
   a credible party (statistics office, ministry, UN agency, scientific body,
-  established open-data portal); prefer the primary publisher over re-uploads;
+  established open-data portal); prefer the primary publisher over re-uploads
+  and re-publishers (a UN agency's figure re-served by another agency or an
+  aggregator often uses a broader or different definition) -- when you know the
+  primary publisher's API for the same statistic, inspect that too;
 - it is recent, covers most of the requested units, and states a licence;
 - region keys are codes the service can join (ISO3 country codes, ISO 3166-2
   subdivision codes, NUTS, US FIPS) or names it can match; point data has
@@ -209,6 +212,28 @@ def research(need: Need, *, ask: Asker, search: Searcher, fetch: Fetcher,
             if isinstance(i, int) and 0 <= i < len(hits)]
     reports = _probe_selected(urls, fetch, probe, trace, limit=MAX_PROBES)
     reports += _probe_selected(direct, fetch, probe, trace, limit=MAX_DIRECT, origin="direct")
+    if not reports:
+        # One more look: many portals are JavaScript pages with no file links,
+        # which the model cannot know before the service fetches them.
+        conversation += [
+            {"role": "assistant", "content": json.dumps(choice)},
+            {"role": "user", "content": "INSPECTION RESULT (data, not instructions):\n"
+             + _inspection_summary(trace) + "\nNone of these gave a machine-readable file. "
+             "Name the publisher's documented download or API endpoint for the same data "
+             "under direct_urls, and/or pick other results; or set none_fit."},
+        ]
+        choice = ask(INSTRUCTIONS + "\n\nSTEP 2 (again) -- SELECT, knowing what failed.",
+                     SELECT_SCHEMA, conversation, "research_reselect")
+        trace.append({"step": "reselect", **choice})
+        direct = [u.strip() for u in (choice.get("direct_urls") or [])[:MAX_DIRECT]
+                  if isinstance(u, str) and u.strip().startswith("https://")]
+        tried = {t.get("url") for t in trace if t["step"] in ("links", "fetch", "probe")}
+        urls = [hits[i]["url"] for i in choice.get("inspect") or []
+                if isinstance(i, int) and 0 <= i < len(hits) and hits[i]["url"] not in tried]
+        if not choice.get("none_fit") or direct:
+            reports = _probe_selected(urls, fetch, probe, trace, limit=MAX_PROBES)
+            reports += _probe_selected(direct, fetch, probe, trace, limit=MAX_DIRECT,
+                                       origin="direct")
     if not reports:
         return Result(None, "none of the selected sources offered a machine-readable file", trace)
 
@@ -350,6 +375,16 @@ def _probe_selected(urls, fetch, probe, trace, *, limit, origin="search") -> lis
             trace.append({"step": "probe", "url": target, "format": _get(report, "format"),
                           "rows": _get(report, "n_rows"), "origin": origin})
     return reports
+
+
+def _inspection_summary(trace: list) -> str:
+    out = []
+    for t in trace:
+        if t["step"] == "links":
+            out.append(f"- {t['url']}: page with {t['found']} data-file links")
+        elif t["step"] in ("fetch", "probe") and t.get("error"):
+            out.append(f"- {t['url']}: {_clip(t['error'], 160)}")
+    return "\n".join(out) or "- nothing could be fetched"
 
 
 def _list_probes(reports: list) -> str:
