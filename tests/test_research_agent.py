@@ -32,7 +32,7 @@ PLAN = {"kind": "choropleth", "key_namespace": "ISO3", "level": "admin_0",
 SELECT = {"inspect": [0], "direct_urls": [], "why": "World Bank indicator", "none_fit": False}
 ROLES = {r: "" for r in P.ROLE_NAMES} | {"key": "Country Code", "value": "2023", "name": "Country Name"}
 PROPOSE = {"file": 0, "roles": ROLES, "filters": [], "scale": 1,
-           "derive": {"op": "none", "denominator": "", "factor": 1},
+           "derive": {"op": "none", "denominator": "", "factor": 1}, "try_urls": [],
            "title": "Average precipitation in depth (mm per year)", "publisher": "World Bank",
            "licence": "CC BY 4.0", "unit": "mm per year", "vintage": "2023", "refusal": ""}
 
@@ -230,3 +230,18 @@ def test_a_ratio_whose_denominator_is_not_a_column_is_rejected():
 def test_an_unusual_ratio_factor_falls_back_to_one():
     assert R._derive({"op": "ratio", "denominator": "pop", "factor": 37})["factor"] == 1.0
     assert R._derive({"op": "none", "denominator": "", "factor": 1}) == {}
+
+
+def test_a_refusal_that_names_an_endpoint_gets_it_probed_and_one_more_turn():
+    refuse = dict(PROPOSE, file=-1, refusal="workbook is a cross-tab",
+                  try_urls=["https://dashboard.example.jp/api/getData?indicator=A1101"])
+    llm = FakeLLM(PLAN, SELECT, refuse, dict(PROPOSE, file=1))
+    probed = []
+    result = R.research(
+        R.Need(prompt="prefectures", reason="none"), ask=llm,
+        search=lambda q: [{"title": "t", "url": "https://stats.example.jp/table.xlsx", "snippet": ""}],
+        fetch=lambda url: {"kind": "file", "links": []},
+        probe=lambda url: probed.append(url) or REPORT)
+    assert probed[-1] == "https://dashboard.example.jp/api/getData?indicator=A1101"
+    assert [c[0] for c in llm.calls][-1] == "research_propose_more"
+    assert result.proposal.url == "https://dashboard.example.jp/api/getData?indicator=A1101"
