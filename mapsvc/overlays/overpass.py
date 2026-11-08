@@ -851,9 +851,10 @@ def layer_from_overpass(data: dict, pairs, window: Window, ql: str) -> dict:
     spec = _as_filter(pairs)
     pairs = spec.pairs()
     elements = data.get("elements") or []
-    ways = [e for e in elements if e.get("type") == "way" and len(e.get("geometry") or []) >= 2]
+    all_ways = [e for e in elements
+                if e.get("type") == "way" and len(e.get("geometry") or []) >= 2]
     nodes = [e for e in elements if e.get("type") == "node" and "lat" in e]
-    if not ways and not nodes:
+    if not all_ways and not nodes:
         raise OverlayError(
             "OpenStreetMap filter matched 0 features; check the tag or widen "
             "the window", "overlays.id")
@@ -862,25 +863,18 @@ def layer_from_overpass(data: dict, pairs, window: Window, ql: str) -> dict:
     where = f" in {window.name}" if window.name else ""
     provenance = _provenance(vintage, spec, window)
 
-    if not ways:
-        if len(nodes) > MAX_WAYS:
-            raise OverlayError(f"{len(nodes):,} OpenStreetMap points match; narrow "
-                               "the filter or the window", "overlays.id")
-        if spec.values("place") and set(spec.values("place")) <= PLACE_NODES:
+    # A closed way is an outline (a building, a plot), not a line: it is a place.
+    closed = [w for w in all_ways if _is_closed(w)]
+    ways = [w for w in all_ways if not _is_closed(w)]
+    if len(ways) * 2 <= len(ways) + len(closed) + len(nodes):
+        # Nodes and outlines (and open ways, if any, are the minority): points.
+        if len(nodes) + len(closed) > MAX_WAYS:
+            raise OverlayError(f"{len(nodes) + len(closed):,} OpenStreetMap points match; "
+                               "narrow the filter or the window", "overlays.id")
+        if (not closed and not ways and spec.values("place")
+                and set(spec.values("place")) <= PLACE_NODES):
             return _settlements(nodes, spec, what, where, provenance)
-        features = [{"id": f"n{n['id']}", "lon": round(n["lon"], 5), "lat": round(n["lat"], 5),
-                     "size": None, "category": None,
-                     "name": (n.get("tags") or {}).get("name")} for n in nodes]
-        features.sort(key=lambda f: f["id"])
-        return {
-            "source": "overpass", "id": spec.text(),
-            "kind": "points", "title": what + where, "label": what,
-            "size": None, "category": None, "features": features,
-            "stats": {"count": len(features)},
-            "summary": f"{len(features):,} in OpenStreetMap",
-            "encoding": "One dot per OSM node", "excluded": [],
-            "provenance": provenance,
-        }
+        return _points_layer(nodes, closed, len(ways), spec, what, where, provenance)
 
     if len(ways) > MAX_WAYS:
         raise OverlayError(f"{len(ways):,} OpenStreetMap ways match; narrow the "
@@ -927,6 +921,8 @@ def layer_from_overpass(data: dict, pairs, window: Window, ql: str) -> dict:
                                    f"{service_m / 1000:,.0f} km)"})
     if nodes:
         excluded.append({"count": len(nodes), "reason": "points in a line layer"})
+    if closed:
+        excluded.append({"count": len(closed), "reason": "outlines in a line layer"})
     coloured = "by signalled maximum speed" if category else ""
     return {
         "source": "overpass", "id": spec.text(),
@@ -949,6 +945,116 @@ def layer_from_overpass(data: dict, pairs, window: Window, ql: str) -> dict:
         "facts": [("Route length", f"≈ {route_km:,.0f} km"),
                   ("Track length (all ways)", f"{track_km:,.0f} km"),
                   ("OSM ways", f"{len(features):,}")],
+        "excluded": excluded,
+        "provenance": provenance,
+    }
+
+
+# ------------------------------------------------------------------ points ---
+
+DUPLICATE_M = 150.0
+
+
+def _is_closed(way: dict) -> bool:
+    g = way.get("geometry") or []
+    return (len(g) >= 4 and g[0]["lat"] == g[-1]["lat"] and g[0]["lon"] == g[-1]["lon"])
+
+
+def ring_centroid(ring) -> tuple[float, float]:
+    """Area-weighted centroid of a closed ring of (lon, lat), computed in a local
+    equirectangular frame so a degree of longitude is the right length. A
+    degenerate (zero-area) ring falls back to the vertex mean."""
+    pts = [(float(x), float(y)) for x, y in ring]
+    if len(pts) > 1 and pts[0] == pts[-1]:
+        pts = pts[:-1]
+    n = len(pts)
+    mean = (sum(p[0] for p in pts) / n, sum(p[1] for p in pts) / n)
+    lon0, lat0 = mean
+    k = math.cos(math.radians(lat0))
+    xy = [((x - lon0) * k, y - lat0) for x, y in pts]
+    area2 = cx = cy = 0.0
+    for i in range(n):
+        x1, y1 = xy[i]
+        x2, y2 = xy[(i + 1) % n]
+        cross = x1 * y2 - x2 * y1
+        area2 += cross
+        cx += (x1 + x2) * cross
+        cy += (y1 + y2) * cross
+    if n < 3 or abs(area2) < 1e-18:
+        return mean
+    cx, cy = cx / (3.0 * area2), cy / (3.0 * area2)
+    return (lon0 + cx / k if k else lon0, lat0 + cy)
+
+
+def _norm_name(name) -> str:
+    return "".join(c for c in (name or "").casefold() if c.isalnum())
+
+
+def _merge_duplicates(points: list) -> tuple[list, int]:
+    """Greedy, in (type, id) order: a point joins the first earlier place within
+    DUPLICATE_M whose normalised name is equal, or when either has no name. The
+    element with the most tags represents the place (ties keep the earlier)."""
+    points = sorted(points, key=lambda p: (p["type"], p["osm_id"]))
+    clusters, grid, merged = [], {}, 0
+    cell = 0.003      # ~330 m of latitude; neighbours cover the 150 m radius
+    for p in points:
+        gx, gy = math.floor(p["lon"] * math.cos(math.radians(p["lat"])) / cell), \
+            math.floor(p["lat"] / cell)
+        home = None
+        for dx in (-1, 0, 1):
+            for dy in (-1, 0, 1):
+                for c in grid.get((gx + dx, gy + dy), ()):
+                    if home is not None and c["seq"] > home["seq"]:
+                        continue
+                    if geo.segment_m((c["lon"], c["lat"]), (p["lon"], p["lat"])) > DUPLICATE_M:
+                        continue
+                    if not c["key"] or not p["key"] or c["key"] == p["key"]:
+                        home = c
+        if home is None:
+            p["seq"] = len(clusters)
+            p["rep"] = p
+            clusters.append(p)
+            grid.setdefault((gx, gy), []).append(p)
+            continue
+        merged += 1
+        home["key"] = home["key"] or p["key"]
+        if p["ntags"] > home["rep"]["ntags"]:
+            home["rep"] = p
+    return [c["rep"] for c in clusters], merged
+
+
+def _points_layer(nodes: list, closed: list, open_ways: int, spec: Filter,
+                  what: str, where: str, provenance: dict) -> dict:
+    points = []
+    for n in nodes:
+        tags = n.get("tags") or {}
+        points.append({"type": "node", "osm_id": n["id"], "id": f"n{n['id']}",
+                       "lon": n["lon"], "lat": n["lat"], "name": tags.get("name"),
+                       "key": _norm_name(tags.get("name")), "ntags": len(tags)})
+    for w in closed:
+        tags = w.get("tags") or {}
+        lon, lat = ring_centroid([(g["lon"], g["lat"]) for g in w["geometry"]])
+        points.append({"type": "way", "osm_id": w["id"], "id": f"w{w['id']}",
+                       "lon": lon, "lat": lat, "name": tags.get("name"),
+                       "key": _norm_name(tags.get("name")), "ntags": len(tags)})
+    kept, merged = _merge_duplicates(points)
+    features = [{"id": p["id"], "lon": round(p["lon"], 5), "lat": round(p["lat"], 5),
+                 "size": None, "category": None, "name": p["name"]} for p in kept]
+    features.sort(key=lambda f: f["id"])
+    excluded = []
+    if merged:
+        excluded.append({"count": merged, "reason": "duplicate features merged (the "
+                         "same place mapped as a point and an outline, or twice)"})
+    if open_ways:
+        excluded.append({"count": open_ways, "reason": "lines in a points layer"})
+    return {
+        "source": "overpass", "id": spec.text(),
+        "kind": "points", "title": what + where, "label": what,
+        "size": None, "category": None, "features": features,
+        "stats": {"count": len(features)},
+        "summary": f"{len(features):,} in OpenStreetMap",
+        "encoding": ("One dot per OSM node"
+                     + ("; areas drawn at their centre" if closed else "")),
         "excluded": excluded,
         "provenance": provenance,
     }
