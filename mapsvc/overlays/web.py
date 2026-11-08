@@ -322,7 +322,7 @@ _BY_URL[_IBTRACS_NA] = {
 }
 
 
-def _discovered_entry(url: str) -> dict:
+def _discovered_entry(url: str, table: int | None = None) -> dict:
     """A catalogue-like entry for a point/line dataset the research step validated.
 
     Its column roles, title, publisher and licence come from the discovered-
@@ -331,7 +331,9 @@ def _discovered_entry(url: str) -> dict:
     """
     try:
         from mapsvc.discovery.store import Store
-        rows = [r for r in Store().by_url(url)
+        # A table of an HTML page is stored under its `page#table=N` address.
+        stored = url if table is None else f"{url}#table={table}"
+        rows = [r for r in Store().by_url(stored)
                 if r.get("geometry_kind") in ("points", "lines")]
     except Exception:
         return {}
@@ -397,8 +399,13 @@ def parse(overlay_id: str) -> str:
     plus filters after '#' checked against what the dataset accepts."""
     url, _, fragment = overlay_id.strip().partition("#")
     url = _parse_url(url)
-    entry = _BY_URL.get(url) or _discovered_entry(url)
+    table_match = re.search(r"(?:^|;)table=(\d{1,3})(?:;|$)", fragment)
+    entry = _BY_URL.get(url) or _discovered_entry(
+        url, int(table_match.group(1)) if table_match else None)
     accepted = filters_for(url)
+    if entry.get("discovered") and table_match:
+        accepted = {**accepted, "table": {"min": 0, "max": 999,
+                                          "help": "which data table of the HTML page"}}
     this_year = datetime.date.today().year
     filters: dict = {}
     for part in fragment.split(";") if fragment else ():
@@ -522,11 +529,13 @@ def fetch_bytes(url: str) -> bytes:
     target = fetch.path("overlays", "web", digest)
     if target.exists():
         return target.read_bytes()
-    if base_url not in _BY_URL and _discovered_entry(base_url):
+    table = filters.get("table") if isinstance(filters.get("table"), int) else None
+    if base_url not in _BY_URL and _discovered_entry(base_url, table):
         # A validated find is read through the same replayable layer that
         # validated it, so what is drawn is the bytes that were checked.
         from mapsvc.discovery import http as discovery_http
-        payload = discovery_http.get(download_url, expect="data").content
+        payload = discovery_http.get(
+            download_url, expect=None if table is not None else "data").content
     else:
         # A curated entry may be larger than an arbitrary URL is allowed to be.
         payload = _download(download_url, _BY_URL.get(base_url, {}).get("max_bytes") or MAX_BYTES)
@@ -610,7 +619,8 @@ def check(overlay_id: str) -> None:
 
 def load(overlay_id: str, window: Window) -> dict:
     payload = fetch_bytes(overlay_id)
-    entry = _BY_URL.get(split(overlay_id)[0]) or _discovered_entry(split(overlay_id)[0])
+    entry = _BY_URL.get(split(overlay_id)[0]) or _discovered_entry(
+        split(overlay_id)[0], split(overlay_id)[1].get("table"))
     fame = _fame(entry["fame"]) if entry.get("fame") else None
     return layer_from_bytes(payload, overlay_id, window, fame)
 
@@ -667,7 +677,7 @@ def _renown(links: int, year) -> float:
 def layer_from_bytes(payload: bytes, overlay_id: str, window: Window,
                      fame: dict | None = None) -> dict:
     url, filters = split(overlay_id)
-    entry = _BY_URL.get(url) or _discovered_entry(url)
+    entry = _BY_URL.get(url) or _discovered_entry(url, filters.get("table"))
     if fame is not None and entry.get("note_fame"):
         entry = {**entry, "note": entry["note_fame"]}
     payload = _unzip(payload, url)
@@ -695,7 +705,7 @@ def layer_from_bytes(payload: bytes, overlay_id: str, window: Window,
         # What was validated is what is drawn: the same parser (CSV, XLSX,
         # JSON APIs, zips) and the same row conditions as at validation.
         from mapsvc.discovery import probe, rowfilter
-        records, _fmt, _geo, _warn = probe.records(payload)
+        records, _fmt, _geo, _warn = probe.records(payload, table=filters.get("table"))
         records = rowfilter.apply(records, entry.get("row_filter"))
         columns = list(dict.fromkeys(k for r in records[:200] for k in r))
         lines = _segments(records, entry.get("roles") or {})

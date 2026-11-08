@@ -32,6 +32,7 @@ PLAN = {"kind": "choropleth", "key_namespace": "ISO3", "level": "admin_0",
 SELECT = {"inspect": [0], "direct_urls": [], "why": "World Bank indicator", "none_fit": False}
 ROLES = {r: "" for r in P.ROLE_NAMES} | {"key": "Country Code", "value": "2023", "name": "Country Name"}
 PROPOSE = {"file": 0, "roles": ROLES, "filters": [], "scale": 1,
+           "derive": {"op": "none", "denominator": "", "factor": 1},
            "title": "Average precipitation in depth (mm per year)", "publisher": "World Bank",
            "licence": "CC BY 4.0", "unit": "mm per year", "vintage": "2023", "refusal": ""}
 
@@ -207,3 +208,25 @@ def test_a_page_without_files_gets_one_reselect_with_what_failed():
                                          "research_propose"]
     assert "0 data-file links" in llm.calls[2][1]
     assert result.proposal.url == "https://api.example.org/data.csv"
+
+
+def test_a_ratio_of_two_columns_travels_to_the_record():
+    report = dict(REPORT, columns=REPORT["columns"] + [{"name": "pop", "inferred": [], "sample": ["10"]}])
+    answer = dict(PROPOSE, derive={"op": "ratio", "denominator": "pop", "factor": 100})
+    prop = _run(FakeLLM(PLAN, SELECT, answer), report=report).proposal
+    assert prop.derive == {"op": "ratio", "denominator": "pop", "factor": 100.0}
+    vals = dict(VALUES, pop=["100", "50", "80", "90"])
+    ok = P.validate(prop, report, column_values=vals.get,
+                    coverage=lambda *a: {"matched": 4, "expected": 4, "ratio": 1.0})
+    assert ok.ok and P.to_store_record(prop, ok)["roles"]["derive"]["denominator"] == "pop"
+
+
+def test_a_ratio_whose_denominator_is_not_a_column_is_rejected():
+    prop = _prop(derive={"op": "ratio", "denominator": "Population", "factor": 100})
+    v = P.validate(prop, REPORT)
+    assert not v.ok and "denominator" in v.problems[0]
+
+
+def test_an_unusual_ratio_factor_falls_back_to_one():
+    assert R._derive({"op": "ratio", "denominator": "pop", "factor": 37})["factor"] == 1.0
+    assert R._derive({"op": "none", "denominator": "", "factor": 1}) == {}

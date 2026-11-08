@@ -51,3 +51,21 @@ def test_postal_codes_need_a_country_context():
 def test_names_prefixed_with_an_office_code_resolve():
     assert REGIONS.resolve("35_São Paulo") == "BR-SP" and REGIONS.resolve("31 Minas Gerais") == "BR-MG"
     assert REGIONS.resolve("35 - São Paulo") == "BR-SP" and REGIONS.resolve("35") is None
+
+
+def test_accents_and_unit_designators_do_not_block_a_match():
+    japan = join._regions([_region("JP-27", "Osaka", name_local="大阪府"),
+                           _region("JP-14", "Kanagawa"), _region("JP-13", "Tokyo")])
+    assert [japan.resolve(n) for n in ("Ōsaka-fu", "Kanagawa-ken", "Tokyo-to", "Tokyo")] == \
+        ["JP-27", "JP-14", "JP-13", "JP-13"]
+    assert join.normalise_name("São Paulo") == "sao paulo"
+
+
+def test_long_official_names_and_brackets_resolve_but_totals_never_do():
+    mexico = join._regions([_region("MX-COA", "Coahuila"), _region("MX-MEX", "México"),
+                            _region("MX-DIF", "Distrito Federal", name_en="Mexico"),
+                            _region("MX-JAL", "Jalisco")])
+    names = ["Coahuila de Zaragoza", "México", "Mexico City (Ciudad de México)", "Jalisco",
+             "Mexico total"]
+    res = mexico.resolver(names)
+    assert [res(n) for n in names] == ["MX-COA", "MX-MEX", "MX-DIF", "MX-JAL", None]

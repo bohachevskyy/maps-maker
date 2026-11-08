@@ -11,6 +11,7 @@ import math
 import re
 import zipfile
 
+from mapsvc.discovery import htmltables
 from mapsvc.discovery import http
 from mapsvc.discovery import shapefile
 from mapsvc.xlsx import sheets as xlsx_sheets
@@ -42,17 +43,41 @@ class ProbeReport:
 
 def probe(url: str, *, max_bytes: int = 25_000_000,
           timeout: float = 30) -> ProbeReport:
-    response = http.get(url, max_bytes=max_bytes, timeout=timeout, expect="data")
-    return probe_bytes(response.content, url=response.url)
+    base, table = htmltables.split_table_fragment(url)
+    # The fetch layer drops fragments; the selector is read before fetching.
+    response = http.get(base, max_bytes=max_bytes, timeout=timeout,
+                        expect=None if table is not None else "data")
+    return probe_bytes(response.content, url=response.url, table=table)
 
 
-def records(payload: bytes) -> tuple[list[dict], str, list[str], list[str]]:
+def _html_table_records(payload: bytes, table: int, warnings: list[str]
+                        ) -> tuple[list[dict], str, list[str], list[str]]:
+    text, encoding = _decode(payload)
+    if encoding != "utf-8":
+        warnings.append(f"decoded as {encoding}")
+    found = htmltables.tables(text)
+    if not found and "<table" not in text.lower():
+        raise ProbeError("the payload is not an HTML page with tables")
+    if not 0 <= table < len(found):
+        raise ProbeError(f"the page has {len(found)} data table(s); #table={table} "
+                         "does not exist")
+    chosen = found[table]
+    warnings.append(f"read table {table} of {len(found)} from an HTML page"
+                    + (f" ({chosen.caption})" if chosen.caption else ""))
+    warnings.extend(chosen.notes)
+    return chosen.rows, "html_table", [], warnings
+
+
+def records(payload: bytes, *, table: int | None = None
+            ) -> tuple[list[dict], str, list[str], list[str]]:
     """Parse a data file into rows exactly as the probe does.
 
     Returns (rows, format, geometry_types, warnings). The harvester uses this,
     so a discovered source is read the same way it was validated.
     """
     warnings: list[str] = []
+    if table is not None:
+        return _html_table_records(payload, table, warnings)
     if payload.startswith(b"PK\x03\x04") and not _looks_like_xlsx(payload):
         if _zip_has_shapefile(payload):
             return _shapefile_records(payload, warnings)
@@ -72,21 +97,27 @@ def records(payload: bytes) -> tuple[list[dict], str, list[str], list[str]]:
     return rows, ("tsv" if delimiter == "\t" else "csv"), [], warnings
 
 
-def probe_bytes(payload: bytes, *, url: str = "") -> ProbeReport:
+def probe_bytes(payload: bytes, *, url: str = "",
+                table: int | None = None) -> ProbeReport:
     original_size = len(payload)
     digest = hashlib.sha256(payload).hexdigest()
     warnings: list[str] = []
-    is_shapefile = False
-    if payload.startswith(b"PK\x03\x04") and not _looks_like_xlsx(payload):
+    rows_read = False
+    if table is not None:
+        url = f"{url}#table={table}" if url else url
+        rows, format_name, geometry_types, warnings = _html_table_records(
+            payload, table, warnings)
+        rows_read = True
+    elif payload.startswith(b"PK\x03\x04") and not _looks_like_xlsx(payload):
         if _zip_has_shapefile(payload):
             rows, format_name, geometry_types, warnings = _shapefile_records(
                 payload, warnings)
-            is_shapefile = True
+            rows_read = True
         else:
             payload, inner_name = _safe_unzip(payload)
             warnings.append(f"inspected {inner_name} inside zip archive")
 
-    if is_shapefile:
+    if rows_read:
         pass
     elif _looks_like_xlsx(payload):
         format_name = "xlsx"
@@ -541,7 +572,8 @@ def _scope(scope):
 
 
 def _normalise_place(value) -> str:
-    return re.sub(r"[^a-z0-9]+", " ", str(value).casefold()).strip()
+    from mapsvc.discovery.join import normalise_name
+    return normalise_name(value)
 
 
 def _name_aliases(units: list[dict]) -> dict[str, str]:

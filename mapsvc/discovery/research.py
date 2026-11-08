@@ -122,6 +122,14 @@ PROPOSE_SCHEMA = {
             "description": ("conditions every kept row meets, e.g. year eq 2023, "
                             "fall eq Fell, SIZE_HA ge 200, date ge 2011-04-25; "
                             "[] to keep every row")},
+        "derive": {
+            "type": "object",
+            "properties": {"op": {"type": "string", "enum": ["none", "ratio"]},
+                           "denominator": _STR, "factor": {"type": "number"}},
+            "required": ["op", "denominator", "factor"], "additionalProperties": False,
+            "description": ("when the file has the parts but not the measure asked for: "
+                            "ratio = value column / denominator column x factor (100 for "
+                            "a percentage, 1000 for per thousand). op 'none' otherwise")},
         "scale": {"type": "number",
                   "description": ("multiplier that turns the value column into the stated "
                                   "unit: 1000 when a table is 'in thousands', else 1")},
@@ -132,7 +140,7 @@ PROPOSE_SCHEMA = {
         "vintage": {"type": "string", "description": "year or period of the values"},
         "refusal": {"type": "string", "description": "when file is -1: what was searched and why nothing fit"},
     },
-    "required": ["file", "roles", "filters", "scale", "title", "publisher", "licence", "unit",
+    "required": ["file", "roles", "filters", "derive", "scale", "title", "publisher", "licence", "unit",
                  "vintage", "refusal"],
     "additionalProperties": False,
 }
@@ -168,6 +176,10 @@ documented machine-readable endpoint for that same dataset (an indicator API, a
 CSV export, an SDMX/REST query), add it under direct_urls: ask for every unit at
 the requested level, the most recent values, and a page size large enough for
 all of them. The service fetches and validates it; never invent a host.
+
+Data tables inside HTML pages are offered as files addressed `page_url#table=N`;
+they are probed like any file, and a scale stated in a caption or header (in
+thousands, millions) appears in the probe warnings: carry it as the scale.
 
 If no open dataset can honestly answer the request (the data is not collected,
 is behind a login, or only exists as prose), refuse and say what you searched."""
@@ -289,12 +301,26 @@ def _proposed(answer, need, plan, reports, conversation, trace) -> Result:
         roles={k: v for k, v in answer["roles"].items() if v},
         row_filter=rowfilter.normalise(answer.get("filters")),
         scale=_scale(answer.get("scale")),
+        derive=_derive(answer.get("derive")),
         query=need.prompt, format=_get(report, "format"), content_sha256=_get(report, "sha256"),
     )
     return Result(proposed, None, trace, state)
 
 
 # ------------------------------------------------------------- helpers ---
+
+def _derive(spec) -> dict:
+    """{} or {"op": "ratio", "denominator": column, "factor": 1|100|1000|...}."""
+    if not isinstance(spec, dict) or spec.get("op") != "ratio" or not spec.get("denominator"):
+        return {}
+    try:
+        factor = float(spec.get("factor") or 1)
+    except (TypeError, ValueError):
+        factor = 1.0
+    if factor not in (1.0, 100.0, 1e3, 1e4, 1e5, 1e6):
+        factor = 1.0
+    return {"op": "ratio", "denominator": str(spec["denominator"]), "factor": factor}
+
 
 def _scale(value) -> float:
     """Powers of ten only: a scale is a unit statement, not a correction factor."""
@@ -360,7 +386,12 @@ def _probe_selected(urls, fetch, probe, trace, *, limit, origin="search") -> lis
         if fetched.get("kind") == "file":
             targets, landing = [url], None
         else:
-            targets, landing = list(fetched.get("links", []))[:MAX_LINKS_PER_PAGE], url
+            links = list(fetched.get("links", []))
+            # `page#table=N` links are HTML tables offered as files; keep them
+            # when a page also has many file links.
+            targets = ([l for l in links if "#table=" not in l][:MAX_LINKS_PER_PAGE]
+                       + [l for l in links if "#table=" in l])
+            landing = url
             trace.append({"step": "links", "url": url, "found": len(targets)})
         for target in targets:
             if len(reports) >= limit:

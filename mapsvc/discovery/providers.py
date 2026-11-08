@@ -9,7 +9,7 @@ import re
 import threading
 import urllib.parse
 
-from mapsvc.discovery import adapters, http
+from mapsvc.discovery import adapters, htmltables, http
 
 
 _SEARXNG_DEFAULT = "http://127.0.0.1:8888"
@@ -317,6 +317,15 @@ def fetch(url: str) -> dict:
         "title": _clip(parser.title, 160),
         "links": [item[2] for item in ranked[:30]],
     }
+    # Data tables inside the page are offered as files: `page#table=N`.
+    page_tables = htmltables.tables(_decode_html(response.content, content_type))
+    if page_tables:
+        result["tables"] = [
+            {"index": t.index, "caption": _clip(t.caption, 120), "n_rows": t.n_rows,
+             "n_cols": t.n_cols, "headers": [_clip(h, 60) for h in t.headers[:8]]}
+            for t in page_tables]
+    largest = sorted(page_tables, key=lambda t: (-t.n_rows * t.n_cols, t.index))[:5]
+    result["links"].extend(f"{response.url}#table={t.index}" for t in largest)
     licence = next(iter(parser.licences), "")
     if licence:
         result["licence"] = licence

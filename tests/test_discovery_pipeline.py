@@ -114,3 +114,21 @@ def test_start_and_end_columns_draw_as_segments_coloured_in_natural_order(tmp_pa
     assert layer["kind"] == "lines" and len(layer["features"]) == 2
     assert layer["features"][0]["coords"] == [[-88.1, 34.1], [-87.9, 34.3]]
     assert [c["value"] for c in layer["category"]["classes"]] == ["2", "10"]
+
+
+def test_a_discovered_ratio_is_computed_when_loaded(tmp_path, monkeypatch):
+    from mapsvc.statistics import discovered
+    monkeypatch.setenv("MAPSVC_DISCOVERED_DB", str(tmp_path / "d.sqlite"))
+    Store().add_or_update({
+        "id": "disc_5555666677778888", "url": "https://e.org/health.csv", "title": "No coverage",
+        "publisher": "INEGI", "licence": "CC BY 4.0", "geometry_kind": "choropleth",
+        "key_namespace": "ISO3", "level": "admin_0", "status": "active", "units": "% of population",
+        "roles": {"key": "code", "value": "without", "derive": {"op": "ratio", "denominator": "pop", "factor": 100}}})
+    csv = b"code,without,pop\nBRA,20,200\nARG,0,50\nCHL,5,0\n"
+    monkeypatch.setattr(http, "get", lambda url, **kw: types.SimpleNamespace(content=csv))
+    monkeypatch.setattr(join, "index", lambda ns, lvl, within=None: join._countries([
+        {"keys": {"ISO3": k}, "name": k, "properties": {}} for k in ("BRA", "ARG", "CHL")]))
+    loaded = discovered.load("disc_5555666677778888", "admin_0")
+    assert loaded.values == {"BRA": 10.0, "ARG": 0.0}     # CHL: zero base, no value
+    assert "computed here: without / pop × 100" in loaded.provenance["variable"]
+    assert discovered.describe("disc_5555666677778888").level == "ratio"

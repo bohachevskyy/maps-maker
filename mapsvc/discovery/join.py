@@ -11,17 +11,49 @@ from __future__ import annotations
 
 import dataclasses
 import re
+import unicodedata
 from collections import Counter
 
 _COUNTRY_CODES = ("ISO_A3", "ISO_A3_EH", "ADM0_A3", "ADM0_ISO", "WB_A3",
                   "ISO_A2", "ISO_A2_EH", "WB_A2")
 _COUNTRY_NUMBERS = ("ISO_N3", "ISO_N3_EH", "UN_A3")
 _COUNTRY_NAMES = ("NAME", "NAME_LONG", "FORMAL_EN", "NAME_EN", "NAME_SORT", "ADMIN",)
-_REGION_NAMES = ("name", "name_en", "woe_name", "gn_name", "name_alt", "name_local")
+_REGION_PRIMARY = ("name", "woe_name", "gn_name")
+_REGION_SECONDARY = ("name_en", "name_alt", "name_local")
+# Units renamed since Natural Earth's edition (measured 2026-11-07: MX-DIF is
+# still "Distrito Federal", and its name_en is "Mexico", which collides with
+# México state). Names only -- never geometry.
+_ALIASES = {"MX-DIF": ("Ciudad de México", "Mexico City", "CDMX")}
 
 
 def normalise_name(value) -> str:
-    return re.sub(r"[^a-z0-9]+", " ", str(value).casefold()).strip()
+    """Casefolded, accents removed: "Ōsaka" -> "osaka", "São Paulo" -> "sao paulo".
+
+    (Dropping non-ASCII letters instead turned "Ōsaka" into "saka".)
+    """
+    text = unicodedata.normalize("NFKD", str(value).casefold())
+    text = "".join(c for c in text if not unicodedata.combining(c))
+    return re.sub(r"[^a-z0-9]+", " ", text).strip()
+
+
+# Words that name the kind of unit, not the unit: "Tokyo-to", "Ōsaka-fu",
+# "Kanagawa-ken", "Hokkaidō" vs "Hokkaido", "Lviv Oblast", "State of Mexico" is
+# deliberately not here (it is a different unit from Mexico City).
+_DESIGNATORS = {"to", "fu", "ken", "prefecture", "province", "provincia", "oblast",
+                "region", "krai", "kraj", "county", "voivodeship", "department",
+                "departamento", "governorate", "district", "estado", "state"}
+
+
+_TOTALS = {"total", "totals", "sum", "national", "overall", "all", "average", "mean"}
+
+
+def _bare(name_token: str) -> str | None:
+    """'T:kanagawa ken' -> 'T:kanagawa'; None when nothing is stripped."""
+    words = name_token[2:].split()
+    kept = [w for w in words if w not in _DESIGNATORS]
+    if kept and len(kept) < len(words):
+        return "T:" + " ".join(kept)
+    return None
 
 
 def _token(value) -> str | None:
@@ -42,10 +74,14 @@ class Index:
     lookup: dict          # token -> canonical key
     units: dict           # canonical key -> unit (for scope by country)
     ambiguous: dict = dataclasses.field(default_factory=dict)   # token -> {keys}
+    preferred: dict = dataclasses.field(default_factory=dict)   # token -> {keys by own name}
 
     def resolve(self, value) -> str | None:
         token = _token(value)
         found = self.lookup.get(token) if token else None
+        if found is None and token and token.startswith("T:"):
+            bare = _bare(token)
+            found = self.lookup.get(bare) if bare else None
         if found is None:
             # Statistics offices often prefix names with their own codes:
             # "13_Tokyo-to", "01000 Hokkaido", "35 - São Paulo" (e-Stat, IBGE).
@@ -67,13 +103,40 @@ class Index:
         counts = Counter(k.split("-")[0] for k in firm)
         home = {c for c, n in counts.items() if n >= 0.2 * len(firm)}
 
-        def resolve(value):
+        def settle(value):
             key = self.resolve(value)
             if key:
                 return key
-            options = {k for k in self.ambiguous.get(_token(value), ())
-                       if k.split("-")[0] in home}
-            return next(iter(options)) if len(options) == 1 else None
+            token = _token(value)
+            for t in (token, _bare(token) if token and token.startswith("T:") else None):
+                options = {k for k in self.ambiguous.get(t, ()) if k.split("-")[0] in home}
+                if len(options) > 1:
+                    options &= self.preferred.get(t, set())
+                if len(options) == 1:
+                    return next(iter(options))
+            return None
+
+        def resolve(value):
+            key = settle(value)
+            if key or not isinstance(value, str):
+                return key
+            # "Mexico City (Ciudad de México)": either side of the brackets.
+            m = re.match(r"^(.*?)\s*\((.+)\)\s*$", value)
+            if m:
+                key = settle(m.group(1)) or settle(m.group(2))
+                if key:
+                    return key
+            # "Coahuila de Zaragoza", "Veracruz de Ignacio de la Llave": a unit's
+            # name followed by its official suffix -- only inside this file's
+            # country, and only when the shorter name is a whole unit name.
+            words = normalise_name(value).split()
+            if _TOTALS & set(words):
+                return None          # "Mexico total" is the country, never México state
+            for n in range(len(words) - 1, 0, -1):
+                key = settle(" ".join(words[:n]))
+                if key and key.split("-")[0] in home:
+                    return key
+            return None
         return resolve
 
 
@@ -135,6 +198,8 @@ def _countries(units) -> Index:
 def _regions(units) -> Index:
     lookup, by_key = {}, {}
     names: dict = {}
+    primary_names: dict = {}
+    preferred: dict = {}
     short: dict = {}         # ISO suffix / postal code -> {keys}
     countries = {str(k).split("-")[0] for u in units
                  for k in [(u.get("keys") or {}).get("ISO3166_2")] if k}
@@ -154,10 +219,20 @@ def _regions(units) -> Index:
             token = _token(code) if code else None
             if token and token.startswith("C:"):
                 short.setdefault(token, set()).add(key)
-        for name in [unit.get("name")] + [props.get(f) for f in _REGION_NAMES]:
-            for variant in str(name or "").split("|"):
-                if variant.strip():
-                    names.setdefault("T:" + normalise_name(variant), set()).add(key)
+        primary = [unit.get("name")] + [props.get(f) for f in _REGION_PRIMARY]
+        primary += list(_ALIASES.get(key, ()))
+        for tier, group in ((primary_names, primary),
+                            (names, [props.get(f) for f in _REGION_SECONDARY])):
+            for name in group:
+                for variant in str(name or "").split("|"):
+                    if variant.strip():
+                        tier.setdefault("T:" + normalise_name(variant), set()).add(key)
+    # Firm only when every unit carrying the words is the same one. Otherwise
+    # the file's country settles it, and inside one country a unit's own name
+    # beats another's translation (NE's MX-DIF has name_en "Mexico").
+    preferred.update({t: keys for t, keys in primary_names.items()})
+    for t, keys in primary_names.items():
+        names.setdefault(t, set()).update(keys)
     lookup.update({t: next(iter(keys)) for t, keys in names.items()
                    if len(keys) == 1 and t not in lookup})
     ambiguous = {t: keys for t, keys in names.items() if len(keys) > 1}
@@ -168,7 +243,7 @@ def _regions(units) -> Index:
             lookup[token] = next(iter(keys))
         else:
             ambiguous.setdefault(token, set()).update(keys)
-    return Index("ISO3166_2", lookup, by_key, ambiguous)
+    return Index("ISO3166_2", lookup, by_key, ambiguous, preferred)
 
 
 def coverage(values, namespace: str, level: str, within=None) -> dict:
@@ -183,7 +258,9 @@ def coverage(values, namespace: str, level: str, within=None) -> dict:
     matched = {k for k in (resolve(v) for v in values) if k}
     if idx.namespace == "ISO3166_2" and not within:
         countries = {k.split("-")[0] for k in matched}
-        expected = [k for k in idx.units if k.split("-")[0] in countries]
+        # Unnamed slivers (Natural Earth's MX-X01~) are not units anyone reports.
+        expected = [k for k, u in idx.units.items()
+                    if k.split("-")[0] in countries and u.get("name")]
     else:
         expected = list(idx.units)
     return {"matched": len(matched), "expected": len(expected),
