@@ -825,17 +825,26 @@ def _check_overlay_choices(raw: dict,
     items = raw.get("overlays") or []
     for source, query, candidates in offers:
         choices = [item.get("id") for item in items if item.get("source") == source]
-        chosen = next((choice for choice in choices if choice in candidates), None)
+        chosen = next((choice for choice in choices if _offered_id(choice, source) in candidates), None)
         if chosen is None:
             raise ManifestError(
                 f"the chosen {source} id was not one of the candidates returned "
                 f"for {query!r}", "overlays.id")
-        candidate = candidates[chosen]
+        candidate = candidates[_offered_id(chosen, source)]
         if source == "overpass" and not overpass.candidate_relevant(query, candidate):
             raise ManifestError(
                 f"OSM tag {chosen!r} does not describe the requested feature kind "
                 f"in {query!r}; choose a candidate whose description names it",
                 "overlays.id")
+
+
+def _offered_id(choice, source: str):
+    """A web id is its URL plus filters ('...ibtracs.NA...csv#season=2024'); the
+    catalogue offers the URL. Measured: every searched IBTrACS request failed the
+    candidate check because the season filter made the id differ."""
+    if source == "web" and isinstance(choice, str):
+        return choice.split("#", 1)[0]
+    return choice
 
 
 def _unmatched_web_offer(raw: dict, offers) -> str | None:
@@ -845,7 +854,7 @@ def _unmatched_web_offer(raw: dict, offers) -> str | None:
         if source != "web":
             continue
         choices = [item.get("id") for item in items if item.get("source") == "web"]
-        if not any(choice in candidates for choice in choices):
+        if not any(_offered_id(choice, "web") in candidates for choice in choices):
             return query
     return None
 

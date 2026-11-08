@@ -543,3 +543,11 @@ def test_an_unanswered_web_overlay_search_runs_research_and_offers_the_find(stub
     assert raw["overlays"] == [{"source": "web", "id": url}]
     assert seen and "meteorite falls" in seen[0]
     assert "Meteorite Landings" in client.responses.calls[-1]["input"][-1]["content"]
+
+
+def test_a_searched_web_candidate_with_filters_passes_the_candidate_check():
+    class C:  # a catalogue candidate
+        id = "https://data.example.org/tracks.csv"
+    raw = {"overlays": [{"source": "web", "id": "https://data.example.org/tracks.csv#season=2024"}]}
+    agent._check_overlay_choices(raw, [("web", "storm tracks", {C.id: C()})])
+    assert agent._unmatched_web_offer(raw, [("web", "storm tracks", {C.id: C()})]) is None
