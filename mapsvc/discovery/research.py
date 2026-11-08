@@ -177,6 +177,10 @@ CSV export, an SDMX/REST query), add it under direct_urls: ask for every unit at
 the requested level, the most recent values, and a page size large enough for
 all of them. The service fetches and validates it; never invent a host.
 
+Data tables inside HTML pages are offered as files addressed `page_url#table=N`;
+they are probed like any file, and a scale stated in a caption or header (in
+thousands, millions) appears in the probe warnings: carry it as the scale.
+
 If no open dataset can honestly answer the request (the data is not collected,
 is behind a login, or only exists as prose), refuse and say what you searched."""
 
@@ -382,7 +386,12 @@ def _probe_selected(urls, fetch, probe, trace, *, limit, origin="search") -> lis
         if fetched.get("kind") == "file":
             targets, landing = [url], None
         else:
-            targets, landing = list(fetched.get("links", []))[:MAX_LINKS_PER_PAGE], url
+            links = list(fetched.get("links", []))
+            # `page#table=N` links are HTML tables offered as files; keep them
+            # when a page also has many file links.
+            targets = ([l for l in links if "#table=" not in l][:MAX_LINKS_PER_PAGE]
+                       + [l for l in links if "#table=" in l])
+            landing = url
             trace.append({"step": "links", "url": url, "found": len(targets)})
         for target in targets:
             if len(reports) >= limit:

@@ -85,11 +85,13 @@ def discover(prompt: str, reason: str, *, level: str | None = None, within=(),
 
 def _verify(prop, probe_fn, within) -> proposal_mod.Verdict:
     """Re-read the proposed file and check the proposal against it."""
-    from mapsvc.discovery import http, probe as probe_mod
+    from mapsvc.discovery import htmltables, http, probe as probe_mod
 
     report = probe_fn(prop.url)
     from mapsvc.discovery import rowfilter
-    rows, _fmt, _geo, _warn = probe_mod.records(http.get(prop.url, expect="data").content)
+    base, table = htmltables.split_table_fragment(prop.url)
+    payload = http.get(base, expect=None if table is not None else "data").content
+    rows, _fmt, _geo, _warn = probe_mod.records(payload, table=table)
     rows = rowfilter.apply(rows, prop.row_filter)
     if not rows:
         return proposal_mod.Verdict(False, ["the filters keep no rows: "
