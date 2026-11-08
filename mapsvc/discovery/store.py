@@ -32,6 +32,8 @@ def _now() -> str:
 
 class DiscoveredSourceStore:
     def __init__(self, path: str | os.PathLike | None = None):
+        if path is None and os.environ.get("MAPSVC_DISCOVERED_DB"):
+            path = os.environ["MAPSVC_DISCOVERED_DB"]     # evals: one store per case
         if path is None:
             root = Path(os.environ.get(
                 "MAPSVC_CACHE", Path(__file__).resolve().parents[2] / "cache"))

@@ -84,9 +84,9 @@ def post_json(url: str, payload, *, params=None, headers=None,
 
 def _mode() -> str:
     mode = os.environ.get("MAPSVC_REPLAY", "off").strip().lower()
-    if mode not in {"off", "record", "replay"}:
+    if mode not in {"off", "record", "replay", "cached"}:
         raise DiscoveryHTTPError(
-            "MAPSVC_REPLAY must be one of off, record or replay")
+            "MAPSVC_REPLAY must be one of off, record, replay or cached")
     return mode
 
 
@@ -220,6 +220,13 @@ def _request(method: str, url: str, *, params, headers, body: bytes,
     mode = _mode()
     if mode == "replay":
         return _replay(key, normalised, max_bytes, expect)
+    if mode == "cached":
+        # Replay what was recorded, fetch and record what was not: an eval run
+        # pays for the web once per request, and reruns see the same bytes.
+        try:
+            return _replay(key, normalised, max_bytes, expect)
+        except ReplayMiss:
+            mode = "record"
 
     _validate_url(normalised, resolve=True)
     # Request credentials may be needed by a provider.  They are deliberately
