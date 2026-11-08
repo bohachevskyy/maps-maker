@@ -42,6 +42,7 @@ import hashlib
 import json
 import math
 import os
+import pathlib
 import re
 import time
 import urllib.parse
@@ -632,7 +633,7 @@ def load(overlay_id: str, window: Window) -> dict:
     else:
         started = time.monotonic()
         try:
-            payload = _post(ql)
+            payload = _post_local(ql, window) or _post(ql)
         except UpstreamUnavailable as exc:
             if not target.exists():
                 return _overture_or_raise(f, window, target, exc)
@@ -689,6 +690,68 @@ def _area_name(data: dict) -> str | None:
     names = sorted({(e.get("tags") or {}).get("name:en") or (e.get("tags") or {}).get("name")
                     for e in data.get("elements") or () if e.get("type") == "area"} - {None})
     return " and ".join(names) or None
+
+
+LOCAL_ENV = "MAPSVC_OVERPASS_LOCAL"
+COVERAGE_ENV = "MAPSVC_OVERPASS_COVERAGE"
+LOCAL_COVERAGE = (pathlib.Path(__file__).resolve().parents[2]
+                  / "tools" / "overpass" / "coverage.json")
+LOCAL_TIMEOUT_S = 120
+
+
+def _coverage() -> dict:
+    path = pathlib.Path(os.environ.get(COVERAGE_ENV) or LOCAL_COVERAGE)
+    try:
+        return json.loads(path.read_text())
+    except (OSError, ValueError):
+        return {}
+
+
+def local_covers(window: Window) -> bool:
+    """True when every part of the window lies in an extract the local server
+    loaded (tools/overpass/coverage.json): each `within` country, and the
+    bbox -- inside one extract's box -- when there is one. A window with
+    neither is never local. Boxes are approximate (a France box includes
+    Belgium), so a bbox query reaching a neighbour that was not loaded would
+    be answered partially: keep bboxes inside the loaded countries."""
+    extracts = _coverage().get("extracts") or []
+    if not extracts or (window.bbox is None and not window.within):
+        return False
+    loaded = {c for e in extracts for c in e.get("countries") or ()}
+    for code in window.within or ():
+        try:
+            two = code[:2].upper() if "-" in code else _alpha2(code)
+        except OverlayError:
+            return False
+        if two not in loaded:
+            return False
+    if window.bbox is None:
+        return True
+    w, s, e, n = window.bbox
+    return any(x["bbox"][0] <= w and x["bbox"][1] <= s
+               and e <= x["bbox"][2] and n <= x["bbox"][3] for x in extracts)
+
+
+def _post_local(ql: str, window: Window) -> bytes | None:
+    """Ask the local Overpass first when MAPSVC_OVERPASS_LOCAL is set and the
+    window is covered. None on any failure so the public endpoints take over;
+    a local answer is an ordinary Overpass response, osm3s timestamp included."""
+    url = os.environ.get(LOCAL_ENV)
+    if not url or not local_covers(window):
+        return None
+    try:
+        payload = fetch.post(url, urllib.parse.urlencode({"data": ql}).encode(),
+                             timeout=LOCAL_TIMEOUT_S)
+    except fetch.FetchError:
+        return None
+    if not payload.lstrip().startswith(b"{"):
+        return None
+    try:
+        if "runtime error" in (json.loads(payload).get("remark") or ""):
+            return None
+    except ValueError:
+        return None
+    return payload
 
 
 def _post(ql: str) -> bytes:

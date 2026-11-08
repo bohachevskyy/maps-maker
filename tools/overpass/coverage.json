@@ -1,0 +1,7 @@
+{
+  "snapshot": "2026-11-07T21:21:36Z",
+  "extracts": [
+    {"name": "ukraine", "geofabrik": "europe/ukraine",
+     "bbox": [22.13, 44.0, 40.24, 52.39], "countries": ["UA"]}
+  ]
+}
