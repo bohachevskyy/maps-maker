@@ -98,11 +98,12 @@ def _verify(prop, probe_fn, within) -> proposal_mod.Verdict:
         problem = _not_one_row_per_unit(rows, prop.roles)
         if problem:
             return proposal_mod.Verdict(False, [problem])
-        # The vintage is what the data says, not what the agent read somewhere.
-        if prop.roles.get("date"):
-            years = [y for y in (_year(r.get(prop.roles["date"])) for r in rows) if y]
-            if years:
-                prop.vintage = str(max(years))
+    # The vintage is what the data says, not what the agent read somewhere:
+    # the latest year among the kept rows (a points file's newest event).
+    if prop.roles.get("date"):
+        years = [y for y in (_year(r.get(prop.roles["date"])) for r in rows) if y]
+        if years:
+            prop.vintage = str(max(years))
 
     def column_values(name):
         return [r.get(name) for r in rows]

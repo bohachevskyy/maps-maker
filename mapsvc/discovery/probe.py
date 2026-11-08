@@ -16,7 +16,7 @@ from mapsvc.xlsx import sheets as xlsx_sheets
 
 
 MAX_ROWS = 50_000
-MAX_UNZIPPED = 64 * 1024 * 1024
+MAX_UNZIPPED = 200 * 1024 * 1024   # NFDB points: 79.4 MB of text (measured 2026-11-07)
 MAX_COMPRESSION_RATIO = 40
 
 
@@ -124,10 +124,12 @@ def _safe_unzip(payload: bytes) -> tuple[bytes, str]:
                        and not member.filename.startswith(("__MACOSX/", "."))
                        and member.filename.lower().endswith(
                            (".csv", ".tsv", ".txt", ".json", ".geojson", ".xlsx"))]
-            if len(members) != 1:
-                raise ProbeError(
-                    f"zip contains {len(members)} supported data files; expected one")
-            member = members[0]
+            if not members:
+                raise ProbeError("zip contains no supported data files")
+            # Several: the largest is the data, the rest are summaries or
+            # readmes (measured: NFDB ships a 0.5 MB stats workbook beside
+            # its 79 MB point file). The chosen name goes in the warnings.
+            member = sorted(members, key=lambda m: (-m.file_size, m.filename))[0]
             if member.flag_bits & 0x1:
                 raise ProbeError("zip data file is encrypted")
             if (member.file_size > MAX_UNZIPPED

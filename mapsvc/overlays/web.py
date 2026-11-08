@@ -37,7 +37,7 @@ import zipfile
 from mapsvc import fetch
 from mapsvc.overlays import UNKNOWN_LICENSE, Capabilities, OverlayError, Window
 
-MAX_BYTES = 25 * 1024 * 1024
+MAX_BYTES = 80 * 1024 * 1024    # IBTrACS North Atlantic CSV: 57.6 MB
 MAX_ROWS = 50_000
 MAX_URL = 500
 TIMEOUT = 60
@@ -740,7 +740,7 @@ def layer_from_bytes(payload: bytes, overlay_id: str, window: Window,
 
 # A zip must hold one data file, read in memory and never extracted to disk;
 # its declared size and its compression ratio are both bounded before reading.
-MAX_UNZIPPED = 64 * 1024 * 1024
+MAX_UNZIPPED = 200 * 1024 * 1024   # NFDB points: 79.4 MB of text (measured 2026-11-07)
 MAX_RATIO = 40
 
 
@@ -753,10 +753,10 @@ def _unzip(payload: bytes, url: str) -> bytes:
                    if not m.is_dir() and not m.filename.startswith(("__MACOSX/", "."))
                    and m.filename.lower().endswith((".csv", ".txt", ".tsv", ".json",
                                                     ".geojson"))]
-        if len(members) != 1:
-            raise OverlayError(f"{url} is a zip with {len(members)} data files; "
-                               "expected exactly one", "overlays.id")
-        member = members[0]
+        if not members:
+            raise OverlayError(f"{url} is a zip with no data files", "overlays.id")
+        # Several: the largest is the data (the same rule as discovery.probe).
+        member = sorted(members, key=lambda m: (-m.file_size, m.filename))[0]
         if member.flag_bits & 0x1:
             raise OverlayError(f"{url} is an encrypted zip", "overlays.id")
         if (member.file_size > MAX_UNZIPPED

@@ -65,7 +65,12 @@ _RESPONSE_HEADERS = {
 }
 
 
-def get(url: str, *, params=None, headers=None, max_bytes: int = 25_000_000,
+# Measured 2026-11-07: Canada's national fire points zip is 25,043,218 bytes,
+# NOAA's North Atlantic IBTrACS CSV 57,593,323. Override with MAPSVC_MAX_BYTES.
+DEFAULT_MAX_BYTES = int(os.environ.get("MAPSVC_MAX_BYTES", 80_000_000))
+
+
+def get(url: str, *, params=None, headers=None, max_bytes: int = DEFAULT_MAX_BYTES,
         timeout: float = 30, expect: str | None = None, record_if=None) -> Response:
     """record_if(response) -> bool keeps a degraded answer (a rate-limited search
     returning nothing) out of the cassettes, where it would replay forever."""
@@ -75,7 +80,7 @@ def get(url: str, *, params=None, headers=None, max_bytes: int = 25_000_000,
 
 
 def post_json(url: str, payload, *, params=None, headers=None,
-              max_bytes: int = 25_000_000, timeout: float = 30,
+              max_bytes: int = DEFAULT_MAX_BYTES, timeout: float = 30,
               expect: str | None = None) -> Response:
     body = json.dumps(payload, sort_keys=True, separators=(",", ":"),
                       ensure_ascii=False).encode("utf-8")
