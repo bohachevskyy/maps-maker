@@ -159,6 +159,55 @@ def test_probe_formats_and_role_inference(payload, expected):
         assert report.geometry_kind == "points"
 
 
+def test_probe_world_bank_json_finds_and_flattens_records():
+    payload = [{"page": 1, "pages": 1, "per_page": 400, "total": 2}, [
+        {"indicator": {"id": "AG.LND.PRCP.MM", "value": "Average precipitation"},
+         "country": {"id": "AF", "value": "Afghanistan"},
+         "countryiso3code": "AFG", "date": "2022", "value": 327,
+         "obs_status": "", "decimal": 0},
+        {"indicator": {"id": "AG.LND.PRCP.MM", "value": "Average precipitation"},
+         "country": {"id": "AL", "value": "Albania"},
+         "countryiso3code": "ALB", "date": "2022", "value": 1485,
+         "tags": ["measured"]},
+    ]]
+    rows, format_name, geometries, warnings = probe.records(json.dumps(payload).encode())
+    assert format_name == "json" and geometries == []
+    assert len(rows) == 2 and warnings == ["records found at $[1]"]
+    assert rows[0]["country.value"] == "Afghanistan"
+    assert rows[0]["indicator.id"] == "AG.LND.PRCP.MM"
+    assert rows[1]["tags"] == '["measured"]'
+    assert "country" not in rows[0]
+
+
+@pytest.mark.parametrize(("container", "path"), [
+    ({"page": 1, "maxPages": 1, "items": [
+        {"year": 2024, "coa_name": "Afghanistan", "coa_iso": "AFG", "refugees": 20866}
+    ]}, "$.items"),
+    ({"results": [{"id": 1}]}, "$.results"),
+    ({"value": [{"id": 1}]}, "$.value"),
+    ({"records": [{"id": 1}]}, "$.records"),
+    ({"features": [{"id": 1}]}, "$.features"),
+])
+def test_probe_nested_json_record_shapes(container, path):
+    report = probe.probe_bytes(json.dumps(container).encode())
+    assert report.n_rows == 1
+    assert report.warnings == [f"records found at {path}"]
+
+
+def test_probe_chooses_largest_json_record_list_and_first_tie():
+    payload = {"first": [{"chosen": 1}], "nested": {"larger": [
+        {"other": 1}, {"other": 2}
+    ]}, "tie": [{"wrong": 1}, {"wrong": 2}]}
+    rows, _, _, warnings = probe.records(json.dumps(payload).encode())
+    assert rows == [{"other": 1}, {"other": 2}]
+    assert warnings == ["records found at $.nested.larger"]
+
+
+def test_probe_accepts_an_empty_top_level_record_list():
+    rows, format_name, geometries, warnings = probe.records(b"[]")
+    assert (rows, format_name, geometries, warnings) == ([], "json", [], [])
+
+
 def test_probe_zip_and_coverage_fixture(monkeypatch):
     archive = io.BytesIO()
     with zipfile.ZipFile(archive, "w") as zipped:

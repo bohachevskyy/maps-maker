@@ -60,7 +60,7 @@ def records(payload: bytes) -> tuple[list[dict], str, list[str], list[str]]:
     if encoding != "utf-8":
         warnings.append(f"decoded as {encoding}")
     if text.lstrip().startswith(("{", "[")):
-        rows, geometry_types, format_name = _json_records(text)
+        rows, geometry_types, format_name = _json_records(text, warnings)
         return rows, format_name, geometry_types, warnings
     rows, delimiter, skipped = _delimited_records(text)
     if skipped:
@@ -87,7 +87,7 @@ def probe_bytes(payload: bytes, *, url: str = "") -> ProbeReport:
             warnings.append(f"decoded as {encoding}")
         stripped = text.lstrip()
         if stripped.startswith(("{", "[")):
-            rows, geometry_types, format_name = _json_records(text)
+            rows, geometry_types, format_name = _json_records(text, warnings)
         else:
             rows, delimiter, skipped = _delimited_records(text)
             geometry_types = []
@@ -231,7 +231,9 @@ def _column_number(letter: str) -> int:
     return result
 
 
-def _json_records(text: str) -> tuple[list[dict], list[str], str]:
+def _json_records(
+        text: str, warnings: list[str] | None = None,
+) -> tuple[list[dict], list[str], str]:
     try:
         value = json.loads(text)
     except json.JSONDecodeError as exc:
@@ -253,10 +255,48 @@ def _json_records(text: str) -> tuple[list[dict], list[str], str]:
                 row.setdefault("__latitude", geometry["coordinates"][1])
             rows.append(row)
         return rows, geometries, "geojson"
-    records = value.get("data") if isinstance(value, dict) else value
-    if not isinstance(records, list) or not all(isinstance(row, dict) for row in records):
-        raise ProbeError("JSON must be an array of records or an object with a data array")
-    return [dict(row) for row in records], [], "json"
+    found: list[tuple[list[dict], str]] = []
+
+    def visit(item, path: str, depth: int) -> None:
+        if isinstance(item, list):
+            if all(isinstance(row, dict) for row in item):
+                found.append((item, path))
+            if depth < 3:
+                for index, child in enumerate(item):
+                    visit(child, f"{path}[{index}]", depth + 1)
+        elif isinstance(item, dict) and depth < 3:
+            for key, child in item.items():
+                suffix = (str(key)
+                          if re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", str(key))
+                          else json.dumps(str(key)))
+                child_path = f"{path}.{suffix}" if suffix == str(key) else f"{path}[{suffix}]"
+                visit(child, child_path, depth + 1)
+
+    visit(value, "$", 0)
+    if not found:
+        raise ProbeError("JSON contains no array of records within depth 3")
+    records, path = max(found, key=lambda candidate: len(candidate[0]))
+    if warnings is not None and path != "$":
+        warnings.append(f"records found at {path}")
+    return [_flatten_json_record(row) for row in records], [], "json"
+
+
+def _flatten_json_record(record: dict) -> dict:
+    flattened = {}
+
+    def add(prefix: str, value, depth: int) -> None:
+        if isinstance(value, dict) and depth < 2:
+            for key, child in value.items():
+                name = f"{prefix}.{key}" if prefix else str(key)
+                add(name, child, depth + 1)
+        elif isinstance(value, (list, dict)):
+            flattened[prefix] = json.dumps(value, ensure_ascii=False, separators=(",", ":"))
+        else:
+            flattened[prefix] = value
+
+    for key, value in record.items():
+        add(str(key), value, 0)
+    return flattened
 
 
 def _column_reports(rows: list[dict]) -> list[dict]:
