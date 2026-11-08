@@ -401,6 +401,7 @@ def _list_probes(reports: list) -> str:
         out.append(f"[{i}] {url} ({_get(report, 'format')}, {_get(report, 'n_rows')} rows)"
                    + (f" via {landing}" if landing else "")
                    + (f"\n    portal metadata -- {stated}" if stated else "")
+                   + "".join(f"\n    note: {_clip(w, 300)}" for w in (_get(report, "warnings") or [])[:3])
                    + "\n" + "\n".join(cols))
     return "\n".join(out)
 

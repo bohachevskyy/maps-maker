@@ -48,3 +48,7 @@ a source has died; compare them with `truth.md`, not with the old replay.
 - 2026-11-07 `refugees_asylum`: dropped IRN>DEU. UNHCR's own 2025 figures put Iran at
   770,514, below Germany (2,655,191), so the spot only held for 2024.
 All three were truth too narrow for "judged on properties", not the agent being lenient.
+- 2026-11-07 scorer: a truth point/line feature counts as covered by a found point within
+  5 km **or a found row with the same name**. Measured: UNESCO's two official lists place
+  27% of World Heritage sites >5 km apart (large and serial sites; median 1,474 ha vs 151 ha),
+  so 5 km alone measured the two sources' disagreement, not the agent.

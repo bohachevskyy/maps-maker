@@ -272,9 +272,17 @@ def _xlsx_records(payload: bytes, warnings: list[str]) -> list[dict]:
                  if any(any(str(value).strip() for value in row.values()) for row in rows)]
     if not populated:
         return []
-    name, rows = populated[0]
+    # The data sheet is the one with the most numbers: statistical annexes open
+    # with an index or notes sheet (measured: CONEVAL's state annex workbook).
+    def numbers(rows):
+        return sum(1 for row in rows for value in row.values() if _is_number(value))
+    counts = [numbers(rows) for _, rows in populated]
+    best = max(range(len(populated)), key=lambda i: (counts[i], -i))
+    name, rows = populated[best]
     if len(populated) > 1:
-        warnings.append(f"inspected first populated worksheet {name!r} of {len(populated)}")
+        listing = ", ".join(f"{n!r} ({len(r)} rows, {c} numbers)"
+                            for (n, r), c in list(zip(populated, counts))[:12])
+        warnings.append(f"workbook sheets: {listing}; read {name!r} (most numbers)")
     header_index = next(index for index, row in enumerate(rows)
                         if sum(bool(str(value).strip()) for value in row.values()) >= 2)
     header_row = rows[header_index]
@@ -288,6 +296,17 @@ def _xlsx_records(payload: bytes, warnings: list[str]) -> list[dict]:
     if header_index:
         warnings.append(f"skipped {header_index} leading spreadsheet row(s)")
     return records
+
+
+def _is_number(value) -> bool:
+    text = str(value if value is not None else "").replace(",", "").strip()
+    if not text:
+        return False
+    try:
+        float(text)
+        return True
+    except ValueError:
+        return False
 
 
 def _column_number(letter: str) -> int:

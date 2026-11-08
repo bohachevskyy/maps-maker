@@ -89,6 +89,7 @@ def _features(record):
     roles = record.get("roles") or {}
     rows, fmt, payload = _rows(record)
     pts, groups = [], set()
+    names = {_norm(r.get(roles["name"])) for r in rows} if roles.get("name") else set()
     if fmt == "geojson" and record.get("geometry_kind") == "lines":
         for i, feat in enumerate(json.loads(payload).get("features") or []):
             geom = feat.get("geometry") or {}
@@ -98,7 +99,7 @@ def _features(record):
             for line in lines if geom.get("type") in ("LineString", "MultiLineString") else []:
                 pts.extend((c[0], c[1]) for c in line if len(c) >= 2)
             groups.add(i)
-        return pts, len(groups)
+        return pts, len(groups), names
     lon_col = roles.get("lon") or "__longitude"
     lat_col = roles.get("lat") or "__latitude"
     if roles.get("end_lon") and roles.get("end_lat"):      # one segment per row
@@ -107,7 +108,7 @@ def _features(record):
                 lon, lat = _float(row.get(a)), _float(row.get(b))
                 if lon is not None and lat is not None:
                     pts.append((lon, lat))
-        return pts, len(rows)
+        return pts, len(rows), names
     for i, row in enumerate(rows):
         lon, lat = _float(row.get(lon_col)), _float(row.get(lat_col))
         if lon is None or lat is None or not (-180 <= lon <= 180 and -90 <= lat <= 90):
@@ -115,7 +116,11 @@ def _features(record):
         pts.append((lon, lat))
         groups.add(row.get(roles["name"]) if roles.get("name") else i)
     n = len(groups) if record.get("geometry_kind") == "lines" else len(pts)
-    return pts, n
+    return pts, n, names
+
+
+def _norm(text):
+    return re.sub(r"[^a-z0-9]+", " ", str(text or "").casefold()).strip()
 
 
 # ---------------------------------------------------------------- truth ---
@@ -136,7 +141,7 @@ def _truth_values(case, rows):
 def _truth_points(case, rows):
     lon = "slon" if "slon" in rows[0] else "lon"
     lat = "slat" if "slat" in rows[0] else "lat"
-    return [(float(r[lon]), float(r[lat])) for r in rows if r[lon] and r[lat]]
+    return [((float(r[lon]), float(r[lat])), r) for r in rows if r[lon] and r[lat]]
 
 
 # ---------------------------------------------------------------- spots ---
@@ -200,11 +205,17 @@ def score(case, record):
                 checks[f"spot {spot}"] = check_spot(spot, values=values, count=count)
             detail["sample"] = {k: values.get(k) for k in list(truth)[:3]}
         else:
-            pts, count = _features(record)
+            pts, count, names = _features(record)
             grid = Grid(pts)
             truth = _truth_points(case, rows)
-            hit = sum(1 for t in truth if grid.near(t))
-            detail["coverage"] = f"{hit}/{len(truth)} truth points within {NEAR_KM:g} km"
+            # A truth feature is covered by a found point within 5 km, or by a
+            # found row of the same name: two official sources place a large
+            # site's point differently (measured: 27% of World Heritage sites
+            # differ by >5 km between UNESCO's two lists, median 1,474 ha).
+            tname = "name" if "name" in rows[0] else None
+            hit = sum(1 for t, r in truth
+                      if grid.near(t) or (tname and names and _norm(r[tname]) in names))
+            detail["coverage"] = f"{hit}/{len(truth)} truth features within {NEAR_KM:g} km or same name"
             detail["count"] = count
             checks["coverage"] = hit >= exp.get("min_coverage", 0) * len(truth)
             for spot in case.get("spots") or []:
