@@ -572,7 +572,8 @@ def _scope(scope):
 
 
 def _normalise_place(value) -> str:
-    return re.sub(r"[^a-z0-9]+", " ", str(value).casefold()).strip()
+    from mapsvc.discovery.join import normalise_name
+    return normalise_name(value)
 
 
 def _name_aliases(units: list[dict]) -> dict[str, str]:
