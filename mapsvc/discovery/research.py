@@ -58,6 +58,7 @@ class Result:
     proposal: proposal_mod.DatasetProposal | None
     refusal: str | None
     trace: list                       # what was searched, probed and why -- for footnotes and evals
+    state: dict = dataclasses.field(default_factory=dict, repr=False)   # for one repair turn
 
 
 # ----------------------------------------------------------- LLM schemas ---
@@ -217,11 +218,35 @@ def research(need: Need, *, ask: Asker, search: Searcher, fetch: Fetcher,
     ]
     answer = ask(INSTRUCTIONS + "\n\nSTEP 3 -- PROPOSE one file and its column roles, or refuse.",
                  PROPOSE_SCHEMA, conversation, "research_propose")
+    return _proposed(answer, need, plan, reports, conversation, trace)
+
+
+def repair(result: Result, problems: list, *, ask: Asker) -> Result:
+    """One more PROPOSE turn, told exactly why the service rejected the last one."""
+    st = result.state
+    if not st:
+        return Result(None, "; ".join(problems), result.trace)
+    conversation = st["conversation"] + [
+        {"role": "assistant", "content": json.dumps(st["answer"])},
+        {"role": "user", "content": (
+            "The service fetched that file and REJECTED the proposal:\n- "
+            + "\n- ".join(problems)
+            + "\nFix the roles, filters or scale, choose another probed file, or refuse.")},
+    ]
+    answer = ask(INSTRUCTIONS + "\n\nSTEP 3 (again) -- PROPOSE one file and its column roles, or refuse.",
+                 PROPOSE_SCHEMA, conversation, "research_repair")
+    return _proposed(answer, st["need"], st["plan"], st["reports"], conversation, result.trace)
+
+
+def _proposed(answer, need, plan, reports, conversation, trace) -> Result:
     trace.append({"step": "propose", **{k: v for k, v in answer.items() if k != "roles"},
                   "roles": answer.get("roles")})
+    state = {"conversation": conversation, "answer": answer, "need": need, "plan": plan,
+             "reports": reports}
     index = answer.get("file", -1)
     if not isinstance(index, int) or not 0 <= index < len(reports):
-        return Result(None, answer.get("refusal") or "no probed file answered the request", trace)
+        return Result(None, answer.get("refusal") or "no probed file answered the request",
+                      trace)
 
     source_url, report, landing = reports[index]
     proposed = proposal_mod.DatasetProposal(
@@ -234,7 +259,7 @@ def research(need: Need, *, ask: Asker, search: Searcher, fetch: Fetcher,
         scale=_scale(answer.get("scale")),
         query=need.prompt, format=_get(report, "format"), content_sha256=_get(report, "sha256"),
     )
-    return Result(proposed, None, trace)
+    return Result(proposed, None, trace, state)
 
 
 # ------------------------------------------------------------- helpers ---

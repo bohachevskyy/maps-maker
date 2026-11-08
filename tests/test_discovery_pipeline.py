@@ -32,15 +32,16 @@ def test_a_valid_find_is_registered_and_searchable(tmp_path, monkeypatch):
     assert [r["id"] for r in store.search_any("rainfall precipitation")] == [rec["id"]]
 
 
-def test_thin_coverage_is_refused_and_remembered(tmp_path, monkeypatch):
-    llm = FakeLLM(PLAN, SELECT, PROPOSE)
+def test_thin_coverage_is_refused_after_one_repair_and_remembered(tmp_path, monkeypatch):
+    llm = FakeLLM(PLAN, SELECT, PROPOSE, PROPOSE)
     outcome, store = _discover(tmp_path, monkeypatch, llm, ratio=0.2)
     assert outcome.record is None and "failed validation" in outcome.refusal
     assert store.search_any("precipitation") == []
     again = pipeline.discover("Average annual rainfall by country", "x", ask=llm,
                               search=None, fetch=None, store=store)
     assert again.record is None and "searched recently" in again.refusal
-    assert len(llm.calls) == 3               # the second call never reached the model
+    assert [c[0] for c in llm.calls][-1] == "research_repair"
+    assert len(llm.calls) == 4               # the second request never reached the model
 
 
 def test_a_research_refusal_is_remembered_too(tmp_path, monkeypatch):
@@ -76,3 +77,22 @@ def test_a_discovered_points_file_is_drawn_with_its_validated_filter(tmp_path, m
     names = sorted(str(f) for f in layer.get("features", layer.get("places", [])))
     assert "Abee" not in " ".join(names) and len(names) == 2
     assert "NASA" in layer["provenance"]["attribution"]
+
+
+def test_a_rejected_proposal_is_repaired_with_the_services_reasons(tmp_path, monkeypatch):
+    """Two rows per country (an AGE dimension) is caught, and the agent adds a filter."""
+    long = (b"Country Code,Country Name,AGE,2023\nBRA,Brazil,_T,10\nBRA,Brazil,Y0T17,4\n"
+            b"ARG,Argentina,_T,8\nARG,Argentina,Y0T17,3\nCHL,Chile,_T,5\nCHL,Chile,Y0T17,2\n")
+    report = dict(REPORT, columns=REPORT["columns"] + [{"name": "AGE", "inferred": [], "sample": ["_T"]}])
+    roles = dict(PROPOSE["roles"], date="AGE")      # wrongly treats AGE as the date
+    fixed = dict(PROPOSE, filters=[{"column": "AGE", "op": "eq", "value": "_T"}])
+    llm = FakeLLM(PLAN, SELECT, dict(PROPOSE, roles=dict(PROPOSE["roles"])), fixed)
+    monkeypatch.setattr(http, "get", lambda url, **kw: types.SimpleNamespace(content=long))
+    monkeypatch.setattr(join, "coverage", lambda *a: {"matched": 3, "expected": 3, "ratio": 1.0})
+    outcome = pipeline.discover(
+        "rainfall", "none", ask=llm, search=lambda q: [{"title": "t", "url": "https://e.org/p", "snippet": ""}],
+        fetch=lambda url: {"kind": "page", "links": ["https://e.org/d.csv"]},
+        probe_fn=lambda url: report, store=Store(tmp_path / "d.sqlite"))
+    validations = [t for t in outcome.trace if t["step"] == "validate"]
+    assert not validations[0]["ok"] and "AGE (Y0T17, _T)" in validations[0]["problems"][0]
+    assert outcome.record and outcome.record["roles"]["filter"][0]["value"] == "_T"

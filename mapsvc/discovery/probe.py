@@ -5,6 +5,7 @@ from dataclasses import asdict, dataclass
 import datetime
 import hashlib
 import io
+import itertools
 import json
 import math
 import re
@@ -157,6 +158,9 @@ def _delimited_records(text: str) -> tuple[list[dict], str, int]:
     lines = text.splitlines()
     if not lines:
         return [], ",", 0
+    first = _header_first(text)
+    if first is not None:
+        return first
     best = None
     for index in range(min(25, len(lines))):
         sample = "\n".join(lines[index:index + 12])
@@ -174,7 +178,8 @@ def _delimited_records(text: str) -> tuple[list[dict], str, int]:
     if best is None:
         raise ProbeError("could not find a delimited header row")
     _, _, _, delimiter, skipped = best
-    reader = csv.DictReader(lines[skipped:], delimiter=delimiter)
+    offset = sum(len(line) for line in text.splitlines(keepends=True)[:skipped])
+    reader = csv.DictReader(io.StringIO(text[offset:]), delimiter=delimiter)
     if not reader.fieldnames or len(reader.fieldnames) < 2:
         raise ProbeError("delimited file has no usable header")
     headers = _unique_headers(reader.fieldnames)
@@ -184,6 +189,34 @@ def _delimited_records(text: str) -> tuple[list[dict], str, int]:
         records.append({header: (values[index] if index < len(values) else None)
                         for index, header in enumerate(headers)})
     return records, delimiter, skipped
+
+
+def _header_first(text: str):
+    """The usual case: the header is row 0. Parsed as a whole, not line by
+    line, so quoted fields with newlines stay one record (measured: UNESCO's
+    whc-sites-2025.csv, whose descriptions span lines, had its header taken
+    from a data row by the line-window scan)."""
+    try:
+        dialect = csv.Sniffer().sniff(text[:16384], delimiters=",\t;|")
+    except csv.Error:
+        return None
+    try:
+        rows = list(itertools.islice(csv.reader(io.StringIO(text), dialect), 2001))
+    except csv.Error:
+        return None
+    if len(rows) < 2 or len(rows[0]) < 2:
+        return None
+    width = len(rows[0])
+    body = [r for r in rows[1:] if r]
+    if not body or sum(len(r) == width for r in body) < 0.9 * len(body):
+        return None
+    headers = _unique_headers(rows[0])
+    records = []
+    for cells in csv.reader(io.StringIO(text), dialect):
+        records.append(cells)
+    records = [{h: (row[i] if i < len(row) else None) for i, h in enumerate(headers)}
+               for row in records[1:] if row]
+    return records, dialect.delimiter, 0
 
 
 def _unique_headers(headers) -> list[str]:
