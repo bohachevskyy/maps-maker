@@ -21,6 +21,7 @@ and research never runs.
 from __future__ import annotations
 
 import argparse
+import collections
 import csv
 import json
 import math
@@ -214,8 +215,13 @@ def score(case, record):
             # site's point differently (measured: 27% of World Heritage sites
             # differ by >5 km between UNESCO's two lists, median 1,474 ha).
             tname = "name" if "name" in rows[0] else None
+            # Only identifying names count: blank or repeated truth names
+            # ("", "Unnamed") matched anything (measured: a 215-fire file
+            # "covered" 904 of 965 fires).
+            counts = collections.Counter(_norm(r[tname]) for _, r in truth) if tname else {}
+            ok_names = {n for n, c in counts.items() if n and c == 1} & (names - {""})
             hit = sum(1 for t, r in truth
-                      if grid.near(t) or (tname and names and _norm(r[tname]) in names))
+                      if grid.near(t) or (tname and _norm(r[tname]) in ok_names))
             detail["coverage"] = f"{hit}/{len(truth)} truth features within {NEAR_KM:g} km or same name"
             detail["count"] = count
             checks["coverage"] = hit >= exp.get("min_coverage", 0) * len(truth)
