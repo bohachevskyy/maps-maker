@@ -682,7 +682,10 @@ def describe(prompt: str) -> tuple[Manifest, dict, str]:
             conversation.append({"role": "user", "content": "\n\n".join(parts)})
             continue
 
-        if offered is not None and chosen not in offered:
+        # Deciding on a plain base map after a search is a choice, not an
+        # invented id (measured: meteorites -- natural_earth searched, then an
+        # overlay on boundaries alone).
+        if offered is not None and chosen not in offered and not raw.get("variable_is_null"):
             # The id has to be one the search returned. Without this the model
             # could invent a plausible-looking slug, which would 404 later with
             # a far less useful message -- or worse, silently resolve to the
