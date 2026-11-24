@@ -95,7 +95,7 @@
     }, 1000)
 
     try {
-      const response = await fetch("/describe", {
+      const response = await fetch(apiUrl("/describe"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ prompt }),
@@ -194,7 +194,7 @@
     button.disabled = true
     status.textContent = "Rendering…"
     try {
-      const response = await fetch("/map", {
+      const response = await fetch(apiUrl("/map"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(manifest)
@@ -253,6 +253,10 @@
     return card
   }
 
+  function apiUrl(path) {
+    return (window.MAPSVC_API_BASE || "").replace(/\/+$/, "") + path
+  }
+
   async function serviceError(response) {
     let payload = {}
     try { payload = await response.json() } catch (_) { /* response was not JSON */ }
@@ -272,7 +276,7 @@
     if (error.status === 502 || error.status === 504 || error.status === 524) {
       return "The request took too long or the service is restarting. Try again; maps that were already built are served from a cache and return faster."
     }
-    if (error.status === 422) return error.message
+    if (error.status === 422 || error.status === 429) return error.message
     if (error instanceof TypeError) return "Could not reach the map service. Check your connection and try again."
     return error.message || "An unexpected error occurred."
   }
