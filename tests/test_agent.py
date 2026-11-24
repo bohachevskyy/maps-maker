@@ -461,3 +461,93 @@ def test_no_challenge_when_search_finds_nothing(stub, monkeypatch):
     with pytest.raises(agent.AgentError):
         agent.describe("the mood of each country")
     assert not client.responses.replies
+
+
+# --- web research when the registry has nothing ----------------------------
+
+def test_a_standing_refusal_triggers_research_once_and_offers_the_find(stub, monkeypatch):
+    from mapsvc.discovery.pipeline import Outcome
+    monkeypatch.setenv("MAPSVC_RESEARCH", "1")
+    monkeypatch.setattr(agent, "_search_all", lambda query: [])
+    calls = []
+    from mapsvc.discovery.store import Store
+    record = Store().add_or_update({
+        "id": "disc_0123456789abcdef", "url": "https://e.org/rain.csv",
+        "title": "Rainfall", "publisher": "World Bank", "vintage": "2022",
+        "licence": "CC BY 4.0", "geometry_kind": "choropleth", "units": "mm per year",
+        "key_namespace": "ISO3", "level": "admin_0", "status": "active",
+        "roles": {"key": "Country Code", "value": "2022"}})
+    monkeypatch.setattr(agent, "_discover",
+                        lambda prompt, reason: calls.append(reason) or Outcome(record, None, []))
+    uses_it = dict(GOOD, variable={"source": "discovered", "id": record["id"]})
+    client = stub(reply(mappable=False, refusal="no rainfall source"), reply(uses_it))
+    manifest, raw, _ = agent.describe("rainfall by country")
+    assert calls == ["no rainfall source"]
+    assert raw["variable"] == {"source": "discovered", "id": record["id"]}
+    last_user = client.responses.calls[-1]["input"][-1]["content"]
+    assert record["id"] in last_user and "World Bank" in last_user
+
+
+def test_after_research_only_the_find_may_be_used(stub, monkeypatch):
+    from mapsvc.discovery.pipeline import Outcome
+    monkeypatch.setenv("MAPSVC_RESEARCH", "1")
+    monkeypatch.setattr(agent, "_search_all", lambda query: [])
+    record = {"id": "disc_feedfacefeedface", "url": "https://e.org/r.csv",
+              "geometry_kind": "choropleth", "level": "admin_0"}
+    monkeypatch.setattr(agent, "_discover", lambda prompt, reason: Outcome(record, None, []))
+    invented = dict(GOOD, variable={"source": "discovered", "id": "disc_made_up"})
+    stub(reply(mappable=False, refusal="none"), reply(invented))
+    with pytest.raises(agent.AgentError, match="not among"):
+        agent.describe("rainfall by country")
+
+
+def test_research_that_finds_nothing_keeps_the_refusal_and_says_why(stub, monkeypatch):
+    from mapsvc.discovery.pipeline import Outcome
+    monkeypatch.setenv("MAPSVC_RESEARCH", "1")
+    monkeypatch.setattr(agent, "_search_all", lambda query: [])
+    monkeypatch.setattr(agent, "_discover",
+                        lambda prompt, reason: Outcome(None, "only PDFs were published", []))
+    stub(reply(mappable=False, refusal="no village-level crime data"))
+    with pytest.raises(agent.AgentError) as excinfo:
+        agent.describe("crime by village in Afghanistan")
+    assert "village-level" in str(excinfo.value) and "only PDFs" in str(excinfo.value)
+
+
+def test_an_unanswered_web_overlay_search_runs_research_and_offers_the_find(stub, monkeypatch, tmp_path):
+    from mapsvc import overlays
+    from mapsvc.discovery.pipeline import Outcome
+    from mapsvc.discovery.store import Store
+    monkeypatch.setenv("MAPSVC_RESEARCH", "1")
+    monkeypatch.setenv("MAPSVC_DISCOVERED_DB", str(tmp_path / "d.sqlite"))
+    monkeypatch.setattr(overlays, "search", lambda source, query, limit=8: [])
+    url = "https://data.example.org/meteorites.csv"
+    record = Store().add_or_update({
+        "id": "disc_aaaabbbbccccdddd", "url": url, "title": "Meteorite Landings",
+        "publisher": "NASA", "licence": "public domain", "geometry_kind": "points",
+        "key_namespace": "coords", "level": "points", "status": "active", "format": "csv",
+        "roles": {"lon": "reclong", "lat": "reclat"}})
+    seen = []
+    monkeypatch.setattr(agent, "_discover",
+                        lambda prompt, reason: seen.append(reason) or Outcome(record, None, []))
+    base = dict(GOOD, variable_is_null=True)
+    ask = dict(base, overlays=[{"source": "web", "id": "", "search_query": "meteorite falls"}])
+    guess = dict(base, overlays=[{"source": "web", "id": "https://made.up/x.csv", "search_query": ""}])
+    uses = dict(base, overlays=[{"source": "web", "id": url, "search_query": ""}])
+    from mapsvc.overlays import web
+    monkeypatch.setattr(web, "_check_resolves_public", lambda host: None)   # offline
+    from mapsvc.discovery import http
+    monkeypatch.setattr(http, "get", lambda u, **kw: type("R", (), {
+        "content": b"name,reclong,reclat\nAachen,6.08,50.77\n"})())
+    client = stub(reply(ask), reply(guess), reply(uses))
+    _m, raw, _ = agent.describe("meteorites seen to fall")
+    assert raw["overlays"] == [{"source": "web", "id": url}]
+    assert seen and "meteorite falls" in seen[0]
+    assert "Meteorite Landings" in client.responses.calls[-1]["input"][-1]["content"]
+
+
+def test_a_searched_web_candidate_with_filters_passes_the_candidate_check():
+    class C:  # a catalogue candidate
+        id = "https://data.example.org/tracks.csv"
+    raw = {"overlays": [{"source": "web", "id": "https://data.example.org/tracks.csv#season=2024"}]}
+    agent._check_overlay_choices(raw, [("web", "storm tracks", {C.id: C()})])
+    assert agent._unmatched_web_offer(raw, [("web", "storm tracks", {C.id: C()})]) is None

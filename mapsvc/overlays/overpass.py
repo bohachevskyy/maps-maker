@@ -42,6 +42,7 @@ import hashlib
 import json
 import math
 import os
+import pathlib
 import re
 import time
 import urllib.parse
@@ -632,7 +633,7 @@ def load(overlay_id: str, window: Window) -> dict:
     else:
         started = time.monotonic()
         try:
-            payload = _post(ql)
+            payload = _post_local(ql, window) or _post(ql)
         except UpstreamUnavailable as exc:
             if not target.exists():
                 return _overture_or_raise(f, window, target, exc)
@@ -689,6 +690,68 @@ def _area_name(data: dict) -> str | None:
     names = sorted({(e.get("tags") or {}).get("name:en") or (e.get("tags") or {}).get("name")
                     for e in data.get("elements") or () if e.get("type") == "area"} - {None})
     return " and ".join(names) or None
+
+
+LOCAL_ENV = "MAPSVC_OVERPASS_LOCAL"
+COVERAGE_ENV = "MAPSVC_OVERPASS_COVERAGE"
+LOCAL_COVERAGE = (pathlib.Path(__file__).resolve().parents[2]
+                  / "tools" / "overpass" / "coverage.json")
+LOCAL_TIMEOUT_S = 120
+
+
+def _coverage() -> dict:
+    path = pathlib.Path(os.environ.get(COVERAGE_ENV) or LOCAL_COVERAGE)
+    try:
+        return json.loads(path.read_text())
+    except (OSError, ValueError):
+        return {}
+
+
+def local_covers(window: Window) -> bool:
+    """True when every part of the window lies in an extract the local server
+    loaded (tools/overpass/coverage.json): each `within` country, and the
+    bbox -- inside one extract's box -- when there is one. A window with
+    neither is never local. Boxes are approximate (a France box includes
+    Belgium), so a bbox query reaching a neighbour that was not loaded would
+    be answered partially: keep bboxes inside the loaded countries."""
+    extracts = _coverage().get("extracts") or []
+    if not extracts or (window.bbox is None and not window.within):
+        return False
+    loaded = {c for e in extracts for c in e.get("countries") or ()}
+    for code in window.within or ():
+        try:
+            two = code[:2].upper() if "-" in code else _alpha2(code)
+        except OverlayError:
+            return False
+        if two not in loaded:
+            return False
+    if window.bbox is None:
+        return True
+    w, s, e, n = window.bbox
+    return any(x["bbox"][0] <= w and x["bbox"][1] <= s
+               and e <= x["bbox"][2] and n <= x["bbox"][3] for x in extracts)
+
+
+def _post_local(ql: str, window: Window) -> bytes | None:
+    """Ask the local Overpass first when MAPSVC_OVERPASS_LOCAL is set and the
+    window is covered. None on any failure so the public endpoints take over;
+    a local answer is an ordinary Overpass response, osm3s timestamp included."""
+    url = os.environ.get(LOCAL_ENV)
+    if not url or not local_covers(window):
+        return None
+    try:
+        payload = fetch.post(url, urllib.parse.urlencode({"data": ql}).encode(),
+                             timeout=LOCAL_TIMEOUT_S)
+    except fetch.FetchError:
+        return None
+    if not payload.lstrip().startswith(b"{"):
+        return None
+    try:
+        if "runtime error" in (json.loads(payload).get("remark") or ""):
+            return None
+    except ValueError:
+        return None
+    return payload
 
 
 def _post(ql: str) -> bytes:
@@ -807,8 +870,18 @@ _PLACE_NOUNS = {"city": "cities", "town": "towns", "selyshche": "selyshcha",
 def describe(pairs) -> str:
     """A plain phrase for a filter: 'High-speed railway lines', 'Towns and
     villages'. Names narrowing a filter are left to the footnote."""
-    pairs = [(k, v) for k, v in (_as_filter(pairs).pairs() if isinstance(pairs, Filter)
-                                 else pairs) if not _is_text(k)]
+    every = list(_as_filter(pairs).pairs() if isinstance(pairs, Filter) else pairs)
+    brands = [v for k, v in every if k == "brand" and "|" not in v]
+    if brands:
+        # "brand=Costco;shop=wholesale" is Costco's locations, not "features
+        # tagged shop=wholesale" (measured: the Bay Area map lost its subject).
+        rest = [(k, v) for k, v in every if k != "brand"]
+        if len(rest) == 1 and rest[0][0] == "shop":
+            return f"{brands[0]} stores"
+        kind = describe(rest) if rest else ""
+        noun = kind.lower() if kind and not kind.startswith("OpenStreetMap") else "locations"
+        return f"{brands[0]} {noun}"
+    pairs = [(k, v) for k, v in every if not _is_text(k)]
     places = [v for k, v in pairs if k == "place"]
     if places and len(pairs) == 1:
         values = places[0].split("|")
@@ -821,7 +894,24 @@ def describe(pairs) -> str:
     if nouns and len(nouns) + len(mods) == len(pairs):
         text = " ".join(mods + [nouns[0]])
         return text[:1].upper() + text[1:]
+    if len(pairs) == 1:
+        # A single place-of-interest tag reads as its plural: man_made=lighthouse
+        # -> "Lighthouses", shop=furniture -> "Furniture shops".
+        key, value = pairs[0]
+        word = value.replace("_", " ").strip()
+        if re.fullmatch(r"[a-z ]{3,30}", word or ""):
+            if key == "shop":
+                return f"{word.capitalize()} shops"
+            if key in _POI_KEYS:
+                plural = (word[:-1] + "ies" if word.endswith("y") and word[-2:-1] not in "aeiou"
+                          else word + "es" if word.endswith(("s", "sh", "ch", "x"))
+                          else word + "s")
+                return plural.capitalize()
     return "OpenStreetMap features tagged " + " + ".join(f"{k}={v}" for k, v in pairs)
+
+
+_POI_KEYS = {"amenity", "man_made", "tourism", "historic", "leisure", "healthcare",
+             "office", "craft", "emergency", "aeroway", "military", "highway", "railway"}
 
 
 def _speed(tags: dict) -> float | None:
@@ -851,9 +941,10 @@ def layer_from_overpass(data: dict, pairs, window: Window, ql: str) -> dict:
     spec = _as_filter(pairs)
     pairs = spec.pairs()
     elements = data.get("elements") or []
-    ways = [e for e in elements if e.get("type") == "way" and len(e.get("geometry") or []) >= 2]
+    all_ways = [e for e in elements
+                if e.get("type") == "way" and len(e.get("geometry") or []) >= 2]
     nodes = [e for e in elements if e.get("type") == "node" and "lat" in e]
-    if not ways and not nodes:
+    if not all_ways and not nodes:
         raise OverlayError(
             "OpenStreetMap filter matched 0 features; check the tag or widen "
             "the window", "overlays.id")
@@ -862,30 +953,25 @@ def layer_from_overpass(data: dict, pairs, window: Window, ql: str) -> dict:
     where = f" in {window.name}" if window.name else ""
     provenance = _provenance(vintage, spec, window)
 
-    if not ways:
-        if len(nodes) > MAX_WAYS:
-            raise OverlayError(f"{len(nodes):,} OpenStreetMap points match; narrow "
-                               "the filter or the window", "overlays.id")
-        if spec.values("place") and set(spec.values("place")) <= PLACE_NODES:
+    # A closed way is an outline (a building, a plot), not a line: it is a place.
+    closed = [w for w in all_ways if _is_closed(w)]
+    ways = [w for w in all_ways if not _is_closed(w)]
+    if len(ways) * 2 <= len(ways) + len(closed) + len(nodes):
+        # Nodes and outlines (and open ways, if any, are the minority): points.
+        if len(nodes) + len(closed) > MAX_WAYS:
+            raise OverlayError(f"{len(nodes) + len(closed):,} OpenStreetMap points match; "
+                               "narrow the filter or the window", "overlays.id")
+        if (not closed and not ways and spec.values("place")
+                and set(spec.values("place")) <= PLACE_NODES):
             return _settlements(nodes, spec, what, where, provenance)
-        features = [{"id": f"n{n['id']}", "lon": round(n["lon"], 5), "lat": round(n["lat"], 5),
-                     "size": None, "category": None,
-                     "name": (n.get("tags") or {}).get("name")} for n in nodes]
-        features.sort(key=lambda f: f["id"])
-        return {
-            "source": "overpass", "id": spec.text(),
-            "kind": "points", "title": what + where, "label": what,
-            "size": None, "category": None, "features": features,
-            "stats": {"count": len(features)},
-            "summary": f"{len(features):,} in OpenStreetMap",
-            "encoding": "One dot per OSM node", "excluded": [],
-            "provenance": provenance,
-        }
+        return _points_layer(nodes, closed, len(ways), spec, what, where, provenance)
 
+    # A line layer keeps its closed ways as lines: a loop line or a ring
+    # railway is network, not an outline.
+    ways = sorted(all_ways, key=lambda e: e["id"])
     if len(ways) > MAX_WAYS:
         raise OverlayError(f"{len(ways):,} OpenStreetMap ways match; narrow the "
                            "filter or the window", "overlays.id")
-    ways.sort(key=lambda e: e["id"])
     railway = any(k == "railway" for k, _ in pairs)
     kept, service = [], []
     for way in ways:
@@ -949,6 +1035,126 @@ def layer_from_overpass(data: dict, pairs, window: Window, ql: str) -> dict:
         "facts": [("Route length", f"≈ {route_km:,.0f} km"),
                   ("Track length (all ways)", f"{track_km:,.0f} km"),
                   ("OSM ways", f"{len(features):,}")],
+        "excluded": excluded,
+        "provenance": provenance,
+    }
+
+
+# ------------------------------------------------------------------ points ---
+
+DUPLICATE_M = 150.0
+
+
+def _is_closed(way: dict) -> bool:
+    g = way.get("geometry") or []
+    return (len(g) >= 4 and g[0]["lat"] == g[-1]["lat"] and g[0]["lon"] == g[-1]["lon"])
+
+
+def ring_centroid(ring) -> tuple[float, float]:
+    """Area-weighted centroid of a closed ring of (lon, lat), computed in a local
+    equirectangular frame so a degree of longitude is the right length. A
+    degenerate (zero-area) ring falls back to the vertex mean."""
+    pts = [(float(x), float(y)) for x, y in ring]
+    if len(pts) > 1 and pts[0] == pts[-1]:
+        pts = pts[:-1]
+    n = len(pts)
+    mean = (sum(p[0] for p in pts) / n, sum(p[1] for p in pts) / n)
+    lon0, lat0 = mean
+    k = math.cos(math.radians(lat0))
+    xy = [((x - lon0) * k, y - lat0) for x, y in pts]
+    area2 = cx = cy = 0.0
+    for i in range(n):
+        x1, y1 = xy[i]
+        x2, y2 = xy[(i + 1) % n]
+        cross = x1 * y2 - x2 * y1
+        area2 += cross
+        cx += (x1 + x2) * cross
+        cy += (y1 + y2) * cross
+    if n < 3 or abs(area2) < 1e-18:
+        return mean
+    cx, cy = cx / (3.0 * area2), cy / (3.0 * area2)
+    return (lon0 + cx / k if k else lon0, lat0 + cy)
+
+
+def _norm_name(name) -> frozenset:
+    """The name's words: "Costco" and "Costco warehouse" are one place when they
+    sit within DUPLICATE_M (measured: Pleasanton, two nodes 3 m apart)."""
+    return frozenset(re.findall(r"[^\W_]+", (name or "").casefold()))
+
+
+def _merge_duplicates(points: list) -> tuple[list, int]:
+    """Greedy, in (type, id) order: a point joins the first earlier place within
+    DUPLICATE_M whose name's words contain the other's, or, unnamed, when one is a
+    node and the other an outline (never two unnamed nodes). The
+    element with the most tags represents the place (ties keep the earlier)."""
+    points = sorted(points, key=lambda p: (p["type"], p["osm_id"]))
+    clusters, grid, merged = [], {}, 0
+    cell = 0.003      # ~330 m of latitude; neighbours cover the 150 m radius
+    for p in points:
+        gx, gy = math.floor(p["lon"] * math.cos(math.radians(p["lat"])) / cell), \
+            math.floor(p["lat"] / cell)
+        home = None
+        for dx in (-1, 0, 1):
+            for dy in (-1, 0, 1):
+                for c in grid.get((gx + dx, gy + dy), ()):
+                    if home is not None and c["seq"] > home["seq"]:
+                        continue
+                    if geo.segment_m((c["lon"], c["lat"]), (p["lon"], p["lat"])) > DUPLICATE_M:
+                        continue
+                    named = bool(c["key"] and p["key"]
+                                 and (c["key"] <= p["key"] or p["key"] <= c["key"]))
+                    # Unnamed points merge only as a node in an outline: two
+                    # unnamed nodes are two things (measured: France's speed
+                    # cameras come in pairs, one per direction -- 292 were
+                    # wrongly merged when any unnamed neighbour counted).
+                    outline_node = (not c["key"] or not p["key"]) and c["type"] != p["type"]
+                    if named or outline_node:
+                        home = c
+        if home is None:
+            p["seq"] = len(clusters)
+            p["rep"] = p
+            clusters.append(p)
+            grid.setdefault((gx, gy), []).append(p)
+            continue
+        merged += 1
+        home["key"] = home["key"] or p["key"]
+        if p["ntags"] > home["rep"]["ntags"]:
+            home["rep"] = p
+    return [c["rep"] for c in clusters], merged
+
+
+def _points_layer(nodes: list, closed: list, open_ways: int, spec: Filter,
+                  what: str, where: str, provenance: dict) -> dict:
+    points = []
+    for n in nodes:
+        tags = n.get("tags") or {}
+        points.append({"type": "node", "osm_id": n["id"], "id": f"n{n['id']}",
+                       "lon": n["lon"], "lat": n["lat"], "name": tags.get("name"),
+                       "key": _norm_name(tags.get("name")), "ntags": len(tags)})
+    for w in closed:
+        tags = w.get("tags") or {}
+        lon, lat = ring_centroid([(g["lon"], g["lat"]) for g in w["geometry"]])
+        points.append({"type": "way", "osm_id": w["id"], "id": f"w{w['id']}",
+                       "lon": lon, "lat": lat, "name": tags.get("name"),
+                       "key": _norm_name(tags.get("name")), "ntags": len(tags)})
+    kept, merged = _merge_duplicates(points)
+    features = [{"id": p["id"], "lon": round(p["lon"], 5), "lat": round(p["lat"], 5),
+                 "size": None, "category": None, "name": p["name"]} for p in kept]
+    features.sort(key=lambda f: f["id"])
+    excluded = []
+    if merged:
+        excluded.append({"count": merged, "reason": "duplicate features merged (the "
+                         "same place mapped as a point and an outline, or twice)"})
+    if open_ways:
+        excluded.append({"count": open_ways, "reason": "lines in a points layer"})
+    return {
+        "source": "overpass", "id": spec.text(),
+        "kind": "points", "title": what + where, "label": what,
+        "size": None, "category": None, "features": features,
+        "stats": {"count": len(features)},
+        "summary": f"{len(features):,} in OpenStreetMap",
+        "encoding": ("One dot per OSM node"
+                     + ("; areas drawn at their centre" if closed else "")),
         "excluded": excluded,
         "provenance": provenance,
     }

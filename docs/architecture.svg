@@ -248,7 +248,7 @@
   <text x="1234" y="946" class="m">critique.json manifest</text>
   <text x="1234" y="966" class="t">SCORES.md (per set)</text>
   <text x="1234" y="982" class="t">results/index.html gallery</text>
-  <text x="1234" y="1002" class="note">tuning r9: 4.05 · held-out 2: 3.0</text>
+  <text x="1234" y="1002" class="note">tuning r9: 4.05 · held-out 2: 3.1</text>
 
   <path d="M340,946 L358,946" class="edge" marker-end="url(#arrow)"/>
   <path d="M630,946 L648,946" class="edge" marker-end="url(#arrow)"/>

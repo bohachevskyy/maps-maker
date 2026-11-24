@@ -15,6 +15,9 @@ os.environ.setdefault("OVERTURE_RELEASE", "2026-10-21.0")
 # ...and never fall back to Overture when a test makes Overpass fail; the
 # fallback tests switch it on with recorded rows.
 os.environ["MAPSVC_OVERTURE_FALLBACK"] = "0"
+# ...and never go looking on the web when the agent refuses; the research
+# tests switch it on with every dependency faked.
+os.environ["MAPSVC_RESEARCH"] = "0"
 
 
 @pytest.fixture

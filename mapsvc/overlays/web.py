@@ -35,9 +35,10 @@ import urllib.request
 import zipfile
 
 from mapsvc import fetch
+from mapsvc.discovery import shapefile
 from mapsvc.overlays import UNKNOWN_LICENSE, Capabilities, OverlayError, Window
 
-MAX_BYTES = 25 * 1024 * 1024
+MAX_BYTES = 80 * 1024 * 1024    # IBTrACS North Atlantic CSV: 57.6 MB
 MAX_ROWS = 50_000
 MAX_URL = 500
 TIMEOUT = 60
@@ -321,6 +322,42 @@ _BY_URL[_IBTRACS_NA] = {
 }
 
 
+def _discovered_entry(url: str, table: int | None = None) -> dict:
+    """A catalogue-like entry for a point/line dataset the research step validated.
+
+    Its column roles, title, publisher and licence come from the discovered-
+    sources store, so an arbitrary validated URL is drawn and credited like a
+    curated catalogue entry. {} when the URL was never validated.
+    """
+    try:
+        from mapsvc.discovery.store import Store
+        # A table of an HTML page is stored under its `page#table=N` address.
+        stored = url if table is None else f"{url}#table={table}"
+        rows = [r for r in Store().by_url(stored)
+                if r.get("geometry_kind") in ("points", "lines")]
+    except Exception:
+        return {}
+    if not rows:
+        return {}
+    rec = rows[0]
+    proposed = rec.get("roles") or {}
+    roles = {k: v for k, v in proposed.items()
+             if k in ("lon", "lat", "end_lon", "end_lat", "name", "category", "date", "size")}
+    if "value" in proposed and "size" not in roles:
+        roles["size"] = proposed["value"]
+    when = (rec.get("validated_at") or "")[:10]
+    return {
+        "url": url, "title": rec.get("title"), "label": rec.get("title"),
+        "description": f"{rec.get('publisher') or 'web'}, {rec.get('vintage') or 'undated'} "
+                       "(found by the research step)",
+        "roles": roles, "license": rec.get("licence"),
+        "discovered": True, "format_found": rec.get("format"),
+        "row_filter": proposed.get("filter") or [],
+        "attribution": (f"{rec.get('publisher') or 'unknown publisher'} ({url}; found by the "
+                        "research step" + (f", validated {when}" if when else "") + ")"),
+    }
+
+
 def companions(url: str) -> tuple[str, ...]:
     """Catalogue companions derived from a requested dataset."""
     return tuple(_BY_URL.get(url, {}).get("companions") or ())
@@ -362,8 +399,13 @@ def parse(overlay_id: str) -> str:
     plus filters after '#' checked against what the dataset accepts."""
     url, _, fragment = overlay_id.strip().partition("#")
     url = _parse_url(url)
-    entry = _BY_URL.get(url, {})
+    table_match = re.search(r"(?:^|;)table=(\d{1,3})(?:;|$)", fragment)
+    entry = _BY_URL.get(url) or _discovered_entry(
+        url, int(table_match.group(1)) if table_match else None)
     accepted = filters_for(url)
+    if entry.get("discovered") and table_match:
+        accepted = {**accepted, "table": {"min": 0, "max": 999,
+                                          "help": "which data table of the HTML page"}}
     this_year = datetime.date.today().year
     filters: dict = {}
     for part in fragment.split(";") if fragment else ():
@@ -487,8 +529,16 @@ def fetch_bytes(url: str) -> bytes:
     target = fetch.path("overlays", "web", digest)
     if target.exists():
         return target.read_bytes()
-    # A curated entry may be larger than an arbitrary URL is allowed to be.
-    payload = _download(download_url, _BY_URL.get(base_url, {}).get("max_bytes") or MAX_BYTES)
+    table = filters.get("table") if isinstance(filters.get("table"), int) else None
+    if base_url not in _BY_URL and _discovered_entry(base_url, table):
+        # A validated find is read through the same replayable layer that
+        # validated it, so what is drawn is the bytes that were checked.
+        from mapsvc.discovery import http as discovery_http
+        payload = discovery_http.get(
+            download_url, expect=None if table is not None else "data").content
+    else:
+        # A curated entry may be larger than an arbitrary URL is allowed to be.
+        payload = _download(download_url, _BY_URL.get(base_url, {}).get("max_bytes") or MAX_BYTES)
     target.parent.mkdir(parents=True, exist_ok=True)
     temporary = target.with_name(target.name + ".part")
     temporary.write_bytes(payload)
@@ -530,7 +580,23 @@ def search(query: str, limit: int = 8) -> list:
         if score:
             scored.append((-score, i, entry))
     scored.sort(key=lambda t: (t[0], t[1]))
-    return [Candidate(entry) for _, _, entry in scored[:limit]]
+    found = [Candidate(entry) for _, _, entry in scored[:limit]]
+    return found + _discovered_candidates(query, limit - len(found))
+
+
+def _discovered_candidates(query: str, limit: int) -> list:
+    """Point and line datasets the research step validated earlier."""
+    if limit <= 0:
+        return []
+    try:
+        from mapsvc.discovery.store import Store
+        store = Store()
+        recs = [r for kind in ("points", "lines")
+                for r in store.search_any(query, geometry_kind=kind, limit=limit)]
+    except Exception:
+        return []
+    entries = [_discovered_entry(r["url"]) for r in recs[:limit]]
+    return [Candidate(e) for e in entries if e]
 
 
 # ------------------------------------------------------------------- load ---
@@ -553,7 +619,8 @@ def check(overlay_id: str) -> None:
 
 def load(overlay_id: str, window: Window) -> dict:
     payload = fetch_bytes(overlay_id)
-    entry = _BY_URL.get(split(overlay_id)[0], {})
+    entry = _BY_URL.get(split(overlay_id)[0]) or _discovered_entry(
+        split(overlay_id)[0], split(overlay_id)[1].get("table"))
     fame = _fame(entry["fame"]) if entry.get("fame") else None
     return layer_from_bytes(payload, overlay_id, window, fame)
 
@@ -610,7 +677,7 @@ def _renown(links: int, year) -> float:
 def layer_from_bytes(payload: bytes, overlay_id: str, window: Window,
                      fame: dict | None = None) -> dict:
     url, filters = split(overlay_id)
-    entry = _BY_URL.get(url, {})
+    entry = _BY_URL.get(url) or _discovered_entry(url, filters.get("table"))
     if fame is not None and entry.get("note_fame"):
         entry = {**entry, "note": entry["note_fame"]}
     payload = _unzip(payload, url)
@@ -633,8 +700,20 @@ def layer_from_bytes(payload: bytes, overlay_id: str, window: Window,
     if entry.get("format") == "geonames":
         records, columns = _geonames(text, url)
         lines = []
+    elif (entry.get("discovered")
+          and entry.get("format_found") not in {"geojson", "shapefile"}):
+        # What was validated is what is drawn: the same parser (CSV, XLSX,
+        # JSON APIs, zips) and the same row conditions as at validation.
+        from mapsvc.discovery import probe, rowfilter
+        records, _fmt, _geo, _warn = probe.records(payload, table=filters.get("table"))
+        records = rowfilter.apply(records, entry.get("row_filter"))
+        columns = list(dict.fromkeys(k for r in records[:200] for k in r))
+        lines = _segments(records, entry.get("roles") or {})
     elif text.lstrip().startswith("{"):
         records, columns, lines = _geojson(text, url)
+        if entry.get("discovered") and not lines:
+            from mapsvc.discovery import rowfilter
+            records = rowfilter.apply(records, entry.get("row_filter"))
     else:
         records, columns = _csv(text, url)
         lines = []
@@ -679,7 +758,7 @@ def layer_from_bytes(payload: bytes, overlay_id: str, window: Window,
 
 # A zip must hold one data file, read in memory and never extracted to disk;
 # its declared size and its compression ratio are both bounded before reading.
-MAX_UNZIPPED = 64 * 1024 * 1024
+MAX_UNZIPPED = 200 * 1024 * 1024   # NFDB points: 79.4 MB of text (measured 2026-11-07)
 MAX_RATIO = 40
 
 
@@ -688,14 +767,23 @@ def _unzip(payload: bytes, url: str) -> bytes:
         return payload
     try:
         archive = zipfile.ZipFile(io.BytesIO(payload))
+        if any(shapefile._usable(m) and m.filename.lower().endswith(".shp")
+               for m in archive.infolist()):
+            try:
+                converted = shapefile.to_geojson(payload)
+            except shapefile.ShapefileError as exc:
+                raise OverlayError(f"{url} has an unreadable shapefile: {exc}",
+                                   "overlays.id") from exc
+            return json.dumps(converted, sort_keys=True,
+                              separators=(",", ":")).encode("utf-8")
         members = [m for m in archive.infolist()
                    if not m.is_dir() and not m.filename.startswith(("__MACOSX/", "."))
                    and m.filename.lower().endswith((".csv", ".txt", ".tsv", ".json",
                                                     ".geojson"))]
-        if len(members) != 1:
-            raise OverlayError(f"{url} is a zip with {len(members)} data files; "
-                               "expected exactly one", "overlays.id")
-        member = members[0]
+        if not members:
+            raise OverlayError(f"{url} is a zip with no data files", "overlays.id")
+        # Several: the largest is the data (the same rule as discovery.probe).
+        member = sorted(members, key=lambda m: (-m.file_size, m.filename))[0]
         if member.flag_bits & 0x1:
             raise OverlayError(f"{url} is an encrypted zip", "overlays.id")
         if (member.file_size > MAX_UNZIPPED
@@ -1403,13 +1491,44 @@ def _ibtracs_layer(base: dict, text: str, filters: dict, window: Window) -> dict
             "excluded": excluded, "noun": "storms"}
 
 
+def _segments(records, roles) -> list:
+    """Rows with a start and an end coordinate, as one-segment lines."""
+    if not ("end_lon" in roles and "end_lat" in roles and "lon" in roles and "lat" in roles):
+        return []
+    out = []
+    for i, r in enumerate(records):
+        pts = [_number(r.get(roles[k])) for k in ("lon", "lat", "end_lon", "end_lat")]
+        if None in pts or not all(-180 <= pts[j] <= 180 and -90 <= pts[j + 1] <= 90
+                                  for j in (0, 2)):
+            continue
+        out.append((str(i), r, [(pts[0], pts[1]), (pts[2], pts[3])]))
+    return out
+
+
+def _natural(value):
+    digits = re.findall(r"\d+", str(value))
+    return (0, int(digits[0]), str(value)) if digits else (1, 0, str(value))
+
+
 def _lines_layer(base, lines, roles, window):
     features = []
+    column = roles.get("category")
     for fid, props, coords in lines:
         pts = [[float(c[0]), float(c[1])] for c in coords if len(c) >= 2]
         if len(pts) >= 2:
-            features.append({"id": fid, "coords": pts, "category": None})
-    return {**base, "kind": "lines", "size": None, "category": None,
+            value = props.get(column) if column else None
+            features.append({"id": fid, "coords": pts,
+                             "category": None if value in (None, "") else str(value)})
+    category = None
+    values = sorted({f["category"] for f in features if f["category"]}, key=_natural)
+    if column and 1 < len(values) <= MAX_CATEGORIES:
+        category = {"field": column, "label": column, "ordered": True,
+                    "classes": [{"value": v, "label": v} for v in values]}
+    else:
+        for f in features:
+            f["category"] = None
+    return {**base, "kind": "lines", "size": None, "category": category,
             "features": features, "stats": {"count": len(features)},
-            "summary": f"{len(features):,} lines", "encoding": "One line per feature",
+            "summary": f"{len(features):,} lines", "encoding": "One line per feature"
+            + (f", coloured by {column}" if category else ""),
             "excluded": []}

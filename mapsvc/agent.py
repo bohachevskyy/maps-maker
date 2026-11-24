@@ -496,7 +496,7 @@ one country) so the overlay carries the message.
       variable_is_null true, overlays [{{source web, id "", search_query
       "atlantic hurricane storm tracks"}}] -- then pick from the candidates.
 
-OPENSTREETMAP (overpass) has three shapes of request, chosen by the tags:
+OPENSTREETMAP (overpass) has four shapes of request, chosen by the tags:
 
   Infrastructure as track or road, with no line identity -- every railway, \
 motorway, power line, river: way tags, e.g. "railway=rail;usage=main", \
@@ -516,6 +516,13 @@ name~<part of its name> (matched in any language, case-insensitive).
 "place=city|town|village|hamlet" (omit classes the request excludes). They \
 are complete in OSM where no statistical source lists them; do not refuse. \
 Symbol size and labels are derived from the place class.
+  Places of interest -- shops, a chain's stores, hospitals, schools, museums, \
+stations: their amenity=/shop=/tourism=/healthcare= tags. A named chain or \
+brand is brand=<Name as OSM writes it> plus its kind (brand=IKEA;shop=furniture, \
+brand=Starbucks;amenity=cafe), so its fuel stations, pharmacies and opticians \
+under the same brand stay out. Each one is a point: outlines are drawn at \
+their centre and a place mapped twice counts once. Use this before web search \
+for anything OSM maps as a place; do not refuse.
 
   "Paris Métro lines"
       bbox [2.2, 48.78, 2.47, 48.92], level admin_1, basemap natural_earth,
@@ -524,6 +531,9 @@ Symbol size and labels are derived from the place class.
   "the Glacier Express route"
       within ["CHE"], level admin_1, basemap natural_earth, variable_is_null
       true, overlays [{{source overpass, id "route=train;name~Glacier Express"}}]
+  "IKEA stores in Germany"
+      within ["DEU"], level admin_1, basemap natural_earth, variable_is_null
+      true, overlays [{{source overpass, id "brand=IKEA;shop=furniture"}}]
   "every town and village in Lviv oblast"
       within ["UA-46"], level admin_2, basemap overture, variable_is_null true,
       overlays [{{source overpass, id "place=city|town|village|hamlet"}}]
@@ -615,9 +625,11 @@ def describe(prompt: str) -> tuple[Manifest, dict, str]:
     overlay_offers: list[tuple[str, str, dict[str, object]]] = []
     overlays_searched = False
     challenged = False
+    researched = False
     repairs = 0
 
-    for attempt in range(REPAIR_ATTEMPTS + 2):
+    # One extra turn is reserved for a dataset the research step finds.
+    for attempt in range(REPAIR_ATTEMPTS + 3):
         answer = _ask(conversation)
 
         if not answer.get("mappable", False) and not challenged and offered is None:
@@ -633,6 +645,22 @@ def describe(prompt: str) -> tuple[Manifest, dict, str]:
                 conversation.append({"role": "assistant", "content": json.dumps(answer)})
                 conversation.append({"role": "user", "content": _challenge_prompt(found)})
                 continue
+        if not answer.get("mappable", False) and not researched and _research_enabled():
+            # The registry cannot answer even after a search: look on the open
+            # web. The research step only proposes; the service validates and
+            # registers, and the main agent gets one more turn to use it.
+            researched = True
+            outcome = _discover(prompt.strip(), answer.get("refusal") or "no registry source")
+            if outcome.record is not None:
+                if outcome.record.get("geometry_kind") == "choropleth":
+                    offered = (offered or set()) | {outcome.record["id"]}
+                conversation.append({"role": "assistant", "content": json.dumps(answer)})
+                conversation.append({"role": "user",
+                                     "content": _discovery_prompt(outcome.record)})
+                continue
+            if outcome.refusal:
+                answer = dict(answer, refusal=(answer.get("refusal") or "")
+                              + f" Web search: {outcome.refusal}")
         if not answer.get("mappable", False):
             raise AgentRefusal(
                 answer.get("refusal") or "this request cannot be mapped from the "
@@ -664,7 +692,10 @@ def describe(prompt: str) -> tuple[Manifest, dict, str]:
             conversation.append({"role": "user", "content": "\n\n".join(parts)})
             continue
 
-        if offered is not None and chosen not in offered:
+        # Deciding on a plain base map after a search is a choice, not an
+        # invented id (measured: meteorites -- natural_earth searched, then an
+        # overlay on boundaries alone).
+        if offered is not None and chosen not in offered and not raw.get("variable_is_null"):
             # The id has to be one the search returned. Without this the model
             # could invent a plausible-looking slug, which would 404 later with
             # a far less useful message -- or worse, silently resolve to the
@@ -684,6 +715,22 @@ def describe(prompt: str) -> tuple[Manifest, dict, str]:
             raw.pop("bbox", None)
         if raw.pop("variable_is_null", False):
             raw["variable"] = None
+        missing = None if researched else _unmatched_web_offer(raw, overlay_offers)
+        if missing is not None and _research_enabled():
+            # The curated web catalogue had nothing that fitted and the model
+            # reached for a URL of its own: that is the registry not answering,
+            # so research looks (and validates) instead of trusting the guess.
+            researched = True
+            outcome = _discover(prompt.strip(), "the web overlay catalogue had no fitting "
+                                f"dataset for {missing!r}")
+            if outcome.record is not None:
+                _offer_discovered(outcome.record, missing, overlay_offers)
+                if outcome.record.get("geometry_kind") == "choropleth":
+                    offered = (offered or set()) | {outcome.record["id"]}
+                conversation.append({"role": "assistant", "content": json.dumps(answer)})
+                conversation.append({"role": "user",
+                                     "content": _discovery_prompt(outcome.record)})
+                continue
         try:
             _check_overlay_choices(raw, overlay_offers)
             _strip_overlays(raw)
@@ -778,17 +825,51 @@ def _check_overlay_choices(raw: dict,
     items = raw.get("overlays") or []
     for source, query, candidates in offers:
         choices = [item.get("id") for item in items if item.get("source") == source]
-        chosen = next((choice for choice in choices if choice in candidates), None)
+        chosen = next((choice for choice in choices if _offered_id(choice, source) in candidates), None)
         if chosen is None:
             raise ManifestError(
                 f"the chosen {source} id was not one of the candidates returned "
                 f"for {query!r}", "overlays.id")
-        candidate = candidates[chosen]
+        candidate = candidates[_offered_id(chosen, source)]
         if source == "overpass" and not overpass.candidate_relevant(query, candidate):
             raise ManifestError(
                 f"OSM tag {chosen!r} does not describe the requested feature kind "
                 f"in {query!r}; choose a candidate whose description names it",
                 "overlays.id")
+
+
+def _offered_id(choice, source: str):
+    """A web id is its URL plus filters ('...ibtracs.NA...csv#season=2024'); the
+    catalogue offers the URL. Measured: every searched IBTrACS request failed the
+    candidate check because the season filter made the id differ."""
+    if source == "web" and isinstance(choice, str):
+        return choice.split("#", 1)[0]
+    return choice
+
+
+def _unmatched_web_offer(raw: dict, offers) -> str | None:
+    """The query of a web catalogue search whose offers the model did not use."""
+    items = raw.get("overlays") or []
+    for source, query, candidates in offers:
+        if source != "web":
+            continue
+        choices = [item.get("id") for item in items if item.get("source") == "web"]
+        if not any(_offered_id(choice, "web") in candidates for choice in choices):
+            return query
+    return None
+
+
+def _offer_discovered(record: dict, query: str, offers) -> None:
+    """Make a validated points/lines find an offered web candidate."""
+    if record.get("geometry_kind") not in ("points", "lines"):
+        return
+    from mapsvc.overlays import web
+    entry = web._discovered_entry(record["url"])
+    if not entry:
+        return
+    for source, q, candidates in offers:
+        if source == "web" and q == query:
+            candidates[record["url"]] = web.Candidate(entry)
 
 
 def _strip_overlays(raw: dict) -> None:
@@ -903,6 +984,24 @@ def _check_per(per: dict | None) -> None:
             f"{per['source']} offers these divisors: {offered}", "variable.per.id")
 
 
+def _research_enabled() -> bool:
+    """Web research runs unless switched off (MAPSVC_RESEARCH=0)."""
+    return os.environ.get("MAPSVC_RESEARCH", "1") not in ("0", "false", "off")
+
+
+def _discover(prompt: str, reason: str):
+    from mapsvc.discovery import pipeline
+    try:
+        return pipeline.discover(prompt, reason)
+    except Exception as exc:  # research must never turn a refusal into a crash
+        return pipeline.Outcome(None, f"research failed: {exc}", [])
+
+
+def _discovery_prompt(record: dict) -> str:
+    from mapsvc.discovery.pipeline import prompt_for_main_agent
+    return prompt_for_main_agent(record)
+
+
 def _search_all(query: str) -> list[tuple[str, list]]:
     """Search every searchable statistics source with the user's own words."""
     results = []
@@ -952,20 +1051,30 @@ def _candidate_prompt(source: str, query: str, found: list) -> str:
 
 
 def _ask(conversation: list[dict]) -> dict:
-    backend = backend_name()
-    if backend == "codex":
-        return _ask_codex(conversation)
-    return _ask_openai(_client(), conversation)
+    return ask_structured(instructions(), schema(), conversation, name="map_request")
 
 
-def _ask_openai(client, conversation: list[dict]) -> dict:
+def ask_structured(instructions_text: str, response_schema: dict,
+                   conversation: list[dict], *, name: str) -> dict:
+    """One structured LLM turn with any instructions and JSON schema.
+
+    The main agent and the research agent share this, so both run on the same
+    backend choice (Codex CLI or OpenAI API) and the same failure handling.
+    """
+    if backend_name() == "codex":
+        return _ask_codex(conversation, instructions_text, response_schema)
+    return _ask_openai(_client(), conversation, instructions_text, response_schema, name)
+
+
+def _ask_openai(client, conversation: list[dict], instructions_text: str | None = None,
+                response_schema: dict | None = None, name: str = "map_request") -> dict:
     response = client.responses.create(
         model=model_name(),
-        instructions=instructions(),
+        instructions=instructions_text if instructions_text is not None else instructions(),
         input=conversation,
         max_output_tokens=MAX_OUTPUT_TOKENS,
-        text={"format": {"type": "json_schema", "name": "map_request",
-                         "strict": True, "schema": schema()}},
+        text={"format": {"type": "json_schema", "name": name, "strict": True,
+                         "schema": response_schema if response_schema is not None else schema()}},
     )
     try:
         return _first_json_object(response.output_text)
@@ -973,7 +1082,8 @@ def _ask_openai(client, conversation: list[dict]) -> dict:
         raise AgentError(f"the model did not return usable JSON: {exc}", "prompt") from exc
 
 
-def _ask_codex(conversation: list[dict]) -> dict:
+def _ask_codex(conversation: list[dict], instructions_text: str | None = None,
+               response_schema: dict | None = None) -> dict:
     executable = shutil.which("codex")
     if executable is None:
         raise AgentUnavailable(
@@ -981,14 +1091,15 @@ def _ask_codex(conversation: list[dict]) -> dict:
             "and OPENAI_API_KEY. POST /map works without either backend."
         )
 
-    transcript = instructions() + "\n\n" + "\n".join(
+    transcript = (instructions_text if instructions_text is not None else instructions()) + "\n\n" + "\n".join(
         f"{turn['role'].upper()}: {turn['content']}" for turn in conversation
     )
     with tempfile.TemporaryDirectory(prefix="mapsvc-codex-") as directory:
         root = pathlib.Path(directory)
         schema_path = root / "schema.json"
         output_path = root / "output.json"
-        schema_path.write_text(json.dumps(schema(), sort_keys=True), encoding="utf-8")
+        schema_path.write_text(json.dumps(response_schema if response_schema is not None
+                                          else schema(), sort_keys=True), encoding="utf-8")
         command = [
             executable, "exec", "--ephemeral", "--skip-git-repo-check",
             "-s", "read-only", "-c", "model_reasoning_effort=low",

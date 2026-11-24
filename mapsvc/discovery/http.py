@@ -65,14 +65,22 @@ _RESPONSE_HEADERS = {
 }
 
 
-def get(url: str, *, params=None, headers=None, max_bytes: int = 25_000_000,
-        timeout: float = 30, expect: str | None = None) -> Response:
+# Measured 2026-11-07: Canada's national fire points zip is 25,043,218 bytes,
+# NOAA's North Atlantic IBTrACS CSV 57,593,323. Override with MAPSVC_MAX_BYTES.
+DEFAULT_MAX_BYTES = int(os.environ.get("MAPSVC_MAX_BYTES", 80_000_000))
+
+
+def get(url: str, *, params=None, headers=None, max_bytes: int = DEFAULT_MAX_BYTES,
+        timeout: float = 30, expect: str | None = None, record_if=None) -> Response:
+    """record_if(response) -> bool keeps a degraded answer (a rate-limited search
+    returning nothing) out of the cassettes, where it would replay forever."""
     return _request("GET", url, params=params, headers=headers, body=b"",
-                    max_bytes=max_bytes, timeout=timeout, expect=expect)
+                    max_bytes=max_bytes, timeout=timeout, expect=expect,
+                    record_if=record_if)
 
 
 def post_json(url: str, payload, *, params=None, headers=None,
-              max_bytes: int = 25_000_000, timeout: float = 30,
+              max_bytes: int = DEFAULT_MAX_BYTES, timeout: float = 30,
               expect: str | None = None) -> Response:
     body = json.dumps(payload, sort_keys=True, separators=(",", ":"),
                       ensure_ascii=False).encode("utf-8")
@@ -84,9 +92,9 @@ def post_json(url: str, payload, *, params=None, headers=None,
 
 def _mode() -> str:
     mode = os.environ.get("MAPSVC_REPLAY", "off").strip().lower()
-    if mode not in {"off", "record", "replay"}:
+    if mode not in {"off", "record", "replay", "cached"}:
         raise DiscoveryHTTPError(
-            "MAPSVC_REPLAY must be one of off, record or replay")
+            "MAPSVC_REPLAY must be one of off, record, replay or cached")
     return mode
 
 
@@ -213,13 +221,21 @@ def _read_limited(handle, limit: int, url: str) -> bytes:
 
 
 def _request(method: str, url: str, *, params, headers, body: bytes,
-             max_bytes: int, timeout: float, expect: str | None) -> Response:
+             max_bytes: int, timeout: float, expect: str | None,
+             record_if=None) -> Response:
     normalised = _normalised_url(url, params)
     _validate_url(normalised, resolve=False)
     key = _key(method, normalised, body)
     mode = _mode()
     if mode == "replay":
         return _replay(key, normalised, max_bytes, expect)
+    if mode == "cached":
+        # Replay what was recorded, fetch and record what was not: an eval run
+        # pays for the web once per request, and reruns see the same bytes.
+        try:
+            return _replay(key, normalised, max_bytes, expect)
+        except ReplayMiss:
+            mode = "record"
 
     _validate_url(normalised, resolve=True)
     # Request credentials may be needed by a provider.  They are deliberately
@@ -248,7 +264,7 @@ def _request(method: str, url: str, *, params, headers, body: bytes,
                 raise HTTPStatusError(final_url, status)
             response = Response(status, response_headers, content, final_url, False)
             _check_expected(response, expect)
-            if mode == "record":
+            if mode == "record" and (record_if is None or record_if(response)):
                 _record(key, method, normalised, params, response)
             return response
         except DiscoveryHTTPError:

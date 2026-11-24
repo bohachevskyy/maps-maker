@@ -1,0 +1,83 @@
+"""Resolving a found file's codes and names to boundary keys (synthetic units)."""
+
+from mapsvc.discovery import join
+
+
+def _country(iso3, name, a2, n3, **extra):
+    return {"keys": {"ISO3": iso3}, "name": name,
+            "properties": {"ISO_A2_EH": a2, "ISO_N3_EH": n3, "NAME": name, **extra}}
+
+
+def _region(code, name, **props):
+    return {"keys": {"ISO3166_2": code}, "name": name, "properties": props}
+
+
+COUNTRIES = join._countries([
+    _country("AFG", "Afghanistan", "AF", "004"),
+    _country("FRA", "France", "FR", "250", ISO_A2="-99", FORMAL_EN="French Republic"),
+    _country("KOR", "South Korea", "KR", "410", NAME_SORT="Korea, Rep."),
+])
+
+
+def test_countries_resolve_from_iso3_iso2_m49_and_names():
+    r = COUNTRIES.resolve
+    assert [r("AFG"), r("af"), r("4"), r("004"), r("4.0")] == ["AFG"] * 5
+    assert [r("France"), r("French Republic"), r("250"), r("Korea, Rep.")] == ["FRA", "FRA", "FRA", "KOR"]
+    assert r("-99") is None and r("") is None and r("Atlantis") is None
+
+
+REGIONS = join._regions([
+    _region("BR-SP", "São Paulo", postal="SP", code_hasc="BR.SP"),
+    _region("BR-MG", "Minas Gerais", postal="MG"),
+    _region("BR-DF", "Distrito Federal", postal="DF"),
+    _region("MX-CMX", "Ciudad de México", postal="DF", name_alt="Distrito Federal"),
+    _region("MX-JAL", "Jalisco", postal="JA"),
+])
+
+
+def test_a_shared_name_is_settled_by_where_the_rest_of_the_file_is():
+    assert REGIONS.resolve("Distrito Federal") is None
+    brazil = REGIONS.resolver(["São Paulo", "Minas Gerais", "Distrito Federal"])
+    mexico = REGIONS.resolver(["Jalisco", "Distrito Federal"])
+    assert brazil("Distrito Federal") == "BR-DF" and mexico("Distrito Federal") == "MX-CMX"
+
+
+def test_postal_codes_need_a_country_context():
+    assert REGIONS.resolve("DF") is None
+    assert REGIONS.resolver(["BR-SP", "BR-MG", "DF"])("DF") == "BR-DF"
+    assert REGIONS.resolve("BR.SP") == "BR-SP" and REGIONS.resolve("br-mg") == "BR-MG"
+
+
+def test_names_prefixed_with_an_office_code_resolve():
+    assert REGIONS.resolve("35_São Paulo") == "BR-SP" and REGIONS.resolve("31 Minas Gerais") == "BR-MG"
+    assert REGIONS.resolve("35 - São Paulo") == "BR-SP" and REGIONS.resolve("35") is None
+
+
+def test_accents_and_unit_designators_do_not_block_a_match():
+    japan = join._regions([_region("JP-27", "Osaka", name_local="大阪府"),
+                           _region("JP-14", "Kanagawa"), _region("JP-13", "Tokyo")])
+    assert [japan.resolve(n) for n in ("Ōsaka-fu", "Kanagawa-ken", "Tokyo-to", "Tokyo")] == \
+        ["JP-27", "JP-14", "JP-13", "JP-13"]
+    assert join.normalise_name("São Paulo") == "sao paulo"
+
+
+def test_long_official_names_and_brackets_resolve_but_totals_never_do():
+    mexico = join._regions([_region("MX-COA", "Coahuila"), _region("MX-MEX", "México"),
+                            _region("MX-DIF", "Distrito Federal", name_en="Mexico"),
+                            _region("MX-JAL", "Jalisco")])
+    names = ["Coahuila de Zaragoza", "México", "Mexico City (Ciudad de México)", "Jalisco",
+             "Mexico total"]
+    res = mexico.resolver(names)
+    assert [res(n) for n in names] == ["MX-COA", "MX-MEX", "MX-DIF", "MX-JAL", None]
+
+
+def test_combined_coordinate_columns_are_split():
+    from mapsvc.discovery import probe
+    csv = (b'name,coordinates,geom,latlon\n'
+           b'A,"[-122.39, 37.77]",POINT (-122.39 37.77),"37.77, -122.39"\n'
+           b'B,"[-121.89, 37.33]",POINT (-121.89 37.33),"37.33, -121.89"\n'
+           b'C,"[-122.27, 37.80]",POINT (-122.27 37.80),"37.80, -122.27"\n')
+    rows, *_, warnings = probe.records(csv)
+    for col in ("coordinates", "geom", "latlon"):
+        assert (rows[0][f"{col}.lon"], rows[0][f"{col}.lat"]) == (-122.39, 37.77), col
+    assert sum("split" in w for w in warnings) == 3

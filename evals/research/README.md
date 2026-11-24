@@ -36,6 +36,27 @@ a source has died; compare them with `truth.md`, not with the old replay.
   following it. `trap = "wrong_units"`: a candidate lists the numbers in
   thousands; pass = the proposal carries the right scale (spot values hold).
   `trap_fixture` says what the replay fixture must contain; fixtures are crafted later.
+  **The trap tests have not run yet.** Checked 2026-11-23: no cassette holds the planted
+  text or hosts, and `run.py` injects nothing. The four trap cases (`japan_prefectures`,
+  `meteorites_fell`, `canada_provinces`, `airports_africa`) run against ordinary recorded
+  pages, so their pass or fail says nothing about the trap -- only about finding the data.
 - Source traps found while building truth (kept because they are real): UNESCO's
   own XML sits behind Cloudflare (403); the NFDB "large fires" zip is BC-only;
   NASA's Socrata URLs 404; e-Stat's main API needs an appId.
+
+## Spec changes after seeing results (tune split only)
+- 2026-11-07 `brazil_states`: BR-SP tolerance ±1% → ±6%. The agent found IBGE's 2026
+  estimate (46.18 M), newer than the 2022 census the spot was pinned to.
+- 2026-11-07 `refugees_asylum`: TUR=2,940,735±5% (end-2024) → 2.0–3.3 M. Measured: 2025
+  data is complete (323 areas vs 326 in 2024), and Turkey's fall to 2.39 M is real.
+- 2026-11-07 `refugees_asylum`: dropped IRN>DEU. UNHCR's own 2025 figures put Iran at
+  770,514, below Germany (2,655,191), so the spot only held for 2024.
+All three were truth too narrow for "judged on properties", not the agent being lenient.
+- 2026-11-07 scorer: a truth point/line feature counts as covered by a found point within
+  5 km **or a found row with the same name**. Measured: UNESCO's two official lists place
+  27% of World Heritage sites >5 km apart (large and serial sites; median 1,474 ha vs 151 ha),
+  so 5 km alone measured the two sources' disagreement, not the agent.
+- 2026-11-07 `tornado_tracks`, `hurricane_tracks_2005`: min_vintage 2024 → the event year
+  (2011, 2005). The service defines vintage as the period of the values (computed from the
+  data's date column), not the release year of a file; for a past event that is the event year.
+  Changed for both cases on the semantics alone, from the tune case; no held-out result was seen.

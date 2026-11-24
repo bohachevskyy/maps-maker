@@ -31,7 +31,11 @@ need = "OWID/registry have no UNHCR refugee stock by host country at the time of
 should_refuse = false
 truth = "refugees_asylum/truth.csv"
 expected = { geometry_kind = "choropleth", key_namespace = "ISO3", level = "country", min_coverage = 0.7, min_vintage = 2023, must_have_licence = true, acceptable_publishers = ["UNHCR"] }
-spots = ["TUR=2940735±5%", "IRN>DEU", "DEU>POL", "COL<10000"]
+# 2026-11-07: TUR=2,940,735 was end-2024 only. Measured: 2025 is complete (UNICEF/UNHCR
+# 323 areas vs 326) and Turkey fell to 2,390,414 as Syrians returned; either year is right.
+# IRN>DEU dropped: UNHCR 2025 has Iran at 770,514 (Germany 2,655,191). COL<10000 stays: it
+# separates UNHCR "refugees" (1,306) from UNICEF's broader series (2.8 M incl. Venezuelans).
+spots = ["TUR>2000000", "TUR<3300000", "DEU>POL", "COL<10000"]
 keyless = true
 
 [[case]]
@@ -42,7 +46,9 @@ need = "No sub-national source for Brazil in the registry."
 should_refuse = false
 truth = "brazil_states/truth.csv"
 expected = { geometry_kind = "choropleth", key_namespace = "ISO3166_2", level = "admin1", min_coverage = 0.95, min_vintage = 2022, must_have_licence = false, acceptable_publishers = ["IBGE"] }
-spots = ["BR-SP=44411238±1%", "BR-SP>BR-MG", "BR-RR<1000000", "count=27±0%"]
+# 2026-11-07: ±1% held only for the 2022 census; IBGE's 2026 estimate (46,179,008)
+# is a better answer to "population", so the spot accepts census or later estimates.
+spots = ["BR-SP=44411238±6%", "BR-SP>BR-MG", "BR-RR<1000000", "count=27±0%"]
 keyless = true
 
 [[case]]
@@ -100,7 +106,7 @@ prompt = "Show the tornado tracks of the April 25-28, 2011 outbreak, coloured by
 need = "No severe-weather track dataset in the registry (USGS overlay covers earthquakes only)."
 should_refuse = false
 truth = "tornado_tracks/truth.csv"
-expected = { geometry_kind = "lines", key_namespace = "coords", level = "line", min_coverage = 0.9, min_vintage = 2024, must_have_licence = false, acceptable_publishers = ["NOAA", "Storm Prediction Center", "SPC"] }
+expected = { geometry_kind = "lines", key_namespace = "coords", level = "line", min_coverage = 0.9, min_vintage = 2011, must_have_licence = false, acceptable_publishers = ["NOAA", "Storm Prediction Center", "SPC"] }
 spots = ["count=349±5%", "event_near=-88.1479,34.1043", "event_near=-87.935,33.0297", "event_near=-85.9784,34.3907"]
 keyless = true
 
@@ -217,7 +223,7 @@ prompt = "Map the tracks of the 2005 Atlantic hurricane season"
 need = "No tropical cyclone track dataset in the registry."
 should_refuse = false
 truth = "hurricane_tracks_2005/truth.csv"
-expected = { geometry_kind = "lines", key_namespace = "coords", level = "line", min_coverage = 0.9, min_vintage = 2024, must_have_licence = false, acceptable_publishers = ["NOAA", "NCEI", "IBTrACS"] }
+expected = { geometry_kind = "lines", key_namespace = "coords", level = "line", min_coverage = 0.9, min_vintage = 2005, must_have_licence = false, acceptable_publishers = ["NOAA", "NCEI", "IBTrACS"] }
 spots = ["count=31±10%", "event_near=-89.6,29.5", "event_near=-81.0,26.2"]
 keyless = true
 

@@ -205,12 +205,20 @@ def test_ranked_points_render_every_label_with_its_value(mini_geojson, iso2):
 
 # ------------------------------------------------------------------- zips ---
 
-def test_a_zip_must_hold_exactly_one_data_file():
+def test_a_zip_with_several_data_files_uses_the_largest():
+    """NFDB ships a small stats workbook beside its point file (measured)."""
     buffer = io.BytesIO()
     with zipfile.ZipFile(buffer, "w") as archive:
-        archive.writestr("a.csv", "lat,lon\n1,2\n")
-        archive.writestr("b.csv", "lat,lon\n1,2\n")
-    with pytest.raises(overlays.OverlayError, match="2 data files"):
+        archive.writestr("stats.csv", "lat,lon\n1,2\n")
+        archive.writestr("points.csv", "lat,lon\n1,2\n3,4\n5,6\n")
+    assert web._unzip(buffer.getvalue(), "https://data.example.org/x.zip").count(b"\n") == 4
+
+
+def test_a_zip_without_data_files_is_refused():
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, "w") as archive:
+        archive.writestr("readme.pdf", "x")
+    with pytest.raises(overlays.OverlayError, match="no data files"):
         web.layer_from_bytes(buffer.getvalue(), "https://data.example.org/x.zip", WORLD)
 
 

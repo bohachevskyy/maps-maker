@@ -32,6 +32,8 @@ def _now() -> str:
 
 class DiscoveredSourceStore:
     def __init__(self, path: str | os.PathLike | None = None):
+        if path is None and os.environ.get("MAPSVC_DISCOVERED_DB"):
+            path = os.environ["MAPSVC_DISCOVERED_DB"]     # evals: one store per case
         if path is None:
             root = Path(os.environ.get(
                 "MAPSVC_CACHE", Path(__file__).resolve().parents[2] / "cache"))
@@ -192,6 +194,28 @@ class DiscoveredSourceStore:
                 f"SELECT s.*, 0.0 AS rank FROM sources s WHERE {where} "
                 "ORDER BY s.id ASC LIMIT ?", [*params, limit]).fetchall()
         return [self._decode(row) for row in rows]
+
+    def by_url(self, url: str, status: str = "active") -> list[dict]:
+        rows = self.connection.execute(
+            "SELECT s.*, 0.0 AS rank FROM sources s WHERE s.url=? AND s.status=? ORDER BY s.id",
+            (url, status)).fetchall()
+        return [self._decode(row) for row in rows]
+
+    def search_any(self, text: str, *, limit: int = 10, **filters) -> list[dict]:
+        """Records matching any query word, best first by how many words they match.
+
+        `search` needs every word; a search agent's wording ("annual rainfall")
+        rarely matches a publisher's title word for word ("precipitation in depth").
+        """
+        stop = {"of", "the", "in", "by", "and", "a", "an", "per", "for", "to", "on", "map"}
+        tokens = [t for t in dict.fromkeys(re.findall(r"[\w-]+", text.casefold(), flags=re.UNICODE))
+                  if len(t) > 2 and t not in stop]
+        hits: dict = {}
+        for token in tokens:
+            for rec in self.search(token, limit=50, **filters):
+                hits.setdefault(rec["id"], [0, rec])[0] += 1
+        ranked = sorted(hits.values(), key=lambda h: (-h[0], h[1]["id"]))
+        return [rec for _, rec in ranked[:limit]]
 
     @staticmethod
     def _normalise_query(query: str) -> str:

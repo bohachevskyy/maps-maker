@@ -1,21 +1,28 @@
 """Bounded, service-side inspection of a proposed data URL."""
 
 import csv
+import urllib.parse
+import dataclasses
 from dataclasses import asdict, dataclass
 import datetime
 import hashlib
 import io
+import itertools
 import json
 import math
 import re
+import struct
 import zipfile
 
+from mapsvc.discovery import htmltables
 from mapsvc.discovery import http
+from mapsvc.discovery import shapefile
 from mapsvc.xlsx import sheets as xlsx_sheets
+from mapsvc.discovery import xls
 
 
 MAX_ROWS = 50_000
-MAX_UNZIPPED = 64 * 1024 * 1024
+MAX_UNZIPPED = 200 * 1024 * 1024   # NFDB points: 79.4 MB of text (measured 2026-11-07)
 MAX_COMPRESSION_RATIO = 40
 
 
@@ -38,24 +45,116 @@ class ProbeReport:
         return asdict(self)
 
 
+def split_selector(url: str) -> tuple[str, dict]:
+    """A file URL and what to read inside it: `#table=N` (an HTML page's Nth data
+    table) or `#sheet=<name>` (a workbook sheet, URL-encoded). The fetch layer
+    drops fragments, so the selector is read before fetching."""
+    match = re.search(r"#sheet=([^#&]+)$", url)
+    if match:
+        return url[:match.start()], {"sheet": urllib.parse.unquote(match.group(1))}
+    base, table = htmltables.split_table_fragment(url)
+    return base, ({"table": table} if table is not None else {})
+
+
+def fetch_selected(url: str, **kwargs):
+    """(payload, selector) for a URL that may carry a selector."""
+    base, selector = split_selector(url)
+    response = http.get(base, expect=None if "table" in selector else "data", **kwargs)
+    return response, selector
+
+
 def probe(url: str, *, max_bytes: int = 25_000_000,
           timeout: float = 30) -> ProbeReport:
-    response = http.get(url, max_bytes=max_bytes, timeout=timeout, expect="data")
-    return probe_bytes(response.content, url=response.url)
+    response, selector = fetch_selected(url, max_bytes=max_bytes, timeout=timeout)
+    report = probe_bytes(response.content, url=response.url, **selector)
+    if "sheet" in selector:
+        report = dataclasses.replace(report, url=url)
+    return report
 
 
-def probe_bytes(payload: bytes, *, url: str = "") -> ProbeReport:
+def _html_table_records(payload: bytes, table: int, warnings: list[str]
+                        ) -> tuple[list[dict], str, list[str], list[str]]:
+    text, encoding = _decode(payload)
+    if encoding != "utf-8":
+        warnings.append(f"decoded as {encoding}")
+    found = htmltables.tables(text)
+    if not found and "<table" not in text.lower():
+        raise ProbeError("the payload is not an HTML page with tables")
+    if not 0 <= table < len(found):
+        raise ProbeError(f"the page has {len(found)} data table(s); #table={table} "
+                         "does not exist")
+    chosen = found[table]
+    warnings.append(f"read table {table} of {len(found)} from an HTML page"
+                    + (f" ({chosen.caption})" if chosen.caption else ""))
+    warnings.extend(chosen.notes)
+    return chosen.rows, "html_table", [], warnings
+
+
+def records(payload: bytes, *, table: int | None = None, sheet: str | None = None
+            ) -> tuple[list[dict], str, list[str], list[str]]:
+    """Parse a data file into rows exactly as the probe does.
+
+    Returns (rows, format, geometry_types, warnings). The harvester uses this,
+    so a discovered source is read the same way it was validated.
+    """
+    rows, format_name, geometry_types, warnings = _records(payload, table=table, sheet=sheet)
+    return _split_coordinates(rows, warnings), format_name, geometry_types, warnings
+
+
+def _records(payload: bytes, *, table: int | None = None, sheet: str | None = None):
+    warnings: list[str] = []
+    if table is not None:
+        return _html_table_records(payload, table, warnings)
+    if payload.startswith(b"PK\x03\x04") and not _looks_like_xlsx(payload):
+        if _zip_has_shapefile(payload):
+            return _shapefile_records(payload, warnings)
+        payload, inner_name = _safe_unzip(payload)
+        warnings.append(f"inspected {inner_name} inside zip archive")
+    if xls.is_ole2(payload):
+        return _xlsx_records(payload, warnings, legacy=True, sheet=sheet), "xls", [], warnings
+    if _looks_like_xlsx(payload):
+        return _xlsx_records(payload, warnings, sheet=sheet), "xlsx", [], warnings
+    text, encoding = _decode(payload)
+    if encoding != "utf-8":
+        warnings.append(f"decoded as {encoding}")
+    if text.lstrip().startswith(("{", "[")):
+        rows, geometry_types, format_name = _json_records(text, warnings)
+        return rows, format_name, geometry_types, warnings
+    rows, delimiter, skipped = _delimited_records(text)
+    if skipped:
+        warnings.append(f"skipped {skipped} leading metadata line(s)")
+    return rows, ("tsv" if delimiter == "\t" else "csv"), [], warnings
+
+
+def probe_bytes(payload: bytes, *, url: str = "",
+                table: int | None = None, sheet: str | None = None) -> ProbeReport:
     original_size = len(payload)
     digest = hashlib.sha256(payload).hexdigest()
     warnings: list[str] = []
-    inner_name = ""
-    if payload.startswith(b"PK\x03\x04") and not _looks_like_xlsx(payload):
-        payload, inner_name = _safe_unzip(payload)
-        warnings.append(f"inspected {inner_name} inside zip archive")
+    rows_read = False
+    if table is not None:
+        url = f"{url}#table={table}" if url else url
+        rows, format_name, geometry_types, warnings = _html_table_records(
+            payload, table, warnings)
+        rows_read = True
+    elif payload.startswith(b"PK\x03\x04") and not _looks_like_xlsx(payload):
+        if _zip_has_shapefile(payload):
+            rows, format_name, geometry_types, warnings = _shapefile_records(
+                payload, warnings)
+            rows_read = True
+        else:
+            payload, inner_name = _safe_unzip(payload)
+            warnings.append(f"inspected {inner_name} inside zip archive")
 
-    if _looks_like_xlsx(payload):
+    if rows_read:
+        pass
+    elif xls.is_ole2(payload):
+        format_name = "xls"
+        rows = _xlsx_records(payload, warnings, legacy=True, sheet=sheet)
+        geometry_types: list[str] = []
+    elif _looks_like_xlsx(payload):
         format_name = "xlsx"
-        rows = _xlsx_records(payload, warnings)
+        rows = _xlsx_records(payload, warnings, sheet=sheet)
         geometry_types: list[str] = []
     else:
         text, encoding = _decode(payload)
@@ -63,7 +162,7 @@ def probe_bytes(payload: bytes, *, url: str = "") -> ProbeReport:
             warnings.append(f"decoded as {encoding}")
         stripped = text.lstrip()
         if stripped.startswith(("{", "[")):
-            rows, geometry_types, format_name = _json_records(text)
+            rows, geometry_types, format_name = _json_records(text, warnings)
         else:
             rows, delimiter, skipped = _delimited_records(text)
             geometry_types = []
@@ -71,6 +170,7 @@ def probe_bytes(payload: bytes, *, url: str = "") -> ProbeReport:
             if skipped:
                 warnings.append(f"skipped {skipped} leading metadata line(s)")
 
+    rows = _split_coordinates(rows, warnings)
     if len(rows) > MAX_ROWS:
         warnings.append(f"only the first {MAX_ROWS:,} of {len(rows):,} rows were inspected")
         rows = rows[:MAX_ROWS]
@@ -91,6 +191,28 @@ def _looks_like_xlsx(payload: bytes) -> bool:
         return False
 
 
+def _zip_has_shapefile(payload: bytes) -> bool:
+    try:
+        with zipfile.ZipFile(io.BytesIO(payload)) as archive:
+            return any(shapefile._usable(member)
+                       and member.filename.lower().endswith(".shp")
+                       for member in archive.infolist())
+    except (zipfile.BadZipFile, zipfile.LargeZipFile, OSError):
+        return False
+
+
+def _shapefile_records(payload: bytes, warnings: list[str]
+                       ) -> tuple[list[dict], str, list[str], list[str]]:
+    try:
+        geojson, name, crs = shapefile._read_zip(payload)
+    except shapefile.ShapefileError as exc:
+        raise ProbeError(str(exc)) from exc
+    rows, geometry_types, _ = _json_records(json.dumps(geojson))
+    warnings.append(
+        f"read shapefile {name} ({len(geojson['features']):,} features, {crs})")
+    return rows, "shapefile", geometry_types, warnings
+
+
 def _safe_unzip(payload: bytes) -> tuple[bytes, str]:
     try:
         with zipfile.ZipFile(io.BytesIO(payload)) as archive:
@@ -98,11 +220,13 @@ def _safe_unzip(payload: bytes) -> tuple[bytes, str]:
                        if not member.is_dir()
                        and not member.filename.startswith(("__MACOSX/", "."))
                        and member.filename.lower().endswith(
-                           (".csv", ".tsv", ".txt", ".json", ".geojson", ".xlsx"))]
-            if len(members) != 1:
-                raise ProbeError(
-                    f"zip contains {len(members)} supported data files; expected one")
-            member = members[0]
+                           (".csv", ".tsv", ".txt", ".json", ".geojson", ".xlsx", ".xls"))]
+            if not members:
+                raise ProbeError("zip contains no supported data files")
+            # Several: the largest is the data, the rest are summaries or
+            # readmes (measured: NFDB ships a 0.5 MB stats workbook beside
+            # its 79 MB point file). The chosen name goes in the warnings.
+            member = sorted(members, key=lambda m: (-m.file_size, m.filename))[0]
             if member.flag_bits & 0x1:
                 raise ProbeError("zip data file is encrypted")
             if (member.file_size > MAX_UNZIPPED
@@ -133,6 +257,9 @@ def _delimited_records(text: str) -> tuple[list[dict], str, int]:
     lines = text.splitlines()
     if not lines:
         return [], ",", 0
+    first = _header_first(text)
+    if first is not None:
+        return first
     best = None
     for index in range(min(25, len(lines))):
         sample = "\n".join(lines[index:index + 12])
@@ -150,7 +277,8 @@ def _delimited_records(text: str) -> tuple[list[dict], str, int]:
     if best is None:
         raise ProbeError("could not find a delimited header row")
     _, _, _, delimiter, skipped = best
-    reader = csv.DictReader(lines[skipped:], delimiter=delimiter)
+    offset = sum(len(line) for line in text.splitlines(keepends=True)[:skipped])
+    reader = csv.DictReader(io.StringIO(text[offset:]), delimiter=delimiter)
     if not reader.fieldnames or len(reader.fieldnames) < 2:
         raise ProbeError("delimited file has no usable header")
     headers = _unique_headers(reader.fieldnames)
@@ -160,6 +288,82 @@ def _delimited_records(text: str) -> tuple[list[dict], str, int]:
         records.append({header: (values[index] if index < len(values) else None)
                         for index, header in enumerate(headers)})
     return records, delimiter, skipped
+
+
+def _header_first(text: str):
+    """The usual case: the header is row 0. Parsed as a whole, not line by
+    line, so quoted fields with newlines stay one record (measured: UNESCO's
+    whc-sites-2025.csv, whose descriptions span lines, had its header taken
+    from a data row by the line-window scan)."""
+    try:
+        dialect = csv.Sniffer().sniff(text[:16384], delimiters=",\t;|")
+    except csv.Error:
+        return None
+    try:
+        rows = list(itertools.islice(csv.reader(io.StringIO(text), dialect), 2001))
+    except csv.Error:
+        return None
+    if len(rows) < 2 or len(rows[0]) < 2:
+        return None
+    width = len(rows[0])
+    body = [r for r in rows[1:] if r]
+    if not body or sum(len(r) == width for r in body) < 0.9 * len(body):
+        return None
+    headers = _unique_headers(rows[0])
+    records = []
+    for cells in csv.reader(io.StringIO(text), dialect):
+        records.append(cells)
+    records = [{h: (row[i] if i < len(row) else None) for i, h in enumerate(headers)}
+               for row in records[1:] if row]
+    return records, dialect.delimiter, 0
+
+
+_NUM = r"(-?\d+(?:\.\d+)?)"
+_COORD_FORMS = (
+    # GeoJSON-style array: longitude first.
+    ("array [lon, lat]", re.compile(r"^\s*\[\s*" + _NUM + r"\s*,\s*" + _NUM + r"\s*(?:,[^\]]*)?\]\s*$"), False),
+    # WKT: longitude first.
+    ("WKT POINT (lon lat)", re.compile(r"^\s*POINT\s*Z?\s*\(\s*" + _NUM + r"\s+" + _NUM + r"(?:\s+[-\d.]+)?\s*\)\s*$", re.I), False),
+    # Text pair as people write it: latitude first.
+    ("text \"lat, lon\"", re.compile(r"^\s*\(?\s*" + _NUM + r"\s*[,;]\s*" + _NUM + r"\s*\)?\s*$"), True),
+)
+
+
+def _split_coordinates(rows: list[dict], warnings: list[str]) -> list[dict]:
+    """A column holding both coordinates becomes two: <col>.lon and <col>.lat.
+
+    Measured 2026-11-07: a CC BY 4.0 Costco locations CSV keeps each store's
+    position in one `coordinates` array column, which left the research step
+    with no longitude/latitude roles to propose.
+    """
+    if not rows:
+        return rows
+    sample = rows[:200]
+    found = []
+    for column in list(sample[0]):
+        values = [str(r.get(column)) for r in sample
+                  if r.get(column) not in (None, "") and not isinstance(r.get(column), (int, float))]
+        if len(values) < max(3, 0.8 * len(sample)) or f"{column}.lon" in sample[0]:
+            continue
+        for label, pattern, lat_first in _COORD_FORMS:
+            hits = [m for m in (pattern.match(v) for v in values) if m]
+            if len(hits) < 0.9 * len(values):
+                continue
+            pairs = [(float(m.group(1)), float(m.group(2))) for m in hits]
+            if lat_first and any(abs(a) > 90 for a, _ in pairs):
+                lat_first = False            # a first value beyond 90 is a longitude
+            if not lat_first and any(abs(b) > 90 for _, b in pairs):
+                lat_first = True
+            found.append((column, pattern, lat_first, label))
+            break
+    for column, pattern, lat_first, label in found:
+        for row in rows:
+            m = pattern.match(str(row.get(column) or ""))
+            a, b = (float(m.group(1)), float(m.group(2))) if m else (None, None)
+            row[f"{column}.lon"], row[f"{column}.lat"] = (b, a) if lat_first else (a, b)
+        warnings.append(f"split {column!r} ({label}) into {column + '.lon'!r} and "
+                        f"{column + '.lat'!r}")
+    return rows
 
 
 def _unique_headers(headers) -> list[str]:
@@ -172,18 +376,35 @@ def _unique_headers(headers) -> list[str]:
     return result
 
 
-def _xlsx_records(payload: bytes, warnings: list[str]) -> list[dict]:
+def _xlsx_records(payload: bytes, warnings: list[str], *,
+                  legacy: bool = False, sheet: str | None = None) -> list[dict]:
     try:
-        books = xlsx_sheets(payload)
-    except (KeyError, ValueError, zipfile.BadZipFile) as exc:
-        raise ProbeError(f"unreadable xlsx: {exc}") from exc
+        books = xls.sheets(payload) if legacy else xlsx_sheets(payload)
+    except (KeyError, ValueError, struct.error, zipfile.BadZipFile) as exc:
+        raise ProbeError(f"unreadable {'xls' if legacy else 'xlsx'}: {exc}") from exc
     populated = [(name, rows) for name, rows in books.items()
                  if any(any(str(value).strip() for value in row.values()) for row in rows)]
     if not populated:
         return []
-    name, rows = populated[0]
+    # The data sheet is the one with the most numbers: statistical annexes open
+    # with an index or notes sheet (measured: CONEVAL's state annex workbook).
+    def numbers(rows):
+        return sum(1 for row in rows for value in row.values() if _is_number(value))
+    counts = [numbers(rows) for _, rows in populated]
+    best = max(range(len(populated)), key=lambda i: (counts[i], -i))
+    if sheet is not None:
+        wanted = [i for i, (n, _) in enumerate(populated) if n.strip().casefold() == sheet.strip().casefold()]
+        if not wanted:
+            raise ProbeError(f"no sheet {sheet!r}; sheets: "
+                             + ", ".join(repr(n) for n, _ in populated[:12]))
+        best = wanted[0]
+    name, rows = populated[best]
     if len(populated) > 1:
-        warnings.append(f"inspected first populated worksheet {name!r} of {len(populated)}")
+        listing = ", ".join(f"{n!r} ({len(r)} rows, {c} numbers)"
+                            for (n, r), c in list(zip(populated, counts))[:12])
+        why = "as asked" if sheet is not None else "most numbers"
+        warnings.append(f"workbook sheets: {listing}; read {name!r} ({why}); another sheet "
+                        "is the file URL + '#sheet=<name, URL-encoded>'")
     header_index = next(index for index, row in enumerate(rows)
                         if sum(bool(str(value).strip()) for value in row.values()) >= 2)
     header_row = rows[header_index]
@@ -199,6 +420,17 @@ def _xlsx_records(payload: bytes, warnings: list[str]) -> list[dict]:
     return records
 
 
+def _is_number(value) -> bool:
+    text = str(value if value is not None else "").replace(",", "").strip()
+    if not text:
+        return False
+    try:
+        float(text)
+        return True
+    except ValueError:
+        return False
+
+
 def _column_number(letter: str) -> int:
     result = 0
     for char in letter.upper():
@@ -207,7 +439,9 @@ def _column_number(letter: str) -> int:
     return result
 
 
-def _json_records(text: str) -> tuple[list[dict], list[str], str]:
+def _json_records(
+        text: str, warnings: list[str] | None = None,
+) -> tuple[list[dict], list[str], str]:
     try:
         value = json.loads(text)
     except json.JSONDecodeError as exc:
@@ -229,10 +463,48 @@ def _json_records(text: str) -> tuple[list[dict], list[str], str]:
                 row.setdefault("__latitude", geometry["coordinates"][1])
             rows.append(row)
         return rows, geometries, "geojson"
-    records = value.get("data") if isinstance(value, dict) else value
-    if not isinstance(records, list) or not all(isinstance(row, dict) for row in records):
-        raise ProbeError("JSON must be an array of records or an object with a data array")
-    return [dict(row) for row in records], [], "json"
+    found: list[tuple[list[dict], str]] = []
+
+    def visit(item, path: str, depth: int) -> None:
+        if isinstance(item, list):
+            if all(isinstance(row, dict) for row in item):
+                found.append((item, path))
+            if depth < 3:
+                for index, child in enumerate(item):
+                    visit(child, f"{path}[{index}]", depth + 1)
+        elif isinstance(item, dict) and depth < 3:
+            for key, child in item.items():
+                suffix = (str(key)
+                          if re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", str(key))
+                          else json.dumps(str(key)))
+                child_path = f"{path}.{suffix}" if suffix == str(key) else f"{path}[{suffix}]"
+                visit(child, child_path, depth + 1)
+
+    visit(value, "$", 0)
+    if not found:
+        raise ProbeError("JSON contains no array of records within depth 3")
+    records, path = max(found, key=lambda candidate: len(candidate[0]))
+    if warnings is not None and path != "$":
+        warnings.append(f"records found at {path}")
+    return [_flatten_json_record(row) for row in records], [], "json"
+
+
+def _flatten_json_record(record: dict) -> dict:
+    flattened = {}
+
+    def add(prefix: str, value, depth: int) -> None:
+        if isinstance(value, dict) and depth < 2:
+            for key, child in value.items():
+                name = f"{prefix}.{key}" if prefix else str(key)
+                add(name, child, depth + 1)
+        elif isinstance(value, (list, dict)):
+            flattened[prefix] = json.dumps(value, ensure_ascii=False, separators=(",", ":"))
+        else:
+            flattened[prefix] = value
+
+    for key, value in record.items():
+        add(str(key), value, 0)
+    return flattened
 
 
 def _column_reports(rows: list[dict]) -> list[dict]:
@@ -349,7 +621,10 @@ def coverage(values, key_namespace: str, level: str, scope=None) -> dict:
     if namespace in {"ISO3", "ISO3166_2", "name"}:
         from mapsvc.cartography import natural_earth as loader
         source = source or "natural_earth"
-        boundary_level = "admin_0" if namespace in {"ISO3", "name"} else "admin_1"
+        # Names match at the level asked for: state names against admin_1,
+        # country names against admin_0 (a Brazil-by-state file keyed by name).
+        boundary_level = ("admin_1" if namespace == "ISO3166_2"
+                          or (namespace == "name" and level == "admin_1") else "admin_0")
     elif namespace == "NUTS":
         from mapsvc.cartography import gisco as loader
         source = source or "gisco"
@@ -388,7 +663,8 @@ def _scope(scope):
 
 
 def _normalise_place(value) -> str:
-    return re.sub(r"[^a-z0-9]+", " ", str(value).casefold()).strip()
+    from mapsvc.discovery.join import normalise_name
+    return normalise_name(value)
 
 
 def _name_aliases(units: list[dict]) -> dict[str, str]:
@@ -396,7 +672,8 @@ def _name_aliases(units: list[dict]) -> dict[str, str]:
     variants = ("NAME", "NAME_LONG", "FORMAL_EN", "NAME_EN", "name", "name_long",
                 "formal_en", "name_en")
     for unit in units:
-        code = unit.get("keys", {}).get("ISO3") or unit.get("id")
+        code = (unit.get("keys", {}).get("ISO3") or unit.get("keys", {}).get("ISO3166_2")
+                or unit.get("id"))
         names = [unit.get("name")]
         props = unit.get("properties") or {}
         names.extend(props.get(field) for field in variants)
