@@ -47,14 +47,14 @@ uv run uvicorn mapsvc.api:app --port 8000
 curl -X POST localhost:8000/map \
   -H 'content-type: application/json' \
   -d '{
-    "region": "europe",
+    "bbox": [-5.0, 35.0, 40.0, 60.0],
     "level": "admin_0",
-    "variable": {"source": "natural_earth", "id": "GDP_MD"},
-    "normalize": "POP_EST",
-    "classify": {"method": "quantile", "k": 5},
-    "ramp": "YlGnBu",
-    "projection": "auto",
-    "missing": "hatch"
+    "basemap": {"source": "natural_earth", "detail": "simplified"},
+    "variable": {
+      "source": "natural_earth",
+      "id": "GDP_MD",
+      "per": {"source": "natural_earth", "id": "POP_EST"}
+    }
   }' -o europe.svg
 ```
 
