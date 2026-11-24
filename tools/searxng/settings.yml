@@ -1,5 +1,11 @@
 # Local SearXNG for the research agent (free, no API key).
 #   tools/searxng/up.sh   -> http://127.0.0.1:8888/search?q=...&format=json
+#
+# Measured 2026-11-07 under eval load: Brave and Google CSE suspend for "too
+# many requests", DuckDuckGo and Qwant answer CAPTCHAs, Bing refuses the
+# connection; Yahoo and Yandex kept answering. So more engines are enabled
+# (load spreads), and suspensions are short (an eval run outlives an hour-long
+# default ban).
 use_default_settings: true
 server:
   secret_key: "maps-maker-local-only"   # local instance, not exposed
@@ -11,3 +17,21 @@ search:
   formats:
     - html
     - json
+  suspended_times:
+    SearxEngineAccessDenied: 300
+    SearxEngineCaptcha: 300
+    SearxEngineTooManyRequests: 120
+    cf_SearxEngineCaptcha: 300
+    cf_SearxEngineAccessDenied: 300
+    recaptcha_SearxEngineCaptcha: 300
+engines:
+  - name: yahoo
+    disabled: false
+  - name: yandex
+    disabled: false
+  - name: mojeek
+    disabled: false
+  - name: startpage
+    disabled: false
+  - name: presearch
+    disabled: false
