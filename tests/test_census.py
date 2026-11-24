@@ -151,6 +151,25 @@ def test_acs_probes_for_the_newest_release(offline_census, monkeypatch):
     assert len(asked) == 1 and "/2025/" in asked[0]
 
 
+def test_acs_probe_treats_401_as_an_unpublished_release(offline_census, monkeypatch):
+    """Measured 2026-11-24: census.gov answers 401, not 404, for the 2025
+    vintage, which made 'unemployment rate by US state' fail outright."""
+    from mapsvc import fetch
+
+    real = fetch.get
+
+    def get(url, timeout=None, accept=None):
+        if "/2025/" in url:
+            raise fetch.FetchError("401 <html>", 401)
+        return real(url, timeout=timeout, accept=accept)
+    monkeypatch.setattr(fetch, "get", get)
+    monkeypatch.setattr(census_acs.datetime, "date", type("D", (), {
+        "today": staticmethod(lambda: type("T", (), {"year": 2026})())}))
+    census_acs.latest_year.cache_clear()
+    assert census_acs.latest_year("b19013") == 2024
+    census_acs.latest_year.cache_clear()
+
+
 def test_county_income_joins_on_fips_end_to_end(offline_census):
     manifest = validate({"within": ["US-CA"], "level": "admin_2",
                          "basemap": {"source": "census"},

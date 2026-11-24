@@ -106,7 +106,9 @@ def _table(table: str, year: int) -> str:
         payload = fetch.cached(URL.format(year=year, table=table),
                                "census_acs", str(year), f"{table}.dat")
     except fetch.FetchError as exc:
-        if exc.status == 404:
+        # census.gov answers 401 (not 404) for a release that is not published
+        # yet -- measured 2026-11-24 for the 2025 vintage.
+        if exc.status in (401, 403, 404):
             raise StatisticsError(
                 f"no ACS 5-year {year} summary file for table {table.upper()}",
                 "variable.change") from exc
