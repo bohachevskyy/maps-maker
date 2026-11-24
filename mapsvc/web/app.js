@@ -265,8 +265,12 @@
 
   function friendlyMessage(error) {
     if (error.status === 503) {
-      const retry = error.retryAfter ? ` in ${error.retryAfter} seconds` : ""
-      return `A data source is temporarily unavailable — try again${retry}.`
+      const retry = error.retryAfter ? ` Try again in ${error.retryAfter} seconds.` : ""
+      const base = error.message || "A service this map depends on is temporarily unavailable."
+      return `${/[.!?]$/.test(base) ? base : base + "."}${retry}`
+    }
+    if (error.status === 502 || error.status === 504 || error.status === 524) {
+      return "The request took too long or the service is restarting. Try again; maps that were already built are served from a cache and return faster."
     }
     if (error.status === 422) return error.message
     if (error instanceof TypeError) return "Could not reach the map service. Check your connection and try again."
