@@ -26,6 +26,7 @@ from fastapi.responses import FileResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 from starlette.concurrency import run_in_threadpool
 
+from mapsvc import hosting
 from mapsvc.agent import AgentError, AgentUnavailable, describe
 from mapsvc.cartography import CartographyError
 from mapsvc.export import write
@@ -43,7 +44,13 @@ FAILURES = (AgentError, ManifestError, HarvestError, RenderError,
 # Set docs_url="/docs", openapi_url="/openapi.json" to get them back.
 app = FastAPI(title="mapsvc", docs_url=None, redoc_url=None, openapi_url=None)
 WEB_DIR = Path(__file__).with_name("web")
+hosting.apply_cors(app)
 app.mount("/static", StaticFiles(directory=WEB_DIR), name="static")
+
+
+@app.get("/healthz", include_in_schema=False)
+async def healthz() -> dict:
+    return {"ok": True}
 
 
 @app.get("/", include_in_schema=False)
@@ -53,6 +60,8 @@ async def web_interface() -> FileResponse:
 
 @app.post("/map")
 async def make_map(request: Request) -> Response:
+    if (refused := hosting.check_map(request)) is not None:
+        return refused
     body = await request.body()
     try:
         raw = json.loads(body)
@@ -84,6 +93,10 @@ async def describe_map(request: Request) -> Response:
     if not isinstance(payload, dict):
         return _rejected('request body must be an object of the form '
                          '{"prompt": "..."}', "")
+    if (too_long := hosting.check_prompt(payload.get("prompt"))) is not None:
+        return _rejected(too_long, "prompt")
+    if (refused := hosting.check_describe(request)) is not None:
+        return refused
 
     try:
         manifest, raw, reasoning, svg = await run_in_threadpool(
@@ -119,6 +132,9 @@ async def export_map(request: Request) -> Response:
     that shares it (same host, same container, mounted volume). Callers over a
     network want /map or /describe instead.
     """
+    if hosting.export_disabled():
+        return JSONResponse(status_code=404, content={
+            "error": "export is disabled on this server", "field": ""})
     body = await request.body()
     try:
         payload = json.loads(body)
@@ -127,6 +143,11 @@ async def export_map(request: Request) -> Response:
     if not isinstance(payload, dict):
         return _rejected("request body must be a manifest object or "
                          '{"prompt": "..."}', "")
+    if "prompt" in payload:
+        if (too_long := hosting.check_prompt(payload["prompt"])) is not None:
+            return _rejected(too_long, "prompt")
+        if (refused := hosting.check_describe(request)) is not None:
+            return refused
 
     try:
         manifest, raw, reasoning = _resolve(payload)

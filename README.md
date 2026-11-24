@@ -184,6 +184,33 @@ over a network want `/map` or `/describe`, which return the SVG itself.
 `POST /map` needs no environment at all; it has been verified serving under
 `env -i`.
 
+## Hosting
+
+The backend runs on Railway (`Dockerfile`, `railway.json`, health check
+`GET /healthz`); the frontend can be served from GitHub Pages:
+
+    tools/build_pages.sh https://<service>.up.railway.app ./pages-out
+
+That copies `index.html`, `static/app.js`, `static/app.css` and a generated
+`static/config.js` (`window.MAPSVC_API_BASE`, the only deployment-specific
+value) and adds `.nojekyll`. Every control below is off unless its variable is
+set, so local use is unchanged.
+
+| variable | effect | suggested |
+|---|---|---|
+| `MAPSVC_LLM`, `OPENAI_API_KEY` | `openai` backend for `/describe` | `openai`, key as a Railway secret |
+| `MAPSVC_CORS_ORIGINS` | comma-separated origins allowed to call the API | `https://bohachevskyy.github.io` |
+| `MAPSVC_DESCRIBE_PER_IP_HOUR` | `/describe` and prompt `/export` per client per hour, then 429 + `Retry-After` | `10` |
+| `MAPSVC_DESCRIBE_PER_DAY` | same, all clients, rolling 24 h: the bill guard | `150` |
+| `MAPSVC_MAP_PER_IP_MINUTE` | `/map` per client per minute | `30` |
+| `MAPSVC_PROMPT_MAX_CHARS` | longer prompts get 422 | `1000` |
+| `MAPSVC_DISABLE_EXPORT=1` | `/export` answers 404 (it writes to the server's disk) | `1` |
+| `MAPSVC_CACHE` | download cache; ephemeral on Railway unless a volume is mounted | `/tmp/mapsvc-cache` (image default) |
+
+The limiter is in-process: one worker, counters reset on restart. The client is
+`X-Real-IP`, else the rightmost `X-Forwarded-For` entry (the leftmost is
+client-controlled), else the socket peer.
+
 ## Manifest
 
 Four keys. Two required. Anything else is rejected rather than ignored.
