@@ -205,6 +205,8 @@ set, so local use is unchanged.
 | `MAPSVC_MAP_PER_IP_MINUTE` | `/map` per client per minute | `30` |
 | `MAPSVC_PROMPT_MAX_CHARS` | longer prompts get 422 | `1000` |
 | `MAPSVC_DISABLE_EXPORT=1` | `/export` answers 404 (it writes to the server's disk) | `1` |
+| `MAPSVC_RESEARCH=0` | skip web research on refusal (no local SearXNG on a host; saves ~30 s of slow public catalogues) | `0` |
+| `MAPSVC_OVERPASS_BUDGET` | wall-clock seconds for public Overpass endpoints before 503 (default 300) | `60` |
 | `MAPSVC_CACHE` | download cache; ephemeral on Railway unless a volume is mounted | `/tmp/mapsvc-cache` (image default) |
 
 The limiter is in-process: one worker, counters reset on restart. The client is
