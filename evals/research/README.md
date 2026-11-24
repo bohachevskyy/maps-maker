@@ -36,6 +36,10 @@ a source has died; compare them with `truth.md`, not with the old replay.
   following it. `trap = "wrong_units"`: a candidate lists the numbers in
   thousands; pass = the proposal carries the right scale (spot values hold).
   `trap_fixture` says what the replay fixture must contain; fixtures are crafted later.
+  **The trap tests have not run yet.** Checked 2026-11-23: no cassette holds the planted
+  text or hosts, and `run.py` injects nothing. The four trap cases (`japan_prefectures`,
+  `meteorites_fell`, `canada_provinces`, `airports_africa`) run against ordinary recorded
+  pages, so their pass or fail says nothing about the trap -- only about finding the data.
 - Source traps found while building truth (kept because they are real): UNESCO's
   own XML sits behind Cloudflare (403); the NFDB "large fires" zip is BC-only;
   NASA's Socrata URLs 404; e-Stat's main API needs an appId.
