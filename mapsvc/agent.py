@@ -673,7 +673,11 @@ def describe(prompt: str) -> tuple[Manifest, dict, str]:
         chosen = (raw.get("variable") or {}).get("id") or ""
         source = (raw.get("variable") or {}).get("source")
 
-        wants_variable = bool(source and not chosen and query and offered is None)
+        # Only a searchable source can be searched. For a fixed one (census_acs,
+        # bls) the search would be empty and `offered` would become an empty
+        # set, rejecting every id the model then picks from the catalogue.
+        wants_variable = bool(source and not chosen and query and offered is None
+                              and _is_searchable(source))
         overlay_queries = [] if overlays_searched else _overlay_queries(raw)
         if wants_variable or overlay_queries:
             parts = []
@@ -695,7 +699,12 @@ def describe(prompt: str) -> tuple[Manifest, dict, str]:
         # Deciding on a plain base map after a search is a choice, not an
         # invented id (measured: meteorites -- natural_earth searched, then an
         # overlay on boundaries alone).
-        if offered is not None and chosen not in offered and not raw.get("variable_is_null"):
+        # `offered` is what a *search* returned, so it only constrains a searchable
+        # source. A fixed source's ids are checked against its catalogue by
+        # validate(); the model may move to one after a search came back empty
+        # (the candidate prompt invites exactly that).
+        if (offered is not None and chosen not in offered
+                and not raw.get("variable_is_null") and _is_searchable(source)):
             # The id has to be one the search returned. Without this the model
             # could invent a plausible-looking slug, which would 404 later with
             # a far less useful message -- or worse, silently resolve to the
@@ -1021,6 +1030,13 @@ def _challenge_prompt(found: list[tuple[str, list]]) -> str:
             "If one of them measures what was asked, reply with the full manifest "
             "using that source and exactly that variable.id (search_query empty). "
             "If none does, refuse again and say why.")
+
+
+def _is_searchable(source: str) -> bool:
+    try:
+        return statistics.provider(source).CAPABILITIES.searchable
+    except StatisticsError:
+        return False
 
 
 def _search(source: str, query: str) -> list:

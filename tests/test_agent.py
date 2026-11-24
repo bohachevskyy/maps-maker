@@ -551,3 +551,21 @@ def test_a_searched_web_candidate_with_filters_passes_the_candidate_check():
     raw = {"overlays": [{"source": "web", "id": "https://data.example.org/tracks.csv#season=2024"}]}
     agent._check_overlay_choices(raw, [("web", "storm tracks", {C.id: C()})])
     assert agent._unmatched_web_offer(raw, [("web", "storm tracks", {C.id: C()})]) is None
+
+
+def test_switching_to_a_fixed_source_after_an_empty_search_is_allowed(stub, monkeypatch):
+    """Measured via the web UI: 'unemployment rate by US state'. A search of a
+    searchable source came back empty, the model moved to census_acs (fixed),
+    and its valid catalogue id was rejected as 'not among the 0 candidates'."""
+    from mapsvc.statistics import owid
+    monkeypatch.setattr(owid, "search", lambda query, limit=8: [])
+    first = {"within": ["USA"], "level": "admin_1",
+             "basemap": {"source": "natural_earth", "detail": "simplified"},
+             "variable": {"source": "owid", "id": "", "search_query": "unemployment rate",
+                          "per": NONE_PER, "change": NONE_CHANGE}}
+    chosen = {**first, "variable": {"source": "census_acs", "id": "B23025_005E",
+                                    "search_query": "", "per": NONE_PER,
+                                    "change": NONE_CHANGE}}
+    stub(reply(first), reply(chosen))
+    manifest, _, _ = agent.describe("unemployment by US state")
+    assert manifest.variable_id == "B23025_005E"
