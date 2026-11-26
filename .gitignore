@@ -16,3 +16,4 @@ evals/heldout2/etalons/.cache/
 tools/briefs/
 evals/research/results/
 evals/research/cassettes/
+node_modules/
